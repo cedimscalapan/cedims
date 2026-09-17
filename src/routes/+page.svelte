@@ -19,7 +19,6 @@
         PenLine,
         Phone,
         QrCode,
-        School,
         ShieldCheck,
         Smartphone,
         WifiOff,
@@ -99,13 +98,13 @@
     // The five schools CEDIMS is deployed against. This is the pilot scope
     // seeded in db/complete_schema.sql, not a sample of a longer list — the
     // landing page is public and pre-auth, so it is stated here rather than
-    // fetched.
+    // fetched. Each carries its own school seal rather than a generic icon.
     const schools = [
-        "Bulusan Elementary School",
-        "Guinobatan Elementary School",
-        "Ibaba Elementary School",
-        "Salong Elementary School",
-        "Suqui Elementary School",
+        { name: "Bulusan Elementary School", logo: "/school-bulusan.jpg" },
+        { name: "Guinobatan Elementary School", logo: "/school-guinobatan.jpg" },
+        { name: "Ibaba Elementary School", logo: "/school-ibaba.jpg" },
+        { name: "Salong Elementary School", logo: "/school-salong.jpg" },
+        { name: "Suqui Elementary School", logo: "/school-suqui.jpg" },
     ];
 
     // The four roles accounts are issued for. These are the values the
@@ -248,12 +247,45 @@
 
     <main>
         <!-- Hero — what it is, who it is for, and the way in -->
-        <section class="border-b border-border-subtle bg-surface-white">
-            <div class="mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:px-8">
+        <section class="relative overflow-hidden border-b border-border-subtle bg-gradient-to-b from-gov-blue/[0.05] via-surface-white to-surface-white">
+            <!-- Watermark: the five schools this deployment actually serves,
+                 sealed into the page the way an official record carries its
+                 institution's mark — not decoration for its own sake. Kept
+                 to a faint, low-opacity scatter so it reads as texture, not
+                 as competing content, and never sits under the copy itself
+                 (that column stays on the plain gradient). -->
+            <div class="pointer-events-none absolute inset-0 hidden overflow-hidden lg:block" aria-hidden="true">
+                <img src="/school-bulusan.jpg" alt="" class="absolute -right-8 -top-10 h-52 w-52 rotate-[8deg] rounded-full object-cover opacity-[0.07] xl:h-64 xl:w-64" />
+                <img src="/school-guinobatan.jpg" alt="" class="absolute right-[18%] top-[58%] h-40 w-40 rotate-[-6deg] rounded-full object-cover opacity-[0.06] xl:h-48 xl:w-48" />
+                <img src="/school-salong.jpg" alt="" class="absolute -bottom-12 right-[2%] h-56 w-56 rotate-[-10deg] rounded-full object-cover opacity-[0.06] xl:h-72 xl:w-72" />
+                <img src="/school-suqui.jpg" alt="" class="absolute bottom-[22%] right-[42%] h-28 w-28 rotate-[12deg] rounded-full object-cover opacity-[0.05] xl:h-32 xl:w-32" />
+                <img src="/school-ibaba.jpg" alt="" class="absolute -top-6 right-[36%] h-24 w-24 rotate-[-4deg] rounded-full object-cover opacity-[0.05] xl:h-28 xl:w-28" />
+            </div>
+
+            <div class="relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:px-8">
                 <div in:fly={{ y: 16, duration: 450 }}>
-                    <p class="inline-flex items-center gap-2 rounded-full border border-gov-blue/20 bg-gov-blue/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-gov-blue sm:text-xs">
-                        DepEd · Calapan East District
-                    </p>
+                    <div class="inline-flex items-center gap-2.5 rounded-full border border-gov-blue/20 bg-gov-blue/10 py-1.5 pl-1.5 pr-3.5">
+                        <span class="flex -space-x-2">
+                            <img
+                                src="/deped-official.png"
+                                alt="Department of Education"
+                                class="h-6 w-6 rounded-full border-2 border-surface-white bg-white object-contain sm:h-7 sm:w-7"
+                            />
+                            <img
+                                src="/deped-calapan.jpg"
+                                alt="Schools Division of Calapan City"
+                                class="h-6 w-6 rounded-full border-2 border-surface-white object-cover sm:h-7 sm:w-7"
+                            />
+                            <img
+                                src="/deped-calapan-east-district.jpg"
+                                alt="Calapan East District"
+                                class="h-6 w-6 rounded-full border-2 border-surface-white object-cover sm:h-7 sm:w-7"
+                            />
+                        </span>
+                        <span class="text-[11px] font-bold uppercase leading-tight tracking-[0.1em] text-gov-blue sm:text-xs">
+                            DepEd · Schools Division of Calapan City · Calapan East District
+                        </span>
+                    </div>
 
                     <h1 class="mt-5 text-3xl font-bold leading-[1.15] tracking-tight text-text-primary sm:text-4xl lg:text-5xl">
                         Instructional monitoring the whole district can keep up with.
@@ -326,8 +358,12 @@
                     <ul class="mt-4 divide-y divide-border-subtle border-y border-border-subtle">
                         {#each schools as school}
                             <li class="flex items-center gap-3 py-2.5">
-                                <School size={16} strokeWidth={1.75} class="shrink-0 text-gov-blue" aria-hidden="true" />
-                                <span class="text-sm leading-6 text-text-secondary">{school}</span>
+                                <img
+                                    src={school.logo}
+                                    alt=""
+                                    class="h-7 w-7 shrink-0 rounded-full border border-border-subtle object-cover"
+                                />
+                                <span class="text-sm leading-6 text-text-secondary">{school.name}</span>
                             </li>
                         {/each}
                     </ul>
