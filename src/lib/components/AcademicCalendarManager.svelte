@@ -374,7 +374,7 @@
                             <button
                                 type="button"
                                 onclick={() => { schoolYear = sy; yearOpen = false; }}
-                                class="w-full text-left px-4 py-3 text-sm hover:bg-gov-blue/5 transition-colors {schoolYear === sy ? 'bg-gov-blue/10 font-bold text-gov-blue-dark dark:text-[#5a8fde]' : 'text-text-primary'}"
+                                class="w-full text-left px-4 py-3 text-sm hover:bg-gov-blue/5 transition-colors {schoolYear === sy ? 'bg-gov-blue/10 font-bold text-gov-blue-dark dark:text-gov-blue-light' : 'text-text-primary'}"
                                 role="option"
                                 aria-selected={schoolYear === sy}
                             >
@@ -471,7 +471,7 @@
                                     <button
                                         onclick={() => toggleActive(d)}
                                         class="px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors shadow-sm flex items-center gap-1.5 {d.is_active
-                                            ? 'bg-gov-green/5 text-gov-green-dark dark:text-[#4ade80] hover:bg-gov-green hover:text-white'
+                                            ? 'bg-gov-green/10 text-[#166534] dark:text-[#4ade80] hover:bg-gov-green hover:text-white'
                                             : 'bg-surface-muted text-text-muted border border-border-subtle hover:bg-gov-gold/10 hover:text-gov-gold-dark'}"
                                         title="Week {d.week_number} is {d.is_active ? 'open' : 'scheduled'}. Click to {d.is_active ? 'close (hide from teachers)' : 'open this week to teachers'}"
                                     >
