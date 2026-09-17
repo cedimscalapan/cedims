@@ -6,7 +6,7 @@
     import EmptyState from "$lib/components/EmptyState.svelte";
     import { addToast } from "$lib/stores/toast";
     import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
-    import { onMount } from "svelte";
+    import { onMount, onDestroy } from "svelte";
     import { fade } from "svelte/transition";
     import { goto } from "$app/navigation";
     import {
@@ -108,9 +108,31 @@
         }
     }
 
+    let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
     onMount(() => {
         loadScopeName();
         loadReport();
+
+        // Same live-update pattern as School/District Monitoring: the
+        // report reloads on any submissions change instead of only
+        // reflecting whatever existed at the moment the page was opened.
+        realtimeChannel = supabase
+            .channel("compliance-report-changes")
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "submissions" },
+                () => {
+                    if (!loading) loadReport();
+                },
+            )
+            .subscribe();
+    });
+
+    onDestroy(() => {
+        if (realtimeChannel) {
+            supabase.removeChannel(realtimeChannel);
+        }
     });
 
     const summary = $derived.by(() => {

@@ -976,7 +976,11 @@
                 </div>
             {:else}
                 <div class="gov-card-static rounded-2xl p-6">
-                    <ol class="flex flex-col">
+                    <!-- Bounded height + its own scrollbar: "Show more activity"
+                         reveals more items into this box rather than growing
+                         the whole page, so the list stays easy to scan instead
+                         of pushing everything below it further down. -->
+                    <ol class="flex flex-col max-h-[32rem] overflow-y-auto pr-1 cedims-scroll">
                         {#each visibleActivity as item, i (item.id ?? i)}
                             {@const status = normalizeComplianceStatus(
                                 item.compliance_status,
@@ -1043,7 +1047,7 @@
                         <button
                             type="button"
                             onclick={() => (activityVisibleCount += 6)}
-                            class="w-full py-2.5 rounded-xl border border-border-subtle text-xs font-bold uppercase tracking-widest text-gov-blue hover:bg-gov-blue/5 transition-colors"
+                            class="w-full mt-4 py-2.5 rounded-xl border border-border-subtle text-xs font-bold uppercase tracking-widest text-gov-blue hover:bg-gov-blue/5 transition-colors flex-shrink-0"
                         >
                             Show more activity
                         </button>

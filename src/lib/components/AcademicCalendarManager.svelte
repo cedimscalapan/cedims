@@ -429,7 +429,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8" in:fade>
             {#each deadlines as d, i (d.week_number)}
                 <div
-                    class="gov-card-static p-8 group relative overflow-hidden"
+                    class="gov-card-static p-8 group relative"
                     in:fly={{ y: 20, delay: i * 50 }}
                 >
                     <div class="flex items-center justify-between mb-8">
