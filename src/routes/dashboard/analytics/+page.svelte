@@ -5,6 +5,7 @@
     import BarChart from "$lib/components/charts/BarChart.svelte";
     import ScatterPlot from "$lib/components/charts/ScatterPlot.svelte";
     import StatCard from "$lib/components/StatCard.svelte";
+    import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import { onMount, onDestroy } from "svelte";
     import {
         getSchoolHeadAnalytics,
@@ -27,6 +28,7 @@
     const { isOnline: onlineStatus } = connectivity;
 
     let loading = $state(true);
+    let loadError = $state<string | null>(null);
     let analyticsData = $state<any>(null);
     let trends = $state<any>(null);
     let distributions = $state<any>(null);
@@ -43,6 +45,7 @@
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
     async function loadAnalytics() {
+        loadError = null;
         try {
             if ($profile && ($profile.role === 'School Head' || $profile.role === 'District Supervisor')) {
                 const role = $profile.role;
@@ -102,6 +105,7 @@
             }
         } catch (err) {
             console.error('[analytics] Failed to load:', err);
+            loadError = "Failed to load analytics data. Please try again.";
         } finally {
             loading = false;
         }
@@ -143,7 +147,7 @@
 </script>
 
 <svelte:head>
-    <title>Analytics — CEDIMS</title>
+    <title>Analytics: CEDIMS</title>
 </svelte:head>
 
 {#if $profile?.role === 'Teacher' || $profile?.role === 'Master Teacher'}
@@ -164,64 +168,81 @@
                 role="status"
             >
                 <WifiOff size={16} strokeWidth={2} class="flex-shrink-0" aria-hidden="true" />
-                You're offline — this analysis may be incomplete or out of date.
+                You're offline. This analysis may be incomplete or out of date.
             </div>
         {/if}
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard label="Overall Compliance" value="{overallStats.rate}%" icon="TrendingUp" color="from-gov-green to-gov-green-dark" />
-            <StatCard label="Compliant" value={overallStats.compliant} icon="TrendingUp" color="from-gov-green to-gov-green-dark" />
-            <StatCard label="Needs Support" value={atRiskList.length} icon="AlertTriangle" color="from-gov-red to-red-700" />
-            <StatCard label="Teachers" value={distributions?.byTeacher?.length || 0} icon="Users" color="from-gov-blue to-gov-blue-dark" />
-        </div>
-
-        <LineChart data={trends?.forecast || []} title="Compliance Trend & Forecast" series={['rate']} />
-
-        <ScatterPlot data={distributions?.byTeacher || []} title="Performance Distribution (K-means Clustering)" />
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {#if clusters?.high?.length}
-                <div class="gov-card-static bg-gov-green/5 p-6">
-                    <h3 class="text-lg font-bold text-gov-green mb-4">High Performers ({clusters.high.length})</h3>
-                    <div class="space-y-2">{#each clusters.high.slice(0, 5) as e}<div class="p-2 bg-surface-muted rounded"><p class="text-sm font-semibold truncate">{e.name}</p><p class="text-xs text-gov-green">{e.compliance_rate}%</p></div>{/each}</div>
-                </div>
-            {/if}
-            {#if clusters?.average?.length}
-                <div class="gov-card-static bg-gov-gold/5 p-6">
-                    <h3 class="text-lg font-bold text-gov-gold-dark mb-4">Average ({clusters.average.length})</h3>
-                    <div class="space-y-2">{#each clusters.average.slice(0, 5) as e}<div class="p-2 bg-surface-muted rounded"><p class="text-sm font-semibold truncate">{e.name}</p><p class="text-xs text-gov-gold-dark">{e.compliance_rate}%</p></div>{/each}</div>
-                </div>
-            {/if}
-            {#if clusters?.atRisk?.length}
-                <div class="gov-card-static bg-gov-red/5 p-6">
-                    <h3 class="text-lg font-bold text-gov-red mb-4">Needs Support ({clusters.atRisk.length})</h3>
-                    <div class="space-y-2">{#each clusters.atRisk.slice(0, 5) as e}<div class="p-2 bg-surface-muted rounded"><p class="text-sm font-semibold truncate">{e.name}</p><p class="text-xs text-gov-red">{e.compliance_rate}%</p></div>{/each}</div>
-                </div>
-            {/if}
-        </div>
-
-        {#if distributions?.byTeacher?.length}
-            <BarChart
-                data={distributions.byTeacher.sort((a: any, b: any) => b.compliance_rate - a.compliance_rate).slice(0, 15).map((t: any) => ({
-                    label: t.name,
-                    value: t.compliance_rate,
-                    color: t.compliance_rate >= 85 ? '#16a34a' : t.compliance_rate >= 70 ? '#d97706' : '#dc2626'
-                }))}
-                title="Performance Rankings"
-                maxValue={100}
-            />
-        {/if}
-
-        {#if atRiskList?.length}
-            <div class="gov-card-static p-6">
-                <h3 class="text-lg font-bold mb-4">Below 70% Compliance ({atRiskList.length})</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead><tr class="border-b"><th class="text-left py-2 px-3 text-xs font-semibold">Name</th><th class="text-left py-2 px-3 text-xs font-semibold">Rate</th><th class="text-left py-2 px-3 text-xs font-semibold">Status</th></tr></thead>
-                        <tbody>{#each atRiskList.slice(0, 15) as e}<tr class="border-b"><td class="py-2 px-3">{e.name}</td><td class="py-2 px-3 font-bold text-gov-red">{e.compliance_rate}%</td><td class="py-2 px-3"><span class="px-2 py-1 rounded text-xs bg-gov-red/20 text-gov-red font-bold">{e.risk_level}</span></td></tr>{/each}</tbody>
-                    </table>
-                </div>
+        {#if loading}
+            <SkeletonLoader variant="card-grid" count={4} />
+        {:else if loadError}
+            <div
+                class="flex flex-col items-center gap-3 rounded-lg border border-gov-red/30 bg-gov-red/10 px-6 py-10 text-center"
+                role="alert"
+            >
+                <p class="text-sm font-medium text-gov-red">{loadError}</p>
+                <button
+                    onclick={() => { loading = true; loadAnalytics(); }}
+                    class="px-4 py-2 bg-gov-blue text-white text-sm font-bold rounded-xl hover:bg-gov-blue-dark transition-colors"
+                >
+                    Try Again
+                </button>
             </div>
+        {:else}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard label="Overall Compliance" value="{overallStats.rate}%" icon="TrendingUp" color="from-gov-green to-gov-green-dark" />
+                <StatCard label="Compliant" value={overallStats.compliant} icon="TrendingUp" color="from-gov-green to-gov-green-dark" />
+                <StatCard label="Needs Support" value={atRiskList.length} icon="AlertTriangle" color="from-gov-red to-red-700" />
+                <StatCard label="Teachers" value={distributions?.byTeacher?.length || 0} icon="Users" color="from-gov-blue to-gov-blue-dark" />
+            </div>
+
+            <LineChart data={trends?.forecast || []} title="Compliance Trend & Forecast" series={['rate']} />
+
+            <ScatterPlot data={distributions?.byTeacher || []} title="Performance Distribution (K-means Clustering)" />
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {#if clusters?.high?.length}
+                    <div class="gov-card-static bg-gov-green/5 p-6">
+                        <h3 class="text-lg font-bold text-gov-green mb-4">High Performers ({clusters.high.length})</h3>
+                        <div class="space-y-2">{#each clusters.high.slice(0, 5) as e}<div class="p-2 bg-surface-muted rounded"><p class="text-sm font-semibold truncate">{e.name}</p><p class="text-xs text-gov-green">{e.compliance_rate}%</p></div>{/each}</div>
+                    </div>
+                {/if}
+                {#if clusters?.average?.length}
+                    <div class="gov-card-static bg-gov-gold/5 p-6">
+                        <h3 class="text-lg font-bold text-gov-gold-dark mb-4">Average ({clusters.average.length})</h3>
+                        <div class="space-y-2">{#each clusters.average.slice(0, 5) as e}<div class="p-2 bg-surface-muted rounded"><p class="text-sm font-semibold truncate">{e.name}</p><p class="text-xs text-gov-gold-dark">{e.compliance_rate}%</p></div>{/each}</div>
+                    </div>
+                {/if}
+                {#if clusters?.atRisk?.length}
+                    <div class="gov-card-static bg-gov-red/5 p-6">
+                        <h3 class="text-lg font-bold text-gov-red mb-4">Needs Support ({clusters.atRisk.length})</h3>
+                        <div class="space-y-2">{#each clusters.atRisk.slice(0, 5) as e}<div class="p-2 bg-surface-muted rounded"><p class="text-sm font-semibold truncate">{e.name}</p><p class="text-xs text-gov-red">{e.compliance_rate}%</p></div>{/each}</div>
+                    </div>
+                {/if}
+            </div>
+
+            {#if distributions?.byTeacher?.length}
+                <BarChart
+                    data={distributions.byTeacher.sort((a: any, b: any) => b.compliance_rate - a.compliance_rate).slice(0, 15).map((t: any) => ({
+                        label: t.name,
+                        value: t.compliance_rate,
+                        color: t.compliance_rate >= 85 ? '#16a34a' : t.compliance_rate >= 70 ? '#d97706' : '#dc2626'
+                    }))}
+                    title="Performance Rankings"
+                    maxValue={100}
+                />
+            {/if}
+
+            {#if atRiskList?.length}
+                <div class="gov-card-static p-6">
+                    <h3 class="text-lg font-bold mb-4">Below 70% Compliance ({atRiskList.length})</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead><tr class="border-b"><th class="text-left py-2 px-3 text-xs font-semibold">Name</th><th class="text-left py-2 px-3 text-xs font-semibold">Rate</th><th class="text-left py-2 px-3 text-xs font-semibold">Status</th></tr></thead>
+                            <tbody>{#each atRiskList.slice(0, 15) as e}<tr class="border-b"><td class="py-2 px-3">{e.name}</td><td class="py-2 px-3 font-bold text-gov-red">{e.compliance_rate}%</td><td class="py-2 px-3"><span class="px-2 py-1 rounded text-xs bg-gov-red/20 text-gov-red font-bold">{e.risk_level}</span></td></tr>{/each}</tbody>
+                        </table>
+                    </div>
+                </div>
+            {/if}
         {/if}
     </div>
 {/if}

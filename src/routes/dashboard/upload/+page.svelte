@@ -232,7 +232,7 @@
             document.head.appendChild(script);
         }
 
-        // 2. Tesseract.js (Dynamic import)
+        // Tesseract.js (dynamic import)
         try {
             const { createWorker } = await import("tesseract.js");
             // Just the import is often enough to trigger Service Worker caching
@@ -255,7 +255,6 @@
         // Delay pre-warming slightly to not block initial page render
         setTimeout(preWarmLibraries, 3000);
 
-        // Track online/offline state
         const onOnline = () => {
             isOnline = true;
             refreshPendingItems();
@@ -314,7 +313,6 @@
         }
     });
 
-    // Reactive data fetching triggered when profile is available
     let dataLoadedForProfile = $state<string | null>(null);
 
     $effect(() => {
@@ -357,7 +355,6 @@
     async function fetchInitialData(userProfile: Profile) {
         loadingTeachingLoads = true;
 
-        // 1. Fetch teaching loads
         let loads: TeachingLoad[] = [];
         if (navigator.onLine) {
             const { data, error } = await supabase
@@ -404,7 +401,6 @@
             }
         }
 
-        // 2. Fetch academic weeks / calendar
         if (userProfile.district_id) {
             let calendarEntries: any[] = [];
 
@@ -599,7 +595,7 @@
             file.size > $settings.max_upload_size_mb * 1024 * 1024;
         preConvertedPdf = null;
 
-        // Start Smart Detection
+        // Runs OCR-based metadata detection: doc type, week number, and teaching load auto-fill
         detectingMetadata = true;
         try {
             const ext = file.name.split('.').pop()?.toLowerCase();
@@ -674,7 +670,7 @@
             detectingMetadata = false;
         }
 
-        // START: Hash Calculation for Early Duplicate Detection
+        // Hash calculation for early duplicate detection.
         try {
             const buffer = await file.arrayBuffer();
             const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);

@@ -36,9 +36,9 @@
     // utils/chatbot.ts), which a user has no way to discover unless the
     // opening message says so.
     const greeting =
-        "Hi, I'm Gabay — your CEDIMS assistant. I can check your compliance rate, " +
+        "Hi, I'm Gabay, your CEDIMS assistant. I can check your compliance rate, " +
         "look up deadlines, find DLLs, compare schools, and (for School Heads and " +
-        "District Supervisors) generate a compliance report in Excel or Word — " +
+        "District Supervisors) generate a compliance report in Excel or Word, " +
         "all using live data. Ask me in English or Tagalog.";
 
     const suggestions = [
@@ -162,7 +162,7 @@
             console.error('[chatbot] Query failed:', err);
             messages.push({
                 role: 'bot',
-                text: "Sorry — I couldn't reach the records just now. Check your connection and try asking again."
+                text: "Sorry, I couldn't reach the records just now. Check your connection and try asking again."
             });
         } finally {
             isLoading = false;
@@ -357,7 +357,7 @@
                     placeholder="Ask a question…"
                     enterkeyhint="send"
                     autocomplete="off"
-                    class="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+                    class="flex-1 rounded-md bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted focus-visible:ring-2 focus-visible:ring-gov-blue/30"
                 />
                 <button
                     onclick={handleSend}

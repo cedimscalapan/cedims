@@ -1,15 +1,6 @@
 import { supabase } from '$lib/utils/supabase';
 import { calculateCompliance } from '$lib/utils/useDashboardData';
 
-/**
- * ANALYTICS DATA QUERIES
- * Used by School Head and District Supervisor
- */
-
-// ===========================
-// SCHOOL HEAD ANALYTICS
-// ===========================
-
 export async function getSchoolHeadAnalytics(schoolId: string, districtId: string) {
     // NOTE: every query below embeds `profiles!inner(...)` (not the plain
     // `profiles(...)` left-join form) so that `.eq('profiles.school_id', ...)`
@@ -98,10 +89,6 @@ export async function getSchoolHeadAnalytics(schoolId: string, districtId: strin
         roster
     };
 }
-
-// ===========================
-// DISTRICT SUPERVISOR ANALYTICS
-// ===========================
 
 export async function getDistrictSupervisorAnalytics(districtId: string) {
     // See the !inner note in getSchoolHeadAnalytics above — same fix applies
@@ -201,13 +188,6 @@ export async function getDistrictSupervisorAnalytics(districtId: string) {
     };
 }
 
-// ===========================
-// DATA ANALYSIS & PROCESSING
-// ===========================
-
-/**
- * Calculate compliance metrics for a dataset
- */
 export function calculateComplianceMetrics(submissions: any[]) {
     if (submissions.length === 0) return { compliant: 0, late: 0, missing: 0, rate: 0, total: 0 };
 
@@ -225,9 +205,6 @@ export function calculateComplianceMetrics(submissions: any[]) {
     };
 }
 
-/**
- * Generate compliance trend over time (by week or month)
- */
 export function generateComplianceTrend(submissions: any[], granularity: 'week' | 'month' = 'week') {
     const trendMap = new Map<string, { compliant: number; late: number; missing: number; total: number }>();
 
@@ -412,9 +389,6 @@ export function kMeansClusterPerformance(performances: any[], k: number = 3, max
     };
 }
 
-/**
- * Get at-risk entities (below threshold compliance)
- */
 export function getAtRiskEntities(performances: any[], threshold: number = 70) {
     return performances
         .filter(p => p.compliance_rate < threshold)
@@ -425,9 +399,6 @@ export function getAtRiskEntities(performances: any[], threshold: number = 70) {
         }));
 }
 
-/**
- * Forecast compliance based on trend
- */
 export function forecastCompliance(trend: any[], periods: number = 4) {
     if (trend.length < 2) return [];
 
@@ -461,9 +432,6 @@ export function forecastCompliance(trend: any[], periods: number = 4) {
     return forecast;
 }
 
-/**
- * School/Teacher comparison metrics
- */
 export function getComparisonMetrics(performances: any[]) {
     if (performances.length === 0) return {
         best: null,

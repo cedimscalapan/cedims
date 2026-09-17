@@ -8,10 +8,8 @@
  * - Volume (docs per week average)
  * 
  * Optimization: Pre-aggregated counts from existing dashboard data.
- * Local resource cost: 🟢 Minimal | Offline speed: ⚡ Instant
+ * Local resource cost: minimal. Offline speed: instant.
  */
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface TeacherFeatureVector {
     teacherId: string;
@@ -52,8 +50,6 @@ export interface ClusterOutput {
     summaries: ClusterSummary[];
     iterations: number;
 }
-
-// ─── Feature Extraction ──────────────────────────────────────────────────────
 
 /**
  * Extract behavioral feature vectors from raw submission data.
@@ -129,8 +125,6 @@ export function extractFeatures(
 
     return vectors;
 }
-
-// ─── K-Means Algorithm ────────────────────────────────────────────────────────
 
 function toArray(v: TeacherFeatureVector): number[] {
     return [v.punctuality, v.consistency, v.completeness, v.volume];
@@ -210,7 +204,6 @@ export function runKMeansClustering(
         centroids.push([...data[thirdIdx]]);
     }
 
-    // Iterate
     let assignments = new Array(data.length).fill(0);
     let iterations = 0;
 
@@ -264,7 +257,6 @@ export function runKMeansClustering(
         labels[cs.idx] = defs[Math.min(rank, defs.length - 1)];
     });
 
-    // Build results
     const results: ClusterResult[] = teachers.map((teacher, i) => ({
         teacher,
         clusterId: assignments[i],
@@ -273,7 +265,6 @@ export function runKMeansClustering(
         distanceToCentroid: euclidean(data[i], centroids[assignments[i]])
     }));
 
-    // Build summaries
     const summaries: ClusterSummary[] = [];
     for (let c = 0; c < k; c++) {
         const members = results.filter(r => r.clusterId === c);

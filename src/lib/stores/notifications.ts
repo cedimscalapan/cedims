@@ -115,7 +115,7 @@ function createNotificationStore() {
                 .subscribe();
         },
         markAsRead: async (notificationId: string) => {
-            // OPTIMISTIC UPDATE: Update UI immediately even if offline
+            // Optimistic update: reflect the change in the UI immediately even if offline.
             update(n => n.map(item => item.id === notificationId ? { ...item, read: true } : item));
 
             const { error } = await supabase

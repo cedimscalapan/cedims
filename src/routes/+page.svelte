@@ -167,7 +167,7 @@
 </script>
 
 <svelte:head>
-    <title>CEDIMS — Calapan East District Instructional Monitoring System · Powered by Smart E-VISION</title>
+    <title>CEDIMS: Calapan East District Instructional Monitoring System · Powered by Smart E-VISION</title>
     <meta
         name="description"
         content="CEDIMS is the Calapan East District Instructional Monitoring System for submitting, checking, and tracking compliance of Daily Lesson Logs."
@@ -263,7 +263,7 @@
                     </h1>
 
                     <p class="mt-4 max-w-xl text-base leading-8 text-text-secondary sm:mt-5 sm:text-lg">
-                        CEDIMS is where Daily Lesson Logs are submitted, checked, and tracked —
+                        CEDIMS is where Daily Lesson Logs are submitted, checked, and tracked,
                         so teachers know what is due, supervisors can leave remarks in one place,
                         and the district can see compliance without chasing paper.
                     </p>
@@ -381,7 +381,7 @@
                                 </p>
                                 <p class="mt-2">
                                     CEDIMS supports it by keeping lesson planning and instructional supervision
-                                    consistent and trackable across every school in the district — the monitoring
+                                    consistent and trackable across every school in the district: the monitoring
                                     side of delivering on that goal.
                                 </p>
                             </div>
@@ -425,7 +425,7 @@
                     </h2>
                     <p class="mt-3 text-sm leading-7 text-text-secondary sm:text-base sm:leading-8">
                         Accounts are issued by the District Office. What you can upload, check and
-                        see follows the role on your account — the limits are enforced by the
+                        see follows the role on your account: the limits are enforced by the
                         system, not just hidden from the screen.
                     </p>
                 </div>

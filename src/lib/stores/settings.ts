@@ -23,7 +23,7 @@ function createSettingsStore() {
         async init() {
             const CACHE_KEY = 'system_settings_cache';
 
-            // 1. Load from cache first
+            // Load from cache first so the UI has something to show offline.
             if (typeof localStorage !== 'undefined') {
                 const cached = localStorage.getItem(CACHE_KEY);
                 if (cached) {
@@ -36,7 +36,6 @@ function createSettingsStore() {
                 }
             }
 
-            // 2. Initial Fetch
             try {
                 const { data, error } = await supabase.from('system_settings').select('*');
                 if (!error && data) {
@@ -56,7 +55,7 @@ function createSettingsStore() {
                 console.warn('[offline] Settings fetch failed (ignoring if offline):', err);
             }
 
-            // 3. Real-time Subscription (only if online)
+            // Subscribe to real-time updates, but only if online.
             if (typeof navigator !== 'undefined' && navigator.onLine) {
                 supabase
                     .channel('global-settings')

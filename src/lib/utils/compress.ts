@@ -49,11 +49,8 @@ async function compressPdfContent(pdfBytes: Uint8Array): Promise<Uint8Array> {
         const { PDFDocument } = await import('pdf-lib');
         const pdfDoc = await PDFDocument.load(pdfBytes);
 
-        // --- REMOVED AUTO-SCALING (WBS Bug Fix) ---
-        // We no longer scale pages to A4 to prevent "shrinking" content.
-        // We only apply object-level compression.
-
-        // Perform a single pass of standard compression
+        // Pages are no longer scaled to A4, since that shrank content; only
+        // object-level compression is applied.
         const compressedBytes = await pdfDoc.save({
             useObjectStreams: true,
             compress: true,

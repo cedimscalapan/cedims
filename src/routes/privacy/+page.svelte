@@ -22,7 +22,7 @@
 </script>
 
 <svelte:head>
-    <title>Privacy Notice — CEDIMS</title>
+    <title>Privacy Notice: CEDIMS</title>
     <meta
         name="description"
         content="How CEDIMS collects and handles personal information, under the Data Privacy Act of 2012 (RA 10173)."
@@ -96,25 +96,25 @@
                     <h2 class="mb-2 text-base font-bold text-text-primary">1. Information we collect</h2>
                     <ul class="list-disc space-y-1.5 pl-5">
                         <li>
-                            <strong class="text-text-primary">Account details</strong> — your name,
+                            <strong class="text-text-primary">Account details</strong>: your name,
                             email address, assigned role, school and district.
                         </li>
                         <li>
-                            <strong class="text-text-primary">Teaching assignment</strong> — the
+                            <strong class="text-text-primary">Teaching assignment</strong>: the
                             subjects and grade levels assigned to you.
                         </li>
                         <li>
-                            <strong class="text-text-primary">Documents you submit</strong> — Daily
+                            <strong class="text-text-primary">Documents you submit</strong>: Daily
                             Lesson Logs, Instructional Supervisory Plans and Reports, including text
                             read from them for search and automatic detection of subject, grade
                             level and week.
                         </li>
                         <li>
-                            <strong class="text-text-primary">Submission records</strong> — dates,
+                            <strong class="text-text-primary">Submission records</strong>: dates,
                             deadlines, compliance status, and the remarks your reviewers leave.
                         </li>
                         <li>
-                            <strong class="text-text-primary">Profile photo</strong> — only if you
+                            <strong class="text-text-primary">Profile photo</strong>: only if you
                             choose to upload one.
                         </li>
                     </ul>
@@ -124,7 +124,7 @@
                     <h2 class="mb-2 text-base font-bold text-text-primary">2. Why we collect it</h2>
                     <p>
                         Your information is processed solely for instructional monitoring and
-                        supervision within DepEd Calapan East District — recording submissions,
+                        supervision within DepEd Calapan East District: recording submissions,
                         tracking compliance against deadlines, enabling supervisory review and
                         remarks, and producing school and district reports. It is not used for
                         advertising, and it is not sold or shared with third parties for their own

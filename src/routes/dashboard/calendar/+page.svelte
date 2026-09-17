@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-    <title>Academic Calendar — CEDIMS</title>
+    <title>Academic Calendar: CEDIMS</title>
 </svelte:head>
 
 <AcademicCalendarManager />
