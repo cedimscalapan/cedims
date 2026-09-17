@@ -178,7 +178,7 @@
                     <g
                         class="group cursor-pointer"
                         tabindex="0"
-                        role="img"
+                        role="button"
                         aria-label={`${point.name}: ${point.compliance_rate}% compliance rate`}
                     >
                         <circle

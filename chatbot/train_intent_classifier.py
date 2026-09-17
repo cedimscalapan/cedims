@@ -28,14 +28,11 @@ RESULTS_DIR = os.path.join(os.path.dirname(__file__), 'results')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-# ─── Training Data ──────────────────────────────────────────────────────────
 # ~700+ labeled questions across 8 intents
 # Includes English, Tagalog/Filipino, and common typographical errors
 
 TRAINING_DATA = [
-    # ═══════════════════════════════════════════════════════════════════════════
-    # ask_compliance  (~90 samples)
-    # ═══════════════════════════════════════════════════════════════════════════
+    # ask_compliance (~90 samples)
     {"text": "What is my compliance rate?", "intent": "ask_compliance"},
     {"text": "Am I compliant this week?", "intent": "ask_compliance"},
     {"text": "How many submissions are late?", "intent": "ask_compliance"},
@@ -131,9 +128,7 @@ TRAINING_DATA = [
     {"text": "Ilang percent ang compliance ko?", "intent": "ask_compliance"},
     {"text": "Compliant ba ako ngayon?", "intent": "ask_compliance"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # check_deadline  (~80 samples)
-    # ═══════════════════════════════════════════════════════════════════════════
+    # check_deadline (~80 samples)
     {"text": "When is the deadline for Week 5?", "intent": "check_deadline"},
     {"text": "What is the submission deadline for this week?", "intent": "check_deadline"},
     {"text": "When is the next deadline?", "intent": "check_deadline"},
@@ -211,9 +206,7 @@ TRAINING_DATA = [
     {"text": "Puwede pa ba akong mag-submit?", "intent": "check_deadline"},
     {"text": "Deadline ba ngayon?", "intent": "check_deadline"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # find_dll  (~80 samples)
-    # ═══════════════════════════════════════════════════════════════════════════
+    # find_dll (~80 samples)
     {"text": "Find DLLs about fractions", "intent": "find_dll"},
     {"text": "Search for DLLs on reading comprehension", "intent": "find_dll"},
     {"text": "Show DLLs for Grade 3 Science", "intent": "find_dll"},
@@ -296,9 +289,7 @@ TRAINING_DATA = [
     {"text": "Patingin ng DLL para sa remedial reading", "intent": "find_dll"},
     {"text": "DLL tungkol sa fraction at decimal", "intent": "find_dll"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # school_compare  (~75 samples)
-    # ═══════════════════════════════════════════════════════════════════════════
+    # school_compare (~75 samples)
     {"text": "How does my school compare to others?", "intent": "school_compare"},
     {"text": "What is the compliance rate of Bulusan ES?", "intent": "school_compare"},
     {"text": "Compare schools in the district", "intent": "school_compare"},
@@ -377,9 +368,7 @@ TRAINING_DATA = [
     {"text": "Pagraranggo ng mga paaralan ayon sa compliance", "intent": "school_compare"},
     {"text": "Aling paaralan ang pinaka-compliant?", "intent": "school_compare"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # teacher_stats  (~80 samples)
-    # ═══════════════════════════════════════════════════════════════════════════
+    # teacher_stats (~80 samples)
     {"text": "Show statistics for Teacher Santos", "intent": "teacher_stats"},
     {"text": "What is the compliance of Teacher Cruz?", "intent": "teacher_stats"},
     {"text": "Which teachers are struggling?", "intent": "teacher_stats"},
@@ -464,9 +453,7 @@ TRAINING_DATA = [
     {"text": "Kumusta ang mga teacher?", "intent": "teacher_stats"},
     {"text": "Sinong teacher ang may missing submissions?", "intent": "teacher_stats"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # calendar_info  (~70 samples)
-    # ═══════════════════════════════════════════════════════════════════════════
+    # calendar_info (~70 samples)
     {"text": "What is the school calendar?", "intent": "calendar_info"},
     {"text": "Show me the academic calendar", "intent": "calendar_info"},
     {"text": "When does Term 2 start?", "intent": "calendar_info"},
@@ -548,9 +535,7 @@ TRAINING_DATA = [
     {"text": "Exam week ba ngayon?", "intent": "calendar_info"},
     {"text": "Ilang linggo pa bago matapos ang term?", "intent": "calendar_info"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # how_to_upload  (~70 samples)
-    # ═══════════════════════════════════════════════════════════════════════════
+    # how_to_upload (~70 samples)
     {"text": "How do I upload a DLL?", "intent": "how_to_upload"},
     {"text": "How to submit my DLL?", "intent": "how_to_upload"},
     {"text": "Steps to upload a document", "intent": "how_to_upload"},
@@ -633,9 +618,7 @@ TRAINING_DATA = [
     {"text": "Paano mag-upload offline at mag-sync later?", "intent": "how_to_upload"},
     {"text": "Bakit hindi ako makapag-upload?", "intent": "how_to_upload"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # general_help  (~70 samples)
-    # ═══════════════════════════════════════════════════════════════════════════
+    # general_help (~70 samples)
     {"text": "What can you help me with?", "intent": "general_help"},
     {"text": "Help me understand this system", "intent": "general_help"},
     {"text": "What does CEDIMS do?", "intent": "general_help"},
@@ -720,11 +703,9 @@ TRAINING_DATA = [
     {"text": "Bago ako dito tulungan mo ako", "intent": "general_help"},
     {"text": "Gabayan mo ako sa system", "intent": "general_help"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
     # Out-of-scope / small talk — mapped to general_help so the classifier has
     # somewhere safe to land instead of being forced into a specific DB intent
     # for questions that have nothing to do with CEDIMS at all.
-    # ═══════════════════════════════════════════════════════════════════════════
     {"text": "What's the weather today?", "intent": "general_help"},
     {"text": "Tell me a joke", "intent": "general_help"},
     {"text": "Who won the basketball game last night?", "intent": "general_help"},
@@ -751,12 +732,10 @@ TRAINING_DATA = [
     {"text": "ok", "intent": "general_help"},
     {"text": "test", "intent": "general_help"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
     # Hard disambiguation — ask_compliance vs teacher_stats vs school_compare
     # all share vocabulary ("compliance", "teacher", "school"); these pin down
     # the boundary so a "my" vs a named-third-party vs a school-level question
     # don't get confused with each other.
-    # ═══════════════════════════════════════════════════════════════════════════
     {"text": "Is Teacher Santos compliant this week?", "intent": "teacher_stats"},
     {"text": "What's the compliance rate for Teacher Cruz specifically?", "intent": "teacher_stats"},
     {"text": "Show me how compliant each teacher in my school is", "intent": "teacher_stats"},
@@ -773,10 +752,8 @@ TRAINING_DATA = [
     {"text": "Just checking my individual compliance", "intent": "ask_compliance"},
     {"text": "My own submission status, not anyone else's", "intent": "ask_compliance"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
     # Hard disambiguation — find_dll vs how_to_upload (both DLL-related, very
     # different intents: locating an existing document vs the upload process).
-    # ═══════════════════════════════════════════════════════════════════════════
     {"text": "I want to see the DLL I already submitted for Week 3", "intent": "find_dll"},
     {"text": "Can you pull up my previous DLL on fractions?", "intent": "find_dll"},
     {"text": "Where is the DLL I uploaded yesterday?", "intent": "find_dll"},
@@ -786,10 +763,8 @@ TRAINING_DATA = [
     {"text": "I want to upload a new DLL, walk me through it", "intent": "how_to_upload"},
     {"text": "First time uploading, what do I need?", "intent": "how_to_upload"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
     # Extra phrasing diversity — short, terse, statement-style (not just
     # question-style) inputs across the existing intents.
-    # ═══════════════════════════════════════════════════════════════════════════
     {"text": "compliance", "intent": "ask_compliance"},
     {"text": "my status", "intent": "ask_compliance"},
     {"text": "compliance rate", "intent": "ask_compliance"},
@@ -809,13 +784,11 @@ TRAINING_DATA = [
     {"text": "help", "intent": "general_help"},
     {"text": "hi there", "intent": "general_help"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
     # System-knowledge questions — dashboard, archive, analytics, calendar,
     # admin, notifications, theme, QR, teaching loads, passwords, privacy,
     # statuses. All conceptual "what is / how does X work" questions, which
     # is exactly what general_help exists to catch — these give the model
     # much broader coverage of what CEDIMS actually contains.
-    # ═══════════════════════════════════════════════════════════════════════════
     {"text": "What's on the dashboard?", "intent": "general_help"},
     {"text": "Explain what each tab does", "intent": "general_help"},
     {"text": "What are the tabs for?", "intent": "general_help"},
@@ -920,10 +893,8 @@ TRAINING_DATA = [
     {"text": "Ano ang supplementary submission?", "intent": "general_help"},
     {"text": "Ano ang CEDIMS?", "intent": "general_help"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
     # More upload-process depth (distinct from find_dll, which is about
     # locating an already-submitted document).
-    # ═══════════════════════════════════════════════════════════════════════════
     {"text": "How does the system detect my subject and grade automatically?", "intent": "how_to_upload"},
     {"text": "Do I need to fill out the subject manually?", "intent": "how_to_upload"},
     {"text": "Can I review the extracted info before submitting?", "intent": "how_to_upload"},
@@ -932,12 +903,10 @@ TRAINING_DATA = [
     {"text": "Paano nade-detect ng system ang subject ko?", "intent": "how_to_upload"},
     {"text": "Kailangan ko bang i-type ang grade level?", "intent": "how_to_upload"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
     # A few more disambiguation fixes found during held-out validation:
     # "how does X feature work" (conceptual) vs "compare/rank X" (a live query);
     # vaguer "days left" phrasing for deadlines; privacy phrased as a question
     # about who can see something, not just the word "privacy" itself.
-    # ═══════════════════════════════════════════════════════════════════════════
     {"text": "How do the school clusters work?", "intent": "general_help"},
     {"text": "How does teacher clustering work?", "intent": "general_help"},
     {"text": "Explain how the ranking feature works", "intent": "general_help"},
@@ -950,10 +919,8 @@ TRAINING_DATA = [
     {"text": "Does the district supervisor see all my submissions?", "intent": "general_help"},
     {"text": "Who else can view what I submit?", "intent": "general_help"},
 
-    # ═══════════════════════════════════════════════════════════════════════════
-    # create_report  (~95 samples) — School Head / District Supervisor only;
+    # create_report (~95 samples) — School Head / District Supervisor only;
     # the role check itself lives in chatbot.ts (queryCreateReport), not here.
-    # ═══════════════════════════════════════════════════════════════════════════
     {"text": "Generate a compliance report", "intent": "create_report"},
     {"text": "Create a report for my school", "intent": "create_report"},
     {"text": "Make me a compliance report", "intent": "create_report"},
@@ -1054,7 +1021,6 @@ TRAINING_DATA = [
     {"text": "Gawan mo ako ng opisyal na compliance report", "intent": "create_report"},
 ]
 
-# ─── Templated Generation ───────────────────────────────────────────────────
 # The ~950 examples above are hand-written for phrasing diversity, but they
 # don't cover the combinatorial space of real inputs — a teacher can ask about
 # any of a dozen subjects, six grade levels, ten weeks, a dozen colleagues, a
@@ -1424,14 +1390,10 @@ TRAINING_DATA.extend(_generated)
 _all_texts = [row["text"].strip().lower() for row in TRAINING_DATA]
 assert len(_all_texts) == len(set(_all_texts)), "Duplicate training text detected after generation"
 
-# ─── Build DataFrame ────────────────────────────────────────────────────────
-
 df = pd.DataFrame(TRAINING_DATA)
 print("Intent distribution:")
 print(df['intent'].value_counts())
 print(f"\nTotal samples: {len(df)}")
-
-# ─── Train/Test Split ──────────────────────────────────────────────────────
 
 X = df['text']
 y = df['intent']
@@ -1440,8 +1402,6 @@ intents = sorted(y.unique())
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.25, random_state=42, stratify=y
 )
-
-# ─── Vectorize with character n-grams for typo resilience ──────────────────
 
 vectorizer = CountVectorizer(
     analyzer='char',
@@ -1456,7 +1416,6 @@ vocab = vectorizer.get_feature_names_out()
 
 print(f"\nVocabulary size: {len(vocab)}")
 
-# ─── Train Logistic Regression (small C grid search) ────────────────────────
 # C=1.0 previously memorized the training set (100% train vs ~92% test — an
 # 8-point generalization gap). Picking C by 5-fold CV on the training split
 # — rather than fixing it — trades a little training accuracy for a model
@@ -1498,14 +1457,10 @@ test_acc = clf.score(X_test_vec, y_test)
 print(f"\nTraining accuracy: {train_acc:.2%}")
 print(f"Test accuracy: {test_acc:.2%}")
 
-# ─── Classification Report ──────────────────────────────────────────────────
-
 y_pred = clf.predict(X_test_vec)
 report = classification_report(y_test, y_pred, output_dict=True)
 print(f"\nClassification Report:")
 print(classification_report(y_test, y_pred))
-
-# ─── Confusion Matrix ───────────────────────────────────────────────────────
 
 cm = confusion_matrix(y_test, y_pred)
 plt.figure(figsize=(10, 8))
@@ -1517,8 +1472,6 @@ plt.ylabel('Actual')
 plt.tight_layout()
 plt.savefig(os.path.join(RESULTS_DIR, 'intent_confusion_matrix.png'), dpi=150)
 plt.close()
-
-# ─── 5-Fold Cross-Validation ───────────────────────────────────────────────
 
 skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 cv_scores = []
@@ -1537,8 +1490,6 @@ cv_std = np.std(cv_scores)
 print(f"\n5-Fold CV Accuracy: {cv_mean:.2%} ± {cv_std:.2%}")
 print(f"Fold scores: {[f'{s:.2%}' for s in cv_scores]}")
 
-# ─── ROC Curves ─────────────────────────────────────────────────────────────
-
 y_prob = clf.predict_proba(X_test_vec)
 plt.figure(figsize=(10, 8))
 for i, intent_name in enumerate(intents):
@@ -1554,8 +1505,6 @@ plt.tight_layout()
 plt.savefig(os.path.join(RESULTS_DIR, 'intent_roc_curves.png'), dpi=150)
 plt.close()
 
-# ─── Top Predictive N-grams per Intent ──────────────────────────────────────
-
 top_ngrams = {}
 for i, intent in enumerate(intents):
     coefs = clf.coef_[i]
@@ -1563,7 +1512,6 @@ for i, intent in enumerate(intents):
     ngrams = [(vocab[idx], float(coefs[idx])) for idx in top_indices]
     top_ngrams[intent] = ngrams
 
-# Plot
 fig, axes = plt.subplots(2, 4, figsize=(18, 10))
 axes = axes.flatten()
 for i, intent in enumerate(intents):
@@ -1581,8 +1529,6 @@ plt.suptitle('Top 10 Predictive Character N-grams per Intent', fontsize=14)
 plt.tight_layout()
 plt.savefig(os.path.join(RESULTS_DIR, 'intent_top_words.png'), dpi=150)
 plt.close()
-
-# ─── Export Model JSON ──────────────────────────────────────────────────────
 
 coef_dict = {}
 for i, intent in enumerate(intents):
@@ -1621,8 +1567,6 @@ output_path = os.path.join(OUTPUT_DIR, 'intent_classifier_model.json')
 with open(output_path, 'w') as f:
     json.dump(model, f, indent=2)
 print(f"\nExported: {output_path}")
-
-# ─── Save Results Summary ────────────────────────────────────────────────────
 
 results = {
     "training_date": pd.Timestamp.now().isoformat(),

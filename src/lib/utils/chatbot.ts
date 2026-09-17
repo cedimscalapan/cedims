@@ -2,7 +2,7 @@ import intentModel from '../models/intent_classifier_model.json';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentSchoolYear as getDynamicSchoolYear } from './schoolYear';
 
-// ─── Text Normalization ────────────────────────────────────────────────────
+// Text Normalization
 // Makes the bot robust to typos, wrong grammar, repeated characters, emojis,
 // and diacritics. All light-weight, pure string ops — no heavy model.
 
@@ -83,7 +83,7 @@ const FUZZY_DICT = [
     'english', 'filipino', 'grade', 'year', 'term', 'quarter', 'today', 'this', 'next'
 ];
 
-// ─── Language Detection ────────────────────────────────────────────────────
+// Language Detection
 // Lightweight, no external model: count how many tokens are common Tagalog
 // function words. Good enough to route between English and Tagalog reply
 // sets for Taglish-heavy input, without needing a real language ID model.
@@ -125,7 +125,7 @@ export function detectLanguage(text: string): Lang {
     return tlCount / tokens.length >= 0.2 ? 'tl' : 'en';
 }
 
-// ─── Human-like Phrasing ───────────────────────────────────────────────────
+// Human-like Phrasing
 function pick<T>(arr: T[]): T {
     return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -218,7 +218,7 @@ const CONFUSED_RESPONSES: Record<Lang, string[]> = {
     ]
 };
 
-// ─── Knowledge Base (lightweight FAQ corpus) ───────────────────────────────
+// Knowledge Base (lightweight FAQ corpus)
 // Every topic maps to *multiple* phrasings per language, picked at random
 // each time, so asking the same question twice in one session doesn't come
 // back sounding copy-pasted — and the language picked matches how the user
@@ -580,7 +580,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
             ]
         }
     },
-    // ─── Regulatory references ─────────────────────────────────────────────
+    // Regulatory references
     // Deliberately narrow: each entry states only what's directly confirmed
     // by DepEd's own published order (linked in the answer itself) rather
     // than paraphrasing specific clauses from memory. The link is there on
@@ -909,7 +909,6 @@ async function queryCompliance(
     const schoolYear = getDynamicSchoolYear();
     const districtId = profile?.district_id;
 
-    // Determine scope: which teachers to look up
     let userFilter: string[] | null = null;
     let scopeLabel: string;
     if (role === 'Teacher' || role === 'Master Teacher' || !role) {
@@ -940,7 +939,7 @@ async function queryCompliance(
         return lang === 'tl' ? 'Hindi ma-determine ang scope mo. Mag-login gamit ang valid na account.' : 'Unable to determine your scope. Please log in with a valid account.';
     }
 
-    // ── Calculate expected count (matches dashboard: teachingLoadsCount × definedWeeks) ──
+    // Calculate expected count (matches dashboard: teachingLoadsCount × definedWeeks)
     const loadsFilter: any = { user_id: userFilter.length === 1 ? userFilter[0] : undefined };
     let teachingLoadsCount = 0;
     let uniqueSubjects: string[] = [];
@@ -1007,7 +1006,6 @@ async function queryCompliance(
 
     const expectedTotal = teachingLoadsCount * definedWeeks;
 
-    // ── Fetch actual submissions ──
     let query = db
         .from('submissions')
         .select('compliance_status, week_number, subject')
@@ -1035,7 +1033,7 @@ async function queryCompliance(
 
     if (error) return lang === 'tl' ? 'Pasensya na, hindi ma-access ngayon ang compliance data. Subukan ulit.' : "Sorry, I couldn't access the compliance data right now. Please try again.";
 
-    // ── Calculate compliance against expected ──
+    // Calculate compliance against expected
     const actualSubmissions = data || [];
     const compliant = actualSubmissions.filter((s: any) => isCompliant(s.compliance_status)).length;
     const late = actualSubmissions.filter((s: any) => s.compliance_status === 'late').length;
@@ -1046,7 +1044,6 @@ async function queryCompliance(
     const pendingReview = actualSubmissions.filter((s: any) => !s.compliance_status).length;
     const compliantExplicit = actualSubmissions.filter((s: any) => s.compliance_status === 'compliant' || s.compliance_status === 'on-time').length;
 
-    // ── Build response ──
     let response: string;
     if (lang === 'tl') {
         if (slots.week) {
@@ -1269,7 +1266,7 @@ async function querySchoolCompare(
         return lang === 'tl' ? 'Kailangan ko ng distrito para ikumpara ang mga paaralan. Mag-login gamit ang district-level account.' : 'I need a district to compare schools. Please log in with a district-level account.';
     }
 
-    // 1. Get schools in the district
+    // Get schools in the district
     let schoolQuery = db.from('schools').select('id, name');
     if (slots.school) {
         schoolQuery = schoolQuery.ilike('name', `%${slots.school.replace('Elementary School', '').trim()}%`);
@@ -1282,7 +1279,7 @@ async function querySchoolCompare(
         return lang === 'tl' ? 'Walang nahanap na paaralan sa distrito mo.' : 'No schools found in your district.';
     }
 
-    // 2. Get teachers at these schools
+    // Get teachers at these schools
     const schoolIds = (schools as any[]).map((s: any) => s.id);
     const { data: teachers } = await db
         .from('profiles')
@@ -1294,7 +1291,7 @@ async function querySchoolCompare(
         return lang === 'tl' ? 'Walang nahanap na guro sa mga paaralang ito.' : 'No teachers found in these schools.';
     }
 
-    // 3. Get submissions for these teachers (exclude NC placeholders)
+    // Exclude NC placeholders from the submissions query
     const teacherIds = (teachers as any[]).map((t: any) => t.id);
     const { data: submissions } = await db
         .from('submissions')
@@ -1302,13 +1299,13 @@ async function querySchoolCompare(
         .in('user_id', teacherIds)
         .not('file_hash', 'like', 'nc_%');
 
-    // 4. Build teacher → school mapping
+    // Build teacher → school mapping
     const teacherSchool = new Map<string, string>();
     for (const t of teachers as any[]) {
         teacherSchool.set(t.id, t.school_id);
     }
 
-    // 5. Aggregate per school
+    // Aggregate per school
     const schoolMap = new Map<string, { total: number; compliant: number }>();
     for (const school of schools as any[]) {
         schoolMap.set(school.name, { total: 0, compliant: 0 });
@@ -1369,7 +1366,6 @@ async function queryTeacherStats(
     const role = profile?.role;
     if (!userId) return lang === 'tl' ? 'Mag-login ka muna para makita ang teacher statistics.' : 'Please log in to view teacher statistics.';
 
-    // Determine which teachers to look up
     let userQuery = db.from('profiles').select('id, full_name, school_id, role');
 
     if (slots.teacher) {
@@ -1417,7 +1413,6 @@ async function queryTeacherStats(
 
     if (sErr) return lang === 'tl' ? 'Pasensya na, hindi ma-load ang submission data.' : "Sorry, I couldn't load submission data.";
 
-    // Count submissions per teacher
     const teacherSubMap = new Map<string, { total: number; compliant: number; late: number }>();
     for (const t of teachers as any[]) {
         teacherSubMap.set(t.id, { total: 0, compliant: 0, late: 0 });
@@ -1664,8 +1659,8 @@ async function queryCreateReport(
     const closer = pick(REPORT_CLOSERS[lang][tier]);
 
     const summary = lang === 'tl'
-        ? `${opener}\n\nMayroong ${total} submissions ngayong school year ${reportSchoolYear}: ${compliant} compliant, ${late} late, at ${supplementary} supplementary. Ang overall rate ay ${rate}%.\n\n${closer}\n\nInihanda ko ang isang detalyadong report sa Excel at Word — makikita sa ibaba.`
-        : `${opener}\n\nThere are ${total} submissions for school year ${reportSchoolYear}: ${compliant} compliant, ${late} late, and ${supplementary} supplementary. The overall rate is ${rate}%.\n\nI've prepared a detailed report in Excel and Word — see below.\n\n${closer}`;
+        ? `${opener}\n\nMayroong ${total} submissions ngayong school year ${reportSchoolYear}: ${compliant} compliant, ${late} late, at ${supplementary} supplementary. Ang overall rate ay ${rate}%.\n\n${closer}\n\nInihanda ko ang isang detalyadong report sa Excel at Word: makikita sa ibaba.`
+        : `${opener}\n\nThere are ${total} submissions for school year ${reportSchoolYear}: ${compliant} compliant, ${late} late, and ${supplementary} supplementary. The overall rate is ${rate}%.\n\nI've prepared a detailed report in Excel and Word: see below.\n\n${closer}`;
 
     // Reuse the exact same shared, professionally-styled report builders the
     // app already uses elsewhere (excelExport.ts for Archive exports),
@@ -1752,14 +1747,14 @@ async function generateDatabaseResponse(
         if (lang === 'tl') {
             return {
                 answer: offline
-                    ? "Mukhang offline ka ngayon, kaya hindi ko ma-check ang live data para diyan — pero nandito pa rin ako! Tanungin mo ulit ako pag-online ka na, o subukan ang general na tanong sa ngayon."
-                    : "Hmm, hindi ko na-fetch iyan ngayon. Subukan mo ulit mamaya — nandito lang ako."
+                    ? "Mukhang offline ka ngayon, kaya hindi ko ma-check ang live data para diyan. Pero nandito pa rin ako! Tanungin mo ulit ako pag-online ka na, o subukan ang general na tanong sa ngayon."
+                    : "Hmm, hindi ko na-fetch iyan ngayon. Subukan mo ulit mamaya. Nandito lang ako."
             };
         }
         return {
             answer: offline
-                ? "Looks like you're offline right now, so I can't check the live data for that — but I'm still here! Ask me again once you're back online, or try a general question in the meantime."
-                : "Hmm, I couldn't fetch that just now. Give it another try in a moment — I'll be right here."
+                ? "Looks like you're offline right now, so I can't check the live data for that. But I'm still here! Ask me again once you're back online, or try a general question in the meantime."
+                : "Hmm, I couldn't fetch that just now. Give it another try in a moment. I'll be right here."
         };
     }
 }
