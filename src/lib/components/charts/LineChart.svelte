@@ -109,7 +109,7 @@
                     y1={y}
                     x2={width - padding.right}
                     y2={y}
-                    stroke="#e5e7eb"
+                    stroke="var(--color-border-subtle)"
                     stroke-dasharray="4"
                     stroke-width="1"
                 />
@@ -118,7 +118,7 @@
                     y={y + 4}
                     text-anchor="end"
                     font-size="12"
-                    fill="#6b7280"
+                    fill="var(--color-text-secondary)"
                 >
                     {label}
                 </text>
@@ -130,7 +130,7 @@
                 y1={height - padding.bottom}
                 x2={width - padding.right}
                 y2={height - padding.bottom}
-                stroke="#d1d5db"
+                stroke="var(--color-border-strong)"
                 stroke-width="2"
             />
 
@@ -140,7 +140,7 @@
                 y1={padding.top}
                 x2={padding.left}
                 y2={height - padding.bottom}
-                stroke="#d1d5db"
+                stroke="var(--color-border-strong)"
                 stroke-width="2"
             />
 
@@ -187,7 +187,7 @@
                         y={height - 10}
                         text-anchor="middle"
                         font-size="12"
-                        fill="#6b7280"
+                        fill="var(--color-text-secondary)"
                     >
                         {d.period}
                     </text>

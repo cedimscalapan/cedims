@@ -5,9 +5,13 @@
 
     interface Props {
         alerts?: PatternAlert[];
+        // Called with the alert's teacher when "Review" is activated, so the
+        // parent (which knows the viewer's role and the right monitoring
+        // route) can navigate there. No handler means no button — see below.
+        onReview?: (alert: PatternAlert) => void;
     }
 
-    let { alerts = [] }: Props = $props();
+    let { alerts = [], onReview }: Props = $props();
     let expanded = $state(false);
 
     const highSeverityAlerts = $derived(
@@ -102,9 +106,15 @@
                                         <span class="text-xs font-bold uppercase px-3 py-1.5 rounded-lg text-white" style="background-color: {alert.severity === "high" ? "var(--color-gov-red)" : "var(--color-gov-gold)"}">
                                             {alert.severity}
                                         </span>
-                                        <button class="text-xs font-bold text-gov-blue hover:text-gov-blue-dark transition-colors flex items-center gap-1 whitespace-nowrap">
-                                            Review →
-                                        </button>
+                                        {#if onReview}
+                                            <button
+                                                type="button"
+                                                onclick={() => onReview?.(alert)}
+                                                class="text-xs font-bold text-gov-blue hover:text-gov-blue-dark transition-colors flex items-center gap-1 whitespace-nowrap"
+                                            >
+                                                Review →
+                                            </button>
+                                        {/if}
                                     </div>
                                 </div>
                             </div>

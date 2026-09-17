@@ -2,6 +2,7 @@
     import { supabase } from "$lib/utils/supabase";
     import { profile } from "$lib/utils/auth";
     import { addToast } from "$lib/stores/toast";
+    import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import { onMount } from "svelte";
     import { Edit, Trash2, Plus, BookOpen, Layers } from "lucide-svelte";
     import { fly } from "svelte/transition";
@@ -15,6 +16,7 @@
 
     let loads = $state<TeachingLoad[]>([]);
     let loading = $state(true);
+    let loadError = $state<string | null>(null);
     let showModal = $state(false);
     let editingId = $state<string | null>(null);
     let gradeLevel = $state("Grade 1");
@@ -53,11 +55,18 @@
         const user = $profile;
         if (!user?.id) return;
 
-        const { data } = await supabase
+        loadError = null;
+        const { data, error } = await supabase
             .from("teaching_loads")
             .select("*")
             .eq("user_id", user.id)
             .order("grade_level");
+
+        if (error) {
+            loadError = "Failed to load teaching loads. Please try again.";
+            addToast("error", loadError);
+            return;
+        }
 
         loads = (data as TeachingLoad[]) || [];
     }
@@ -173,7 +182,22 @@
         </button>
     </div>
 
-    {#if loads.length === 0}
+    {#if loading}
+        <SkeletonLoader variant="card-grid" count={4} />
+    {:else if loadError}
+        <div
+            class="flex flex-col items-center gap-3 rounded-lg border border-gov-red/30 bg-gov-red/10 px-6 py-10 text-center"
+            role="alert"
+        >
+            <p class="text-sm font-medium text-gov-red">{loadError}</p>
+            <button
+                onclick={() => { loading = true; loadTeachingLoads().finally(() => { loading = false; }); }}
+                class="px-4 py-2 bg-gov-blue text-white text-sm font-bold rounded-xl hover:bg-gov-blue-dark transition-colors"
+            >
+                Try Again
+            </button>
+        </div>
+    {:else if loads.length === 0}
         <div
             class="bg-surface-muted backdrop-blur-md border border-dashed border-border-strong rounded-3xl p-20 text-center"
         >

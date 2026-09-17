@@ -99,7 +99,6 @@ async function performAuthInit(): Promise<void> {
             await fetchProfile(session.user.id);
         }
 
-        // Set up auth state listener
         supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
             if (session?.user) {
                 user.set(session.user);

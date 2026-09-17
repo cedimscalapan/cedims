@@ -85,19 +85,19 @@
 
                 <div class="grid grid-cols-3 gap-2 mb-6">
                     <div class="bg-gov-green/5 p-2 rounded text-center">
-                        <p class="text-[9px] font-bold text-gov-green uppercase leading-none mb-1">
+                        <p class="text-[9px] font-bold text-gov-green-dark dark:text-[#4ade80] uppercase leading-none mb-1">
                             Pass
                         </p>
                         <p class="text-xs font-bold text-text-primary">{item.compliant}</p>
                     </div>
                     <div class="bg-gov-gold/5 p-2 rounded text-center">
-                        <p class="text-[9px] font-bold text-gov-gold-dark uppercase leading-none mb-1">
+                        <p class="text-[9px] font-bold text-gov-gold-dark dark:text-[#fbbf24] uppercase leading-none mb-1">
                             Late
                         </p>
                         <p class="text-xs font-bold text-text-primary">{item.late}</p>
                     </div>
                     <div class="bg-gov-red/5 p-2 rounded text-center">
-                        <p class="text-[9px] font-bold text-gov-red uppercase leading-none mb-1">
+                        <p class="text-[9px] font-bold text-gov-red-dark dark:text-[#f87171] uppercase leading-none mb-1">
                             Miss
                         </p>
                         <p class="text-xs font-bold text-text-primary">{item.missing}</p>
@@ -121,7 +121,7 @@
                 type="button"
                 onclick={() => (page = Math.max(1, page - 1))}
                 disabled={page === 1}
-                class="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide text-gov-blue disabled:text-text-muted disabled:opacity-40 hover:bg-gov-blue/5 disabled:hover:bg-transparent transition-colors"
+                class="flex items-center gap-1 px-3 py-2 min-h-11 rounded-lg text-xs font-bold uppercase tracking-wide text-gov-blue disabled:text-text-muted disabled:opacity-40 hover:bg-gov-blue/5 disabled:hover:bg-transparent transition-colors"
             >
                 <ChevronLeft size={14} /> Previous
             </button>
@@ -132,7 +132,7 @@
                 type="button"
                 onclick={() => (page = Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
-                class="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide text-gov-blue disabled:text-text-muted disabled:opacity-40 hover:bg-gov-blue/5 disabled:hover:bg-transparent transition-colors"
+                class="flex items-center gap-1 px-3 py-2 min-h-11 rounded-lg text-xs font-bold uppercase tracking-wide text-gov-blue disabled:text-text-muted disabled:opacity-40 hover:bg-gov-blue/5 disabled:hover:bg-transparent transition-colors"
             >
                 Next <ChevronRight size={14} />
             </button>

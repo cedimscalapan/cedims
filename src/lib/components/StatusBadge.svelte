@@ -26,23 +26,28 @@
             icon: any;
         }
     > = {
+        // Text uses the -dark palette variant against its own tint (light
+        // mode) plus a dark:-mode override to a lighter shade, and the
+        // green/gold/red tints are a step lighter — the same "text on its
+        // own tint" pairing measured well under 4.5:1 in both themes
+        // before this (2.52-4.49:1 across variants).
         compliant: {
-            bg: "bg-gov-green/15",
-            text: "text-gov-green",
+            bg: "bg-gov-green/8",
+            text: "text-gov-green-dark dark:text-[#4ade80]",
             border: "border-gov-green/40",
             label: "Compliant",
             icon: CheckCircle2,
         },
         late: {
-            bg: "bg-gov-gold/15",
-            text: "text-gov-gold-dark",
+            bg: "bg-gov-gold/8",
+            text: "text-gov-gold-dark dark:text-[#fbbf24]",
             border: "border-gov-gold/50",
             label: "Late",
             icon: Clock,
         },
         missing: {
-            bg: "bg-gov-red/15",
-            text: "text-gov-red",
+            bg: "bg-gov-red/10",
+            text: "text-gov-red-dark dark:text-[#f87171]",
             border: "border-gov-red/40",
             label: "Missing",
             icon: AlertCircle,
@@ -56,14 +61,14 @@
         },
         supplementary: {
             bg: "bg-gov-blue/10",
-            text: "text-gov-blue",
+            text: "text-gov-blue-dark dark:text-[#5a8fde]",
             border: "border-gov-blue/30",
             label: "Supplementary",
             icon: Copy,
         },
         review: {
             bg: "bg-gov-blue/15",
-            text: "text-gov-blue",
+            text: "text-gov-blue-dark dark:text-[#5a8fde]",
             border: "border-gov-blue/40",
             label: "Under Review",
             icon: Search,

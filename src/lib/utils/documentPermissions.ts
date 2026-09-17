@@ -1,6 +1,5 @@
 /**
  * CEDIMS Document Permissions System
- * ===================================
  *
  * UPLOAD PERMISSIONS:
  * - Teacher: DLL only (with teaching load)

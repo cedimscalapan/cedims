@@ -46,7 +46,7 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
         navSteps: [
             {
                 title: "Home",
-                content: "Your compliance, school compliance, top teachers, and at-risk teachers — your command center.",
+                content: "Your compliance, school compliance, top teachers, and at-risk teachers: your command center.",
                 tip: "Identify who needs support at a glance.",
                 target: "dashboard",
             },
@@ -76,7 +76,7 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
         navSteps: [
             {
                 title: "Home",
-                content: "School compliance rate, compliant/late DLLs, top teachers, and trends — your performance center.",
+                content: "School compliance rate, compliant/late DLLs, top teachers, and trends: your performance center.",
                 tip: "Great to reference in staff meetings.",
                 target: "dashboard",
             },
@@ -106,7 +106,7 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
         navSteps: [
             {
                 title: "Home",
-                content: "District compliance rate, totals, and school rankings — your executive summary.",
+                content: "District compliance rate, totals, and school rankings: your executive summary.",
                 tip: "Handy when preparing reports.",
                 target: "dashboard",
             },
@@ -124,13 +124,13 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
             },
             {
                 title: "Analytics",
-                content: "Compliance trends, forecasts, performance clusters, and at-risk schools — investigate and act fast.",
+                content: "Compliance trends, forecasts, performance clusters, and at-risk schools: investigate and act fast.",
                 tip: "Stay ahead of compliance problems.",
                 target: "alerts",
             },
             {
                 title: "Admin",
-                content: "Manage system settings and user accounts — create teachers and staff, adjust roles, and configure submission rules.",
+                content: "Manage system settings and user accounts: create teachers and staff, adjust roles, and configure submission rules.",
                 tip: "This is also where you create new accounts.",
                 target: "admin",
             },
@@ -146,7 +146,7 @@ export const walkthroughHeaderSteps: WalkthroughStep[] = [
     },
     {
         title: "Theme",
-        content: "Switch between light and dark mode any time — your preference is remembered.",
+        content: "Switch between light and dark mode any time, your preference is remembered.",
         target: "theme-toggle",
     },
     {
@@ -156,7 +156,7 @@ export const walkthroughHeaderSteps: WalkthroughStep[] = [
     },
     {
         title: "Meet Gabay",
-        content: "Your CEDIMS assistant. Ask Gabay about your compliance rate, deadlines, or how to do something — it answers using your live data.",
+        content: "Your CEDIMS assistant. Ask Gabay about your compliance rate, deadlines, or how to do something: it answers using your live data.",
         tip: "Try: “When is the next deadline?”",
         target: "chatbot",
     },

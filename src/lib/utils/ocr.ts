@@ -73,7 +73,7 @@ function loadPdfJs(timeoutMs: number = 45000): Promise<void> {
 export async function extractMetadata(file: File): Promise<DocMetadata> {
     const ext = file.name.split('.').pop()?.toLowerCase();
 
-    // 1. Handle PDF OCR/Extraction
+    // PDF path: extract text directly, falling back to raster OCR if needed.
     if (file.type === 'application/pdf' || ext === 'pdf') {
         try {
             let pdfjsLib = (window as any)['pdfjsLib'];
@@ -91,12 +91,11 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
             if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
                 const version = pdfjsLib.version || '3.11.174';
 
-                // Priority 1: Use CDN if online (likely already cached by browser)
+                // Use the CDN if online (likely already cached by the browser), otherwise
+                // fall back to /pdf.worker.min.js locally (only works if the user added it manually).
                 if (navigator.onLine) {
                     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
                 } else {
-                    // Priority 2: Try local fallback (will only work if user has manually added it)
-                    // We use /pdf.worker.min.js as a convention
                     pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
                 }
             }
@@ -122,7 +121,7 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
         }
     }
 
-    // 2. Handle Image OCR (Tesseract - multilingual)
+    // Image path: OCR via Tesseract (multilingual).
     if (!file.type.startsWith('image/')) {
         console.warn('[ocr] Skipping OCR for unsupported file type:', file.type || 'unknown');
         return createDefaultMetadata();
@@ -131,16 +130,15 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
     const objectUrl = URL.createObjectURL(file);
 
     try {
-        // SINGLE PASS OPTIMIZATION (WBS 14.5 Mobile)
-        // Tesseract.js automatically caches worker and langs in IndexedDB.
-        // As long as it's run once while online, it works offline.
+        // Tesseract.js automatically caches the worker and language data in IndexedDB,
+        // so as long as it runs once while online, it keeps working offline.
         const worker = await createWorker('eng+fil', 1, {
             logger: (m: any) => console.log(m),
             errorHandler: (err: any) => console.error('[ocr] Tesseract Worker Error:', err)
         });
 
         try {
-            // OPTIMIZATION: Manual thresholding for low-end mobile CPUs
+            // Manual thresholding for low-end mobile CPUs
             const { data: { text, confidence } } = await worker.recognize(objectUrl);
 
             // Post-process language detection from result
@@ -183,8 +181,7 @@ async function extractRasterMetadata(page: any, pdfjsLib: any): Promise<DocMetad
     try {
         console.log('[ocr] Starting raster OCR fallback...');
 
-        // Detect mobile to use a lower scale if needed
-        // Low-End Mobile Optimization: Force 1.0x scale for mobile to save CPU/RAM
+        // Force a lower render scale on mobile to save CPU/RAM.
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         const scale = isMobile ? 1.0 : 2.5;
 
@@ -198,8 +195,7 @@ async function extractRasterMetadata(page: any, pdfjsLib: any): Promise<DocMetad
 
         await page.render({ canvasContext: context, viewport }).promise;
 
-        // ADAPTIVE PRE-PROCESSING: Convert to Grayscale + Threshold for low-end CPUs
-        // This makes Tesseract's job MUCH easier and faster
+        // Convert to grayscale and threshold for low-end CPUs; this makes Tesseract's job much easier and faster.
         if (isMobile) {
             const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
@@ -317,7 +313,6 @@ export function parseMetadata(text: string): Omit<DocMetadata, 'confidence' | 'l
     let weekSource: 'calendar' | 'header-date' | 'regex' | 'none' = 'none';
 
     if (docType === 'DLL') {
-        // --- PRIORITY SUBJECT DETECTION ---
         const explicitSubjectMatch = upper.match(/(?:ASIGNATURA|SUBJECT|LEARNING\s*AREA(?:\s*[\/]\s*ASIGNATURA)?)\s*[:\t]*\s*([^\n\t|]{3,20})/i);
         if (explicitSubjectMatch) {
             const candidate = explicitSubjectMatch[1].trim();
@@ -438,8 +433,6 @@ function buildSubjectPatterns(_forHeader: boolean): { name: string; regex: RegEx
         { name: 'Physical Development', regex: /PHYSICAL\s+DEVELOPMENT/i },
     ];
 }
-
-// ─── Date Range Parsing ─────────────────────────────────────────────────────
 
 const MONTH_MAP: Record<string, number> = {
     // English

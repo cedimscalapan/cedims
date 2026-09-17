@@ -9,10 +9,10 @@ export async function computeHash(file: File): Promise<string> {
 }
 
 export async function hashFromBuffer(buffer: ArrayBuffer | Uint8Array): Promise<string> {
-    // 1. Ensure we have a valid BufferSource (Uint8Array is a safe wrapper)
+    // Ensure we have a valid BufferSource (Uint8Array is a safe wrapper)
     const input = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
 
-    // 2. Check for Crypto API availability
+    // Check for Crypto API availability
     if (!crypto?.subtle) {
         throw new Error('Security Error: Cryptographic hashing requires a secure context (HTTPS).');
     }
@@ -21,7 +21,7 @@ export async function hashFromBuffer(buffer: ArrayBuffer | Uint8Array): Promise<
         const hashBuffer = await crypto.subtle.digest('SHA-256', input as any);
         const hashArray = new Uint8Array(hashBuffer);
 
-        // 3. Optimized hex conversion (avoiding large intermediate arrays)
+        // Optimized hex conversion (avoiding large intermediate arrays)
         let hashHex = '';
         for (let i = 0; i < hashArray.length; i++) {
             hashHex += hashArray[i].toString(16).padStart(2, '0');

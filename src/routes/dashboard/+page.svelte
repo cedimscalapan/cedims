@@ -604,7 +604,7 @@
 </script>
 
 <svelte:head>
-    <title>Home — CEDIMS</title>
+    <title>Home: CEDIMS</title>
 </svelte:head>
 
 <div>
@@ -634,7 +634,7 @@
             role="status"
         >
             <WifiOff size={16} strokeWidth={2} class="flex-shrink-0" aria-hidden="true" />
-            You're offline — the figures below may be incomplete or out of date.
+            You're offline, the figures below may be incomplete or out of date.
         </div>
     {/if}
 
@@ -802,7 +802,19 @@
 
         <!-- Priority alerts -->
         {#if alerts.length > 0}
-            <AlertBanner {alerts} />
+            <!-- Same destination each alert's own role tab already links to
+                 (see "Open Staff"/"Open Schools" below): the teacher- or
+                 school-level roster where a supervisor can actually act on
+                 what the alert flagged. -->
+            <AlertBanner
+                {alerts}
+                onReview={() =>
+                    goto(
+                        $profile?.role === "District Supervisor"
+                            ? "/dashboard/monitoring/district"
+                            : "/dashboard/monitoring/school",
+                    )}
+            />
         {/if}
 
         <!-- Stats and the primary section below are role-specific.
@@ -856,7 +868,7 @@
                             subtitle: doc.teacher_name,
                         }))}
                         {formatDate}
-                        emptyMessage="Nothing waiting — every document has a remark"
+                        emptyMessage="Nothing waiting: every document has a remark"
                     />
                 </div>
             </div>

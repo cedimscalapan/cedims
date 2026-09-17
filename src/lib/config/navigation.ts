@@ -28,7 +28,6 @@ export interface NavItem {
 // Consumed by both the mobile bottom nav (MobileTabBar.svelte) and the
 // desktop top nav (AppHeader.svelte) so the two never drift apart.
 export const navItems: NavItem[] = [
-    // ========== SHARED ACROSS ALL ROLES ==========
     {
         href: "/dashboard",
         label: "Home",
@@ -39,7 +38,6 @@ export const navItems: NavItem[] = [
         roles: ["Teacher", "School Head", "Master Teacher", "District Supervisor"],
     },
 
-    // ========== TEACHER (4 tabs) ==========
     {
         href: "/dashboard/upload",
         label: "Upload",
@@ -67,7 +65,6 @@ export const navItems: NavItem[] = [
         roles: ["Teacher"],
     },
 
-    // ========== MASTER TEACHER (5 tabs) ==========
     {
         href: "/dashboard/upload",
         label: "Upload",
@@ -104,7 +101,6 @@ export const navItems: NavItem[] = [
         roles: ["Master Teacher"],
     },
 
-    // ========== SCHOOL HEAD (5 tabs) ==========
     {
         href: "/dashboard/upload",
         label: "Upload",
@@ -140,7 +136,6 @@ export const navItems: NavItem[] = [
         priority: 5,
         roles: ["School Head"],
     },
-    // ========== DISTRICT SUPERVISOR (6 tabs) ==========
     {
         href: "/dashboard/monitoring/district",
         label: "Schools",
@@ -185,12 +180,11 @@ export const navItems: NavItem[] = [
         priority: 6,
         roles: ["District Supervisor"],
     },
-    // ========== OPTIONAL TOOLS ==========
     {
         href: "#scan",
         label: "Scan",
         icon: QrCode,
-        mobileNav: false, // Don't show in tab bar
+        mobileNav: false,
         priority: 99,
         roles: ["Teacher", "School Head", "Master Teacher", "District Supervisor"],
         onClick: (e: Event) => {

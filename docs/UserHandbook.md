@@ -1,6 +1,6 @@
-﻿# Smart E-VISION / CEDIMS — Complete User Manual
+﻿# Smart E-VISION / CEDIMS: Complete User Manual
 **Calapan East District Instructional Monitoring System**
-*Version 2.0 — July 2026*
+*Version 2.0, July 2026*
 
 ---
 
@@ -32,10 +32,10 @@
 ## 1. System Overview
 
 ### What is Smart E-VISION?
-Smart E-VISION (CEDIMS — Calapan East District Instructional Monitoring System) is a **web-based document management and compliance monitoring platform** designed for the Department of Education (DepEd) in the Philippines. It enables teachers to submit instructional documents (DLL, ISP, ISR), reviewers to provide feedback, and administrators to monitor compliance across schools and districts.
+Smart E-VISION (CEDIMS: Calapan East District Instructional Monitoring System) is a **web-based document management and compliance monitoring platform** designed for the Department of Education (DepEd) in the Philippines. It enables teachers to submit instructional documents (DLL, ISP, ISR), reviewers to provide feedback, and administrators to monitor compliance across schools and districts.
 
 ### Key Capabilities
-- **AI-Powered Document Processing**: Automatic OCR extraction of metadata (week number, subject, grade, teacher name, school) from uploaded documents
+- **OCR-Based Document Processing**: Automatic OCR extraction of metadata (week number, subject, grade, teacher name, school) from uploaded documents
 - **Offline-First Architecture**: Continue working without internet; automatic sync when connection is restored
 - **QR Code Verification**: Every submitted document receives a tamper-proof QR code for instant authenticity verification
 - **Real-Time Compliance Monitoring**: Heatmaps, charts, and color-coded compliance tracking
@@ -57,7 +57,7 @@ Smart E-VISION (CEDIMS — Calapan East District Instructional Monitoring System
 1. Open a modern web browser (Chrome, Edge, Firefox, or Safari)
 2. Navigate to the Smart E-VISION URL provided by your administrator
 3. The system will load as a **Progressive Web App (PWA)**
-4. You will be prompted to **install the app** for offline access — recommended for regular use
+4. You will be prompted to **install the app** for offline access, recommended for regular use
 
 ### 2.2 Logging In
 1. Click the **Sign In** button on the welcome screen
@@ -156,12 +156,12 @@ After logging in, you will see your **personal dashboard** showing:
 
 #### Upload Progress
 The pipeline processes your document in 6 phases:
-1. **Transcoding** — DOC/DOCX files are converted to PDF
-2. **Compression** — File size is optimized (target: ~300 KB)
-3. **OCR Analysis** — Document is scanned for metadata extraction
-4. **Hashing** — A unique SHA-256 fingerprint is created
-5. **QR Stamping** — A verification QR code is embedded on the last page
-6. **Uploading** — Final PDF is uploaded to secure storage
+1. **Transcoding**: DOC/DOCX files are converted to PDF
+2. **Compression**: File size is optimized (target: ~300 KB)
+3. **OCR Analysis**: Document is scanned for metadata extraction
+4. **Hashing**: A unique SHA-256 fingerprint is created
+5. **QR Stamping**: A verification QR code is embedded on the last page
+6. **Uploading**: Final PDF is uploaded to secure storage
 
 Each phase shows real-time progress. Do not close the browser during upload.
 
@@ -404,7 +404,7 @@ The upload pipeline is the core of Smart E-VISION. It processes every document t
 If the internet connection is unstable:
 - The system automatically detects connection quality during upload
 - If Phase 6 stalls, the document is **saved to local IndexedDB** as a pending upload
-- A notification appears: "Connection lost — document saved for later upload"
+- A notification appears: "Connection lost, document saved for later upload"
 - The document will be **automatically queued for sync** when connectivity is restored
 - You can also manually trigger sync from the Settings page
 
@@ -413,7 +413,7 @@ If the internet connection is unstable:
 ## 9. AI Document Processing (OCR)
 
 ### 9.1 How OCR Works
-Smart E-VISION uses **Tesseract.js**, a JavaScript-based OCR engine that runs entirely in your browser — no data is sent to external servers.
+Smart E-VISION uses **Tesseract.js**, a JavaScript-based OCR engine that runs entirely in your browser. No data is sent to external servers.
 
 1. The PDF is first **converted to images** (page by page)
 2. Each page image is processed through Tesseract.js
@@ -561,7 +561,7 @@ When you upload a document offline:
 
 ### 12.5 Offline Dashboard
 - The dashboard uses cached data for instant rendering (no loading spinners)
-- A banner shows: \"You are offline — showing last synced data\"
+- A banner shows: \"You are offline, showing last synced data\"
 - Data freshness is indicated (e.g., \"Last updated: 2 hours ago\")
 
 ---
@@ -675,7 +675,7 @@ The system uses **linear regression** to predict compliance trends:
 - Flags potential issues before they become problems
 
 ### 15.4 Pattern Detection
-AI-powered pattern analysis detects:
+Automated pattern analysis detects:
 - **Late submission patterns**: Teachers who consistently submit after deadlines
 - **Improvement trends**: Teachers showing positive change
 - **Quality patterns**: Teachers whose documents frequently need revision
@@ -781,9 +781,9 @@ Navigate to **Settings** in the sidebar (gear icon).
 
 ### 18.2 Profile Settings
 - **Display Name**: Change how your name appears in the system
-- **Email**: View your registered email (cannot be changed here — contact admin)
+- **Email**: View your registered email (cannot be changed here: contact admin)
 - **School**: View your assigned school
-- **Role**: View your system role (cannot be changed here — contact admin)
+- **Role**: View your system role (cannot be changed here: contact admin)
 
 ### 18.3 Theme Settings
 - **Light Mode**: Default bright theme
@@ -993,5 +993,5 @@ A: The upload pipeline runs in the current browser tab. If closed:
 
 *End of User Manual*
 
-*Smart E-VISION / CEDIMS — Calapan East District Instructional Monitoring System*
+*Smart E-VISION / CEDIMS: Calapan East District Instructional Monitoring System*
 *Built with SvelteKit, Supabase, and love for Philippine public education.*

@@ -1,0 +1,23 @@
+# CEDIMS antislop audit-001 — follow-up report — 2026-09-17
+
+All 143 approved findings from `anti-slop/audit-001-2026-09-17.md` have been fixed and pushed (5 commits, `e1f2e61..4750043` on `claude/peaceful-ptolemy-hr8o6p`). This report is the Mode 2 follow-up: what changed, how it was verified, and what's still open.
+
+## Delivery Gate evidence (R-35)
+
+- **Verification method:** `pnpm install` + `npm run check` (svelte-check across all 4,981 files), run twice — once against the pre-fix baseline commit (`e1f2e61`) in an isolated git worktree, once against the final state — and diffed. The app itself could not be launched/clicked through in this sandbox (no browser session), so verification is by static check plus full re-read of every changed file, per R-35's "if the deliverable cannot be run, verify by code inspection instead."
+- **Result:** baseline had 33 type errors / 21 warnings / 14 files with problems. Final state: 33 type errors (same errors, unrelated to this change — pre-existing library-typing gaps in the chart components, an unrelated `File`-vs-icon type mismatch in FileDropZone/upload, and a couple of nullable-string call sites) / 20 warnings / 13 files with problems. **Zero new errors. Net improvement in warnings** (one pre-existing a11y warning on `ClusterVisualization.svelte` was incidentally cleared by fixing finding #22's dead button; one new warning was introduced mid-fix by finding #14's keyboard-focus change on `ScatterPlot.svelte` — `role="img"` with a `tabindex` — and was caught and fixed to `role="button"` before this report).
+- Every new color pairing was verified numerically with `.claude/skills/antislop-human/contrast-check.py`, not eyeballed.
+
+## What changed, by section
+
+- **A. Accessibility (1-18):** all 18 fixed. Headline items: the shared status-chip contrast pattern fixed at its source (`app.css`, `StatusBadge.svelte`, `useDashboardData.ts`) plus every additional location the audit named or that a full-codebase check turned up in the same files (`ComplianceHeatmap`, `Toast`, `AcademicCalendarManager`, `PaginatedRosterGrid`, `DatePicker`); the heatmap's "no data" vs "0%" ambiguity now has its own distinct fill and label; real loading/error states added to analytics, monitoring (district + school), load, and the academic calendar manager; dark-mode chart colors fixed; keyboard access added to ScatterPlot and the calendar dropdowns.
+- **B. UI (19):** fixed. The Academic Calendar Manager now computes each term's real 13-week range instead of hardcoding weeks 1-10.
+- **C. Mobile/layout (20-32):** all 13 fixed. QRScanner overlay scrolls instead of clipping the close button; the broken `/login` link is now `/auth/login`; the dead hover-only chevron in ClusterVisualization now has a real handler; tap targets brought to 44px across the header, notifications, pagination, file drop zone, and upload modals.
+- **D. Copywriting (33-69):** all 37 fixed. Every em dash in user-facing UI, the landing/legal pages, the onboarding walkthrough, the Gabay chatbot (~90 occurrences), and both user manuals replaced with a period, comma, colon, or parentheses depending on what reads naturally; two "AI-Powered" buzzwords in the docs replaced with the specific mechanism (OCR-based / automated).
+- **E. Code comments (70-143):** all 74 fixed. Decorative banners, Step-N narration, signature echoes, and vague labels removed across ~26 files; all business-logic, security, workaround, and algorithm comments were verified preserved verbatim; a few incidental real bugs (a truncated word in `config.ts`, a garbled fragment in `pdf.worker.ts`) were corrected as part of the same pass since the audit had already flagged the exact lines.
+
+## Not fixed — flagged for a decision, not silently skipped
+
+A full-codebase sweep (done while closing out finding #1) found that the same "text color directly on its own tinted background" contrast pattern is **systemic across roughly 20 more files** the original audit didn't name as targets: `StatCard.svelte`, `SyncStatus.svelte`, `TeacherChecklist.svelte`, `AppHeader.svelte`, `SubmissionTable.svelte`, `AlertBanner.svelte`, `copilot.ts`, the landing page, and the admin/load/upload/archive/analytics dashboard pages (dozens of individual call sites). This is real and almost certainly fails the same 4.5:1 threshold in most cases, but fixing it was outside the 143 approved findings, so nothing there was touched. Recommend a follow-up `audit-002` pass scoped specifically to that pattern across the whole app, since it would benefit from the same lightened-tint-plus-dark-text-variant treatment applied consistently in one pass rather than piecemeal.
+
+No other approved finding was skipped.

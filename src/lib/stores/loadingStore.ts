@@ -1,26 +1,21 @@
 import { writable } from 'svelte/store';
 
-// Simple boolean loading state
 export const isLoading = writable(true);
 
-// Set loading state
 export const setLoading = (value: boolean) => {
 	isLoading.set(value);
 };
 
-// Hide loading immediately
 export const hideLoading = () => {
 	isLoading.set(false);
 };
 
-// Hide loading with transition effect
 export const hideLoadingWithTransition = (delay: number = 300) => {
 	setTimeout(() => {
 		isLoading.set(false);
 	}, delay);
 };
 
-// Advanced: Progress tracking store
 export const progress = writable(0);
 export const loadingStage = writable<'init' | 'api' | 'assets' | 'complete'>('init');
 
@@ -46,7 +41,6 @@ export const completeLoading = () => {
 	}, 500);
 };
 
-// Utility: Wait for multiple async operations
 export const waitForOperations = async (
 	operations: Promise<any>[],
 	onStageChange?: (stage: string) => void
@@ -55,7 +49,7 @@ export const waitForOperations = async (
 
 	try {
 		if (onStageChange) onStageChange('Initializing...');
-		await Promise.resolve(); // Small delay for init
+		await Promise.resolve();
 		updateProgress(10);
 
 		if (onStageChange) onStageChange('Loading data...');
@@ -71,7 +65,6 @@ export const waitForOperations = async (
 	}
 };
 
-// Utility: Simulate loading with artificial delay
 export const simulateLoading = (duration: number = 3000) => {
 	startLoading();
 	setTimeout(() => completeLoading(), duration);

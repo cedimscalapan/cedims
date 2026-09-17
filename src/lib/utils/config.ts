@@ -5,11 +5,7 @@ import { env } from '$env/dynamic/public';
  * Centralizes environment variables and constants.
  */
 export const config = {
-    // Fallback order:
-    // 1. PUBLIC_APP_URL from .env or Vercel
-    // 2. Production Vercel URL
-    // 3. window.location.origin (browser onl
-    // 4. Default local dev URL
+    // Falls back from PUBLIC_APP_URL to the browser's origin, then to the production URL for server-side contexts.
     APP_URL: env.PUBLIC_APP_URL ||
         (typeof window !== 'undefined' ? window.location.origin : 'https://v0-s-evision.vercel.app'),
     HF_API_TOKEN: env.PUBLIC_HF_API_TOKEN || '',

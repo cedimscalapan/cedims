@@ -13,6 +13,7 @@
     import { goto } from "$app/navigation";
     import { School as SchoolIcon, Eye, Users, LineChart, ArrowUpDown } from "lucide-svelte";
     import EmptyState from "$lib/components/EmptyState.svelte";
+    import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import { addToast } from "$lib/stores/toast";
     import {
         calculateCompliance,
@@ -74,6 +75,7 @@
     let teachers = $state<Teacher[]>([]);
     let allSubmissions = $state<Submission[]>([]);
     let loading = $state(true);
+    let loadError = $state<string | null>(null);
     let schoolLogoUrl = $state<string | null>(null);
     let currentDefinedWeeks = $state(1);
     // KPI state
@@ -167,6 +169,8 @@
             return;
         }
 
+        loadError = null;
+        try {
         // Fetch School Logo
         const { data: schoolData } = await supabase.from('schools').select('avatar_url').eq('id', userProfile.school_id).single();
         if (schoolData) schoolLogoUrl = schoolData.avatar_url;
@@ -352,6 +356,11 @@
                 e,
             );
         }
+        } catch (err) {
+            console.error("[school-monitor] Failed to load monitoring data:", err);
+            loadError = "Failed to load school monitoring data. Please try again.";
+            addToast("error", loadError);
+        }
     }
 
     function applySchoolSnapshot(s: any) {
@@ -489,7 +498,7 @@
 </script>
 
 <svelte:head>
-    <title>School Monitoring — CEDIMS</title>
+    <title>School Monitoring: CEDIMS</title>
 </svelte:head>
 
 <div>
@@ -531,6 +540,22 @@
         {/if}
     </div>
 
+    {#if loading}
+        <SkeletonLoader variant="card-grid" count={4} />
+    {:else if loadError}
+        <div
+            class="flex flex-col items-center gap-3 rounded-lg border border-gov-red/30 bg-gov-red/10 px-6 py-10 text-center"
+            role="alert"
+        >
+            <p class="text-sm font-medium text-gov-red">{loadError}</p>
+            <button
+                onclick={() => { loading = true; loadSchoolData().finally(() => { loading = false; }); }}
+                class="px-4 py-2 bg-gov-blue text-white text-sm font-bold rounded-xl hover:bg-gov-blue-dark transition-colors"
+            >
+                Try Again
+            </button>
+        </div>
+    {:else}
         <!-- KPI Cards -->
         <!-- KPI Row -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -678,7 +703,7 @@
                         type="button"
                         onclick={() => (sortDir = sortDir === "asc" ? "desc" : "asc")}
                         class="p-2.5 rounded-xl bg-surface-white/60 border border-border-subtle text-text-muted hover:text-gov-blue hover:border-gov-blue/30 transition-colors flex-shrink-0"
-                        title={sortDir === "asc" ? "Ascending — click to reverse" : "Descending — click to reverse"}
+                        title={sortDir === "asc" ? "Ascending, click to reverse" : "Descending, click to reverse"}
                         aria-label="Toggle sort direction"
                     >
                         <ArrowUpDown size={16} class={sortDir === "asc" ? "" : "scale-y-[-1]"} />
@@ -746,6 +771,7 @@
                 {/if}
             </div>
         {/if}
+    {/if}
 </div>
 
 <!-- Drill-Down Modal -->
@@ -761,7 +787,7 @@
 >
     {#if selectedTeacher}
         {@const stats = calculateCompliance(selectedSubmissions)}
-        <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             <div class="text-center p-3 rounded-xl bg-gov-green/10">
                 <p class="text-lg font-bold text-gov-green">
                     {stats.Compliant}

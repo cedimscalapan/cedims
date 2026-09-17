@@ -52,7 +52,7 @@ export function detectPatterns(
             school_name: teacher.schools?.name || 'Unknown School'
         };
 
-        // ── Pattern 1: Consecutive Late/Missing (Original) ──
+        // Consecutive late/missing weeks
         let consecutiveCount = 0;
         const failedWeeks: number[] = [];
 
@@ -83,7 +83,7 @@ export function detectPatterns(
             });
         }
 
-        // ── Pattern 2: High Non-Compliance Rate ──
+        // High non-compliance rate
         if (userSubs.length >= 5) {
             const nonCompliantCount = userSubs.filter(s => {
                 const status = normalizeComplianceStatus(s.compliance_status);
@@ -103,7 +103,7 @@ export function detectPatterns(
             }
         }
 
-        // ── Pattern 4: Bulk Submission Detection ──
+        // Bulk submission detection
         if (userSubs.length >= 3) {
             const sorted = [...userSubs]
                 .filter(s => s.created_at)

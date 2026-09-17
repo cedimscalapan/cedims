@@ -32,6 +32,7 @@
     import type { ReportOptions } from "$lib/utils/excelExport";
     import { cacheMetadata, getCachedMetadata } from "$lib/utils/offline";
     import EmptyState from "$lib/components/EmptyState.svelte";
+    import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import { focusTrap } from "$lib/actions/focusTrap";
 
     // â"€â"€ Types â"€â"€
@@ -954,11 +955,11 @@
         </div>
 
         <!-- Status Filter -->
-        <div class="flex items-center gap-1 bg-surface-muted border border-border-subtle rounded-xl p-1">
+        <div class="flex items-center gap-2 bg-surface-muted border border-border-subtle rounded-xl p-1">
             {#each ["all", "for-checking", "checked"] as opt}
                 <button
                     onclick={() => (statusFilter = opt as typeof statusFilter)}
-                    class="px-3 py-1.5 text-xs font-bold rounded-lg transition-colors {statusFilter === opt ? 'bg-gov-blue text-white shadow-sm' : 'text-text-muted hover:text-text-primary'}"
+                    class="min-h-[44px] px-3 flex items-center justify-center text-xs font-bold rounded-lg transition-colors {statusFilter === opt ? 'bg-gov-blue text-white shadow-sm' : 'text-text-muted hover:text-text-primary'}"
                 >
                     {opt === "all" ? "All" : opt === "for-checking" ? "For Checking" : "Checked"}
                 </button>
@@ -980,7 +981,7 @@
                 type="button"
                 onclick={() => (sortDir = sortDir === "asc" ? "desc" : "asc")}
                 class="p-2.5 rounded-xl bg-surface-muted border border-border-subtle text-text-muted hover:text-gov-blue hover:border-gov-blue/30 transition-colors"
-                title={sortDir === "asc" ? "Ascending — click to reverse" : "Descending — click to reverse"}
+                title={sortDir === "asc" ? "Ascending, click to reverse" : "Descending, click to reverse"}
                 aria-label="Toggle sort direction"
             >
                 <ArrowUpDown size={16} class={sortDir === "asc" ? "" : "scale-y-[-1]"} />
@@ -1011,7 +1012,9 @@
     </div>
 
     <!-- Content -->
-    {#if loadError}
+    {#if loading}
+        <SkeletonLoader variant="card-grid" />
+    {:else if loadError}
         <div class="gov-card-static p-6 text-center">
             <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
                 <svg class="w-8 h-8 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1145,13 +1148,13 @@
                         </div>
 
                         <!-- Action Buttons -->
-                        <div class="flex items-center gap-1">
+                        <div class="flex items-center gap-2">
                             <button
                                 onclick={(e) => {
                                     e.stopPropagation();
                                     handleView(sub);
                                 }}
-                                class="p-2 text-text-muted hover:text-gov-blue hover:bg-gov-blue/10 rounded-lg transition-colors"
+                                class="min-w-[44px] min-h-[44px] flex items-center justify-center text-text-muted hover:text-gov-blue hover:bg-gov-blue/10 rounded-lg transition-colors"
                                 title="View Information"
                             >
                                 <Eye size={16} />
@@ -1162,7 +1165,7 @@
                                         e.stopPropagation();
                                         openRemarkModal(sub);
                                     }}
-                                    class="p-2 text-text-muted hover:text-gov-gold-dark hover:bg-gov-gold/10 rounded-lg transition-colors"
+                                    class="min-w-[44px] min-h-[44px] flex items-center justify-center text-text-muted hover:text-gov-gold-dark hover:bg-gov-gold/10 rounded-lg transition-colors"
                                     title="Add Remarks"
                                 >
                                     <MessageSquare size={16} />
@@ -1173,7 +1176,7 @@
                                     e.stopPropagation();
                                     handleDownload(sub);
                                 }}
-                                class="p-2 text-text-muted hover:text-gov-blue hover:bg-gov-blue/10 rounded-lg transition-colors"
+                                class="min-w-[44px] min-h-[44px] flex items-center justify-center text-text-muted hover:text-gov-blue hover:bg-gov-blue/10 rounded-lg transition-colors"
                                 title="Download File"
                             >
                                 <Download size={16} />
@@ -1183,7 +1186,7 @@
                                     e.stopPropagation();
                                     handleShare(sub);
                                 }}
-                                class="p-2 text-text-muted hover:text-gov-gold-dark hover:bg-gov-gold/10 rounded-lg transition-colors"
+                                class="min-w-[44px] min-h-[44px] flex items-center justify-center text-text-muted hover:text-gov-gold-dark hover:bg-gov-gold/10 rounded-lg transition-colors"
                                 title="Share Verification Link"
                             >
                                 <Share2 size={16} />

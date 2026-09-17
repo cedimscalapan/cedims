@@ -45,7 +45,7 @@
         <h2 class="text-lg font-bold text-text-primary">{title}</h2>
         <button
           onclick={onClose}
-          class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-surface-muted transition-colors text-xl text-text-muted"
+          class="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-surface-muted transition-colors text-xl text-text-muted"
           aria-label="Close"
         >
           Close

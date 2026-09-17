@@ -33,8 +33,6 @@ interface CoreResult {
     rawText: string;
 }
 
-// ─── Worker Helper ───────────────────────────────────────────────────────────
-
 function runWorkerTask(worker: Worker, type: string, payload: any, transfer: Transferable[] = []): Promise<any> {
     return new Promise((resolve, reject) => {
         const id = Math.random().toString(36).substring(7);
@@ -49,8 +47,6 @@ function runWorkerTask(worker: Worker, type: string, payload: any, transfer: Tra
         worker.postMessage({ type, payload, id }, transfer);
     });
 }
-
-// ─── Timeout Helper ──────────────────────────────────────────────────────────
 
 export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
     let timeoutId: any;
@@ -160,35 +156,20 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
         .join('');
 }
 
-// ─── Core Pipeline ───────────────────────────────────────────────────────────
-
 async function* runPipelineCore(
     file: File,
     options: PipelineOptions,
     worker: Worker
 ): AsyncGenerator<PipelineEvent & { _core?: CoreResult }> {
 
-    // Identity of a document is the bytes the teacher actually picked, hashed
-    // before anything touches them.
-    //
-    // This used to be taken from the worker, which hashed whatever it was
-    // handed — by then already transcoded and conditionally compressed — so
-    // "the same document" produced a different hash on every upload and no
-    // duplicate check could ever fire:
-    //   .docx  -> converted through Google Apps Script, which stamps fresh
-    //             PDF creation/modification dates into every conversion
-    //   .jpg/.png -> wrapped by PDFDocument.create(), which sets those dates
-    //             to now
-    //   .pdf   -> passed through compressFile() or not, depending on
-    //             connection speed and size, so even one file hashed two
-    //             different ways on two different uploads
-    //
-    // The upload page's own pre-check already hashed the original file, so
-    // the value it tested was never the value that got stored either.
+    // Hash the bytes the teacher actually picked, before transcode/compress touch them —
+    // those steps stamp new PDF dates or re-encode content on every run, so hashing
+    // post-transform meant the same document got a different hash on every upload and
+    // duplicate detection never fired.
     const originalBytes = new Uint8Array(await file.arrayBuffer());
     const fileHash = await sha256Hex(originalBytes);
 
-    // 1. Transcode (Word to PDF)
+    // Transcode (Word to PDF)
     yield { phase: 'transcoding', progress: 10, message: 'Converting to PDF...' };
     // Reuse bytes from an earlier conversion of this exact file (e.g. the
     // upload page's pre-check OCR step) when available, rather than sending
@@ -197,8 +178,8 @@ async function* runPipelineCore(
         ? originalBytes
         : options.preConvertedPdfBytes ?? (await transcodeToPdf(file)).pdfBytes;
 
-    // 2. Mobile Optimization: Detect "Low-Power" or "Slow-Connection" state
-    // Skip heavy compression if the file is already small to save CPU/Battery on mobile
+    // Detect a low-power/slow-connection state and skip heavy compression if the
+    // file is already small, to save CPU/battery on mobile.
     // effectiveType is one of 'slow-2g' | '2g' | '3g' | '4g'. Matching only
     // '2g' missed 'slow-2g' entirely — the very slowest class, i.e. exactly
     // the connection this branch exists to protect — and also treated a
@@ -219,7 +200,7 @@ async function* runPipelineCore(
         pdfBytes = await compressFile(pdfBytes);
     }
 
-    // 2.5. Analyzing (OCR) - Use converted PDF bytes for OCR, not the original file
+    // Analyzing (OCR): uses the converted PDF bytes, not the original file.
     yield { phase: 'analyzing', progress: 30, message: 'Reading your document...' };
     const { extractMetadata } = await import('./ocr');
     const pdfBlob = new Blob([pdfBytes as BlobPart]);
@@ -227,7 +208,7 @@ async function* runPipelineCore(
     const hasPreDetected = options.preDetectedMetadata?.docType && options.preDetectedMetadata?.docType !== 'Unknown' && options.preDetectedMetadata?.rawText;
     const detectedMetadata = hasPreDetected ? options.preDetectedMetadata : await extractMetadata(ocrFile);
 
-    // 3. Compress & Hash
+    // Compress & hash
     yield { phase: 'compressing', progress: 50, message: 'Securing your file...' };
     // Only the compressed bytes are taken from here. The worker also returns a
     // hash of what it was given, but that is post-processing bytes — the very
@@ -240,7 +221,7 @@ async function* runPipelineCore(
         [pdfBytes.buffer]
     );
 
-    // 4. Stamping
+    // Stamping
     yield { phase: 'stamping', progress: 70, message: 'Adding verification code...' };
     const { generateQrPng } = await import('./qr-stamp');
     const qrBytes = await generateQrPng(fileHash);
@@ -274,8 +255,6 @@ async function* runPipelineCore(
             }
     };
 }
-
-// ─── Resilient Sub-Pipelines ─────────────────────────────────────────────────
 
 async function* runOnlinePipelineResilient(
     core: CoreResult,
@@ -389,7 +368,6 @@ async function* runOnlinePipelineResilient(
         console.warn('[pipeline] Duplicate pre-check unavailable, continuing:', err?.message);
     }
 
-    // ─── Server-Side Upload (CORS-Safe) with B2 Presigned Fallback ───
     yield { phase: 'uploading', progress: 40, message: 'Uploading...' };
     const session = await supabase.auth.getSession();
     const token = session.data.session?.access_token;
@@ -505,7 +483,6 @@ async function* runOnlinePipelineResilient(
         throw new Error('Upload could not be completed. Please check your connection and try again.');
     }
 
-    // DB Record
     yield { phase: 'uploading', progress: 80, message: 'Finishing up...' };
 
     // Detect whether this is an ADDITIONAL DLL for an already-covered slot
@@ -700,8 +677,6 @@ async function* runOfflinePipelineResilient(
         result: { fileHash, filePath, fileSize: stampedBytes.byteLength, fileName }
     };
 }
-
-// ─── Main Entry Point ────────────────────────────────────────────────────────
 
 export async function* runPipeline(
     file: File,

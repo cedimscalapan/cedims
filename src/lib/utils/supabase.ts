@@ -105,7 +105,6 @@ export function getRows<T>(data: any): T[] {
     return (data as T[]) || [];
 }
 
-/** Typed single-row helper */
 export function getRow<T>(data: any): T | null {
     return (data as T) || null;
 }

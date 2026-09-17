@@ -18,7 +18,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22+, not 20: @supabase/supabase-js constructs a RealtimeClient at
+          # import time, which needs a native global WebSocket. Node 20 has
+          # none, so SvelteKit's postbuild analyse step crashed on every run.
+          node-version: 22
           cache: npm
 
       - name: Install dependencies

@@ -23,18 +23,26 @@
     return cells.find((c) => c.row === row && c.week === week);
   }
 
-  function getCellBg(rate: number): string {
-    if (rate >= 100) return "bg-gov-green/70";
-    if (rate >= 50) return "bg-gov-gold/60";
-    if (rate > 0) return "bg-gov-red/50";
-    return "bg-surface-muted";
+  // Takes the cell itself, not a bare rate number: a missing cell (no
+  // submission window existed yet) and a real 0%-compliance cell both used
+  // to collapse into the same "rate || 0" branch below, so a genuinely
+  // empty week and a fully-missed one looked identical. They now get
+  // distinct fills, and the solid -dark backgrounds (vs. the previous
+  // white/gray-text-on-tint pairing) clear 4.5:1 at this cell's ~10px size.
+  function getCellBg(cell: HeatmapCell | undefined): string {
+    if (!cell) return "bg-surface-muted border border-dashed border-text-muted";
+    if (cell.rate >= 100) return "bg-gov-green-dark";
+    if (cell.rate >= 50) return "bg-gov-gold-dark";
+    return "bg-gov-red-dark";
   }
 
-  function getCellText(rate: number): string {
-    if (rate >= 100) return "text-white";
-    if (rate >= 50) return "text-text-secondary";
-    if (rate > 0) return "text-white";
-    return "text-text-muted";
+  function getCellText(cell: HeatmapCell | undefined): string {
+    if (!cell) return "text-text-secondary";
+    return "text-white";
+  }
+
+  function getCellLabel(cell: HeatmapCell | undefined): string {
+    return cell ? `${cell.rate}%` : "—";
   }
 </script>
 
@@ -70,14 +78,12 @@
             <td class="p-0.5 text-center">
               <button
                 class="w-full h-full py-2 px-1 rounded-sm transition-colors hover:brightness-95 {getCellBg(
-                  cell?.rate || 0,
-                )} {getCellText(
-                  cell?.rate || 0,
-                )} text-[10px] font-bold cursor-pointer"
-                title={cell?.tooltip || `${row} â€” ${w.label}: No data`}
+                  cell,
+                )} {getCellText(cell)} text-[10px] font-bold cursor-pointer"
+                title={cell?.tooltip || `${row} — ${w.label}: No data recorded`}
                 onclick={() => onCellClick?.(row, w.week)}
               >
-                {cell ? `${cell.rate}%` : "0%"}
+                {getCellLabel(cell)}
               </button>
             </td>
           {/each}
@@ -98,15 +104,15 @@
   class="flex items-center gap-6 mt-4 px-3 text-[10px] font-bold text-text-muted uppercase tracking-wider"
 >
   <span class="flex items-center gap-2">
-    <span class="w-2.5 h-2.5 rounded-sm bg-gov-green/70"></span> 100%
+    <span class="w-2.5 h-2.5 rounded-sm bg-gov-green-dark"></span> 100%
   </span>
   <span class="flex items-center gap-2">
-    <span class="w-2.5 h-2.5 rounded-sm bg-gov-gold/60"></span> 50-99%
+    <span class="w-2.5 h-2.5 rounded-sm bg-gov-gold-dark"></span> 50-99%
   </span>
   <span class="flex items-center gap-2">
-    <span class="w-2.5 h-2.5 rounded-sm bg-gov-red/50"></span> &lt;50%
+    <span class="w-2.5 h-2.5 rounded-sm bg-gov-red-dark"></span> &lt;50% (incl. 0%)
   </span>
   <span class="flex items-center gap-2">
-    <span class="w-2.5 h-2.5 rounded-sm bg-surface-muted"></span> No data
+    <span class="w-2.5 h-2.5 rounded-sm bg-surface-muted border border-dashed border-text-muted"></span> No data recorded
   </span>
 </div>

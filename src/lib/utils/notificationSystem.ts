@@ -58,7 +58,6 @@ export async function alertComplianceRisk(
     riskLevel: 'high' | 'medium',
     details: string
 ) {
-    // 1. Find the target supervisor or school head
     const role = districtId ? 'District Supervisor' : 'School Head';
 
     let query = supabase.from('profiles').select('id').eq('role', role);
@@ -67,7 +66,6 @@ export async function alertComplianceRisk(
     const { data: targets } = await query;
 
     if (targets && targets.length > 0) {
-        // 2. Notify all relevant supervisors
         await Promise.all(targets.map(target =>
             createNotification(
                 target.id,

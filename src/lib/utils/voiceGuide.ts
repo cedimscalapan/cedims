@@ -29,9 +29,6 @@ export function speak(text: string, force = false) {
     window.speechSynthesis.speak(utterance);
 }
 
-/**
- * Toggle the voice guidance system.
- */
 export function toggleVoiceGuidance(): boolean {
     if (typeof localStorage === 'undefined') return false;
 
@@ -48,16 +45,13 @@ export function toggleVoiceGuidance(): boolean {
     return newState;
 }
 
-/**
- * Check if voice guidance is active.
- */
 export function isVoiceEnabled(): boolean {
     if (typeof localStorage === 'undefined') return false;
     return localStorage.getItem('voice_guidance') === 'true';
 }
 
 /**
- * Convenience helper for common system events.
+ * Canned phrases spoken at upload start/complete/verify/error/login.
  */
 export const VoicePrompts = {
     UPLOAD_START: "Uploading document. Please wait while we process and verify.",

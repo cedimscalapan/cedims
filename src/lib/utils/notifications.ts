@@ -17,17 +17,17 @@ export async function subscribeToPush() {
     try {
         const registration = await navigator.serviceWorker.ready;
 
-        // 1. Request User Permission
+        // Request user permission
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
             console.warn('Notification permission denied');
             return false;
         }
 
-        // 2. Resolve VAPID public key (admin-configurable; falls back to local-only)
+        // Resolve VAPID public key (admin-configurable; falls back to local-only)
         const VAPID_PUBLIC_KEY = await getVapidPublicKey();
 
-        // 3. Subscribe to Push Manager (best effort)
+        // Subscribe to Push Manager (best effort)
         let pushAvailable = false;
         try {
             let subscription = await registration.pushManager.getSubscription();
@@ -44,7 +44,7 @@ export async function subscribeToPush() {
             }
 
             if (subscription) {
-                // 4. Store subscription in Supabase Profile
+                // Store subscription in Supabase Profile
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
                     await supabase.from('profiles').update({
@@ -61,7 +61,7 @@ export async function subscribeToPush() {
             );
         }
 
-        // 5. Confirm with a local notification (works even without server push)
+        // Confirm with a local notification (works even without server push)
         await sendLocalNotification(
             'CEDIMS',
             pushAvailable
@@ -96,9 +96,6 @@ async function getVapidPublicKey(): Promise<string | null> {
     return null;
 }
 
-/**
- * Unsubscribe from Push Notifications.
- */
 export async function unsubscribeFromPush() {
     if (!('serviceWorker' in navigator)) return false;
 
@@ -124,9 +121,6 @@ export async function unsubscribeFromPush() {
     }
 }
 
-/**
- * Send a test push notification.
- */
 export async function sendTestNotification() {
     return sendLocalNotification(
         'Test Alert',
@@ -141,7 +135,6 @@ export async function sendTestNotification() {
 export async function sendLocalNotification(title: string, body: string) {
     if (!('Notification' in window)) return;
 
-    // Request permission if not already granted
     if (Notification.permission === 'default') {
         await Notification.requestPermission();
     }

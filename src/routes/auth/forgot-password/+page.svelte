@@ -37,7 +37,7 @@
 </script>
 
 <svelte:head>
-    <title>Forgot Password — CEDIMS</title>
+    <title>Forgot Password: CEDIMS</title>
 </svelte:head>
 
 <div class="min-h-dvh bg-gradient-to-br from-gov-blue/5 via-surface-white to-surface-muted px-4 py-8 sm:px-6 sm:py-12 lg:px-8 flex items-center justify-center">
@@ -90,7 +90,7 @@
 
                     <!-- Error Message -->
                     {#if errorMsg}
-                        <div class="rounded-lg border border-gov-red/30 bg-gov-red/10 p-3 sm:p-4 text-sm font-semibold text-gov-red">
+                        <div class="rounded-lg border border-gov-red/30 bg-gov-red/10 p-3 sm:p-4 text-sm font-semibold text-gov-red-dark">
                             {errorMsg}
                         </div>
                     {/if}

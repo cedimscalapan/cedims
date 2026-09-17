@@ -87,7 +87,7 @@
                         y1={padding.top}
                         x2={x}
                         y2={height - padding.bottom}
-                        stroke="#e5e7eb"
+                        stroke="var(--color-border-subtle)"
                         stroke-dasharray="4"
                         stroke-width="1"
                     />
@@ -96,7 +96,7 @@
                         y={height - 5}
                         text-anchor="middle"
                         font-size="11"
-                        fill="#6b7280"
+                        fill="var(--color-text-secondary)"
                     >
                         {rate}%
                     </text>
@@ -111,7 +111,7 @@
                         y1={y}
                         x2={width - padding.right}
                         y2={y}
-                        stroke="#e5e7eb"
+                        stroke="var(--color-border-subtle)"
                         stroke-dasharray="4"
                         stroke-width="1"
                     />
@@ -120,7 +120,7 @@
                         y={y + 4}
                         text-anchor="end"
                         font-size="11"
-                        fill="#6b7280"
+                        fill="var(--color-text-secondary)"
                     >
                         {freq}
                     </text>
@@ -132,7 +132,7 @@
                     y1={height - padding.bottom}
                     x2={width - padding.right}
                     y2={height - padding.bottom}
-                    stroke="#d1d5db"
+                    stroke="var(--color-border-strong)"
                     stroke-width="2"
                 />
                 <line
@@ -140,7 +140,7 @@
                     y1={padding.top}
                     x2={padding.left}
                     y2={height - padding.bottom}
-                    stroke="#d1d5db"
+                    stroke="var(--color-border-strong)"
                     stroke-width="2"
                 />
 
@@ -150,7 +150,7 @@
                     y={height - 10}
                     text-anchor="middle"
                     font-size="12"
-                    fill="#6b7280"
+                    fill="var(--color-text-secondary)"
                     font-weight="bold"
                 >
                     Compliance Rate (%)
@@ -161,7 +161,7 @@
                     y={height / 2}
                     text-anchor="middle"
                     font-size="12"
-                    fill="#6b7280"
+                    fill="var(--color-text-secondary)"
                     font-weight="bold"
                     transform={`rotate(-90 20 ${height / 2})`}
                 >
@@ -174,8 +174,13 @@
                     {@const y = padding.top + yScale(point.submission_frequency)}
                     {@const color = riskColors[point.risk_level || 'low']}
 
-                    <!-- Tooltip on hover -->
-                    <g class="group cursor-pointer">
+                    <!-- Tooltip on hover, and on keyboard focus for non-mouse users -->
+                    <g
+                        class="group cursor-pointer"
+                        tabindex="0"
+                        role="button"
+                        aria-label={`${point.name}: ${point.compliance_rate}% compliance rate`}
+                    >
                         <circle
                             cx={x}
                             cy={y}
@@ -190,15 +195,15 @@
                         <!-- Invisible larger circle for easier hover -->
                         <circle cx={x} cy={y} r="10" fill="transparent" class="hover:fill-[{color}]/10" />
 
-                        <!-- Label on hover -->
+                        <!-- Label on hover, or on keyboard focus (matches hover reveal) -->
                         <text
                             x={x}
                             y={y - 15}
                             text-anchor="middle"
                             font-size="11"
-                            fill="#1f2937"
+                            fill="var(--color-text-primary)"
                             font-weight="bold"
-                            class="opacity-0 group-hover:opacity-100 transition-opacity"
+                            class="opacity-0 group-hover:opacity-100 group-focus:opacity-100 group-focus-visible:opacity-100 transition-opacity"
                         >
                             {point.compliance_rate}%
                         </text>
@@ -206,10 +211,10 @@
                 {/each}
 
                 <!-- Quadrant labels -->
-                <text x={width - 50} y={padding.top + 20} font-size="10" fill="#9ca3af" text-anchor="end" font-weight="bold">
+                <text x={width - 50} y={padding.top + 20} font-size="10" fill="var(--color-text-muted)" text-anchor="end" font-weight="bold">
                     High Performers
                 </text>
-                <text x={padding.left + 20} y={padding.top + 20} font-size="10" fill="#9ca3af" font-weight="bold">
+                <text x={padding.left + 20} y={padding.top + 20} font-size="10" fill="var(--color-text-muted)" font-weight="bold">
                     At Risk
                 </text>
             </svg>

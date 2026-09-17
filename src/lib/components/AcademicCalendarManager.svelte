@@ -413,7 +413,7 @@
                             <button
                                 type="button"
                                 onclick={() => { term = t.value; termOpen = false; }}
-                                class="w-full text-left px-4 py-3 text-sm hover:bg-gov-blue/5 transition-colors {term === t.value ? 'bg-gov-blue/10 font-bold text-gov-blue-dark dark:text-gov-blue-light' : 'text-text-primary'}"
+                                class="w-full text-left px-4 py-3 text-sm hover:bg-gov-blue/5 transition-colors {term === t.value ? 'bg-gov-blue/10 font-bold text-gov-blue-dark dark:text-[#5a8fde]' : 'text-text-primary'}"
                                 role="option"
                                 aria-selected={term === t.value}
                             >
@@ -448,7 +448,7 @@
                                 <div class="flex items-center gap-1.5 mt-1">
                                     {#if d.is_active}
                                         <div
-                                            class="flex items-center gap-1 text-[10px] font-semibold uppercase text-gov-green"
+                                            class="flex items-center gap-1 text-[10px] font-semibold uppercase text-gov-green-dark dark:text-[#4ade80]"
                                         >
                                             <CheckCircle2 size={10} />
                                             Open
@@ -473,7 +473,7 @@
                                         class="px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors shadow-sm flex items-center gap-1.5 {d.is_active
                                             ? 'bg-gov-green/10 text-[#166534] dark:text-[#4ade80] hover:bg-gov-green hover:text-white'
                                             : 'bg-surface-muted text-text-muted border border-border-subtle hover:bg-gov-gold/10 hover:text-gov-gold-dark'}"
-                                        title="Week {d.week_number} is {d.is_active ? 'open' : 'scheduled'} — click to {d.is_active ? 'close (hide from teachers)' : 'open this week to teachers'}"
+                                        title="Week {d.week_number} is {d.is_active ? 'open' : 'scheduled'}. Click to {d.is_active ? 'close (hide from teachers)' : 'open this week to teachers'}"
                                     >
                                         {d.is_active ? "Open" : "Scheduled"}
                                     </button>
@@ -565,7 +565,7 @@
                             </h4>
                             <p class="text-sm text-text-secondary leading-relaxed">
                                 Each week is saved individually by clicking the <span
-                                    class="inline-flex items-center justify-center px-2 py-0.5 rounded bg-gov-blue/10 text-gov-blue font-bold text-[10px] uppercase"
+                                    class="inline-flex items-center justify-center px-2 py-0.5 rounded bg-gov-blue/10 text-gov-blue-dark dark:text-[#5a8fde] font-bold text-[10px] uppercase"
                                     >Save</span
                                 >
                                 icon. Deadlines are set to
@@ -597,7 +597,7 @@
             >
                 <div class="flex items-start gap-4">
                     <div
-                        class="p-2.5 rounded-xl bg-gov-green/10 text-gov-green"
+                        class="p-2.5 rounded-xl bg-gov-green/10 text-gov-green-dark dark:text-[#4ade80]"
                     >
                         <CalendarDays size={24} />
                     </div>

@@ -102,7 +102,7 @@
         </nav>
 
         <!-- Right: Actions & Profile -->
-        <div class="ml-auto flex flex-shrink-0 items-center gap-1 sm:gap-2">
+        <div class="ml-auto flex flex-shrink-0 items-center gap-2 sm:gap-3">
             <!-- Global Connectivity / Pending Sync Indicator — visible at every
                  width (was hidden entirely below the xs breakpoint, exactly
                  where a flaky connection is most likely). Text label
@@ -150,7 +150,7 @@
             <button
                 data-tour="theme-toggle"
                 onclick={() => theme.toggle()}
-                class="flex h-10 w-10 items-center justify-center rounded-lg text-text-muted hover:text-gov-blue hover:bg-gov-blue/10 transition-colors duration-200"
+                class="flex h-11 w-11 items-center justify-center rounded-lg text-text-muted hover:text-gov-blue hover:bg-gov-blue/10 transition-colors duration-200"
                 aria-label={$theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
                 {#if $theme === 'dark'}

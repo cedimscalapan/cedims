@@ -228,7 +228,7 @@
                             {cell.isSelected
                                 ? 'bg-gov-blue text-white'
                                 : cell.isToday
-                                  ? 'bg-gov-blue/10 text-gov-blue'
+                                  ? 'bg-gov-blue/10 text-gov-blue-dark dark:text-[#5a8fde]'
                                   : cell.inMonth
                                     ? 'text-text-primary hover:bg-surface-muted'
                                     : 'text-text-muted/40 hover:bg-surface-muted'}

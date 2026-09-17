@@ -12,6 +12,7 @@
   import { fly, fade } from "svelte/transition";
   import { Building2, Search, ArrowUpDown } from "lucide-svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
+  import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
   import { addToast } from "$lib/stores/toast";
   import {
     calculateCompliance,
@@ -62,6 +63,7 @@
   let schools = $state<School[]>([]);
   let allSubmissions = $state<Submission[]>([]);
   let loading = $state(true);
+  let loadError = $state<string | null>(null);
   let districtLogoUrl = $state<string | null>(null);
   let currentDefinedWeeks = $state(1);
   let kpi = $state<KPI>({
@@ -129,6 +131,8 @@
       return;
     }
 
+    loadError = null;
+    try {
     // Fetch District Logo
     const { data: distData } = await supabase.from('districts').select('avatar_url').eq('id', userProfile.district_id).single();
     if (distData) districtLogoUrl = distData.avatar_url;
@@ -291,6 +295,11 @@
     } catch (e) {
       console.warn("[district-monitor] Failed to cache snapshot:", e);
     }
+    } catch (err) {
+      console.error("[district-monitor] Failed to load monitoring data:", err);
+      loadError = "Failed to load district monitoring data. Please try again.";
+      addToast("error", loadError);
+    }
   }
 
   function applyDistrictSnapshot(s: any) {
@@ -428,6 +437,22 @@
     {/if}
   </div>
 
+  {#if loading}
+    <SkeletonLoader variant="card-grid" count={4} />
+  {:else if loadError}
+    <div
+      class="flex flex-col items-center gap-3 rounded-lg border border-gov-red/30 bg-gov-red/10 px-6 py-10 text-center"
+      role="alert"
+    >
+      <p class="text-sm font-medium text-gov-red">{loadError}</p>
+      <button
+        onclick={() => { loading = true; loadDistrictData().finally(() => { loading = false; }); }}
+        class="px-4 py-2 bg-gov-blue text-white text-sm font-bold rounded-xl hover:bg-gov-blue-dark transition-colors"
+      >
+        Try Again
+      </button>
+    </div>
+  {:else}
     <!-- KPI Cards -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
       <div in:fly={{ y: 20, duration: 400 }}>
@@ -562,7 +587,7 @@
             type="button"
             onclick={() => (sortDir = sortDir === "asc" ? "desc" : "asc")}
             class="p-2 rounded-md bg-surface-white border border-border-subtle text-text-muted hover:text-gov-blue hover:border-gov-blue/30 transition-colors flex-shrink-0"
-            title={sortDir === "asc" ? "Ascending — click to reverse" : "Descending — click to reverse"}
+            title={sortDir === "asc" ? "Ascending, click to reverse" : "Descending, click to reverse"}
             aria-label="Toggle sort direction"
           >
             <ArrowUpDown size={16} class={sortDir === "asc" ? "" : "scale-y-[-1]"} />
@@ -599,6 +624,7 @@
         {/if}
       </div>
     </div>
+  {/if}
 </div>
 
 <!-- School Drill-Down Modal -->
@@ -611,7 +637,7 @@
 >
   {#if selectedSchool}
     <div class="space-y-4">
-      <div class="grid grid-cols-3 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="bg-gov-blue/5 p-3 rounded-lg text-center">
           <p class="text-xs text-text-muted mb-1">Expectation</p>
           <p class="text-lg font-bold text-gov-blue">

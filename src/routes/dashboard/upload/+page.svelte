@@ -81,7 +81,6 @@
     // concurrent-execution quota and causing intermittent CORS/redirect
     // failures on the second call.
     let preConvertedPdf: { file: File; bytes: Uint8Array } | null = null;
-    // Online/Offline Mode
     let isOnline = $state(
         typeof navigator !== "undefined" ? navigator.onLine : true,
     );
@@ -89,7 +88,6 @@
     let pendingItems = $state<any[]>([]);
     let showPendingPanel = $state(false);
 
-    // Selection Pickers
     let showLoadPicker = $state(false);
     let showWeekPicker = $state(false);
     let academicWeeks = $state<number[]>([]);
@@ -172,7 +170,7 @@
             }
         }
 
-        // No slot uniqueness check â€” multiple uploads per week are allowed.
+        // No slot uniqueness check: multiple uploads per week are allowed.
         // Only hash deduplication (above) is enforced.
         submissionAlreadyExists = false;
     }
@@ -221,7 +219,7 @@
         if (typeof window === "undefined") return;
         console.log("[upload] Pre-warming heavy libraries...");
 
-        // 1. PDF.js â€” pre-load from CDN so OCR can use it immediately
+        // PDF.js: pre-load from CDN so OCR can use it immediately
         if (!(window as any).pdfjsLib) {
             console.log("[upload] Fetching PDF.js...");
             const script = document.createElement("script");
@@ -234,7 +232,7 @@
             document.head.appendChild(script);
         }
 
-        // 2. Tesseract.js (Dynamic import)
+        // Tesseract.js (dynamic import)
         try {
             const { createWorker } = await import("tesseract.js");
             // Just the import is often enough to trigger Service Worker caching
@@ -257,7 +255,6 @@
         // Delay pre-warming slightly to not block initial page render
         setTimeout(preWarmLibraries, 3000);
 
-        // Track online/offline state
         const onOnline = () => {
             isOnline = true;
             refreshPendingItems();
@@ -316,7 +313,6 @@
         }
     });
 
-    // Reactive data fetching triggered when profile is available
     let dataLoadedForProfile = $state<string | null>(null);
 
     $effect(() => {
@@ -359,7 +355,6 @@
     async function fetchInitialData(userProfile: Profile) {
         loadingTeachingLoads = true;
 
-        // 1. Fetch teaching loads
         let loads: TeachingLoad[] = [];
         if (navigator.onLine) {
             const { data, error } = await supabase
@@ -406,7 +401,6 @@
             }
         }
 
-        // 2. Fetch academic weeks / calendar
         if (userProfile.district_id) {
             let calendarEntries: any[] = [];
 
@@ -601,7 +595,7 @@
             file.size > $settings.max_upload_size_mb * 1024 * 1024;
         preConvertedPdf = null;
 
-        // Start Smart Detection
+        // Runs OCR-based metadata detection: doc type, week number, and teaching load auto-fill
         detectingMetadata = true;
         try {
             const ext = file.name.split('.').pop()?.toLowerCase();
@@ -676,7 +670,7 @@
             detectingMetadata = false;
         }
 
-        // START: Hash Calculation for Early Duplicate Detection
+        // Hash calculation for early duplicate detection.
         try {
             const buffer = await file.arrayBuffer();
             const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
@@ -1538,7 +1532,7 @@
                 </h3>
                 <button
                     onclick={() => (showLoadPicker = false)}
-                    class="p-2 hover:bg-surface-muted rounded-full text-text-muted"
+                    class="p-2.5 hover:bg-surface-muted rounded-full text-text-muted"
                     aria-label="Close"
                 >
                     <svg
@@ -1652,7 +1646,7 @@
                 </h3>
                 <button
                     onclick={() => (showWeekPicker = false)}
-                    class="p-2 hover:bg-surface-muted rounded-full text-text-muted"
+                    class="p-2.5 hover:bg-surface-muted rounded-full text-text-muted"
                     aria-label="Close"
                 >
                     <svg

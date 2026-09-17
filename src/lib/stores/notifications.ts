@@ -27,7 +27,7 @@ function createNotificationStore() {
             if (!id) return;
             userId = id;
 
-            // 1. Load from cache INSTANTLY for offline-ready UI
+            // Load from cache first so the UI has something to show offline.
             const { getCachedMetadata } = await import('$lib/utils/offline');
             const cached = await getCachedMetadata(getCacheKey(userId));
             if (cached?.data) {
@@ -35,7 +35,6 @@ function createNotificationStore() {
                 console.log('[notifications] Loaded from offline cache');
             }
 
-            // 2. Fetch fresh initial notifications from Supabase
             const { data, error } = await supabase
                 .from('notifications')
                 .select('*')
@@ -74,7 +73,7 @@ function createNotificationStore() {
                 update(current => current.length ? current : []);
             }
 
-            // 3. Setup Real-time listener
+            // Then set up the real-time listener for updates after that.
             if (channel) supabase.removeChannel(channel);
 
             channel = supabase
@@ -116,7 +115,7 @@ function createNotificationStore() {
                 .subscribe();
         },
         markAsRead: async (notificationId: string) => {
-            // OPTIMISTIC UPDATE: Update UI immediately even if offline
+            // Optimistic update: reflect the change in the UI immediately even if offline.
             update(n => n.map(item => item.id === notificationId ? { ...item, read: true } : item));
 
             const { error } = await supabase

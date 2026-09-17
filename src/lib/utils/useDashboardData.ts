@@ -231,16 +231,20 @@ export function getComplianceColor(rate: number): string {
   return '#CE1126'; // red
 }
 
+// Text uses the -dark palette variant against its own tint (light mode)
+// plus a dark:-mode override to a lighter shade, matching the fix applied
+// to app.css's .status-* classes and StatusBadge.svelte — same "text on
+// its own tint" pairing, same AA failure, same source class of bug.
 export function getComplianceClass(rate: number): string {
-  if (rate >= 100) return 'text-gov-green';
-  if (rate >= 50) return 'text-gov-gold-dark';
-  return 'text-gov-red';
+  if (rate >= 100) return 'text-gov-green-dark dark:text-[#4ade80]';
+  if (rate >= 50) return 'text-gov-gold-dark dark:text-[#fbbf24]';
+  return 'text-gov-red-dark dark:text-[#f87171]';
 }
 
 export function getComplianceBgClass(rate: number): string {
-  if (rate >= 100) return 'bg-gov-green/15';
-  if (rate >= 50) return 'bg-gov-gold/15';
-  return 'bg-gov-red/15';
+  if (rate >= 100) return 'bg-gov-green/8';
+  if (rate >= 50) return 'bg-gov-gold/8';
+  return 'bg-gov-red/10';
 }
 
 export function getTrendDirection(current: number, previous: number): 'up' | 'down' | 'stable' {
@@ -352,7 +356,7 @@ export async function markNonCompliantSubmissions(
   try {
     console.log('[NC] markNonCompliantSubmissions called with:', { schoolYear, districtId, userId, schoolId });
 
-    // 1. Get all weeks from academic calendar
+    // Weeks from the academic calendar
     let calQuery = supabase
       .from('academic_calendar')
       .select('id, week_number')
@@ -366,7 +370,7 @@ export async function markNonCompliantSubmissions(
     const { data: pastWeeks, error: calError } = await calQuery;
     if (calError || !pastWeeks || pastWeeks.length === 0) return 0;
 
-    // 2. Get teachers in scope
+    // Teachers in scope
     let teacherQuery = supabase
       .from('profiles')
       .select('id, full_name, school_id')
@@ -388,7 +392,7 @@ export async function markNonCompliantSubmissions(
 
     const teacherIds = teachers.map((t: any) => t.id);
 
-    // 3. Get teaching loads
+    // Teaching loads
     const { data: teachingLoads } = await supabase
       .from('teaching_loads')
       .select('id, user_id, subject')
@@ -396,7 +400,7 @@ export async function markNonCompliantSubmissions(
 
     if (!teachingLoads || teachingLoads.length === 0) return 0;
 
-    // 4. Get existing submissions
+    // Existing submissions
     const weekNumbers = pastWeeks.map((w: any) => w.week_number);
     const { data: existingSubs } = await supabase
       .from('submissions')
@@ -405,7 +409,7 @@ export async function markNonCompliantSubmissions(
       .in('week_number', weekNumbers)
       .eq('school_year', schoolYear);
 
-    // 5. Per-Load Rebalancing Logic
+    // Per-load rebalancing logic
     const ncRecords: any[] = [];
     const idsToDelete: string[] = [];
 
@@ -456,7 +460,7 @@ export async function markNonCompliantSubmissions(
       }
     }
 
-    // 6. Execute balanced changes
+    // Execute balanced changes
     if (idsToDelete.length > 0) {
       await supabase.from('submissions').delete().in('id', idsToDelete);
     }

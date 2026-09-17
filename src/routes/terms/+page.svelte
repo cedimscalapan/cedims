@@ -22,7 +22,7 @@
 </script>
 
 <svelte:head>
-    <title>Terms of Use — CEDIMS</title>
+    <title>Terms of Use: CEDIMS</title>
     <meta
         name="description"
         content="Terms of Use for CEDIMS, the Calapan East District Instructional Monitoring System."

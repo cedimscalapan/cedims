@@ -114,7 +114,7 @@
 
                 <!-- Change Button -->
                 <button
-                    class="text-sm font-bold text-gov-blue hover:text-gov-blue-dark transition-colors"
+                    class="text-sm font-bold text-gov-blue hover:text-gov-blue-dark transition-colors px-3 py-3 rounded-lg"
                     onclick={(e) => {
                         e.stopPropagation();
                         selectedFile = null;

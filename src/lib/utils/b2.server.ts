@@ -2,7 +2,6 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '$env/dynamic/private';
 
-// Validate credentials
 if (!env.B2_ENDPOINT || !env.B2_APPLICATION_KEY_ID || !env.B2_APPLICATION_KEY || !env.B2_BUCKET_NAME) {
     console.warn('[b2] Missing Backblaze B2 environment variables. Storage will fail until configured.');
 }
@@ -20,9 +19,6 @@ const b2 = new S3Client({
     },
 });
 
-/**
- * Generate a pre-signed URL for direct browser upload to B2.
- */
 export async function getPresignedUploadUrl(key: string, contentType: string, expiresIn = 3600) {
     const command = new PutObjectCommand({
         Bucket: env.B2_BUCKET_NAME,
@@ -33,9 +29,6 @@ export async function getPresignedUploadUrl(key: string, contentType: string, ex
     return await getSignedUrl(b2, command, { expiresIn });
 }
 
-/**
- * Generate a pre-signed URL for direct browser download from B2.
- */
 export async function getPresignedDownloadUrl(key: string, expiresIn = 3600) {
     const command = new GetObjectCommand({
         Bucket: env.B2_BUCKET_NAME,

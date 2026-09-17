@@ -8,7 +8,6 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 // Use any to avoid TS environment conflicts with DedicatedWorkerGlobalScope
 const ctx = self as any;
 
-// Hash using Web Crypto API in worker
 async function hashPdf(buffer: ArrayBuffer | Uint8Array): Promise<string> {
     const input = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
     const hashBuffer = await self.crypto.subtle.digest('SHA-256', input.buffer as ArrayBuffer);
@@ -21,9 +20,8 @@ async function hashPdf(buffer: ArrayBuffer | Uint8Array): Promise<string> {
     return hashHex;
 }
 
-// Compress using pdf-lib
 async function compressPdf(pdfBytes: Uint8Array): Promise<Uint8Array> {
-    const MAX_SIZE_BYTES = 100 * 1024 * 1024; // 100MB (effective 'no limit')arget
+    const MAX_SIZE_BYTES = 100 * 1024 * 1024; // 100MB (effective 'no limit')
 
     if (pdfBytes.byteLength <= MAX_SIZE_BYTES) {
         return pdfBytes;
@@ -40,7 +38,6 @@ async function compressPdf(pdfBytes: Uint8Array): Promise<Uint8Array> {
     return compressedBytes;
 }
 
-// Embed QR PNG into PDF
 async function stampQrCode(pdfBytes: Uint8Array, qrBytes: Uint8Array, fileHash: string): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfBytes);
     const qrImage = await pdfDoc.embedPng(qrBytes);
@@ -59,8 +56,6 @@ async function stampQrCode(pdfBytes: Uint8Array, qrBytes: Uint8Array, fileHash: 
         height: qrSize
     });
 
-    // Removed the 'Verify' text as requested
-
     return await pdfDoc.save();
 }
 
@@ -71,10 +66,9 @@ self.onmessage = async (e: MessageEvent) => {
         if (type === 'COMPRESS_AND_HASH') {
             const { pdfBytes } = payload;
 
-            // 1. Compress
             const compressedBytes = await compressPdf(pdfBytes);
 
-            // 2. Hash ORIGINAL bytes (prevents compression metadata changes from creating unique hashes for renamed duplicates)
+            // Hash the original bytes, not the compressed output, so compression metadata changes don't create unique hashes for renamed duplicates
             const fileHash = await hashPdf(pdfBytes);
 
             ctx.postMessage({
@@ -84,11 +78,10 @@ self.onmessage = async (e: MessageEvent) => {
                     compressedBytes,
                     fileHash
                 }
-            }, [compressedBytes.buffer]); // TRANSFER BACK
+            }, [compressedBytes.buffer]); // zero-copy transfer
         } else if (type === 'STAMP_QR') {
             const { compressedBytes, qrBytes, fileHash } = payload;
 
-            // 3. Stamp
             const stampedBytes = await stampQrCode(compressedBytes, qrBytes, fileHash);
 
             ctx.postMessage({
@@ -97,7 +90,7 @@ self.onmessage = async (e: MessageEvent) => {
                 payload: {
                     stampedBytes
                 }
-            }, [stampedBytes.buffer]); // TRANSFER BACK
+            }, [stampedBytes.buffer]); // zero-copy transfer
         }
     } catch (error) {
         console.error('[pdf.worker] Error:', error);

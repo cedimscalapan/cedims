@@ -21,6 +21,11 @@
     let activeTab = $state<"scatter" | "radar">("scatter");
     let selectedClusterId = $state<number | null>(null);
     let showDrillDown = $state(false);
+    let expandedMemberId = $state<string | null>(null);
+
+    function toggleMemberDetail(teacherId: string) {
+        expandedMemberId = expandedMemberId === teacherId ? null : teacherId;
+    }
 
     const selectedCluster = $derived(
         selectedClusterId !== null
@@ -434,7 +439,7 @@
                 </div>
                 <button
                     onclick={() => (showDrillDown = false)}
-                    class="p-2 hover:bg-black/5 rounded-full transition-colors"
+                    class="p-2.5 hover:bg-black/5 rounded-full transition-colors"
                     aria-label="Close drill down view"
                 >
                     <svg
@@ -456,62 +461,93 @@
             <div class="max-h-[60vh] overflow-y-auto p-4">
                 <div class="space-y-3">
                     {#each membersInCluster as member}
+                        {@const isExpanded = expandedMemberId === member.teacher.teacherId}
                         <div
-                            class="p-4 rounded-md bg-surface-muted border border-border-subtle flex items-center justify-between group hover:bg-surface-white hover:shadow-md transition-colors"
+                            class="rounded-md bg-surface-muted border border-border-subtle group hover:bg-surface-white hover:shadow-md transition-colors"
                         >
-                            <div>
-                                <p class="text-sm font-bold text-text-primary">
-                                    {member.teacher.teacherName}
-                                </p>
-                                <p
-                                    class="text-[10px] text-text-muted font-medium uppercase tracking-wider"
-                                >
-                                    {member.teacher.schoolName}
-                                </p>
-                            </div>
-                            <div class="flex items-center gap-6">
-                                <div class="text-right">
-                                    <p
-                                        class="text-xs font-semibold text-text-primary"
-                                    >
-                                        {member.teacher.punctuality}%
+                            <div class="p-4 flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-bold text-text-primary">
+                                        {member.teacher.teacherName}
                                     </p>
                                     <p
-                                        class="text-[9px] text-text-muted font-bold uppercase tracking-normal"
+                                        class="text-[10px] text-text-muted font-medium uppercase tracking-wider"
                                     >
-                                        Punctuality
+                                        {member.teacher.schoolName}
                                     </p>
                                 </div>
-                                <div class="text-right">
-                                    <p
-                                        class="text-xs font-semibold text-text-primary"
+                                <div class="flex items-center gap-6">
+                                    <div class="text-right">
+                                        <p
+                                            class="text-xs font-semibold text-text-primary"
+                                        >
+                                            {member.teacher.punctuality}%
+                                        </p>
+                                        <p
+                                            class="text-[9px] text-text-muted font-bold uppercase tracking-normal"
+                                        >
+                                            Punctuality
+                                        </p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p
+                                            class="text-xs font-semibold text-text-primary"
+                                        >
+                                            {member.teacher.completeness}%
+                                        </p>
+                                        <p
+                                            class="text-[9px] text-text-muted font-bold uppercase tracking-normal"
+                                        >
+                                            Completeness
+                                        </p>
+                                    </div>
+                                    <button
+                                        onclick={() => toggleMemberDetail(member.teacher.teacherId)}
+                                        class="p-2 bg-gov-blue/10 text-gov-blue rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
+                                        aria-expanded={isExpanded}
+                                        aria-label={isExpanded
+                                            ? `Hide ${member.teacher.teacherName}'s full breakdown`
+                                            : `Show ${member.teacher.teacherName}'s full breakdown`}
                                     >
-                                        {member.teacher.completeness}%
-                                    </p>
-                                    <p
-                                        class="text-[9px] text-text-muted font-bold uppercase tracking-normal"
-                                    >
-                                        Completeness
-                                    </p>
+                                        <svg
+                                            class="w-4 h-4 transition-transform {isExpanded ? 'rotate-90' : ''}"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M9 5l7 7-7 7"
+                                            />
+                                        </svg>
+                                    </button>
                                 </div>
-                                <button
-                                    class="p-2 bg-gov-blue/10 text-gov-blue rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    <svg
-                                        class="w-4 h-4"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M9 5l7 7-7 7"
-                                        />
-                                    </svg>
-                                </button>
                             </div>
+                            {#if isExpanded}
+                                <div
+                                    class="px-4 pb-4 pt-3 border-t border-border-subtle grid grid-cols-2 gap-3"
+                                    transition:fly={{ y: -8, duration: 200 }}
+                                >
+                                    <div>
+                                        <p class="text-xs font-semibold text-text-primary">
+                                            {member.teacher.consistency}%
+                                        </p>
+                                        <p class="text-[9px] text-text-muted font-bold uppercase tracking-normal">
+                                            Consistency
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-semibold text-text-primary">
+                                            {member.teacher.volume}%
+                                        </p>
+                                        <p class="text-[9px] text-text-muted font-bold uppercase tracking-normal">
+                                            Volume
+                                        </p>
+                                    </div>
+                                </div>
+                            {/if}
                         </div>
                     {/each}
                 </div>
