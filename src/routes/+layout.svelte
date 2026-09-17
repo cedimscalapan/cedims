@@ -1,7 +1,6 @@
 <script lang="ts">
 	import "../app.css";
 	import Toast from "$lib/components/Toast.svelte";
-	import QRScanner from "$lib/components/QRScanner.svelte";
 	import ChatBot from "$lib/components/ChatBot.svelte";
 	import LoadingScreen from "$components/LoadingScreen.svelte";
 	import { showQRScanner } from "$lib/stores/ui";
@@ -16,6 +15,21 @@
 	import { get } from "svelte/store";
 
 	let { children } = $props();
+
+	// Loaded on demand rather than imported at the top of this file: this is
+	// the root layout, so a static import here pulled QRScanner (and its CSS)
+	// into every single page load — login, upload, all of them — even though
+	// the component only ever mounts once the user opens the scanner. That's
+	// exactly the "preloaded but not used" warning browsers logged on pages
+	// that never open it.
+	let QRScannerComponent = $state<typeof import("$lib/components/QRScanner.svelte").default | null>(null);
+	$effect(() => {
+		if ($showQRScanner && !QRScannerComponent) {
+			import("$lib/components/QRScanner.svelte").then((m) => {
+				QRScannerComponent = m.default;
+			});
+		}
+	});
 
 	function handleScan(data: string) {
 		if (data.includes("/verify/")) {
@@ -119,8 +133,8 @@
 
 <Toast />
 
-{#if $showQRScanner}
-	<QRScanner onScan={handleScan} onClose={() => showQRScanner.set(false)} />
+{#if $showQRScanner && QRScannerComponent}
+	<QRScannerComponent onScan={handleScan} onClose={() => showQRScanner.set(false)} />
 {/if}
 
 <ChatBot />

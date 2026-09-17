@@ -185,9 +185,29 @@ self.addEventListener('fetch', (event) => {
             if (event.request.mode === 'navigate') {
                 const appShell = await cache.match('/');
                 if (appShell) return appShell;
+
+                // Nothing cached at all for this route or the app shell
+                // (e.g. a route visited for the first time while offline, or
+                // hit before install-time precaching of '/' finished).
+                // Rethrowing here left event.respondWith()'s promise
+                // rejected, which the browser reports as a hard "network
+                // error response" for the whole navigation plus an
+                // unhandled rejection in the service worker — a constructed
+                // Response is something it can actually render instead.
+                return new Response(
+                    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+                    '<title>Offline</title></head><body style="font-family:sans-serif;' +
+                    'text-align:center;padding:3rem 1rem;"><h1>You\'re offline</h1>' +
+                    '<p>This page hasn\'t been loaded before, so it isn\'t available ' +
+                    'offline yet. Reconnect and try again.</p></body></html>',
+                    { status: 503, headers: { 'Content-Type': 'text/html' } }
+                );
             }
 
-            throw err;
+            // Non-navigation request (script, image, etc.) with nothing
+            // cached — same reasoning: resolve respondWith() with a real
+            // Response instead of leaving its promise rejected.
+            return new Response(null, { status: 503, statusText: 'Offline' });
         }
     }
 
