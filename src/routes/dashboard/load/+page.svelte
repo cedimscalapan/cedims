@@ -25,6 +25,7 @@
     let availableSubjects = $state<string[]>([]);
 
     const gradeLevels = [
+        "Kinder",
         "Grade 1",
         "Grade 2",
         "Grade 3",
@@ -408,4 +409,3 @@
         </div>
     </div>
 {/if}
-

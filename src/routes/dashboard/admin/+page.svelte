@@ -1019,10 +1019,10 @@
         aria-label="Create new user"
     >
         <div
-            class="bg-surface-white rounded-3xl shadow-sm w-full max-w-lg overflow-hidden"
+            class="bg-surface-white rounded-3xl shadow-sm w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
             in:fly={{ y: 30, duration: 300 }}
         >
-            <div class="p-6 border-b border-border-subtle">
+            <div class="p-6 border-b border-border-subtle shrink-0">
                 <h3 class="text-lg font-bold text-text-primary">
                     Create New User
                 </h3>
@@ -1032,7 +1032,7 @@
             </div>
 
             <form
-                class="p-6 space-y-4"
+                class="p-6 space-y-4 overflow-y-auto"
                 onsubmit={(e) => { e.preventDefault(); handleCreateUser(); }}
             >
                 <div>
@@ -1214,7 +1214,7 @@
                 </div>
             </form>
 
-            <div class="p-6 border-t border-border-subtle flex items-center justify-end gap-3">
+            <div class="p-6 border-t border-border-subtle flex items-center justify-end gap-3 shrink-0">
                 <button
                     onclick={() => { showCreateUser = false; }}
                     class="px-5 py-2.5 text-sm font-bold text-text-muted hover:text-text-primary transition-colors min-h-[44px]"

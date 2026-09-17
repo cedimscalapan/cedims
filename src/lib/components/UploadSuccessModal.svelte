@@ -49,7 +49,7 @@
     role="presentation"
 >
     <div
-        class="w-full max-w-md bg-surface-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
+        class="w-full max-w-md max-h-[90vh] bg-surface-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
         onclick={(e) => e.stopPropagation()}
         onkeydown={(e) => { e.stopPropagation(); if (e.key === "Escape") onClose(); }}
         role="dialog"
@@ -59,67 +59,69 @@
         use:focusTrap
         transition:scale={{ start: 0.96, duration: 180 }}
     >
-        <div class="relative px-6 pt-8 pb-6 text-center border-b border-border-subtle">
-            <button
-                onclick={onClose}
-                class="absolute top-4 right-4 p-1.5 rounded-full text-text-muted hover:bg-surface-muted hover:text-text-primary transition-colors"
-                aria-label="Close"
-            >
-                <X size={18} />
-            </button>
+        <div class="flex-1 overflow-y-auto">
+            <div class="relative px-6 pt-8 pb-6 text-center border-b border-border-subtle">
+                <button
+                    onclick={onClose}
+                    class="absolute top-4 right-4 p-1.5 rounded-full text-text-muted hover:bg-surface-muted hover:text-text-primary transition-colors"
+                    aria-label="Close"
+                >
+                    <X size={18} />
+                </button>
 
-            <div class="mx-auto w-16 h-16 rounded-full bg-gov-green/10 flex items-center justify-center mb-4">
-                <CheckCircle2 size={32} class="text-gov-green" strokeWidth={2} />
-            </div>
-            <h2 class="text-xl font-bold text-text-primary">
-                {isOnline ? "Document Archived" : "Saved Offline"}
-            </h2>
-            <p class="text-sm text-text-secondary mt-1">
-                {isOnline
-                    ? "Your document was uploaded and stamped for verification."
-                    : "It will upload automatically once you're back online."}
-            </p>
-        </div>
-
-        <div class="px-6 py-5 space-y-4">
-            <div class="rounded-xl bg-surface-muted p-4 text-sm space-y-2">
-                <div class="flex justify-between gap-3">
-                    <span class="text-text-muted">File</span>
-                    <span class="font-semibold text-text-primary truncate max-w-[60%]" title={result.fileName}>
-                        {result.fileName}
-                    </span>
+                <div class="mx-auto w-16 h-16 rounded-full bg-gov-green/10 flex items-center justify-center mb-4">
+                    <CheckCircle2 size={32} class="text-gov-green" strokeWidth={2} />
                 </div>
-                <div class="flex justify-between gap-3">
-                    <span class="text-text-muted">Type</span>
-                    <span class="font-semibold text-text-primary">
-                        {docType}{weekNumber ? ` · Week ${weekNumber}` : ""}
-                    </span>
-                </div>
-                <div class="flex justify-between gap-3">
-                    <span class="text-text-muted">Size</span>
-                    <span class="font-semibold text-text-primary">{formatSize(result.fileSize)}</span>
-                </div>
-                <div class="pt-2 border-t border-border-subtle">
-                    <span class="text-text-muted block mb-1">SHA-256</span>
-                    <code class="font-mono text-[11px] text-gov-blue break-all">{result.fileHash}</code>
-                </div>
+                <h2 class="text-xl font-bold text-text-primary">
+                    {isOnline ? "Document Archived" : "Saved Offline"}
+                </h2>
+                <p class="text-sm text-text-secondary mt-1">
+                    {isOnline
+                        ? "Your document was uploaded and stamped for verification."
+                        : "It will upload automatically once you're back online."}
+                </p>
             </div>
 
-            {#if isOnline}
-                <div class="flex flex-col items-center gap-2 py-2">
-                    {#if qrDataUrl}
-                        <img src={qrDataUrl} alt="Verification QR code" class="w-32 h-32 rounded-lg border border-border-subtle" />
-                    {:else}
-                        <div class="w-32 h-32 rounded-lg border border-border-subtle bg-surface-muted animate-pulse"></div>
-                    {/if}
-                    <p class="text-[11px] text-text-muted text-center max-w-xs">
-                        Scan to verify this document's authenticity at any time.
-                    </p>
+            <div class="px-6 py-5 space-y-4">
+                <div class="rounded-xl bg-surface-muted p-4 text-sm space-y-2">
+                    <div class="flex justify-between gap-3">
+                        <span class="text-text-muted">File</span>
+                        <span class="font-semibold text-text-primary truncate max-w-[60%]" title={result.fileName}>
+                            {result.fileName}
+                        </span>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <span class="text-text-muted">Type</span>
+                        <span class="font-semibold text-text-primary">
+                            {docType}{weekNumber ? ` · Week ${weekNumber}` : ""}
+                        </span>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <span class="text-text-muted">Size</span>
+                        <span class="font-semibold text-text-primary">{formatSize(result.fileSize)}</span>
+                    </div>
+                    <div class="pt-2 border-t border-border-subtle">
+                        <span class="text-text-muted block mb-1">SHA-256</span>
+                        <code class="font-mono text-[11px] text-gov-blue break-all">{result.fileHash}</code>
+                    </div>
                 </div>
-            {/if}
+
+                {#if isOnline}
+                    <div class="flex flex-col items-center gap-2 py-2">
+                        {#if qrDataUrl}
+                            <img src={qrDataUrl} alt="Verification QR code" class="w-28 h-28 rounded-lg border border-border-subtle" />
+                        {:else}
+                            <div class="w-28 h-28 rounded-lg border border-border-subtle bg-surface-muted animate-pulse"></div>
+                        {/if}
+                        <p class="text-[11px] text-text-muted text-center max-w-xs">
+                            Scan to verify this document's authenticity at any time.
+                        </p>
+                    </div>
+                {/if}
+            </div>
         </div>
 
-        <div class="px-6 pb-6 flex flex-col sm:flex-row gap-3">
+        <div class="px-6 py-4 border-t border-border-subtle flex flex-col sm:flex-row gap-3 shrink-0">
             <button
                 onclick={onUploadAnother}
                 class="flex-1 inline-flex items-center justify-center gap-2 py-3 rounded-xl border border-border-strong text-text-primary text-sm font-bold hover:bg-surface-muted transition-colors"

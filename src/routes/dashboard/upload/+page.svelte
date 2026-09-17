@@ -86,6 +86,21 @@
     let showWeekPicker = $state(false);
     let academicWeeks = $state<number[]>([]);
 
+    // Header subtitle reflects only the document types this role can actually
+    // submit (e.g. Teachers see "DLL", School Heads see "ISP or ISR") instead
+    // of always listing all three regardless of who's logged in.
+    function formatDocTypeList(types: string[]): string {
+        if (types.length === 0) return "";
+        if (types.length === 1) return types[0];
+        if (types.length === 2) return types.join(" or ");
+        return `${types.slice(0, -1).join(", ")}, or ${types[types.length - 1]}`;
+    }
+    const uploadSubtitle = $derived(
+        allowedDocTypes.length > 0
+            ? `Submit your ${formatDocTypeList(allowedDocTypes)} for archival`
+            : "View and manage submitted documents",
+    );
+
     // Watch for changes that could invalidate uniqueness
     $effect(() => {
         if (teachingLoadId && weekNumber && docType && $profile) {
@@ -855,7 +870,7 @@
             </h1>
             <p class="text-base text-text-secondary mt-1">
                 {isOnline
-                    ? "Submit your DLL, ISP, or ISR for archival"
+                    ? uploadSubtitle
                     : "Files will be saved locally and synced when online"}
             </p>
             {#if currentDeadline}

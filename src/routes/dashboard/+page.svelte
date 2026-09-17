@@ -25,7 +25,6 @@
         Archive,
         ShieldCheck,
         Zap,
-        Activity,
         Clock,
         ShieldAlert,
         Briefcase,
@@ -660,14 +659,6 @@
                     value={complianceStats.NonCompliant}
                     label="Missing"
                     color="from-gov-red to-red-700"
-                />
-            </div>
-            <div in:fly={{ y: 20, duration: 400, delay: 400 }}>
-                <StatCard
-                    icon="Activity"
-                    value="{complianceStats.rate}%"
-                    label="Compliance Snapshot"
-                    color="from-gov-blue to-gov-blue-dark"
                 />
             </div>
         </div>

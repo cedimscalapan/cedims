@@ -11,6 +11,7 @@
         Info,
         CalendarDays,
     } from "lucide-svelte";
+    import DatePicker from "$lib/components/DatePicker.svelte";
 
     interface Deadline {
         id?: string;
@@ -497,11 +498,10 @@
                                 Due Date
                             </label>
                             {#if canEdit}
-                                <input
+                                <DatePicker
                                     id="date-{i}"
-                                    type="date"
                                     bind:value={d.deadline_date}
-                                    class="w-full px-4 py-3.5 bg-surface-muted border border-border-subtle rounded-md focus:ring-2 focus:ring-gov-blue/20 focus:border-gov-blue outline-none text-sm font-semibold transition-colors"
+                                    placeholder="Select due date"
                                 />
                             {:else}
                                 <p
