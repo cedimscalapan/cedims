@@ -190,7 +190,12 @@ async function* runPipelineCore(
 
     // 1. Transcode (Word to PDF)
     yield { phase: 'transcoding', progress: 10, message: 'Converting to PDF...' };
-    let pdfBytes = file.type === 'application/pdf' ? originalBytes : (await transcodeToPdf(file)).pdfBytes;
+    // Reuse bytes from an earlier conversion of this exact file (e.g. the
+    // upload page's pre-check OCR step) when available, rather than sending
+    // the same docx/doc through the conversion engine a second time.
+    let pdfBytes = file.type === 'application/pdf'
+        ? originalBytes
+        : options.preConvertedPdfBytes ?? (await transcodeToPdf(file)).pdfBytes;
 
     // 2. Mobile Optimization: Detect "Low-Power" or "Slow-Connection" state
     // Skip heavy compression if the file is already small to save CPU/Battery on mobile

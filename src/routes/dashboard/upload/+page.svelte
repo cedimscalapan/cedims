@@ -74,6 +74,13 @@
     let detectingMetadata = $state(false);
     let detectedMetadata = $state<any>(null);
     let fileHash = $state<string>("");
+    // Caches the PDF bytes produced by the pre-upload OCR conversion step
+    // below, keyed by File reference, so the actual upload doesn't send the
+    // same docx/doc through Google Apps Script a second time. Consecutive
+    // conversions of the same file were tripping Apps Script's per-user
+    // concurrent-execution quota and causing intermittent CORS/redirect
+    // failures on the second call.
+    let preConvertedPdf: { file: File; bytes: Uint8Array } | null = null;
     // Online/Offline Mode
     let isOnline = $state(
         typeof navigator !== "undefined" ? navigator.onLine : true,
@@ -592,6 +599,7 @@
         ocrConfidence = null;
         fileSizeWarning =
             file.size > $settings.max_upload_size_mb * 1024 * 1024;
+        preConvertedPdf = null;
 
         // Start Smart Detection
         detectingMetadata = true;
@@ -605,6 +613,9 @@
                 // just because the server-side proxy has no working engine.
                 try {
                     const { pdfBytes } = await transcodeToPdf(file);
+                    // Cached so handleUpload's pipeline run can reuse these
+                    // bytes instead of converting this exact file again.
+                    preConvertedPdf = { file, bytes: pdfBytes };
                     ocrTarget = new File([pdfBytes as BlobPart], file.name.replace(/\.\w+$/, '.pdf'), { type: 'application/pdf' });
                 } catch (err) {
                     console.warn('[upload] Pre-upload conversion failed, skipping OCR metadata detection:', err);
@@ -756,6 +767,8 @@
             enforceOcr: $settings.enforce_ocr,
             submissionWindowDays: $settings.submission_window_days,
             preDetectedMetadata: detectedMetadata,
+            preConvertedPdfBytes:
+                preConvertedPdf?.file === selectedFile ? preConvertedPdf.bytes : undefined,
             // Show real bytes-sent during the transfer. Without this the bar
             // parks at one number for the whole upload, which on a slow phone
             // connection is minutes of UI that looks identical to a hang.

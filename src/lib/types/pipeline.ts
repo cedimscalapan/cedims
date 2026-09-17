@@ -29,6 +29,12 @@ export interface PipelineOptions {
     preDetectedMetadata?: any;
     rawText?: string;
     /**
+     * PDF bytes already produced for this exact file by an earlier
+     * conversion (e.g. the upload page's pre-check OCR step), so the
+     * pipeline can skip converting it again.
+     */
+    preConvertedPdfBytes?: Uint8Array;
+    /**
      * Live byte-level progress for the transfer step. The pipeline is an async
      * generator, so it can't yield from inside an XHR progress callback — this
      * reports sub-phase progress directly to the caller instead, which is what

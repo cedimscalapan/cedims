@@ -11,7 +11,10 @@
  *   Response: JSON { success: true, pdfBase64 } or { success: false, error }
  *
  * Requires the "Drive API" advanced service to be enabled in this script
- * (Editor > Services > + > Drive API).
+ * (Editor > Services > + > Drive API). Apps Script's Advanced Drive Service
+ * is bound to Drive API v3 (v2's Drive.Files.insert() was retired), so this
+ * uses the v3 method (Drive.Files.create) and v3 resource field names
+ * (name, not title).
  */
 function doPost(e) {
     try {
@@ -33,11 +36,14 @@ function doPost(e) {
 
         // Upload and convert to native Google Docs format in one step —
         // this is what lets Google (not LibreOffice) do the DOCX -> PDF rendering.
+        // Drive API v3 has no separate "convert" flag like legacy v2 did:
+        // setting the target resource's mimeType to a Google-native format
+        // while uploading a different-mimetype blob triggers the conversion.
         var resource = {
-            title: fileName.replace(/\.(docx|doc)$/i, ''),
+            name: fileName.replace(/\.(docx|doc)$/i, ''),
             mimeType: 'application/vnd.google-apps.document'
         };
-        var docFile = Drive.Files.insert(resource, blob, { convert: true });
+        var docFile = Drive.Files.create(resource, blob);
 
         // Export the converted Google Doc as PDF.
         var pdfBlob = DriveApp.getFileById(docFile.id).getAs('application/pdf');

@@ -53,12 +53,23 @@ export async function transcodeToPdf(file: File): Promise<TranscodeResult> {
         // don't ship a LibreOffice binary, so trying the server proxy first
         // here meant every conversion round-tripped through a guaranteed
         // 500 before falling back to the engine that actually works.
+        //
+        // Each engine is tried at most once per call. Calling Google Apps
+        // Script a second time after it just failed for this same file
+        // wastes a round trip and risks tripping its per-user concurrent-
+        // execution quota, which turns a clean error into an opaque
+        // CORS/redirect failure on the retry.
         if (config.GOOGLE_SCRIPT_URL) {
             try {
                 const pdfBytes = await googleConvertToPdf(file);
                 return { pdfBytes };
             } catch (err) {
                 console.warn('[transcode] Google Apps Script conversion failed, trying server proxy:', err);
+                const serverResult = await convertViaServerProxy(file);
+                if (serverResult) {
+                    return { pdfBytes: serverResult };
+                }
+                throw err;
             }
         }
 
