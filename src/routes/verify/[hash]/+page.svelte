@@ -86,9 +86,16 @@
         // achieves the same public-verification goal without that exposure:
         // it only ever returns the single row matching the exact hash given.
         try {
-            const { data, error } = (await supabase
-                .rpc("verify_submission_by_hash", { p_hash: hash })
-                .maybeSingle()) as { data: VerifyResult | null; error: unknown };
+            // Plain array request rather than .maybeSingle(): PostgREST only
+            // 406s when a singular representation is requested and 0 rows
+            // come back — an expected outcome for an unrecognized/mistyped
+            // hash, not a real failure worth a console error on this public
+            // page.
+            const { data: rows, error } = (await supabase.rpc(
+                "verify_submission_by_hash",
+                { p_hash: hash },
+            )) as { data: VerifyResult[] | null; error: unknown };
+            const data = rows?.[0] ?? null;
 
             if (data) {
                 const freshResult: VerifyResult = {

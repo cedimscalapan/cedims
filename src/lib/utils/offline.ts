@@ -489,15 +489,19 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 // 2. Strict File Hash Check (No identical content) — cross-teacher,
                 // so it goes through a narrow RPC rather than a direct table
                 // select (see migrations/20260910_*.sql).
+                //
+                // Plain array request rather than .maybeSingle(): PostgREST
+                // only 406s when a singular representation is requested and
+                // 0 rows come back — routine here, not a real failure.
                 const hashCheckPromise = supabase
-                    .rpc('check_duplicate_submission_hash', { p_hash: item.fileHash })
-                    .maybeSingle();
+                    .rpc('check_duplicate_submission_hash', { p_hash: item.fileHash });
 
-                const { data: existing } = await withTimeout(
+                const { data: hashMatches } = await withTimeout(
                     hashCheckPromise as any,
                     20000,
                     'Hash check timed out'
-                ) as { data: any };
+                ) as { data: any[] };
+                const existing = hashMatches?.[0];
 
                 if (existing) {
                     // The identical document is already archived on the server.

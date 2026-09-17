@@ -1,5 +1,6 @@
 import { googleConvertToPdf } from './googleConvert';
 import { supabase } from './supabase';
+import { config } from './config';
 
 export interface TranscodeResult {
     pdfBytes: Uint8Array;
@@ -46,6 +47,21 @@ export async function transcodeToPdf(file: File): Promise<TranscodeResult> {
     }
 
     if (ext === 'docx' || ext === 'doc') {
+        // Per .env.example: PUBLIC_GOOGLE_SCRIPT_URL is the primary engine
+        // when configured, with the server-side LibreOffice proxy as a
+        // fallback for deployments without it. Serverless hosts (Vercel)
+        // don't ship a LibreOffice binary, so trying the server proxy first
+        // here meant every conversion round-tripped through a guaranteed
+        // 500 before falling back to the engine that actually works.
+        if (config.GOOGLE_SCRIPT_URL) {
+            try {
+                const pdfBytes = await googleConvertToPdf(file);
+                return { pdfBytes };
+            } catch (err) {
+                console.warn('[transcode] Google Apps Script conversion failed, trying server proxy:', err);
+            }
+        }
+
         const serverResult = await convertViaServerProxy(file);
         if (serverResult) {
             return { pdfBytes: serverResult };

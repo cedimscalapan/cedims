@@ -363,15 +363,21 @@ async function* runOnlinePipelineResilient(
     // advisory only and must not fail an upload the phone has already done
     // minutes of work for — UNIQUE (file_hash) still backstops it at insert.
     try {
-        const { data: hashMatch } = await withRetry(
+        // Plain array request rather than .maybeSingle(): PostgREST only
+        // returns 406 when a singular representation is requested (the
+        // Accept header .maybeSingle()/.single() set) and 0 rows come back —
+        // a routine, expected outcome here, not an error worth a red network
+        // failure in the console on every non-duplicate upload.
+        const { data: matches } = await withRetry(
             () => withTimeout(
-                supabase.rpc('check_duplicate_submission_hash', { p_hash: fileHash }).maybeSingle() as any,
+                supabase.rpc('check_duplicate_submission_hash', { p_hash: fileHash }) as any,
                 15000,
                 'Server integrity check timed out.'
-            ) as Promise<{ data: any }>,
+            ) as Promise<{ data: any[] }>,
             2,
             1500
         );
+        const hashMatch = matches?.[0];
         if (hashMatch) throw new Error(`This exact document has already been uploaded (${hashMatch.file_name}).`);
     } catch (err: any) {
         if (err?.message?.startsWith('This exact document')) throw err;

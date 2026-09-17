@@ -29,6 +29,7 @@
     import { fade } from "svelte/transition";
     import CEDIMSLoader from "$lib/components/CEDIMSLoader.svelte";
     import { extractMetadata, type DocMetadata } from "$lib/utils/ocr";
+    import { transcodeToPdf } from "$lib/utils/transcode";
     import { predictLoad, validateSelection } from "$lib/utils/copilot";
     import {
         canUploadDocument,
@@ -131,11 +132,17 @@
                 // user already archived this hash, not just the current
                 // uploader's own rows, so it goes through a narrow RPC rather
                 // than a direct table select (see migrations/20260910_*.sql).
-                const { data: serverHashMatch } = (await supabase
-                    .rpc("check_duplicate_submission_hash", { p_hash: fileHash })
-                    .maybeSingle()) as {
-                    data: { id: string; file_name: string; doc_type: string; week_number: number | null } | null;
+                //
+                // Plain array request rather than .maybeSingle(): PostgREST
+                // only 406s when a singular representation is requested and
+                // 0 rows come back — routine here, not a real failure.
+                const { data: hashMatches } = (await supabase.rpc(
+                    "check_duplicate_submission_hash",
+                    { p_hash: fileHash },
+                )) as {
+                    data: { id: string; file_name: string; doc_type: string; week_number: number | null }[] | null;
                 };
+                const serverHashMatch = hashMatches?.[0];
 
                 if (serverHashMatch) {
                     submissionAlreadyExists = true;
@@ -592,20 +599,15 @@
             const ext = file.name.split('.').pop()?.toLowerCase();
             let ocrTarget = file;
             if ((ext === 'docx' || ext === 'doc') && navigator.onLine) {
-                const session = await supabase.auth.getSession();
-                const token = session.data.session?.access_token;
-                if (token) {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    const res = await fetch('/api/convert', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}` },
-                        body: formData
-                    });
-                    if (res.ok) {
-                        const pdfBlob = await res.blob();
-                        ocrTarget = new File([pdfBlob], file.name.replace(/\.\w+$/, '.pdf'), { type: 'application/pdf' });
-                    }
+                // Same server-proxy -> Google Apps Script fallback chain the
+                // actual upload pipeline uses (transcode.ts), so pre-upload
+                // metadata detection doesn't silently skip OCR for Word docs
+                // just because the server-side proxy has no working engine.
+                try {
+                    const { pdfBytes } = await transcodeToPdf(file);
+                    ocrTarget = new File([pdfBytes as BlobPart], file.name.replace(/\.\w+$/, '.pdf'), { type: 'application/pdf' });
+                } catch (err) {
+                    console.warn('[upload] Pre-upload conversion failed, skipping OCR metadata detection:', err);
                 }
             }
             const metadata = await extractMetadata(ocrTarget);
