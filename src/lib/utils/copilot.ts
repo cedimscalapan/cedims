@@ -5,13 +5,11 @@
  * upload guidance using cached teaching loads + submission history.
  * 
  * Optimization: Compressed JSON model (~10KB), 100% offline-compatible.
- * Local resource cost: 🟢 Low | Offline speed: ✅ Very Fast
+ * Local resource cost: low. Offline speed: very fast.
  */
 
 import copilotConfig from '../models/copilot_model.json';
 import { predictSubject } from './fuzzyClassifier';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 export type SuggestionType = 'missing' | 'recommendation' | 'deadline' | 'duplicate' | 'tip' | 'mismatch';
 export type SuggestionPriority = 'high' | 'medium' | 'low';
@@ -73,8 +71,6 @@ interface CopilotConfig {
     };
 }
 
-// ─── Engine ──────────────────────────────────────────────────────────────────
-
 const config = copilotConfig as CopilotConfig;
 
 /**
@@ -85,27 +81,21 @@ export function analyzeCopilot(ctx: CopilotContext): CopilotSuggestion[] {
     const suggestions: CopilotSuggestion[] = [];
     let idCounter = 0;
 
-    // 1. Missing Submission Detection
     suggestions.push(...detectMissing(ctx, idCounter));
     idCounter += suggestions.length;
 
-    // 2. Deadline Proximity Warnings
     suggestions.push(...detectDeadlines(ctx, idCounter));
     idCounter = suggestions.length;
 
-    // 3. Duplicate Prevention
     suggestions.push(...detectDuplicates(ctx, idCounter));
     idCounter = suggestions.length;
 
-    // 4. Smart Recommendations
     suggestions.push(...generateRecommendations(ctx, idCounter));
     idCounter = suggestions.length;
 
-    // 5. Mismatch Detection (Naive Bayes)
     suggestions.push(...detectMismatches(ctx, idCounter));
     idCounter = suggestions.length;
 
-    // 6. Tips
     suggestions.push(...generateTips(ctx, idCounter));
 
     // Sort by priority weight
@@ -123,8 +113,6 @@ export function analyzeCopilot(ctx: CopilotContext): CopilotSuggestion[] {
 
     return suggestions.slice(0, config.rules.suggestion_limit);
 }
-
-// ─── Detection Modules ───────────────────────────────────────────────────────
 
 function detectMissing(ctx: CopilotContext, startId: number): CopilotSuggestion[] {
     const results: CopilotSuggestion[] = [];
@@ -348,7 +336,7 @@ function detectMismatches(ctx: CopilotContext, startId: number): CopilotSuggesti
 }
 
 /**
- * Core validation logic for mismatch detection.
+ * Flags a mismatch when the OCR-detected subject doesn't match the selected teaching load's subject.
  */
 export function validateSelection(selectedLoadId: string, ocrText: string, teachingLoads: any[]): CopilotSuggestion | null {
     const selectedLoad = teachingLoads.find(l => l.id === selectedLoadId);
@@ -377,9 +365,6 @@ export function validateSelection(selectedLoadId: string, ocrText: string, teach
     return null;
 }
 
-/**
- * Get the appropriate color class for a suggestion type.
- */
 export function getSuggestionColor(type: SuggestionType): { bg: string; text: string; border: string } {
     switch (type) {
         case 'missing': return { bg: 'bg-gov-red/5', text: 'text-gov-red', border: 'border-gov-red/15' };

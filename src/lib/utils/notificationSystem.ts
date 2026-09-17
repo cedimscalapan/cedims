@@ -58,7 +58,6 @@ export async function alertComplianceRisk(
     riskLevel: 'high' | 'medium',
     details: string
 ) {
-    // 1. Find the target supervisor or school head
     const role = districtId ? 'District Supervisor' : 'School Head';
 
     let query = supabase.from('profiles').select('id').eq('role', role);

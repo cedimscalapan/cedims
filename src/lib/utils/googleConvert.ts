@@ -12,7 +12,7 @@ export async function googleConvertToPdf(file: File): Promise<Uint8Array> {
 
     console.log(`[google-convert] Converting ${file.name} to PDF via Google Apps Script...`);
 
-    // 1. Convert File to Base64
+    // Convert File to Base64
     const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -23,7 +23,7 @@ export async function googleConvertToPdf(file: File): Promise<Uint8Array> {
         reader.readAsDataURL(file);
     });
 
-    // 2. Call the GAS Web App
+    // Call the GAS Web App
     const response = await fetch(config.GOOGLE_SCRIPT_URL, {
         method: 'POST',
         headers: {
@@ -44,7 +44,7 @@ export async function googleConvertToPdf(file: File): Promise<Uint8Array> {
         throw new Error(`Google Script error: ${result.error || 'Unknown error'}`);
     }
 
-    // 3. Decode response back to Uint8Array (Optimized for Mobile)
+    // Decode response back to Uint8Array (optimized for mobile)
     const binaryString = atob(result.pdfBase64);
     const bytes = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
 

@@ -1,7 +1,17 @@
 <script lang="ts">
     import { notifications, unreadCount } from "$lib/stores/notifications";
     import { fly, fade } from "svelte/transition";
-    import { Bell, BellOff, Check, ArrowRight, Trash } from "lucide-svelte";
+    import {
+        Bell,
+        BellOff,
+        Check,
+        ArrowRight,
+        Trash,
+        AlertCircle,
+        AlertTriangle,
+        CheckCircle2,
+        Info,
+    } from "lucide-svelte";
     import { onMount } from "svelte";
     import { focusTrap } from "$lib/actions/focusTrap";
 
@@ -98,18 +108,18 @@
                                 ? 'opacity-70'
                                 : ''}"
                         >
-                            <div class="flex-shrink-0 mt-1">
-                                <div
-                                    class="w-2 h-2 rounded-full {n.read
-                                        ? 'bg-surface-muted'
-                                        : n.type === 'error'
-                                          ? 'bg-gov-red'
-                                          : n.type === 'warning'
-                                            ? 'bg-gov-gold'
-                                            : n.type === 'success'
-                                              ? 'bg-gov-green'
-                                              : 'bg-gov-blue'}"
-                                ></div>
+                            <div class="flex-shrink-0 mt-0.5">
+                                {#if n.read}
+                                    <div class="w-2 h-2 mt-1 rounded-full bg-surface-muted"></div>
+                                {:else if n.type === 'error'}
+                                    <AlertCircle size={14} class="text-gov-red" aria-label="Error" />
+                                {:else if n.type === 'warning'}
+                                    <AlertTriangle size={14} class="text-gov-gold-dark" aria-label="Warning" />
+                                {:else if n.type === 'success'}
+                                    <CheckCircle2 size={14} class="text-gov-green" aria-label="Success" />
+                                {:else}
+                                    <Info size={14} class="text-gov-blue" aria-label="Info" />
+                                {/if}
                             </div>
                             <div class="flex-1 min-w-0">
                                 <div

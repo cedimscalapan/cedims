@@ -88,11 +88,11 @@
     }
 
     :global(div::-webkit-scrollbar-thumb) {
-        background: #d1d5db;
+        background: var(--color-border-strong);
         border-radius: 3px;
     }
 
     :global(div::-webkit-scrollbar-thumb:hover) {
-        background: #9ca3af;
+        background: var(--color-text-muted);
     }
 </style>

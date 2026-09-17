@@ -2,6 +2,7 @@
     import { supabase } from "$lib/utils/supabase";
     import { profile } from "$lib/utils/auth";
     import { addToast } from "$lib/stores/toast";
+    import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import { onMount } from "svelte";
     import { Edit, Trash2, Plus, BookOpen, Layers } from "lucide-svelte";
     import { fly } from "svelte/transition";
@@ -15,6 +16,7 @@
 
     let loads = $state<TeachingLoad[]>([]);
     let loading = $state(true);
+    let loadError = $state<string | null>(null);
     let showModal = $state(false);
     let editingId = $state<string | null>(null);
     let gradeLevel = $state("Grade 1");
@@ -53,11 +55,18 @@
         const user = $profile;
         if (!user?.id) return;
 
-        const { data } = await supabase
+        loadError = null;
+        const { data, error } = await supabase
             .from("teaching_loads")
             .select("*")
             .eq("user_id", user.id)
             .order("grade_level");
+
+        if (error) {
+            loadError = "Failed to load teaching loads. Please try again.";
+            addToast("error", loadError);
+            return;
+        }
 
         loads = (data as TeachingLoad[]) || [];
     }

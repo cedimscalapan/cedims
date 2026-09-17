@@ -144,7 +144,7 @@
 </script>
 
 <div
-    class="fixed inset-0 z-[var(--z-modal)] bg-black/90 flex flex-col items-center justify-center p-6"
+    class="fixed inset-0 z-[var(--z-modal)] bg-black/90 flex flex-col items-center justify-center p-6 overflow-y-auto"
     transition:fade
     role="dialog"
     aria-modal="true"

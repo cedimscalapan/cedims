@@ -105,7 +105,6 @@ export async function buildReportWorkbook(
     const accent = opts.accent || BRAND.blue;
     let row = 1;
 
-    // ── Title band ───────────────────────────────────────────────
     wks.mergeCells(row, 1, row, 20);
     const titleCell = wks.getCell(row, 1);
     titleCell.value = (opts.title || "CEDIMS Report").toUpperCase();
@@ -139,7 +138,6 @@ export async function buildReportWorkbook(
 
     row++; // blank spacer
 
-    // ── Meta block ───────────────────────────────────────────────
     const metaRows: { label: string; value: string }[] = [
         { label: "Generated On", value: fmtDate(new Date()) },
         ...(opts.meta || []),
@@ -157,7 +155,6 @@ export async function buildReportWorkbook(
 
     row++; // spacer
 
-    // ── Tables ───────────────────────────────────────────────────
     let hadTable = false;
     for (const table of opts.tables) {
         if (!table.headers || table.headers.length === 0) continue;

@@ -63,7 +63,6 @@ export async function buildReportDocument(opts: ReportOptions): Promise<Blob> {
     const accent = opts.accent || BRAND.blue;
     const children: any[] = [];
 
-    // ── Title band ───────────────────────────────────────────────
     children.push(
         new Paragraph({
             heading: HeadingLevel.TITLE,
@@ -95,7 +94,6 @@ export async function buildReportDocument(opts: ReportOptions): Promise<Blob> {
         );
     }
 
-    // ── Meta block ───────────────────────────────────────────────
     const metaRows: { label: string; value: string }[] = [
         { label: "Generated On", value: fmtDate(new Date()) },
         ...(opts.meta || []),
@@ -113,7 +111,6 @@ export async function buildReportDocument(opts: ReportOptions): Promise<Blob> {
     }
     children.push(new Paragraph({ text: "", spacing: { after: 200 } }));
 
-    // ── Tables ───────────────────────────────────────────────────
     let hadTable = false;
     for (const table of opts.tables) {
         if (!table.headers?.length || table.rows.length === 0) continue;
