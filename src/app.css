@@ -530,24 +530,28 @@ a {
   width: fit-content;
 }
 
+/* Text uses the -dark palette variant against its own tint, and three of
+   the four tints are lightened a step (bg-only change, same hue) — the
+   base color/tint pairing measured 2.78-4.49:1 across variants, all
+   below the 4.5:1 AA floor for this normal-size badge text. */
 .status-success {
-  background: #d1fae5;
-  color: var(--color-gov-green);
+  background: #f0fdf4;
+  color: var(--color-gov-green-dark);
 }
 
 .status-warning {
-  background: #fef3c7;
-  color: var(--color-gov-gold);
+  background: #fffbeb;
+  color: var(--color-gov-gold-dark);
 }
 
 .status-danger {
-  background: #fee2e2;
-  color: var(--color-gov-red);
+  background: #fef2f2;
+  color: var(--color-gov-red-dark);
 }
 
 .status-info {
   background: rgba(37, 99, 235, 0.1);
-  color: var(--color-gov-blue);
+  color: var(--color-gov-blue-dark);
 }
 
 /* Dark-mode variants — the light pastel backgrounds above (#d1fae5 etc.)
@@ -568,8 +572,10 @@ a {
   color: #f87171;
 }
 
+/* Tint opacity dropped from .15 to .10 — at .15 the blue-light text
+   measured 4.49:1, just under the 4.5:1 floor. */
 .dark .status-info {
-  background: rgba(66, 150, 237, 0.15);
+  background: rgba(66, 150, 237, 0.1);
   color: var(--color-gov-blue-light);
 }
 

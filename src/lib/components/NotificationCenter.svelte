@@ -40,7 +40,7 @@
 
 <div class="relative notification-container">
     <button
-        class="relative w-10 h-10 flex items-center justify-center rounded-md bg-surface-white border border-border-subtle hover:bg-surface-muted transition-colors duration-200"
+        class="relative w-11 h-11 flex items-center justify-center rounded-md bg-surface-white border border-border-subtle hover:bg-surface-muted transition-colors duration-200"
         onclick={() => (isOpen = !isOpen)}
         aria-label="Open Notifications"
     >

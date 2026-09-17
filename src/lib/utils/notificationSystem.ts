@@ -66,7 +66,6 @@ export async function alertComplianceRisk(
     const { data: targets } = await query;
 
     if (targets && targets.length > 0) {
-        // 2. Notify all relevant supervisors
         await Promise.all(targets.map(target =>
             createNotification(
                 target.id,

@@ -148,8 +148,8 @@ const LOW_CONFIDENCE_PREFIXES: Record<Lang, string[]> = {
         'I’m not 100% sure, but this looks related to',
         'If I understand you correctly, you’re asking about',
         'I think you mean',
-        'Correct me if I’m wrong — sounds like you’re asking about',
-        'Let me take a guess — this seems to be about'
+        'Correct me if I’m wrong: sounds like you’re asking about',
+        'Let me take a guess: this seems to be about'
     ],
     tl: [
         'Sa tingin ko, tungkol ito sa',
@@ -206,7 +206,7 @@ const CONFUSED_RESPONSES: Record<Lang, string[]> = {
         'I didn’t quite understand that. Try asking in a different way.',
         'That one’s a little fuzzy for me. Can you say it another way?',
         'I’m having trouble parsing that. Try something like, “What is my compliance rate?”',
-        'I’m drawing a blank on that one — mind rewording it?',
+        'I’m drawing a blank on that one. Mind rewording it?',
         'That went a little over my head. Try asking about compliance, deadlines, DLLs, or schools?'
     ],
     tl: [
@@ -214,7 +214,7 @@ const CONFUSED_RESPONSES: Record<Lang, string[]> = {
         'Hindi ko masyadong naintindihan ‘yan. Subukan mong itanong sa ibang paraan.',
         'Medyo malabo sa akin ‘yan. Puwede mo bang sabihin ulit?',
         'Nahihirapan akong intindihin ‘yan. Subukan mo, “Ano ang compliance rate ko?”',
-        'Blangko ako diyan — puwede mo bang i-rephrase?'
+        'Blangko ako diyan. Puwede mo bang i-rephrase?'
     ]
 };
 
@@ -234,13 +234,13 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         answers: {
             en: [
                 'A DLL (Daily Lesson Log) is the DepEd weekly lesson planning document that teachers prepare and submit for compliance monitoring. Each one covers the learning area, grade level, teaching dates, and week for your teaching load.',
-                'DLL stands for Daily Lesson Log — it’s the weekly lesson plan every teacher submits per subject. The system checks its subject, grade, and week against your teaching load to see if you’re compliant.',
-                'Think of a DLL as your weekly proof of teaching plans — one per subject, per week.'
+                'DLL stands for Daily Lesson Log: it’s the weekly lesson plan every teacher submits per subject. The system checks its subject, grade, and week against your teaching load to see if you’re compliant.',
+                'Think of a DLL as your weekly proof of teaching plans: one per subject, per week.'
             ],
             tl: [
                 'Ang DLL (Daily Lesson Log) ay ang lingguhang banghay-aralin na kailangan mong i-submit para sa bawat asignatura, ginagamit para i-monitor ang compliance mo.',
                 'Ang DLL ay ang lesson plan mo bawat linggo, per subject. Chinecheck ng system ang subject, grade, at week nito laban sa teaching load mo.',
-                'DLL ang tawag sa lingguhang lesson plan — isa ito bawat subject, bawat linggo, kailangan i-submit para sa compliance.'
+                'DLL ang tawag sa lingguhang lesson plan: isa ito bawat subject, bawat linggo, kailangan i-submit para sa compliance.'
             ]
         }
     },
@@ -248,12 +248,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['isp', 'instructional supervisory plan'],
         answers: {
             en: [
-                'An ISP (Instructional Supervisory Plan) is the school’s supervisory blueprint — it lists program improvement areas, targets, strategies, and the timeframe for instructional monitoring and support.',
+                'An ISP (Instructional Supervisory Plan) is the school’s supervisory blueprint: it lists program improvement areas, targets, strategies, and the timeframe for instructional monitoring and support.',
                 'ISP = Instructional Supervisory Plan. It’s usually uploaded by a School Head or Master Teacher and outlines how instructional supervision will run for the term.'
             ],
             tl: [
-                'Ang ISP (Instructional Supervisory Plan) ay ang plano ng paaralan para sa supervision — naglalaman ito ng mga target, estratehiya, at timeline para sa instructional monitoring.',
-                'Karaniwang ini-upload ito ng School Head o Master Teacher — nagsasaad kung paano gagawin ang supervision sa buong term.'
+                'Ang ISP (Instructional Supervisory Plan) ay ang plano ng paaralan para sa supervision: naglalaman ito ng mga target, estratehiya, at timeline para sa instructional monitoring.',
+                'Karaniwang ini-upload ito ng School Head o Master Teacher: nagsasaad kung paano gagawin ang supervision sa buong term.'
             ]
         }
     },
@@ -261,11 +261,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['isr', 'instructional supervisory report'],
         answers: {
             en: [
-                'An ISR (Instructional Supervisory Report) is the report a Master Teacher files after observing a classroom — it records the teacher observed, findings, and the technical assistance given.',
+                'An ISR (Instructional Supervisory Report) is the report a Master Teacher files after observing a classroom: it records the teacher observed, findings, and the technical assistance given.',
                 'ISR stands for Instructional Supervisory Report. It’s filed monthly after a classroom observation, and it’s separate from your regular DLL submissions.'
             ],
             tl: [
-                'Ang ISR (Instructional Supervisory Report) ay ang report na isinusumite ng Master Teacher matapos mag-observe ng klase — naka-record dito ang guro, findings, at tulong na ibinigay.',
+                'Ang ISR (Instructional Supervisory Report) ay ang report na isinusumite ng Master Teacher matapos mag-observe ng klase: naka-record dito ang guro, findings, at tulong na ibinigay.',
                 'Buwanang isinusumite ito matapos mag-classroom observation, at hiwalay ito sa regular na DLL submissions.'
             ]
         }
@@ -274,12 +274,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['compliance', 'calculated', 'computed', 'rate', 'percent'],
         answers: {
             en: [
-                'Compliance is your actual submissions divided by your expected submissions — expected being your active teaching loads × the weeks defined in the academic calendar. On time = compliant, after the deadline = late, never submitted = missing.',
-                'Here’s the formula in plain terms: (compliant + late submissions) ÷ (teaching loads × calendar weeks) × 100. Submitting late still counts toward the rate — it’s only the ones you never submit that drag it down.'
+                'Compliance is your actual submissions divided by your expected submissions (expected being your active teaching loads × the weeks defined in the academic calendar). On time = compliant, after the deadline = late, never submitted = missing.',
+                'Here’s the formula in plain terms: (compliant + late submissions) ÷ (teaching loads × calendar weeks) × 100. Submitting late still counts toward the rate. It’s only the ones you never submit that drag it down.'
             ],
             tl: [
-                'Ang compliance ay ang aktwal mong na-submit hinati sa inaasahan — ang inaasahan ay ang active teaching loads mo × bilang ng linggo sa academic calendar. On time = compliant, huli = late, hindi na-submit = missing.',
-                'Simpleng bersyon: kung ilan sa mga inaasahang DLL mo ang na-submit mo, on time man o late — iyan ang compliance rate mo. Extra ("Supplementary") DLLs ay hindi nakakaapekto rito.'
+                'Ang compliance ay ang aktwal mong na-submit hinati sa inaasahan (ang inaasahan ay ang active teaching loads mo × bilang ng linggo sa academic calendar). On time = compliant, huli = late, hindi na-submit = missing.',
+                'Simpleng bersyon: kung ilan sa mga inaasahang DLL mo ang na-submit mo, on time man o late, iyan ang compliance rate mo. Extra ("Supplementary") DLLs ay hindi nakakaapekto rito.'
             ]
         }
     },
@@ -287,12 +287,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['offline', 'internet', 'connect', 'sync', 'no network'],
         answers: {
             en: [
-                'You can keep working offline — anything you upload while disconnected is saved locally and syncs automatically the moment you’re back online.',
-                'No signal? No problem. The app queues your uploads on your device and pushes them to the server as soon as you reconnect — you don’t need to redo anything.'
+                'You can keep working offline: anything you upload while disconnected is saved locally and syncs automatically the moment you’re back online.',
+                'No signal? No problem. The app queues your uploads on your device and pushes them to the server as soon as you reconnect. You don’t need to redo anything.'
             ],
             tl: [
-                'Puwede ka pa ring mag-upload kahit walang internet — ise-save muna ito sa iyong device, tapos automatic na mag-sync pagbalik ng connection.',
-                'Walang signal? Okay lang. Ise-save muna ng app ang upload mo sa device mo, tapos ipapadala ito sa server pagbalik ng koneksyon — hindi mo na kailangang ulitin.'
+                'Puwede ka pa ring mag-upload kahit walang internet: ise-save muna ito sa iyong device, tapos automatic na mag-sync pagbalik ng connection.',
+                'Walang signal? Okay lang. Ise-save muna ng app ang upload mo sa device mo, tapos ipapadala ito sa server pagbalik ng koneksyon. Hindi mo na kailangang ulitin.'
             ]
         }
     },
@@ -301,11 +301,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         answers: {
             en: [
                 'Each role gets its own view: Teachers manage their own DLLs, Master Teachers review and endorse, School Heads monitor their whole school, and District Supervisors compare across every school in the district.',
-                'It depends on who’s logged in — Teachers see their own uploads, School Heads see their staff, and District Supervisors see the district-wide picture with Analytics and Admin access on top.'
+                'It depends on who’s logged in: Teachers see their own uploads, School Heads see their staff, and District Supervisors see the district-wide picture with Analytics and Admin access on top.'
             ],
             tl: [
                 'Iba-iba ang view depende sa role: Teachers para sa sariling DLLs, Master Teachers para sa review at endorsement, School Heads para sa buong paaralan, at District Supervisors para sa buong distrito.',
-                'Depende sa naka-login — nakikita ng Teacher ang sariling upload, nakikita ng School Head ang staff niya, at nakikita ng District Supervisor ang buong distrito kasama ang Analytics at Admin.'
+                'Depende sa naka-login: nakikita ng Teacher ang sariling upload, nakikita ng School Head ang staff niya, at nakikita ng District Supervisor ang buong distrito kasama ang Analytics at Admin.'
             ]
         }
     },
@@ -313,12 +313,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['for checking', 'checked', 'reviewer comment', 'remark', 'remarks'],
         answers: {
             en: [
-                'In the Archive, a document sits as "For Checking" until a reviewer leaves a remark on it — once a remark exists, it flips to "Checked." There’s no separate approval click; adding the remark is the review.',
+                'In the Archive, a document sits as "For Checking" until a reviewer leaves a remark on it. Once a remark exists, it flips to "Checked." There’s no separate approval click; adding the remark is the review.',
                 'Two states only: "For Checking" (no remark yet) and "Checked" (a reviewer has commented on it).'
             ],
             tl: [
-                'Sa Archive, "For Checking" muna ang isang dokumento hanggang may maidagdag na remark ang reviewer — pag may remark na, magiging "Checked" ito. Walang hiwalay na approval, ang pagdagdag ng remark na mismo ang review.',
-                'Dalawa lang ang status: "For Checking" (wala pang remark) at "Checked" (may naikomento na ang reviewer). Simple lang — walang ibang approval step.'
+                'Sa Archive, "For Checking" muna ang isang dokumento hanggang may maidagdag na remark ang reviewer. Pag may remark na, magiging "Checked" ito. Walang hiwalay na approval, ang pagdagdag ng remark na mismo ang review.',
+                'Dalawa lang ang status: "For Checking" (wala pang remark) at "Checked" (may naikomento na ang reviewer). Simple lang. Walang ibang approval step.'
             ]
         }
     },
@@ -326,12 +326,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['supplementary', 'extra dll', 'another dll', 'duplicate submission'],
         answers: {
             en: [
-                'A "Supplementary" submission is an extra DLL for a week/subject that already has one on file — it’s kept for reference but never counts toward your compliance rate, upload totals, or a "missing" mark.',
-                'Nag-upload ka ba ng pangalawang DLL sa parehong linggo at subject? That extra one gets tagged "Supplementary" — it’s just extra documentation, it won’t hurt or help your compliance number.'
+                'A "Supplementary" submission is an extra DLL for a week/subject that already has one on file: it’s kept for reference but never counts toward your compliance rate, upload totals, or a "missing" mark.',
+                'Nag-upload ka ba ng pangalawang DLL sa parehong linggo at subject? That extra one gets tagged "Supplementary": it’s just extra documentation, it won’t hurt or help your compliance number.'
             ],
             tl: [
-                'Ang "Supplementary" ay dagdag na DLL para sa linggo/subject na may na-submit na — itinatago ito bilang reference pero hindi ito nabibilang sa compliance rate, total uploads, o "missing" mark.',
-                'Nag-upload ka ba ng pangalawang DLL sa parehong linggo at subject? Ito ay tatawaging "Supplementary" — extra documentation lang ito, hindi nakakaapekto sa compliance number mo.'
+                'Ang "Supplementary" ay dagdag na DLL para sa linggo/subject na may na-submit na: itinatago ito bilang reference pero hindi ito nabibilang sa compliance rate, total uploads, o "missing" mark.',
+                'Nag-upload ka ba ng pangalawang DLL sa parehong linggo at subject? Ito ay tatawaging "Supplementary": extra documentation lang ito, hindi nakakaapekto sa compliance number mo.'
             ]
         }
     },
@@ -340,11 +340,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         answers: {
             en: [
                 'Deadlines follow the academic calendar your district sets up. Ask me “When is the next deadline?” and I’ll pull the exact date for you.',
-                'That depends on the week — ask me about a specific week or the next one coming up, and I’ll check the academic calendar live.'
+                'That depends on the week: ask me about a specific week or the next one coming up, and I’ll check the academic calendar live.'
             ],
             tl: [
                 'Ang mga deadline ay batay sa academic calendar na itinakda ng distrito mo. Tanungin mo ako ng “Kailan ang susunod na deadline?” at kukunin ko agad ang eksaktong petsa.',
-                'Depende sa linggo — tanungin mo ako tungkol sa specific na linggo o sa susunod, at che-check ko agad ang academic calendar.'
+                'Depende sa linggo: tanungin mo ako tungkol sa specific na linggo o sa susunod, at che-check ko agad ang academic calendar.'
             ]
         }
     },
@@ -353,11 +353,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         answers: {
             en: [
                 'Hello! I’m Gabay, your CEDIMS assistant. I can check your compliance, find DLLs, look up deadlines, compare schools, and show teacher stats. What would you like to know?',
-                'Hey there! Ask me anything about your submissions, deadlines, or how the system works — happy to help.'
+                'Hey there! Ask me anything about your submissions, deadlines, or how the system works. Happy to help.'
             ],
             tl: [
                 'Kumusta! Ako si Gabay. Puwede mo akong tanungin tungkol sa compliance mo, deadlines, o kahit ano tungkol sa CEDIMS.',
-                'Hoy, kumusta! Itanong mo lang sa akin ang tungkol sa submissions, deadlines, o kung paano gumagana ang system — masaya akong tumulong.'
+                'Hoy, kumusta! Itanong mo lang sa akin ang tungkol sa submissions, deadlines, o kung paano gumagana ang system. Masaya akong tumulong.'
             ]
         }
     },
@@ -380,11 +380,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['who are you', 'your name', 'about yourself', 'what are you', 'sino ka', 'tell me about you'],
         answers: {
             en: [
-                'I’m Gabay — Filipino for "guide." I live right in the app and answer using live data, no separate internet bill needed. Ask me anything about compliance, DLLs, deadlines, or school performance!'
+                'I’m Gabay (Filipino for "guide"). I live right in the app and answer using live data, no separate internet bill needed. Ask me anything about compliance, DLLs, deadlines, or school performance!'
             ],
             tl: [
-                'Gabay ang pangalan ko — parang katulong mong laging nasa app, tutulong sayo mag-check ng compliance, maghanap ng DLL, o mag-alam ng deadlines.',
-                'Ako si Gabay, ang CEDIMS assistant mo. Nabubuhay ako dito mismo sa app at sumasagot gamit ang live na datos — tanungin mo lang ako ng kahit ano tungkol sa system.'
+                'Gabay ang pangalan ko, parang katulong mong laging nasa app, tutulong sayo mag-check ng compliance, maghanap ng DLL, o mag-alam ng deadlines.',
+                'Ako si Gabay, ang CEDIMS assistant mo. Nabubuhay ako dito mismo sa app at sumasagot gamit ang live na datos. Tanungin mo lang ako ng kahit ano tungkol sa system.'
             ]
         }
     },
@@ -405,12 +405,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['cedims', 'smarte vision', 'smart e vision', 'what does this app do', 'what is this app', 'what is this platform', 'purpose of this app'],
         answers: {
             en: [
-                'CEDIMS stands for Calapan East District Instructional Monitoring System — it’s where teachers submit DLLs and supervisors track compliance across schools. SmartE Vision is the broader platform name behind it.',
-                'This is CEDIMS — basically a digital home for DLL submissions, deadline tracking, and compliance monitoring, so nobody has to chase paperwork around anymore.'
+                'CEDIMS stands for Calapan East District Instructional Monitoring System: it’s where teachers submit DLLs and supervisors track compliance across schools. SmartE Vision is the broader platform name behind it.',
+                'This is CEDIMS: basically a digital home for DLL submissions, deadline tracking, and compliance monitoring, so nobody has to chase paperwork around anymore.'
             ],
             tl: [
-                'Ang CEDIMS ay Calapan East District Instructional Monitoring System — dito nagsusumite ng DLL ang mga guro at sinusubaybayan ng mga supervisor ang compliance sa buong paaralan.',
-                'Ito ang CEDIMS — parang digital na tahanan para sa DLL submissions, pagsubaybay ng deadline, at compliance monitoring, para wala nang kailangang maghabol ng papeles.'
+                'Ang CEDIMS ay Calapan East District Instructional Monitoring System: dito nagsusumite ng DLL ang mga guro at sinusubaybayan ng mga supervisor ang compliance sa buong paaralan.',
+                'Ito ang CEDIMS: parang digital na tahanan para sa DLL submissions, pagsubaybay ng deadline, at compliance monitoring, para wala nang kailangang maghabol ng papeles.'
             ]
         }
     },
@@ -418,12 +418,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['dashboard', 'main page', 'home page', 'tabs', 'navigation'],
         answers: {
             en: [
-                'Your Dashboard is the home screen — it shows your (or your school’s/district’s) compliance rate, recent activity, and quick stats. The tabs around it change depending on your role.',
-                'The bottom (or side) nav is your main way around — Dashboard for the overview, Archive/Submissions for documents, Analytics for trends and clusters if you’re a supervisor, and Settings for your account.'
+                'Your Dashboard is the home screen: it shows your (or your school’s/district’s) compliance rate, recent activity, and quick stats. The tabs around it change depending on your role.',
+                'The bottom (or side) nav is your main way around: Dashboard for the overview, Archive/Submissions for documents, Analytics for trends and clusters if you’re a supervisor, and Settings for your account.'
             ],
             tl: [
-                'Ang Dashboard ay ang home screen — dito makikita ang compliance rate mo (o ng paaralan/distrito), recent activity, at mabilisang stats. Nagbabago ang mga tab depende sa role mo.',
-                'Ang nav sa ibaba (o gilid) ang pangunahing daan mo — Dashboard para sa overview, Archive/Submissions para sa dokumento, Analytics para sa trends kung supervisor ka, at Settings para sa account mo.'
+                'Ang Dashboard ay ang home screen: dito makikita ang compliance rate mo (o ng paaralan/distrito), recent activity, at mabilisang stats. Nagbabago ang mga tab depende sa role mo.',
+                'Ang nav sa ibaba (o gilid) ang pangunahing daan mo: Dashboard para sa overview, Archive/Submissions para sa dokumento, Analytics para sa trends kung supervisor ka, at Settings para sa account mo.'
             ]
         }
     },
@@ -431,11 +431,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['archive', 'my files', 'search files', 'sort files', 'filter documents', 'export excel', 'export csv', 'download report'],
         answers: {
             en: [
-                'The Archive is where every submitted document lives — you can search by name or teacher, filter by "For Checking"/"Checked", sort by date, name, or size, and export the whole list to Excel or CSV.',
+                'The Archive is where every submitted document lives: you can search by name or teacher, filter by "For Checking"/"Checked", sort by date, name, or size, and export the whole list to Excel or CSV.',
                 'In Archive/My Files, use the search bar and status filter to narrow things down, the sort dropdown to reorder (Date, Name, or Size), and the green buttons to export a report.'
             ],
             tl: [
-                'Ang Archive ay kung saan naka-imbak ang lahat ng na-submit na dokumento — puwede kang maghanap gamit ang pangalan o guro, i-filter ayon sa "For Checking"/"Checked", i-sort ayon sa petsa, pangalan, o laki, at i-export sa Excel o CSV.',
+                'Ang Archive ay kung saan naka-imbak ang lahat ng na-submit na dokumento: puwede kang maghanap gamit ang pangalan o guro, i-filter ayon sa "For Checking"/"Checked", i-sort ayon sa petsa, pangalan, o laki, at i-export sa Excel o CSV.',
                 'Sa Archive/My Files, gamitin ang search bar at status filter para mas mapaikli ang listahan, ang sort dropdown para ayusin (Petsa, Pangalan, o Laki), at ang berdeng buttons para mag-export ng report.'
             ]
         }
@@ -445,11 +445,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         answers: {
             en: [
                 'The Analytics page (School Head and District Supervisor only) shows compliance trends over time, a short forecast, a document-type breakdown, and a K-Means clustering view that groups teachers or schools into High Performers, Average, and At-Risk based on their submission behavior.',
-                'Analytics groups people/schools automatically using a clustering algorithm — it looks at compliance rate and submission frequency and buckets everyone into performance tiers.'
+                'Analytics groups people/schools automatically using a clustering algorithm: it looks at compliance rate and submission frequency and buckets everyone into performance tiers.'
             ],
             tl: [
                 'Ang Analytics page (para lang sa School Head at District Supervisor) ay nagpapakita ng compliance trends, maikling forecast, breakdown ng doc types, at K-Means clustering na naghahati sa mga guro o paaralan sa High Performers, Average, at At-Risk.',
-                'Awtomatikong ginugrupo ng Analytics ang mga tao/paaralan gamit ang clustering algorithm — tinitingnan nito ang compliance rate at dalas ng submission para malaman kung sino ang nangangailangan ng tulong.'
+                'Awtomatikong ginugrupo ng Analytics ang mga tao/paaralan gamit ang clustering algorithm: tinitingnan nito ang compliance rate at dalas ng submission para malaman kung sino ang nangangailangan ng tulong.'
             ]
         }
     },
@@ -457,12 +457,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['academic calendar', 'school year', 'term', 'week schedule', 'open week', 'scheduled week', 'generate calendar', 'deped calendar'],
         answers: {
             en: [
-                'The Academic Calendar (under Admin, for District Supervisors) is where each week’s submission deadline gets set. A week starts "Scheduled" (hidden from teachers) until it’s toggled "Open" — only open weeks count toward compliance.',
-                'District Supervisors manage the calendar — they can add weeks one by one or generate the full DepEd school-year calendar in one click, then open each week as it becomes active.'
+                'The Academic Calendar (under Admin, for District Supervisors) is where each week’s submission deadline gets set. A week starts "Scheduled" (hidden from teachers) until it’s toggled "Open." Only open weeks count toward compliance.',
+                'District Supervisors manage the calendar: they can add weeks one by one or generate the full DepEd school-year calendar in one click, then open each week as it becomes active.'
             ],
             tl: [
-                'Ang Academic Calendar (nasa ilalim ng Admin, para sa District Supervisors) ay kung saan itinatakda ang deadline ng bawat linggo. "Scheduled" muna ang isang linggo (nakatago sa guro) hanggang i-toggle itong "Open" — mga bukas na linggo lang ang binibilang sa compliance.',
-                'Pinapamahalaan ng District Supervisor ang calendar — puwede niyang idagdag ang bawat linggo isa-isa o i-generate ang buong DepEd school-year calendar sa isang click.'
+                'Ang Academic Calendar (nasa ilalim ng Admin, para sa District Supervisors) ay kung saan itinatakda ang deadline ng bawat linggo. "Scheduled" muna ang isang linggo (nakatago sa guro) hanggang i-toggle itong "Open." Mga bukas na linggo lang ang binibilang sa compliance.',
+                'Pinapamahalaan ng District Supervisor ang calendar: puwede niyang idagdag ang bawat linggo isa-isa o i-generate ang buong DepEd school-year calendar sa isang click.'
             ]
         }
     },
@@ -483,12 +483,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['notification', 'notifications', 'alert me', 'bell icon'],
         answers: {
             en: [
-                'You’ll get a notification whenever a deadline is updated or a new week opens for submissions — check the bell icon in the header for your recent alerts.',
-                'Notifications fire mainly around deadline changes — a supervisor opens or updates a week, and everyone affected gets pinged.'
+                'You’ll get a notification whenever a deadline is updated or a new week opens for submissions. Check the bell icon in the header for your recent alerts.',
+                'Notifications fire mainly around deadline changes: a supervisor opens or updates a week, and everyone affected gets pinged.'
             ],
             tl: [
-                'May notification ka kapag na-update ang deadline o may bagong linggo na bumukas para sa submissions — tingnan ang bell icon sa taas para sa mga alerto mo.',
-                'Karaniwang tumutunog ang notification kapag may binago sa deadline — nag-o-open o nag-a-update ang supervisor ng linggo, at nade-notify ang lahat ng apektado.'
+                'May notification ka kapag na-update ang deadline o may bagong linggo na bumukas para sa submissions. Tingnan ang bell icon sa taas para sa mga alerto mo.',
+                'Karaniwang tumutunog ang notification kapag may binago sa deadline: nag-o-open o nag-a-update ang supervisor ng linggo, at nade-notify ang lahat ng apektado.'
             ]
         }
     },
@@ -496,12 +496,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['dark mode', 'light mode', 'theme', 'night mode'],
         answers: {
             en: [
-                'There’s a light/dark mode toggle (the moon/sun icon) in the header — tap it to switch themes anytime.',
-                'Yes, dark mode is built in — look for the toggle near the notification bell.'
+                'There’s a light/dark mode toggle (the moon/sun icon) in the header. Tap it to switch themes anytime.',
+                'Yes, dark mode is built in. Look for the toggle near the notification bell.'
             ],
             tl: [
-                'May light/dark mode toggle (ang moon/sun icon) sa taas — pindutin mo lang para lumipat ng theme kahit kailan.',
-                'Oo, meron dark mode — hanapin mo ang toggle malapit sa notification bell.'
+                'May light/dark mode toggle (ang moon/sun icon) sa taas. Pindutin mo lang para lumipat ng theme kahit kailan.',
+                'Oo, meron dark mode. Hanapin mo ang toggle malapit sa notification bell.'
             ]
         }
     },
@@ -509,11 +509,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['qr code', 'scan', 'scanner'],
         answers: {
             en: [
-                'The QR scanner lets you quickly verify a document’s authenticity by scanning the code printed on it — look for the scan option in your navigation.',
+                'The QR scanner lets you quickly verify a document’s authenticity by scanning the code printed on it. Look for the scan option in your navigation.',
                 'Scanning a document’s QR code pulls up its verification page, so anyone can confirm it’s a genuine, unaltered submission.'
             ],
             tl: [
-                'Ang QR scanner ay nagpapahintulot sa iyong i-verify agad ang tunay na dokumento sa pamamagitan ng pag-scan ng code dito — hanapin mo ang scan option sa navigation.',
+                'Ang QR scanner ay nagpapahintulot sa iyong i-verify agad ang tunay na dokumento sa pamamagitan ng pag-scan ng code dito. Hanapin mo ang scan option sa navigation.',
                 'Kapag na-scan ang QR code ng dokumento, lalabas ang verification page nito, para masiguro ng lahat na tunay at hindi binago ang submission.'
             ]
         }
@@ -522,11 +522,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['teaching load', 'subjects', 'assigned subjects', 'grade level assignment'],
         answers: {
             en: [
-                'Your teaching loads are the subject + grade-level combinations assigned to you — they’re what "expected submissions" is calculated from, so make sure yours are accurate and marked active.',
+                'Your teaching loads are the subject + grade-level combinations assigned to you: they’re what "expected submissions" is calculated from, so make sure yours are accurate and marked active.',
                 'Each active teaching load is one more expected DLL per week. If your compliance math looks off, it’s worth double-checking your teaching loads are set up correctly.'
             ],
             tl: [
-                'Ang teaching loads mo ay ang kombinasyon ng subject at grade level na naka-assign sa iyo — dito hinahango ang "expected submissions", kaya siguraduhing tama at active ang mga ito.',
+                'Ang teaching loads mo ay ang kombinasyon ng subject at grade level na naka-assign sa iyo: dito hinahango ang "expected submissions", kaya siguraduhing tama at active ang mga ito.',
                 'Bawat active na teaching load ay isa pang inaasahang DLL kada linggo. Kung mukhang mali ang compliance mo, siguraduhing tama ang setup ng teaching loads mo.'
             ]
         }
@@ -541,11 +541,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         ],
         answers: {
             en: [
-                'You can reset your password from the login screen’s "Forgot Password" link, or ask your District Supervisor — they can reset it for you from the Admin → Users panel.',
+                'You can reset your password from the login screen’s "Forgot Password" link, or ask your District Supervisor: they can reset it for you from the Admin → Users panel.',
                 'Locked out? Try "Forgot Password" on the login page first. If that doesn’t work, your district supervisor can reset your account from Admin.'
             ],
             tl: [
-                'Puwede mong i-reset ang password mo sa "Forgot Password" na link sa login screen, o hilingin sa District Supervisor mo — puwede niyang i-reset ito mula sa Admin → Users.',
+                'Puwede mong i-reset ang password mo sa "Forgot Password" na link sa login screen, o hilingin sa District Supervisor mo: puwede niyang i-reset ito mula sa Admin → Users.',
                 'Naka-lock ka ba? Subukan mo muna ang "Forgot Password" sa login page. Kung hindi gumana, puwedeng i-reset ng district supervisor mo ang account mo mula sa Admin.'
             ]
         }
@@ -554,12 +554,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['privacy', 'who can see my', 'confidential', 'visible to'],
         answers: {
             en: [
-                'Visibility follows your role and hierarchy — Teachers see only their own documents, School Heads see their school, and District Supervisors see the whole district. ISP/ISR have their own tighter rules on top of that.',
-                'Nobody outside your school/district chain can see your submissions — access is scoped strictly by role.'
+                'Visibility follows your role and hierarchy: Teachers see only their own documents, School Heads see their school, and District Supervisors see the whole district. ISP/ISR have their own tighter rules on top of that.',
+                'Nobody outside your school/district chain can see your submissions. Access is scoped strictly by role.'
             ],
             tl: [
-                'Ang visibility ay nakabatay sa role at hierarchy mo — nakikita lang ng Teacher ang sariling dokumento, nakikita ng School Head ang paaralan niya, at nakikita ng District Supervisor ang buong distrito.',
-                'Walang makakakita ng submissions mo sa labas ng school/district chain mo — mahigpit itong nakabatay sa role.'
+                'Ang visibility ay nakabatay sa role at hierarchy mo: nakikita lang ng Teacher ang sariling dokumento, nakikita ng School Head ang paaralan niya, at nakikita ng District Supervisor ang buong distrito.',
+                'Walang makakakita ng submissions mo sa labas ng school/district chain mo. Mahigpit itong nakabatay sa role.'
             ]
         }
     },
@@ -571,12 +571,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         ],
         answers: {
             en: [
-                'Missing a deadline marks that week’s submission as "Late" if you eventually submit it, or "Missing" if you never do — either way it affects your compliance rate, but the system itself doesn’t lock you out or penalize beyond that.',
-                'Late is still better than missing — a late submission still counts toward your compliance rate, but an un-submitted one counts as missing and drags your rate down further.'
+                'Missing a deadline marks that week’s submission as "Late" if you eventually submit it, or "Missing" if you never do. Either way it affects your compliance rate, but the system itself doesn’t lock you out or penalize beyond that.',
+                'Late is still better than missing: a late submission still counts toward your compliance rate, but an un-submitted one counts as missing and drags your rate down further.'
             ],
             tl: [
-                'Kapag na-miss mo ang deadline, magiging "Late" ang submission mo kapag na-submit mo rin, o "Missing" kung hindi — pareho itong nakakaapekto sa compliance rate mo, pero hindi ka i-loloko o pipenalize ng system.',
-                'Mas mabuti pa rin ang late kaysa missing — nabibilang pa rin ang late submission sa compliance rate mo, pero ang hindi na-submit ay bumababa nang husto ang rate mo.'
+                'Kapag na-miss mo ang deadline, magiging "Late" ang submission mo kapag na-submit mo rin, o "Missing" kung hindi. Pareho itong nakakaapekto sa compliance rate mo, pero hindi ka i-loloko o pipenalize ng system.',
+                'Mas mabuti pa rin ang late kaysa missing: nabibilang pa rin ang late submission sa compliance rate mo, pero ang hindi na-submit ay bumababa nang husto ang rate mo.'
             ]
         }
     },
@@ -597,10 +597,10 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         ],
         answers: {
             en: [
-                'The requirement to prepare a Daily Lesson Log (or a more detailed Lesson Plan) comes from DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," issued under RA 10533 (the Enhanced Basic Education Act of 2013). It sets out what a lesson plan needs to cover — objectives, content, learning resources, procedure, and reflection — and affirms the teacher\'s role as a facilitator of learning. Specific submission deadlines and monitoring (like what this system tracks) are set locally by your school/division, not by this order itself. Full text: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
+                'The requirement to prepare a Daily Lesson Log (or a more detailed Lesson Plan) comes from DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," issued under RA 10533 (the Enhanced Basic Education Act of 2013). It sets out what a lesson plan needs to cover (objectives, content, learning resources, procedure, and reflection) and affirms the teacher\'s role as a facilitator of learning. Specific submission deadlines and monitoring (like what this system tracks) are set locally by your school/division, not by this order itself. Full text: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
             ],
             tl: [
-                'Ang requirement na maghanda ng Daily Lesson Log (o mas detalyadong Lesson Plan) ay galing sa DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," base sa RA 10533 (Enhanced Basic Education Act of 2013). Nakasaad dito ang mga dapat nasa lesson plan — layunin, nilalaman, learning resources, proseso, at reflection. Ang mga specific na deadline at monitoring (tulad ng tina-track ng system na ito) ay itinatakda ng iyong paaralan/dibisyon, hindi ng order mismo. Buong teksto: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
+                'Ang requirement na maghanda ng Daily Lesson Log (o mas detalyadong Lesson Plan) ay galing sa DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," base sa RA 10533 (Enhanced Basic Education Act of 2013). Nakasaad dito ang mga dapat nasa lesson plan: layunin, nilalaman, learning resources, proseso, at reflection. Ang mga specific na deadline at monitoring (tulad ng tina-track ng system na ito) ay itinatakda ng iyong paaralan/dibisyon, hindi ng order mismo. Buong teksto: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
             ]
         }
     },
@@ -835,8 +835,8 @@ function extractSlots(text: string, intent: Intent, memory?: ChatContext['memory
 
 function generateTemplateResponse(intent: Intent, slots: Record<string, string>, lang: Lang = 'en'): string {
     const templatesEn: Record<Intent, () => string> = {
-        ask_compliance: () => pick(["Let me check your compliance data — one moment.", "On it! Checking your compliance records now.", "Sure, pulling up your compliance status."]),
-        check_deadline: () => pick(["Let me look up the deadlines from the academic calendar.", "Checking the calendar for deadlines.", "On it — grabbing the deadline dates for you."]),
+        ask_compliance: () => pick(["Let me check your compliance data. One moment.", "On it! Checking your compliance records now.", "Sure, pulling up your compliance status."]),
+        check_deadline: () => pick(["Let me look up the deadlines from the academic calendar.", "Checking the calendar for deadlines.", "On it, grabbing the deadline dates for you."]),
         find_dll: () => {
             let filters = '';
             if (slots.subject) filters += ` for ${slots.subject}`;
@@ -853,8 +853,8 @@ function generateTemplateResponse(intent: Intent, slots: Record<string, string>,
             return pick(["Let me gather the teacher submission statistics.", "Pulling up teacher stats.", "Fetching teacher performance data."]);
         },
         calendar_info: () => pick(["Let me check the academic calendar for you.", "Looking at the school calendar now.", "Let me pull up the academic calendar."]),
-        how_to_upload: () => "Uploading a DLL is simple. Head over to the Upload page, then drag and drop your .docx or .pdf file. The system will automatically detect the subject, grade level, and week from the document. You will have a chance to review the extracted information before finalizing the upload. If you are offline, no worries — the document will be saved locally and will sync automatically once you are back online.",
-        create_report: () => "Generating a report needs a live connection so I can pull current compliance data — please try again once you're back online.",
+        how_to_upload: () => "Uploading a DLL is simple. Head over to the Upload page, then drag and drop your .docx or .pdf file. The system will automatically detect the subject, grade level, and week from the document. You will have a chance to review the extracted information before finalizing the upload. If you are offline, no worries: the document will be saved locally and will sync automatically once you are back online.",
+        create_report: () => "Generating a report needs a live connection so I can pull current compliance data. Please try again once you're back online.",
         general_help: () => "I’m here to help with a bunch of things. I can check your compliance rate, look up deadlines, find DLLs, compare schools, show teacher stats, or generate a compliance report. Try asking something like, “What is my compliance rate?” or “When is the next deadline?”"
     };
 
@@ -877,8 +877,8 @@ function generateTemplateResponse(intent: Intent, slots: Record<string, string>,
             return pick(["Kinukuha ko ang teacher submission statistics.", "Kinukuha ko ang teacher stats.", "Kinukuha ko ang performance data ng mga guro."]);
         },
         calendar_info: () => pick(["Titignan ko ang academic calendar para sa'yo.", "Tinitignan ko na ang school calendar.", "Kinukuha ko ang academic calendar."]),
-        how_to_upload: () => "Madali lang mag-upload ng DLL. Pumunta ka sa Upload page, tapos i-drag and drop ang .docx o .pdf file mo. Awtomatikong made-detect ng system ang subject, grade level, at linggo mula sa dokumento. Puwede mo pang i-review ang na-extract na impormasyon bago i-finalize ang upload. Kung offline ka, huwag mag-alala — mase-save muna ito sa device mo at awtomatikong mag-sy-sync pagbalik ng internet.",
-        create_report: () => "Kailangan ng live connection para makabuo ng report, para makuha ko ang kasalukuyang compliance data — subukan ulit pag-online ka na.",
+        how_to_upload: () => "Madali lang mag-upload ng DLL. Pumunta ka sa Upload page, tapos i-drag and drop ang .docx o .pdf file mo. Awtomatikong made-detect ng system ang subject, grade level, at linggo mula sa dokumento. Puwede mo pang i-review ang na-extract na impormasyon bago i-finalize ang upload. Kung offline ka, huwag mag-alala: mase-save muna ito sa device mo at awtomatikong mag-sy-sync pagbalik ng internet.",
+        create_report: () => "Kailangan ng live connection para makabuo ng report, para makuha ko ang kasalukuyang compliance data. Subukan ulit pag-online ka na.",
         general_help: () => "Nandito ako para tumulong sa maraming bagay. Puwede kong i-check ang compliance rate mo, hanapin ang mga deadline, maghanap ng DLL, ikumpara ang mga paaralan, ipakita ang teacher stats, o gumawa ng compliance report. Subukan mong itanong, “Ano ang compliance rate ko?” o “Kailan ang susunod na deadline?”"
     };
 
@@ -1063,19 +1063,19 @@ async function queryCompliance(
                 response += ` ${pendingReview} submission ang na-upload pero hinihintay pa ang official review.`;
             }
             if (rate >= 90) response += ' ' + pick([
-                'Ang galing — halos wala nang kulang!',
-                'Napakagaling — sige lang nang ganyan!',
-                'Magaling — malapit ka nang perfect.'
+                'Ang galing, halos wala nang kulang!',
+                'Napakagaling, sige lang nang ganyan!',
+                'Magaling, malapit ka nang perfect.'
             ]);
             else if (rate >= 75) response += ' ' + pick([
-                'Malapit ka na — konti na lang kulang.',
+                'Malapit ka na, konti na lang kulang.',
                 'Maganda ang takbo mo, konti na lang at tapos ka na.',
                 'Ayos, patuloy lang nang kaunti pa.'
             ]);
             else response += ' ' + pick([
-                'Puwede pang bawian — subukan mong ma-catch up ang mga kulang na DLL kapag may oras.',
-                'May puwang pa para umangat — walang rush, pero try mong asikasuhin ang mga kulang.',
-                'Konting push pa lang at aangat ang rate mo — kaya mo yan.'
+                'Puwede pang bawian, subukan mong ma-catch up ang mga kulang na DLL kapag may oras.',
+                'May puwang pa para umangat, walang rush, pero try mong asikasuhin ang mga kulang.',
+                'Konting push pa lang at aangat ang rate mo, kaya mo yan.'
             ]);
         }
         return response;
@@ -1095,19 +1095,19 @@ async function queryCompliance(
             response += ` ${pendingReview} submission${pendingReview > 1 ? 's are' : ' is'} uploaded but awaiting official review.`;
         }
         if (rate >= 90) response += ' ' + pick([
-            'You’re doing excellently — keep it up!',
+            'You’re doing excellently, keep it up!',
             'Great work, that’s a strong rate.',
-            'Excellent — you’re nearly perfect.'
+            'Excellent, you’re nearly perfect.'
         ]);
         else if (rate >= 75) response += ' ' + pick([
-            'You’re on the right track — just a few more to go.',
+            'You’re on the right track, just a few more to go.',
             'Solid progress, just a bit more and you’re there.',
-            'Nice pace — keep it going.'
+            'Nice pace, keep it going.'
         ]);
         else response += ' ' + pick([
-            'There’s room for improvement — try to catch up on the missing DLLs when you can.',
-            'A few more submissions would really help your rate — no rush, just when you’re able.',
-            'A little more effort and your rate will climb — you’ve got this.'
+            'There’s room for improvement, try to catch up on the missing DLLs when you can.',
+            'A few more submissions would really help your rate, no rush, just when you’re able.',
+            'A little more effort and your rate will climb. You’ve got this.'
         ]);
     }
 
@@ -1147,7 +1147,7 @@ async function queryDeadline(
     }
 
     const lines = (data as any[]).map((d: any) =>
-        `${formatDate(d.deadline_date)}${d.description ? ' — ' + d.description : ''}`
+        `${formatDate(d.deadline_date)}${d.description ? ': ' + d.description : ''}`
     );
     return lang === 'tl'
         ? `Narito ang mga paparating na deadline:\n${lines.join('\n')}`
@@ -1174,7 +1174,7 @@ async function queryDlls(
                     const d = r.doc;
                     const grade = d.grade ? ` (${d.grade})` : '';
                     const week = d.week ? ` Week ${d.week}` : '';
-                    return `${i + 1}. ${d.subject}${grade}${week} — ${d.teacher}`;
+                    return `${i + 1}. ${d.subject}${grade}${week}, ${d.teacher}`;
                 });
                 let summary = lang === 'tl'
                     ? `May nahanap akong ${semantic.length} DLL na tugma sa "${queryText.trim()}":\n${lines.join('\n')}`
@@ -1238,7 +1238,7 @@ async function queryDlls(
         const grade = d.teaching_load?.grade_level || '';
         const subj = d.subject || (lang === 'tl' ? 'Hindi kilalang subject' : 'Unknown subject');
         const week = d.week_number ? ` Week ${d.week_number}` : '';
-        return `${i + 1}. ${subj}${grade ? ' (' + grade + ')' : ''}${week} — ${teacher}`;
+        return `${i + 1}. ${subj}${grade ? ' (' + grade + ')' : ''}${week}, ${teacher}`;
     });
 
     const parts: string[] = [];
@@ -1503,7 +1503,7 @@ async function queryCalendarInfo(
         response += '.';
         if (nextDeadline) {
             response += `\n\nAng susunod na deadline ay para sa Week ${nextDeadline.week_number}, sa ${formatDate(nextDeadline.deadline_date)}`;
-            if (nextDeadline.description) response += ` — ${nextDeadline.description}`;
+            if (nextDeadline.description) response += `: ${nextDeadline.description}`;
             response += '.';
         }
         return response;
@@ -1515,7 +1515,7 @@ async function queryCalendarInfo(
 
     if (nextDeadline) {
         response += `\n\nThe next deadline is for Week ${nextDeadline.week_number}, falling on ${formatDate(nextDeadline.deadline_date)}`;
-        if (nextDeadline.description) response += ` — ${nextDeadline.description}`;
+        if (nextDeadline.description) response += `: ${nextDeadline.description}`;
         response += '.';
     }
 
@@ -1533,7 +1533,7 @@ const REPORT_OPENERS: Record<Lang, Record<ReportTier, string[]>> = {
     en: {
         excellent: [
             'Compliance across {scope} is excellent this school year.',
-            '{scope} is performing strongly — submissions are largely on track.',
+            '{scope} is performing strongly: submissions are largely on track.',
             'The compliance picture for {scope} looks very healthy.'
         ],
         good: [
@@ -1555,7 +1555,7 @@ const REPORT_OPENERS: Record<Lang, Record<ReportTier, string[]>> = {
     tl: {
         excellent: [
             'Napakaganda ng compliance sa {scope} ngayong school year.',
-            'Matatag ang performance ng {scope} — halos lahat ng submissions ay on track.',
+            'Matatag ang performance ng {scope}: halos lahat ng submissions ay on track.',
             'Napakaayos ng compliance picture para sa {scope}.'
         ],
         good: [
@@ -1578,13 +1578,13 @@ const REPORT_OPENERS: Record<Lang, Record<ReportTier, string[]>> = {
 
 const REPORT_CLOSERS: Record<Lang, Record<ReportTier, string[]>> = {
     en: {
-        excellent: ['Keep up the consistent submission habits.', 'No action needed right now — just keep the momentum going.'],
+        excellent: ['Keep up the consistent submission habits.', 'No action needed right now, just keep the momentum going.'],
         good: ['A quick check-in with the teachers behind on submissions should close most of the gap.', 'Consider a reminder to the small group still catching up.'],
         attention: ['A follow-up with the affected teachers is recommended this week.', 'Consider reviewing the late/missing list in the report and reaching out directly.'],
         critical: ['Immediate outreach to the affected teachers is strongly recommended.', 'This warrants a closer look at what is blocking submissions.']
     },
     tl: {
-        excellent: ['Ipagpatuloy ang pare-parehong pag-susumite.', 'Walang kailangang gawin sa ngayon — panatilihin lang ang momentum.'],
+        excellent: ['Ipagpatuloy ang pare-parehong pag-susumite.', 'Walang kailangang gawin sa ngayon, panatilihin lang ang momentum.'],
         good: ['Ang mabilisang check-in sa mga guro na huli sa submissions ay dapat makasara sa karamihan ng gaps.', 'Isaalang-alang ang paalala sa maliit na grupong nagki-catch up pa.'],
         attention: ['Inirerekomenda ang follow-up sa mga apektadong guro ngayong linggo.', 'Isaalang-alang ang pagsusuri sa late/missing list sa report at direktang pakikipag-ugnayan.'],
         critical: ['Mahigpit na inirerekomenda ang agarang pakikipag-ugnayan sa mga apektadong guro.', 'Kailangan ng mas malalim na pagsusuri kung ano ang humaharang sa mga submissions.']

@@ -43,9 +43,6 @@ export async function shareContent({ title, text, url, files }: { title: string,
     }
 }
 
-/**
- * Share a document verification link specifically.
- */
 export async function shareVerification(hash: string, fileName: string) {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const url = `${origin}/verify/${hash}`;

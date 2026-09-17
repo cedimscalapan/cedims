@@ -21,9 +21,13 @@
 		warning: AlertTriangle,
 	};
 
+	// Success and warning use the -dark palette variant for their fill —
+	// white text on the base bg-gov-green/bg-gov-gold measured 3.30:1 /
+	// 3.19:1, below the 4.5:1 floor. Error and info already pass on their
+	// base fill and are left as-is.
 	const styles: Record<ToastMessage["type"], { bg: string; text: string; icon: string }> = {
 		success: {
-			bg: "bg-gov-green",
+			bg: "bg-gov-green-dark",
 			text: "text-white",
 			icon: "bg-white/20",
 		},
@@ -38,7 +42,7 @@
 			icon: "bg-white/20",
 		},
 		warning: {
-			bg: "bg-gov-gold",
+			bg: "bg-gov-gold-dark",
 			text: "text-white",
 			icon: "bg-white/20",
 		},
