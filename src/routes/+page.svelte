@@ -11,7 +11,6 @@
         FileCheck2,
         FileUp,
         History,
-        Laptop,
         Lock,
         LogIn,
         Mail,
@@ -21,10 +20,13 @@
         Phone,
         QrCode,
         ShieldCheck,
-        Smartphone,
-        WifiOff,
     } from "lucide-svelte";
-    import { fly } from "svelte/transition";
+    import { fly, slide } from "svelte/transition";
+
+    // Toggles the SDG 4 definition panel in the hero card — collapsed by
+    // default so the card stays a credential, not a wall of text; tapping
+    // it is an explicit choice to read the definition.
+    let sdgDefinitionOpen = $state(false);
 
     // What the system actually does, one card per capability. Each line is a
     // feature a user can point at in the app — not a general claim.
@@ -252,7 +254,11 @@
                         </span>
                     </div>
 
-                    <h1 class="mt-5 text-3xl font-bold leading-[1.15] tracking-tight text-text-primary sm:text-4xl lg:text-5xl">
+                    <p class="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-text-muted sm:text-sm">
+                        CEDIMS — Calapan East District Instructional Monitoring System
+                    </p>
+
+                    <h1 class="mt-2 text-3xl font-bold leading-[1.15] tracking-tight text-text-primary sm:text-4xl lg:text-5xl">
                         Instructional monitoring the whole district can keep up with.
                     </h1>
 
@@ -333,18 +339,53 @@
                         {/each}
                     </ul>
 
-                    <div class="mt-4 flex items-start gap-3 rounded-2xl bg-surface-muted p-3.5">
-                        <img
-                            src="/sdg-4-quality-education.svg"
-                            alt="United Nations Sustainable Development Goal 4: Quality Education"
-                            width="64"
-                            height="64"
-                            class="h-14 w-14 shrink-0 rounded-lg"
-                        />
-                        <div>
-                            <p class="text-sm font-semibold text-text-primary">Built to serve SDG 4</p>
-                            <p class="mt-1 text-xs leading-5 text-text-secondary">Quality Education, UN Sustainable Development Goals</p>
-                        </div>
+                    <div class="mt-4 rounded-2xl bg-surface-muted p-3.5">
+                        <button
+                            type="button"
+                            onclick={() => (sdgDefinitionOpen = !sdgDefinitionOpen)}
+                            aria-expanded={sdgDefinitionOpen}
+                            aria-controls="sdg-4-definition"
+                            class="flex w-full items-start gap-3 text-left"
+                        >
+                            <img
+                                src="/sdg-4-quality-education.svg"
+                                alt="United Nations Sustainable Development Goal 4: Quality Education"
+                                width="64"
+                                height="64"
+                                class="h-14 w-14 shrink-0 rounded-lg"
+                            />
+                            <span class="min-w-0 flex-1">
+                                <span class="block text-sm font-semibold text-text-primary">Built to serve SDG 4</span>
+                                <span class="mt-1 block text-xs leading-5 text-text-secondary">
+                                    Quality Education, UN Sustainable Development Goals
+                                </span>
+                                <span class="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-gov-blue">
+                                    {sdgDefinitionOpen ? "Hide definition" : "What is SDG 4?"}
+                                    <ArrowRight size={12} class="transition-transform {sdgDefinitionOpen ? '-rotate-90' : 'rotate-90'}" />
+                                </span>
+                            </span>
+                        </button>
+
+                        {#if sdgDefinitionOpen}
+                            <div
+                                id="sdg-4-definition"
+                                transition:slide={{ duration: 200 }}
+                                class="mt-3 border-t border-border-subtle pt-3 text-xs leading-6 text-text-secondary"
+                            >
+                                <p>
+                                    <strong class="text-text-primary">SDG 4: Quality Education</strong> is one of the
+                                    17 United Nations Sustainable Development Goals, adopted in 2015 as part of the
+                                    2030 Agenda for Sustainable Development. Its stated aim is to
+                                    "ensure inclusive and equitable quality education and promote lifelong learning
+                                    opportunities for all."
+                                </p>
+                                <p class="mt-2">
+                                    CEDIMS supports it by keeping lesson planning and instructional supervision
+                                    consistent and trackable across every school in the district — the monitoring
+                                    side of delivering on that goal.
+                                </p>
+                            </div>
+                        {/if}
                     </div>
                 </aside>
             </div>
@@ -364,7 +405,7 @@
                     {#each features as feature}
                         <li class="rounded-2xl border border-border-subtle bg-surface-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
                             <span class="inline-flex rounded-xl bg-gov-blue/10 p-3 text-gov-blue">
-                                <svelte:component this={feature.icon} size={20} strokeWidth={1.75} />
+                                <feature.icon size={20} strokeWidth={1.75} />
                             </span>
                             <h3 class="mt-4 text-base font-semibold text-text-primary">{feature.title}</h3>
                             <p class="mt-2 text-sm leading-7 text-text-secondary">{feature.description}</p>
@@ -393,7 +434,7 @@
                     {#each roles as role}
                         <li class="flex flex-col rounded-2xl border border-border-subtle bg-surface-muted p-5 sm:p-6">
                             <span class="inline-flex w-fit rounded-xl bg-gov-blue/10 p-2.5 text-gov-blue">
-                                <svelte:component this={role.icon} size={18} strokeWidth={1.75} />
+                                <role.icon size={18} strokeWidth={1.75} />
                             </span>
                             <h3 class="mt-4 text-base font-semibold text-text-primary">{role.name}</h3>
                             <p class="mt-0.5 text-xs font-semibold uppercase tracking-[0.12em] text-gov-blue">
@@ -403,37 +444,6 @@
                         </li>
                     {/each}
                 </ul>
-
-                <!-- What it runs on. Stated as the devices a teacher already has,
-                     because "mobile" alone understated it — CEDIMS is a browser
-                     app that installs on any of the three. -->
-                <div class="mt-6 rounded-2xl border border-border-subtle bg-surface-muted p-5 sm:mt-8 sm:p-6">
-                    <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
-                        <div>
-                            <h3 class="text-sm font-semibold text-text-primary sm:text-base">
-                                Runs on what you already carry
-                            </h3>
-                            <p class="mt-1.5 text-sm leading-7 text-text-secondary">
-                                No download from a store and nothing to install on a school computer.
-                                Open it in a browser, or add it to your home screen and it opens like an app —
-                                including when there is no signal.
-                            </p>
-                        </div>
-                        <ul class="flex flex-wrap gap-2.5 lg:shrink-0">
-                            {#each [
-                                { label: "Android phone", icon: Smartphone },
-                                { label: "iPhone & iPad", icon: Smartphone },
-                                { label: "Laptop & desktop", icon: Laptop },
-                                { label: "Offline", icon: WifiOff },
-                            ] as device}
-                                <li class="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface-white px-3.5 py-2 text-xs font-semibold text-text-primary">
-                                    <svelte:component this={device.icon} size={14} strokeWidth={1.75} class="text-gov-blue" />
-                                    {device.label}
-                                </li>
-                            {/each}
-                        </ul>
-                    </div>
-                </div>
             </div>
         </section>
 
@@ -455,7 +465,7 @@
                     {#each steps as step, index}
                         <li class="relative">
                             <div class="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-border-subtle bg-surface-white text-gov-blue shadow-sm">
-                                <svelte:component this={step.icon} size={20} strokeWidth={1.75} />
+                                <step.icon size={20} strokeWidth={1.75} />
                             </div>
                             <p class="mt-4 text-xs font-bold uppercase tracking-[0.14em] text-text-muted">Step {index + 1}</p>
                             <h3 class="mt-1 text-base font-semibold text-text-primary">{step.title}</h3>
@@ -471,7 +481,7 @@
                     {#each assurances as item}
                         <li class="flex items-start gap-3 rounded-xl bg-surface-muted p-4">
                             <span class="inline-flex shrink-0 rounded-lg bg-gov-blue/10 p-2 text-gov-blue">
-                                <svelte:component this={item.icon} size={16} strokeWidth={1.75} />
+                                <item.icon size={16} strokeWidth={1.75} />
                             </span>
                             <div>
                                 <h3 class="text-sm font-semibold text-text-primary">{item.title}</h3>
