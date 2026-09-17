@@ -7,6 +7,7 @@
     import DrillDownModal from "$lib/components/DrillDownModal.svelte";
     import ProfileUploader from "$lib/components/ProfileUploader.svelte";
     import PaginatedSubmissionCards from "$lib/components/PaginatedSubmissionCards.svelte";
+    import PaginatedRosterGrid from "$lib/components/PaginatedRosterGrid.svelte";
     import { onMount, onDestroy } from "svelte";
     import { fly, fade } from "svelte/transition";
     import { goto } from "$app/navigation";
@@ -44,7 +45,7 @@
         district_id: string;
         loadCount?: number;
         rate?: number;
-        total?: number;
+        totalUploaded?: number;
         Compliant?: number;
         Late?: number;
         NonCompliant?: number;
@@ -693,99 +694,23 @@
                 />
             {:else}
                 <div class="p-6">
-                    <div
-                        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[60vh] overflow-y-auto pr-1"
-                    >
-                        {#each sortedTeachers() as teacher}
-                            <button
-                                type="button"
-                                class="bg-surface-white border border-border-subtle rounded-xl p-6 shadow-sm hover:shadow-md hover:border-gov-blue/20 transition-colors flex flex-col group cursor-pointer text-left w-full"
-                                onclick={() => openDrillDown(teacher)}
-                                in:fly={{ y: 20, duration: 400 }}
-                            >
-                                <div
-                                    class="flex justify-between items-start mb-4"
-                                >
-                                    <div>
-                                        <h4
-                                            class="font-bold text-base text-text-primary group-hover:text-gov-blue transition-colors leading-tight"
-                                        >
-                                            {teacher.full_name}
-                                        </h4>
-                                        <p
-                                            class="text-[10px] text-text-muted font-bold uppercase tracking-tight mt-1"
-                                        >
-                                            Total: {teacher.total} Documents
-                                        </p>
-                                    </div>
-                                    <span
-                                        class="px-2.5 py-1 rounded-full text-[10px] font-bold {getComplianceBgClass(
-                                            teacher.rate,
-                                        )} {getComplianceClass(
-                                            teacher.rate,
-                                        )} uppercase tracking-wide"
-                                    >
-                                        {teacher.rate}%
-                                    </span>
-                                </div>
-
-                                <div class="grid grid-cols-3 gap-2 mb-6">
-                                    <div
-                                        class="bg-gov-green/5 p-2 rounded text-center"
-                                    >
-                                        <p
-                                            class="text-[9px] font-bold text-gov-green uppercase leading-none mb-1"
-                                        >
-                                            Pass
-                                        </p>
-                                        <p
-                                            class="text-xs font-bold text-text-primary"
-                                        >
-                                            {teacher.Compliant}
-                                        </p>
-                                    </div>
-                                    <div
-                                        class="bg-gov-gold/5 p-2 rounded text-center"
-                                    >
-                                        <p
-                                            class="text-[9px] font-bold text-gov-gold-dark uppercase leading-none mb-1"
-                                        >
-                                            Late
-                                        </p>
-                                        <p
-                                            class="text-xs font-bold text-text-primary"
-                                        >
-                                            {teacher.Late}
-                                        </p>
-                                    </div>
-                                    <div
-                                        class="bg-gov-red/5 p-2 rounded text-center"
-                                    >
-                                        <p
-                                            class="text-[9px] font-bold text-gov-red uppercase leading-none mb-1"
-                                        >
-                                            Miss
-                                        </p>
-                                        <p
-                                            class="text-xs font-bold text-text-primary"
-                                        >
-                                            {teacher.NonCompliant}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div
-                                    class="mt-auto pt-4 border-t border-gray-50"
-                                >
-                                    <div
-                                        class="w-full py-2 bg-gov-blue/5 text-gov-blue group-hover:bg-gov-blue group-hover:text-white rounded-lg transition-colors font-bold text-[10px] uppercase tracking-widest border border-gov-blue/10 flex items-center justify-center"
-                                    >
-                                        View Details
-                                    </div>
-                                </div>
-                            </button>
-                        {/each}
-                    </div>
+                    <PaginatedRosterGrid
+                        items={sortedTeachers().map((teacher) => ({
+                            key: teacher.id,
+                            name: teacher.full_name,
+                            subtitle: `Total: ${teacher.totalUploaded ?? 0} Documents`,
+                            rate: teacher.rate,
+                            compliant: teacher.Compliant,
+                            late: teacher.Late,
+                            missing: teacher.NonCompliant,
+                        }))}
+                        onSelect={(key) => {
+                            const teacher = sortedTeachers().find((t) => t.id === key);
+                            if (teacher) openDrillDown(teacher);
+                        }}
+                        rateClass={getComplianceClass}
+                        rateBgClass={getComplianceBgClass}
+                    />
                 </div>
             {/if}
         </div>

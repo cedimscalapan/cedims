@@ -3,6 +3,8 @@
     import { supabase } from "$lib/utils/supabase";
     import StatCard from "$lib/components/StatCard.svelte";
     import StatusBadge from "$lib/components/StatusBadge.svelte";
+    import PaginatedSubmissionCards from "$lib/components/PaginatedSubmissionCards.svelte";
+    import PaginatedRosterCards from "$lib/components/PaginatedRosterCards.svelte";
     import ComplianceTrendChart from "$lib/components/ComplianceTrendChart.svelte";
     import AlertBanner from "$lib/components/AlertBanner.svelte";
     import { onMount, onDestroy } from "svelte";
@@ -92,8 +94,11 @@
         schoolStandings.filter((s) => s.rate < AT_RISK_RATE),
     );
     // Lowest performers first — the ones a School Head would act on today.
+    // No cap here (used to be top 5): the list below is now paginated, so
+    // it can show the full roster sorted by risk instead of hiding anyone
+    // past the 5th.
     const needsAttention = $derived(
-        [...teacherCompliance].sort((a, b) => a.rate - b.rate).slice(0, 5),
+        [...teacherCompliance].sort((a, b) => a.rate - b.rate),
     );
 
     // Recent Activity timeline: 6 entries up front, "Show more activity"
@@ -427,8 +432,14 @@
         const complianceSubs = allSubs.filter((s) => isComplianceTrackedDocType(s.doc_type));
 
         // Per-teacher compliance: expected = active loads x defined weeks.
-        // Missing = expected - (compliant + late). This matches the teacher
-        // dashboard's own numbers, just summed across the supervisor's scope.
+        // Uses the same calculateCompliance() the rest of the app (School
+        // Monitoring, the overall rate below) already relies on, rather
+        // than a separate hand-rolled count — that older version counted
+        // each submission by its raw status without first deduplicating by
+        // slot (teaching_load_id + week + doc_type), so a teacher with both
+        // a required and a supplementary submission for the same slot could
+        // come out with different compliant/missing counts here than on
+        // School Monitoring for the exact same data.
         const loadsByTeacher: Record<string, any[]> = {};
         for (const l of loads) {
             (loadsByTeacher[l.user_id] ||= []).push(l);
@@ -437,53 +448,36 @@
             const myLoads = loadsByTeacher[t.id] || [];
             const expected = myLoads.length * definedWeeks;
             const mySubs = complianceSubs.filter((s) => s.user_id === t.id);
-            const compliant = mySubs.filter(
-                (s) =>
-                    !s.compliance_status ||
-                    s.compliance_status === "compliant" ||
-                    s.compliance_status === "on-time",
-            ).length;
-            const late = mySubs.filter(
-                (s) => s.compliance_status === "late",
-            ).length;
-            const missing = Math.max(0, expected - (compliant + late));
+            const tStats = calculateCompliance(mySubs, expected);
             return {
                 id: t.id,
                 name: t.full_name,
                 school_name: t.school_name,
                 expected,
-                compliant,
-                late,
-                missing,
-                rate:
-                    expected > 0
-                        ? Math.round(((compliant + late) / expected) * 100)
-                        : 0,
+                compliant: tStats.Compliant,
+                late: tStats.Late,
+                missing: tStats.NonCompliant,
+                rate: tStats.rate,
             };
         });
 
         const totalLoads = loads.length;
         const totalExpected = totalLoads * definedWeeks;
 
+        // Same calculateCompliance() used per-teacher above, at school
+        // scope — so these top-of-page KPI tiles can never disagree with
+        // the sum of what the roster below them shows, the way the old
+        // separate naive status filters here occasionally could.
+        const overallStats = calculateCompliance(complianceSubs, totalExpected);
+
         stats.totalTeachers = teachersWithNames.length;
         stats.totalUploads = complianceSubs.length;
-        stats.compliantCount = complianceSubs.filter(
-            (s) =>
-                !s.compliance_status ||
-                s.compliance_status === "compliant" ||
-                s.compliance_status === "on-time",
-        ).length;
-        stats.lateCount = complianceSubs.filter(
-            (s) => s.compliance_status === "late",
-        ).length;
-
+        stats.compliantCount = overallStats.Compliant;
+        stats.lateCount = overallStats.Late;
         stats.nonCompliantCount = teacherCompliance.reduce(
             (sum, t) => sum + t.missing,
             0,
         );
-
-        // Use the new standard calculateCompliance for the overall rate to keep display consistent with expected defaults
-        const overallStats = calculateCompliance(complianceSubs, totalExpected);
         stats.compliantRate = overallStats.rate;
 
         // Recent activity intentionally keeps ISP/ISR (shown with their doc
@@ -850,28 +844,21 @@
                     </button>
                 </div>
 
-                {#if awaitingReview.length === 0}
-                    <div class="gov-card-static p-8 text-center rounded-2xl">
-                        <p class="text-text-muted font-bold text-xs uppercase tracking-widest">Nothing waiting — every document has a remark</p>
-                    </div>
-                {:else}
-                    <div class="gov-card-static rounded-2xl divide-y divide-border-subtle max-h-[26rem] overflow-y-auto">
-                        {#each awaitingReview.slice(0, 25) as doc}
-                            <div class="flex items-center justify-between gap-3 p-4">
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-text-primary truncate">{doc.file_name}</p>
-                                    <p class="text-[11px] text-text-muted mt-0.5">
-                                        {doc.teacher_name}
-                                        · {doc.doc_type || "DLL"}{doc.week_number != null ? ` · Week ${doc.week_number}` : ""}
-                                    </p>
-                                </div>
-                                <span class="text-[10px] font-bold uppercase tracking-widest text-gov-gold-dark shrink-0">
-                                    {formatDate(doc.created_at)}
-                                </span>
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
+                <div class="gov-card-static rounded-2xl p-4">
+                    <PaginatedSubmissionCards
+                        items={awaitingReview.map((doc) => ({
+                            key: doc.id,
+                            fileName: doc.file_name,
+                            docType: doc.doc_type || "DLL",
+                            weekNumber: doc.week_number,
+                            complianceStatus: doc.compliance_status,
+                            createdAt: doc.created_at,
+                            subtitle: doc.teacher_name,
+                        }))}
+                        {formatDate}
+                        emptyMessage="Nothing waiting — every document has a remark"
+                    />
+                </div>
             </div>
 
         {:else if $profile?.role === "School Head"}
@@ -904,25 +891,18 @@
                     </button>
                 </div>
 
-                {#if needsAttention.length === 0}
-                    <div class="gov-card-static p-8 text-center rounded-2xl">
-                        <p class="text-text-muted font-bold text-xs uppercase tracking-widest">No teacher records yet</p>
-                    </div>
-                {:else}
-                    <div class="gov-card-static rounded-2xl divide-y divide-border-subtle">
-                        {#each needsAttention as t}
-                            <div class="flex items-center justify-between gap-3 p-4">
-                                <div class="min-w-0">
-                                    <p class="text-sm font-semibold text-text-primary truncate">{t.name}</p>
-                                    <p class="text-[11px] text-text-muted mt-0.5">
-                                        {t.missing} missing · {t.late} late · {t.expected} expected
-                                    </p>
-                                </div>
-                                <span class="text-sm font-bold shrink-0 {getComplianceClass(t.rate)}">{t.rate}%</span>
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
+                <PaginatedRosterCards
+                    items={needsAttention.map((t) => ({
+                        key: t.id,
+                        name: t.name,
+                        missing: t.missing,
+                        late: t.late,
+                        expected: t.expected,
+                        rate: t.rate,
+                    }))}
+                    rateClass={getComplianceClass}
+                    emptyMessage="No teacher records yet"
+                />
             </div>
 
         {:else}
@@ -955,25 +935,18 @@
                     </button>
                 </div>
 
-                {#if schoolStandings.length === 0}
-                    <div class="gov-card-static p-8 text-center rounded-2xl">
-                        <p class="text-text-muted font-bold text-xs uppercase tracking-widest">No school records yet</p>
-                    </div>
-                {:else}
-                    <div class="gov-card-static rounded-2xl divide-y divide-border-subtle max-h-[26rem] overflow-y-auto">
-                        {#each schoolStandings as s}
-                            <div class="flex items-center justify-between gap-3 p-4">
-                                <div class="min-w-0 flex-1">
-                                    <p class="text-sm font-semibold text-text-primary truncate">{s.name}</p>
-                                    <p class="text-[11px] text-text-muted mt-0.5">
-                                        {s.missing} missing · {s.late} late · {s.expected} expected
-                                    </p>
-                                </div>
-                                <span class="text-sm font-bold shrink-0 {getComplianceClass(s.rate)}">{s.rate}%</span>
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
+                <PaginatedRosterCards
+                    items={schoolStandings.map((s) => ({
+                        key: s.name,
+                        name: s.name,
+                        missing: s.missing,
+                        late: s.late,
+                        expected: s.expected,
+                        rate: s.rate,
+                    }))}
+                    rateClass={getComplianceClass}
+                    emptyMessage="No school records yet"
+                />
             </div>
         {/if}
 
