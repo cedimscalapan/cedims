@@ -12,6 +12,7 @@
         FileUp,
         History,
         Laptop,
+        Lock,
         LogIn,
         Mail,
         MapPin,
@@ -47,12 +48,6 @@
             icon: ClipboardCheck,
         },
         {
-            title: "QR verification",
-            description:
-                "Every export carries a QR stamp, so any printed copy can be checked against the original record.",
-            icon: QrCode,
-        },
-        {
             title: "Archive & history",
             description:
                 "Past submissions and every remark are preserved, so a document's full history stays reviewable.",
@@ -63,35 +58,6 @@
             description:
                 "Alerts on submission, checking, and approaching deadlines keep follow-up from depending on memory.",
             icon: BellRing,
-        },
-    ];
-
-    // How the system maps onto SDG 4, stated against the actual UN target
-    // numbers rather than as a general claim about education.
-    const sdgTargets = [
-        {
-            target: "4.c",
-            title: "Supply of qualified teachers",
-            contribution:
-                "Master Teachers and School Heads review lesson logs and leave remarks, so supervision becomes continuous coaching instead of an annual check.",
-        },
-        {
-            target: "4.1",
-            title: "Effective learning outcomes",
-            contribution:
-                "Tracking Daily Lesson Log completion against deadlines keeps lesson planning consistent across every class in the district.",
-        },
-        {
-            target: "4.5",
-            title: "Equal access",
-            contribution:
-                "Uploads work on low-bandwidth mobile connections and finish on their own once signal returns, so remote schools are monitored on the same footing.",
-        },
-        {
-            target: "4.a",
-            title: "Effective learning environments",
-            contribution:
-                "District-wide compliance data shows which schools need support, directing attention to where instruction needs strengthening.",
         },
     ];
 
@@ -179,9 +145,9 @@
             icon: ShieldCheck,
         },
         {
-            title: "Works on weak signal",
-            description: "Submissions queue offline and upload once the connection returns.",
-            icon: WifiOff,
+            title: "Role-scoped access",
+            description: "You only ever see what your role and school/district allows.",
+            icon: Lock,
         },
     ];
 
@@ -213,8 +179,8 @@
                 <img src="/app_icon.png" alt="" class="h-9 w-9 shrink-0 rounded-lg sm:h-10 sm:w-10" />
                 <span class="min-w-0">
                     <span class="block text-sm font-semibold leading-tight text-text-primary">CEDIMS</span>
-                    <span class="block truncate text-[10px] font-semibold uppercase leading-tight tracking-[0.22em] text-gov-blue">
-                        Instructional Monitoring
+                    <span class="block truncate text-[10px] font-semibold uppercase leading-tight tracking-[0.18em] text-gov-blue">
+                        Powered by Smart E-Vision
                     </span>
                 </span>
             </a>
@@ -222,7 +188,6 @@
             <nav aria-label="Sections" class="hidden items-center gap-7 text-sm font-medium text-text-secondary md:flex">
                 <a href="#features" class="transition-colors hover:text-gov-blue">Features</a>
                 <a href="#roles" class="transition-colors hover:text-gov-blue">Roles</a>
-                <a href="#sdg" class="transition-colors hover:text-gov-blue">SDG 4</a>
                 <a href="#how-it-works" class="transition-colors hover:text-gov-blue">How it works</a>
                 <a href="#contact" class="transition-colors hover:text-gov-blue">Contact</a>
             </nav>
@@ -378,13 +343,7 @@
                         />
                         <div>
                             <p class="text-sm font-semibold text-text-primary">Built to serve SDG 4</p>
-                            <a
-                                href="#sdg"
-                                class="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-gov-blue hover:underline"
-                            >
-                                See the four targets
-                                <ArrowRight size={13} />
-                            </a>
+                            <p class="mt-1 text-xs leading-5 text-text-secondary">Quality Education, UN Sustainable Development Goals</p>
                         </div>
                     </div>
                 </aside>
@@ -478,36 +437,7 @@
             </div>
         </section>
 
-        <!-- SDG 4 alignment, target by target -->
-        <section id="sdg" class="scroll-mt-20 border-b border-border-subtle">
-            <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-                <div class="max-w-3xl">
-                    <p class="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-gov-red sm:text-sm">
-                        <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gov-red text-xs font-bold text-white">4</span>
-                        Quality Education
-                    </p>
-                    <h2 class="mt-3 text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
-                        Four UN targets the district can act on.
-                    </h2>
-                    <p class="mt-3 max-w-2xl text-sm leading-7 text-text-secondary sm:text-base sm:leading-8">
-                        Sustainable Development Goal 4 is broad. These are the specific targets CEDIMS
-                        was designed against, and what the system contributes to each.
-                    </p>
-                </div>
-
-                <ul class="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-5">
-                    {#each sdgTargets as item}
-                        <li class="rounded-2xl border border-border-subtle bg-surface-white p-5 sm:p-6">
-                            <p class="text-xs font-bold uppercase tracking-[0.14em] text-gov-red">Target {item.target}</p>
-                            <h3 class="mt-2 text-base font-semibold text-text-primary">{item.title}</h3>
-                            <p class="mt-2 text-sm leading-7 text-text-secondary">{item.contribution}</p>
-                        </li>
-                    {/each}
-                </ul>
-            </div>
-        </section>
-
-        <!-- The path a document takes -->
+        <!-- The path a document takes, and why the record it leaves holds up -->
         <section id="how-it-works" class="scroll-mt-20 border-b border-border-subtle bg-surface-white">
             <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
                 <div class="max-w-2xl">
@@ -533,28 +463,19 @@
                         </li>
                     {/each}
                 </ol>
-            </div>
-        </section>
 
-        <!-- Why the records hold up -->
-        <section class="border-b border-border-subtle">
-            <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-                <div class="max-w-2xl">
-                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-gov-blue sm:text-sm">Records you can trust</p>
-                    <h2 class="mt-3 text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
-                        Every document stays verifiable.
-                    </h2>
-                </div>
-
-                <ul class="mt-8 grid gap-4 sm:mt-10 sm:gap-5 lg:grid-cols-3">
+                <!-- Compact trust strip — every record this path produces stays
+                     verifiable, stated as three short facts rather than its own
+                     full section. -->
+                <ul class="mt-10 grid gap-3 border-t border-border-subtle pt-8 sm:mt-12 sm:grid-cols-3 sm:gap-4">
                     {#each assurances as item}
-                        <li class="flex items-start gap-4 rounded-2xl border border-border-subtle bg-surface-white p-5 sm:p-6">
-                            <span class="inline-flex shrink-0 rounded-xl bg-gov-blue/10 p-3 text-gov-blue">
-                                <svelte:component this={item.icon} size={20} strokeWidth={1.75} />
+                        <li class="flex items-start gap-3 rounded-xl bg-surface-muted p-4">
+                            <span class="inline-flex shrink-0 rounded-lg bg-gov-blue/10 p-2 text-gov-blue">
+                                <svelte:component this={item.icon} size={16} strokeWidth={1.75} />
                             </span>
                             <div>
-                                <h3 class="text-sm font-semibold text-text-primary sm:text-base">{item.title}</h3>
-                                <p class="mt-1.5 text-sm leading-7 text-text-secondary">{item.description}</p>
+                                <h3 class="text-sm font-semibold text-text-primary">{item.title}</h3>
+                                <p class="mt-1 text-xs leading-5 text-text-secondary">{item.description}</p>
                             </div>
                         </li>
                     {/each}
@@ -620,7 +541,7 @@
                     <p class="mt-2 text-sm text-text-secondary">
                         Calapan East District Instructional Monitoring System
                     </p>
-                    <p class="mt-1 text-xs text-text-muted">Powered by Smart E-VISION</p>
+                    <p class="mt-1 text-xs font-semibold text-gov-blue">Powered by Smart E-Vision</p>
                 </div>
 
                 <div class="text-xs text-text-muted sm:text-right">
