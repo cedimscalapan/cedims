@@ -15,6 +15,29 @@ async function getAuthToken(): Promise<string | null> {
     return null;
 }
 
+// Google Apps Script's own infrastructure occasionally serves a bare
+// CORS/redirect failure (a `TypeError` from fetch() itself, no response
+// body to inspect) with no relation to this file or the client — observed
+// in production immediately after an identical call had just succeeded for
+// a different file seconds earlier. A short retry absorbs that class of
+// failure. It's deliberately narrow: a logical failure the script itself
+// reports (a thrown `Error`, e.g. a bug in the deployed script, or a file
+// it rejects) will fail identically on retry, so only the network-level
+// `TypeError` is retried — anything else fails fast to the fallback below.
+async function withGasRetry<T>(fn: () => Promise<T>, attempts = 2, delayMs = 1500): Promise<T> {
+    let lastErr: unknown;
+    for (let i = 0; i < attempts; i++) {
+        try {
+            return await fn();
+        } catch (err) {
+            lastErr = err;
+            if (!(err instanceof TypeError) || i === attempts - 1) throw err;
+            await new Promise((r) => setTimeout(r, delayMs));
+        }
+    }
+    throw lastErr;
+}
+
 async function convertViaServerProxy(file: File): Promise<Uint8Array | null> {
     const token = await getAuthToken();
     if (!token) return null;
@@ -54,14 +77,15 @@ export async function transcodeToPdf(file: File): Promise<TranscodeResult> {
         // here meant every conversion round-tripped through a guaranteed
         // 500 before falling back to the engine that actually works.
         //
-        // Each engine is tried at most once per call. Calling Google Apps
-        // Script a second time after it just failed for this same file
-        // wastes a round trip and risks tripping its per-user concurrent-
-        // execution quota, which turns a clean error into an opaque
-        // CORS/redirect failure on the retry.
+        // A logical failure (the script's own reported error) is tried at
+        // most once — see withGasRetry for why retrying a network-level
+        // failure is worth it but retrying a script-reported one isn't.
+        // Falling back to the server proxy after that wastes a round trip
+        // (it has no LibreOffice binary on Vercel) but costs little and
+        // covers deployments that do have a working server-side engine.
         if (config.GOOGLE_SCRIPT_URL) {
             try {
-                const pdfBytes = await googleConvertToPdf(file);
+                const pdfBytes = await withGasRetry(() => googleConvertToPdf(file));
                 return { pdfBytes };
             } catch (err) {
                 console.warn('[transcode] Google Apps Script conversion failed, trying server proxy:', err);
