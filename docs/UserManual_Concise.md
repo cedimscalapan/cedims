@@ -1,4 +1,4 @@
-# Smart E-VISION — Concise User Manual
+# Smart E-VISION: Concise User Manual
 **Calapan East District Instructional Monitoring System**
 *Quick reference of all features per role.*
 
@@ -15,7 +15,7 @@
 | **Scan Document** | Open the in-app QR scanner (camera) to verify any stamped document instantly. |
 | **Chatbot** | Floating assistant that answers questions about compliance, deadlines, teacher stats, school comparisons, and finds DLLs. |
 | **PWA Install** | Install the app on your device for offline use and a native-app experience. |
-| **Offline Mode** | Work without internet — uploads are queued and auto-synced when connection returns. |
+| **Offline Mode** | Work without internet. Uploads are queued and auto-synced when connection returns. |
 
 ---
 

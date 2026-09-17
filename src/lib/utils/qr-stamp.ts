@@ -53,7 +53,5 @@ export async function stampQrCode(
         height: qrSize
     });
 
-    // Removed the 'Verify' text as requested
-
     return pdfDoc.save();
 }

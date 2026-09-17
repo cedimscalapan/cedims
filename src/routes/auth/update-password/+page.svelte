@@ -62,7 +62,7 @@
 </script>
 
 <svelte:head>
-    <title>Reset Password — CEDIMS</title>
+    <title>Reset Password: CEDIMS</title>
 </svelte:head>
 
 <div class="min-h-dvh bg-gradient-to-br from-surface-muted via-surface-white to-gov-blue/5 px-4 py-8 sm:px-6 sm:py-10 lg:px-8 flex items-center justify-center">
@@ -79,8 +79,8 @@
             </div>
 
             {#if errorMsg && !sessionReady}
-                <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
-                    <p class="text-xs sm:text-sm font-medium text-red-600">{errorMsg}</p>
+                <div class="rounded-xl border border-gov-red/30 bg-gov-red/10 p-4 text-center">
+                    <p class="text-xs sm:text-sm font-medium text-gov-red-dark">{errorMsg}</p>
                     <a href="/auth/forgot-password" class="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-gov-blue hover:text-gov-blue-dark transition-colors">
                         Request new reset link
                     </a>
@@ -112,7 +112,7 @@
                     </div>
 
                     {#if errorMsg}
-                        <div class="rounded-xl border border-red-200 bg-red-50 p-2.5 sm:p-3 text-xs sm:text-sm font-medium text-red-600">{errorMsg}</div>
+                        <div class="rounded-xl border border-gov-red/30 bg-gov-red/10 p-2.5 sm:p-3 text-xs sm:text-sm font-medium text-gov-red-dark">{errorMsg}</div>
                     {/if}
 
                     <button type="submit" disabled={loading || !newPassword || !confirmPassword} class="w-full rounded-xl bg-gov-blue px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-gov-blue-dark disabled:opacity-60 transition-colors flex items-center justify-center gap-2">

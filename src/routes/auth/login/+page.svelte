@@ -155,7 +155,7 @@
 </script>
 
 <svelte:head>
-    <title>Sign In — CEDIMS · Powered by Smart E-VISION</title>
+    <title>Sign In: CEDIMS · Powered by Smart E-VISION</title>
 </svelte:head>
 
 <div class="min-h-dvh bg-surface-muted lg:grid lg:grid-cols-[1fr_1.1fr] xl:grid-cols-[1fr_1fr]">
@@ -187,7 +187,7 @@
             </p>
             <p class="mt-4 text-base leading-8 text-slate-100">
                 Submit Daily Lesson Logs, record checking remarks, and follow district
-                compliance — all against one set of records.
+                compliance: all against one set of records.
             </p>
 
             <ul class="mt-8 space-y-3.5">
@@ -213,8 +213,8 @@
                 class="h-16 w-16 shrink-0 rounded-lg"
             />
             <p class="text-xs leading-6 text-slate-100">
-                Built to support <span class="font-semibold text-white">UN Sustainable Development Goal 4</span>
-                — inclusive and equitable quality education.
+                Built to support <span class="font-semibold text-white">UN Sustainable Development Goal 4</span>:
+                inclusive and equitable quality education.
             </p>
         </div>
     </aside>
@@ -290,7 +290,7 @@
                             <button
                                 type="button"
                                 onclick={() => (showPassword = !showPassword)}
-                                class="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-text-muted transition-colors hover:text-gov-blue"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-3.5 text-text-muted transition-colors hover:text-gov-blue"
                                 aria-pressed={showPassword}
                                 aria-controls="password"
                                 aria-label={showPassword ? "Hide password" : "Show password"}
@@ -347,7 +347,7 @@
                             <p
                                 id="login-error"
                                 role="alert"
-                                class="rounded-xl border border-gov-red/30 bg-gov-red/10 p-3 text-sm font-semibold text-gov-red"
+                                class="rounded-xl border border-gov-red/30 bg-gov-red/10 p-3 text-sm font-semibold text-gov-red-dark"
                             >
                                 {errorMsg}
                             </p>

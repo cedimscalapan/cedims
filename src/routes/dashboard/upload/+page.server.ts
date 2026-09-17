@@ -8,20 +8,15 @@ export const load: PageServerLoad = async ({ request }) => {
             const sharedFile = formData.get('shared_file');
 
             if (sharedFile instanceof File) {
-                // SvelteKit Serializer (devalue) doesn't serialize File objects directly.
-                // We convert it to a simple metadata object + buffer, 
-                // but Svelte will re-hydrate from JS.
-                // More robust: use the client-side navigator.setConsumer if possible, 
-                // but for Share Target POST, we return a hint.
+                // devalue (SvelteKit's load-data serializer) can't carry File objects across
+                // the server-to-client boundary, so only the metadata below is returned;
+                // the actual bytes need a client-side re-read.
                 return {
                     sharedFile: {
                         name: sharedFile.name,
                         type: sharedFile.type,
                         size: sharedFile.size,
                         lastModified: sharedFile.lastModified,
-                        // This is a placeholder since we can't easily pass the binary via devalue
-                        // The user will see the filename and we'll ask them to re-confirm 
-                        // or use launchQueue (modern) / client-side re-read.
                         isShared: true
                     }
                 };

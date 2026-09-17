@@ -198,7 +198,7 @@
 </script>
 
 <svelte:head>
-    <title>Verify Document — CEDIMS · Powered by Smart E-VISION</title>
+    <title>Verify Document: CEDIMS · Powered by Smart E-VISION</title>
 </svelte:head>
 
 <!-- QR Scanner Overlay for continuous scanning -->
@@ -433,7 +433,7 @@
                         <div class="pt-2">
                             {#if !isLoggedIn}
                                 <a
-                                    href="/login"
+                                    href="/auth/login"
                                     class="w-full flex items-center justify-center gap-2 py-3.5 px-6 bg-gray-100 text-text-muted font-bold text-sm uppercase tracking-wide rounded-md border border-gray-200 hover:bg-gray-200 transition-colors min-h-[48px]"
                                 >
                                     <LogIn size={18} />
@@ -458,7 +458,7 @@
                                     class="w-full flex items-center justify-center gap-2 py-3.5 px-6 bg-gray-50 text-text-muted font-bold text-[11px] uppercase tracking-wide rounded-md border border-gray-200 min-h-[48px] cursor-not-allowed"
                                 >
                                     <Lock size={16} />
-                                    Access Restricted — {result?.school_name ? `${result.school_name} personnel only` : 'Owner only'}
+                                    Access Restricted: {result?.school_name ? `${result.school_name} personnel only` : 'Owner only'}
                                 </div>
                             {/if}
                         </div>
