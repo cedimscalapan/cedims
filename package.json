@@ -1,0 +1,42 @@
+{
+	"name": "cedims",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-vercel": "^6.3.2",
+		"@sveltejs/kit": "^2.53.0",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@tailwindcss/vite": "^4.1.18",
+		"@types/qrcode": "^1.5.6",
+		"svelte": "^5.49.2",
+		"svelte-check": "^4.3.6",
+		"tailwindcss": "^4.1.18",
+		"typescript": "^5.9.3",
+		"vite": "^7.3.1"
+	},
+	"dependencies": {
+		"@aws-sdk/client-s3": "^3.1013.0",
+		"@aws-sdk/s3-request-presigner": "^3.1013.0",
+		"@supabase/supabase-js": "^2.96.0",
+		"browser-image-compression": "^2.0.2",
+		"chart.js": "^4.5.1",
+		"exceljs": "^4.4.0",
+		"idb-keyval": "^6.2.2",
+		"jsqr": "^1.4.0",
+		"lucide-svelte": "^0.575.0",
+		"mammoth": "^1.12.0",
+		"pdf-lib": "^1.17.1",
+		"pdf-parse": "^2.4.5",
+		"qrcode": "^1.5.4",
+		"tesseract.js": "^7.0.0"
+	}
+}

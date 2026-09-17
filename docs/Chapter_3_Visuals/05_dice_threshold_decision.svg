@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+<rect width="1400" height="900" fill="#f8fafc"/>
+<text x="700" y="52" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" font-weight="700" fill="#172033">Dice Threshold Decision</text>
+<text x="700" y="86" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" fill="#64748b">Regex rules run first; Dice fuzzy matching is the fallback</text>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker></defs>
+<g font-family="Arial,sans-serif" font-size="22" text-anchor="middle">
+<rect x="500" y="125" width="400" height="68" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="3"/><text x="700" y="168">OCR text input</text>
+<rect x="500" y="235" width="400" height="68" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="3"/><text x="700" y="278">Normalize text</text>
+<text x="700" y="326" font-size="17" fill="#64748b">lowercase + remove non-alphanumeric characters</text>
+<rect x="500" y="365" width="400" height="68" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="3"/><text x="700" y="408">Apply regex rules first</text>
+</g>
+<g stroke="#64748b" stroke-width="3" fill="none" marker-end="url(#arrow)"><path d="M700 193 V235"/><path d="M700 303 V365"/><path d="M700 433 V470"/></g>
+<polygon points="700,470 820,540 700,610 580,540" fill="#fff7ed" stroke="#d97706" stroke-width="3"/>
+<g font-family="Arial,sans-serif" text-anchor="middle"><text x="700" y="533" font-size="21" font-weight="700" fill="#172033">Recognizable</text><text x="700" y="562" font-size="21" font-weight="700" fill="#172033">pattern?</text></g>
+<path d="M820 540 H1080" stroke="#64748b" stroke-width="3" fill="none" marker-end="url(#arrow)"/><rect x="890" y="505" width="60" height="30" rx="6" fill="#f8fafc"/><text x="920" y="527" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" fill="#047857">Yes</text>
+<rect x="1080" y="495" width="280" height="90" rx="10" fill="#dcfce7" stroke="#059669" stroke-width="3"/><text x="1220" y="533" text-anchor="middle" font-family="Arial,sans-serif" font-size="21" fill="#047857">Exact metadata value</text><text x="1220" y="562" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" fill="#047857">100% confidence</text>
+<path d="M580 540 H320" stroke="#64748b" stroke-width="3" fill="none" marker-end="url(#arrow)"/><rect x="435" y="505" width="60" height="30" rx="6" fill="#f8fafc"/><text x="465" y="527" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" fill="#b91c1c">No</text>
+<rect x="40" y="495" width="280" height="90" rx="10" fill="#ede9fe" stroke="#7c3aed" stroke-width="3"/><text x="180" y="533" text-anchor="middle" font-family="Arial,sans-serif" font-size="21">Dice fallback</text><text x="180" y="562" text-anchor="middle" font-family="Arial,sans-serif" font-size="19">compare character bigrams</text>
+<path d="M180 585 V645 H700 V655" stroke="#64748b" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+<polygon points="700,655 820,725 700,795 580,725" fill="#f5f3ff" stroke="#7c3aed" stroke-width="3"/>
+<text x="700" y="718" text-anchor="middle" font-family="Arial,sans-serif" font-size="21" font-weight="700">score &gt;= 25%?</text><text x="700" y="747" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" fill="#64748b">fuzzyMatchAny threshold</text>
+<path d="M820 725 H1080 V735" stroke="#64748b" stroke-width="3" fill="none" marker-end="url(#arrow)"/><rect x="875" y="690" width="60" height="30" rx="6" fill="#f8fafc"/><text x="905" y="712" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" fill="#047857">Yes</text>
+<rect x="1080" y="735" width="280" height="90" rx="10" fill="#dcfce7" stroke="#059669" stroke-width="3"/><text x="1220" y="773" text-anchor="middle" font-family="Arial,sans-serif" font-size="21" fill="#047857">Return best candidate</text><text x="1220" y="802" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" fill="#047857">with similarity score</text>
+<path d="M580 725 H320 V735" stroke="#64748b" stroke-width="3" fill="none" marker-end="url(#arrow)"/><rect x="430" y="690" width="60" height="30" rx="6" fill="#f8fafc"/><text x="460" y="712" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" fill="#b91c1c">No</text>
+<rect x="40" y="735" width="280" height="90" rx="10" fill="#fee2e2" stroke="#dc2626" stroke-width="3"/><text x="180" y="773" text-anchor="middle" font-family="Arial,sans-serif" font-size="21" fill="#991b1b">Return uncertain</text><text x="180" y="802" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" fill="#991b1b">no forced assignment</text>
+<rect x="450" y="845" width="500" height="34" rx="7" fill="#fff" stroke="#cbd5e1"/><text x="700" y="868" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" fill="#475569">Field-label extraction uses a separate 40% threshold</text>
+</svg>

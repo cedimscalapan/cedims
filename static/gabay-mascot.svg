@@ -1,0 +1,24 @@
+<svg width="240" height="300" viewBox="0 0 240 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gabayBody" x1="20%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="55%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="120" cy="288" rx="56" ry="8" fill="#1e293b" opacity="0.08" />
+  <path d="M 62 172 L 26 208" stroke="#3b82f6" stroke-width="20" stroke-linecap="round" fill="none" />
+  <path d="M 178 172 L 212 118" stroke="#3b82f6" stroke-width="20" stroke-linecap="round" fill="none" />
+  <ellipse cx="99" cy="280" rx="15" ry="9" fill="#2563eb" />
+  <ellipse cx="141" cy="280" rx="15" ry="9" fill="#2563eb" />
+  <path d="M 120 22 C 160 62 190 106 190 158 C 190 223 161 274 120 274 C 79 274 50 223 50 158 C 50 106 80 62 120 22 Z" fill="url(#gabayBody)" />
+  <ellipse cx="88" cy="92" rx="17" ry="32" fill="#ffffff" opacity="0.22" transform="rotate(-18 88 92)" />
+  <ellipse cx="120" cy="182" rx="45" ry="49" fill="#fbfcff" />
+  <circle cx="103" cy="174" r="7.5" fill="#25324a" />
+  <circle cx="137" cy="174" r="7.5" fill="#25324a" />
+  <circle cx="100.5" cy="171" r="2.4" fill="#ffffff" />
+  <circle cx="134.5" cy="171" r="2.4" fill="#ffffff" />
+  <ellipse cx="90" cy="190" rx="8" ry="5" fill="#fca5c8" opacity="0.45" />
+  <ellipse cx="150" cy="190" rx="8" ry="5" fill="#fca5c8" opacity="0.45" />
+  <path d="M 102 197 Q 120 211 138 197" stroke="#25324a" stroke-width="5" stroke-linecap="round" fill="none" />
+</svg>

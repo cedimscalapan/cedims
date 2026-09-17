@@ -1,0 +1,817 @@
+@import "tailwindcss";
+
+/* ── Class-Based Dark Mode ── */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Dark Mode Theme Overrides ── */
+.dark {
+  --color-surface: #0a0e17;
+  --color-surface-white: #0f1623;
+  --color-surface-muted: #151d2d;
+  --color-surface-glass: rgba(15, 22, 35, 0.95);
+  --color-text-primary: #f0f3f8;
+  --color-text-secondary: #a8b0c2;
+  /* #7e8aa3 (~5.2:1 on #0f1623), not the old #6b7590 (~3.9:1, fails WCAG AA) */
+  --color-text-muted: #7e8aa3;
+  --color-border-subtle: #1f2742;
+  --color-border-strong: #2d3855;
+  --color-border-accent: rgba(66, 150, 237, 0.3);
+  --color-gov-blue: #2d5bb3;
+  --color-gov-blue-light: #5a8fde;
+  --color-gov-blue-dark: #1a3a6f;
+  --color-gov-blue-vibrant: #4296ed;
+  /* --color-gov-blue only measures ~2.8:1 here — below the 3:1 floor for
+     focus indicators (colorize.md). The vibrant variant clears it. */
+  --color-focus-ring: #4296ed;
+  --color-gov-purple: #a78bfa;
+  --color-gov-purple-dark: #8b5cf6;
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 8px -2px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 20px -4px rgba(0, 0, 0, 0.45), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 30px -5px rgba(0, 0, 0, 0.5), 0 8px 12px -4px rgba(0, 0, 0, 0.35);
+  --shadow-elevated: 0 6px 10px -2px rgba(0, 0, 0, 0.5);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ── CEDIMS Custom Scrollbars (used on dense tables/charts) ── */
+.cedims-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #1a3a5c rgba(0, 0, 0, 0.08);
+}
+.cedims-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.cedims-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+}
+.cedims-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #1a3a5c, #2f5d8f);
+  border-radius: 999px;
+}
+.cedims-scroll::-webkit-scrollbar-thumb:hover {
+  background: #0f2740;
+}
+.dark .cedims-scroll {
+  scrollbar-color: #2a2a40 rgba(0, 0, 0, 0.4);
+}
+.dark .cedims-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+}
+.dark .cedims-scroll::-webkit-scrollbar-thumb {
+  background: #2a2a40;
+}
+.dark .cedims-scroll::-webkit-scrollbar-thumb:hover {
+  background: #585870;
+}
+
+/* ── Government-Grade Design System Tokens ── */
+@theme {
+  /* Custom breakpoint for very small screens */
+  --breakpoint-xs: 475px;
+
+  /* Brand Colors — Modern Institutional Navy & Education Palette */
+  --color-gov-blue: #2563eb;
+  --color-gov-blue-light: #60a5fa;
+  --color-gov-blue-dark: #1e40af;
+  --color-gov-blue-vibrant: #3b82f6;
+  --color-gov-gold: #d97706;
+  --color-gov-gold-dark: #b45309;
+  --color-gov-red: #dc2626;
+  --color-gov-red-dark: #b91c1c;
+  --color-gov-green: #16a34a;
+  --color-gov-green-dark: #15803d;
+  /* Was referenced (upload/+page.svelte's role-guidance card, School Head
+     and District Supervisor) but never defined — every class using it
+     was silently dropped. */
+  --color-gov-purple: #7c3aed;
+  --color-gov-purple-dark: #6d28d9;
+
+  /* Surface & Backgrounds */
+  --color-surface: #f5f6f8;
+  --color-surface-white: #ffffff;
+  --color-surface-muted: #ebedf0;
+  --color-surface-glass: #ffffff;
+
+  /* Text System — text-muted is #64748b (~4.8:1 on white), not the old
+     #718096 (~4.0:1, fails WCAG AA) */
+  --color-text-primary: #1a202c;
+  --color-text-secondary: #4a5568;
+  --color-text-muted: #64748b;
+
+  /* Card & Border System */
+  --color-border-subtle: #e2e8f0;
+  --color-border-strong: #cbd5e0;
+  --color-border-accent: rgba(26, 58, 92, 0.15);
+
+  /* ~5.2:1 on white — the .dark block above overrides this to the
+     brighter #4296ed, which clears 3:1 on the dark surface (#2563eb
+     itself only manages ~2.8:1 there) */
+  --color-focus-ring: #2563eb;
+
+  /* Shadow System — Clean Elevations */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.06), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 4px 6px -2px rgba(0, 0, 0, 0.08);
+
+  /* Typography — Segoe UI (system) for education context.
+     Rebalanced for a 16px root (was 14px — see html{} below). This is the
+     dominant sizing lever: nearly all templates use Tailwind's own
+     text-xs/sm/base/lg classes, which scale off the root, not these
+     custom tokens (those are only consumed by the rarely-used
+     text-heading and text-body utility classes). Dense/metadata roles
+     (xs, sm) stay compact — impeccable's typeset guidance permits a
+     dense-role exception to the 16px body floor; primary reading text
+     (base) now genuinely meets it. */
+  --font-family-sans: "Segoe UI", "Roboto", system-ui, -apple-system, sans-serif;
+  --font-size-xs: 0.8125rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+
+  /* Line Heights — Better readability */
+  --line-height-tight: 1.3;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* Radius — Modern, education-friendly */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-full: 9999px;
+
+  /* Motion — curves per emil-design-eng / animate skill standards.
+     ease-out: entering/exiting. ease-in-out: moving/morphing on screen.
+     ease-drawer: sheets and drawers. Never ease-in on UI. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Alias retained until Phase 3 renames every call site off it.
+     Value corrected — cubic-bezier(0.4,0,0.2,1) is the flagged default curve. */
+  --ease-smooth: var(--ease-out);
+
+  /* Duration scale — UI motion stays under 300ms */
+  --duration-press: 160ms;
+  --duration-popover: 200ms;
+  --duration-dropdown: 250ms;
+  --duration-modal: 300ms;
+
+  /* Z-index — systemic scale, not arbitrary per-component values */
+  --z-sticky: 30;
+  --z-mobile-nav: 40;
+  --z-dropdown: 50;
+  --z-overlay: 60;
+  --z-modal: 70;
+  --z-toast: 80;
+  /* SystemWalkthrough's internal 3-level stack (dim backdrop < the
+     spotlighted element poking through it < the instruction card) —
+     kept as a clustered sub-range so the relative order stays intact
+     without three unrelated magic numbers. */
+  --z-tour-backdrop: 90;
+  --z-tour-spotlight: 91;
+  --z-tour-card: 92;
+  --z-loading: 95;
+  --z-skip-link: 100;
+}
+
+/* ── Global Resets ── */
+
+html {
+  /* Was 14px, which put effective body text at ~13.1px — below the
+     WCAG/typeset 16px web-body floor and below the browser default every
+     user's zoom/font-size setting is calibrated against. Every Tailwind
+     rem-based utility (text-*, spacing, sizing) scales off this value. */
+  font-size: 16px;
+  font-family: var(--font-family-sans);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100dvh;
+  line-height: 1.6;
+}
+
+/* Balanced line-wrapping kills orphaned single words on the last line of
+   a heading. Pure progressive enhancement — unsupported browsers just
+   keep normal wrapping. */
+h1, h2, h3, h4 {
+  text-wrap: balance;
+}
+
+/* Paragraph copy: avoid a stray short last line (widow) without the
+   heavier balancing algorithm, which is wasted on longer prose. */
+p {
+  text-wrap: pretty;
+}
+
+/* ── Reduced Motion ──
+   prefers-reduced-motion means fewer and gentler animations, not zero
+   (animate/emil-design-eng standard). Collapsing duration to near-zero
+   keeps every transition/animation's end-state logic intact — nothing
+   breaks — while eliminating the perceptible movement that triggers
+   vestibular discomfort. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* ── Browser Surfaces ──
+   "The parts you did not draw still carry the design" (craft-floor) —
+   text selection, caret, and underline offset ship with unthemed browser
+   defaults otherwise. */
+::selection {
+  background: var(--color-gov-blue);
+  color: #ffffff;
+}
+
+input,
+textarea {
+  caret-color: var(--color-gov-blue);
+}
+
+a {
+  text-underline-offset: 2px;
+}
+
+/* Data-heavy surfaces: dashboard metrics, table cells, and chart axes read
+   faster when digits align to a fixed width instead of proportional
+   spacing. */
+.metric-value,
+.professional-table td,
+.status-badge,
+.gov-badge {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Card Utility Classes ──
+   Elevation is declared once — border only, no shadow (craft-floor: "a 1px
+   border under a wide soft shadow is the ghost card"). The hover lift
+   (translateY + shadow growth) is dropped too: cards are seen tens of
+   times per session, and the animate skill's frequency gate calls for
+   "near-imperceptible or nothing" at that tier, not a 2px translate on
+   every pass. A border-color shift remains as the (gated) hover signal. */
+.gov-card {
+  background: var(--color-surface-white);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  transition: border-color var(--duration-popover) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .gov-card:hover {
+    border-color: var(--color-gov-blue-vibrant);
+  }
+}
+
+.gov-card-static {
+  background: var(--color-surface-white);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+}
+
+/* glass-card aliases → solid cards (backward compat) */
+.glass-card {
+  background: var(--color-surface-white);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  transition: border-color var(--duration-popover) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .glass-card:hover {
+    border-color: var(--color-gov-blue-vibrant);
+  }
+}
+
+.glass-card-static {
+  background: var(--color-surface-white);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+}
+
+.gov-header-gradient {
+  background: linear-gradient(135deg, var(--color-gov-blue) 0%, var(--color-gov-blue-vibrant) 100%);
+}
+
+/* ── Modern Typography Utilities ── */
+.text-heading-lg {
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+}
+
+.text-heading-md {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.01em;
+}
+
+.text-heading-sm {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  line-height: var(--line-height-normal);
+}
+
+.text-body-lg {
+  font-size: var(--font-size-lg);
+  font-weight: 500;
+  line-height: var(--line-height-relaxed);
+}
+
+.text-body-md {
+  font-size: var(--font-size-base);
+  font-weight: 400;
+  line-height: var(--line-height-normal);
+}
+
+.text-body-sm {
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  line-height: var(--line-height-normal);
+}
+
+/* ── Badge Utility ── */
+.gov-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  /* var(--x)/10 is Tailwind class syntax, invalid in raw CSS — the
+     declaration was being dropped silently, leaving every badge
+     background transparent */
+  background: color-mix(in srgb, var(--color-gov-blue) 10%, transparent);
+  color: var(--color-gov-blue);
+  letter-spacing: 0.05em;
+}
+
+.gov-badge.success {
+  background: color-mix(in srgb, var(--color-gov-green) 10%, transparent);
+  color: var(--color-gov-green);
+}
+
+.gov-badge.warning {
+  background: color-mix(in srgb, var(--color-gov-gold) 10%, transparent);
+  color: var(--color-gov-gold);
+}
+
+.gov-badge.error {
+  background: color-mix(in srgb, var(--color-gov-red) 10%, transparent);
+  color: var(--color-gov-red);
+}
+
+/* ── Button Utility Classes — Modern, accessible ── */
+.gov-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-gov-blue);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-lg);
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--duration-popover) var(--ease-out),
+    box-shadow var(--duration-popover) var(--ease-out),
+    transform var(--duration-press) var(--ease-out);
+  min-height: 44px;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .gov-btn-primary:hover:not(:disabled) {
+    background: var(--color-gov-blue-dark);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  }
+}
+
+.gov-btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.gov-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.gov-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-surface-white);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--color-border-strong);
+  cursor: pointer;
+  transition: background-color var(--duration-popover) var(--ease-out),
+    border-color var(--duration-popover) var(--ease-out),
+    color var(--duration-popover) var(--ease-out),
+    transform var(--duration-press) var(--ease-out);
+  min-height: 44px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .gov-btn-secondary:hover:not(:disabled) {
+    background: var(--color-surface-muted);
+    border-color: var(--color-gov-blue-vibrant);
+    color: var(--color-gov-blue);
+  }
+}
+
+.gov-btn-secondary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ── Input Utility — Modern, accessible ── */
+/* ── Professional Design System Components ── */
+
+/* Metric Card — Dashboard statistics display. Border-only elevation,
+   consistent with .gov-card (see comment above it). */
+.metric-card {
+  background: var(--color-surface-white);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  transition: border-color var(--duration-popover) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .metric-card:hover {
+    border-color: var(--color-gov-blue-vibrant);
+  }
+}
+
+.metric-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.metric-value {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.metric-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Status Badge Components */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  width: fit-content;
+}
+
+.status-success {
+  background: #d1fae5;
+  color: var(--color-gov-green);
+}
+
+.status-warning {
+  background: #fef3c7;
+  color: var(--color-gov-gold);
+}
+
+.status-danger {
+  background: #fee2e2;
+  color: var(--color-gov-red);
+}
+
+.status-info {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--color-gov-blue);
+}
+
+/* Dark-mode variants — the light pastel backgrounds above (#d1fae5 etc.)
+   had no dark override and rendered as near-white blocks on a near-black
+   surface */
+.dark .status-success {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.dark .status-warning {
+  background: rgba(217, 119, 6, 0.18);
+  color: #fbbf24;
+}
+
+.dark .status-danger {
+  background: rgba(220, 38, 38, 0.18);
+  color: #f87171;
+}
+
+.dark .status-info {
+  background: rgba(66, 150, 237, 0.15);
+  color: var(--color-gov-blue-light);
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Table Professional Styling */
+.professional-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.professional-table thead {
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.professional-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-gov-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--font-size-xs);
+}
+
+.professional-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.professional-table tbody tr {
+  transition: background-color 0.2s var(--ease-smooth);
+}
+
+.professional-table tbody tr:hover {
+  background: var(--color-surface-muted);
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-white);
+}
+
+.nav-tab {
+  padding: 1rem 1.5rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--duration-popover) var(--ease-out),
+    border-color var(--duration-popover) var(--ease-out);
+  border-bottom: 2px solid transparent;
+  position: relative;
+  bottom: -1px;
+}
+
+.nav-tab:hover {
+  color: var(--color-gov-blue);
+}
+
+.nav-tab.active {
+  color: var(--color-gov-blue);
+  border-bottom-color: var(--color-gov-blue);
+}
+
+/* Modal Styling */
+.professional-modal {
+  background: var(--color-surface-white);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-2xl);
+  padding: 2rem;
+  max-width: 500px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.modal-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.modal-body {
+  margin-bottom: 1.5rem;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+/* Form Elements */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.gov-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: var(--font-size-sm);
+  background: var(--color-surface-white);
+  border: 1.5px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  outline: none;
+  transition: border-color var(--duration-popover) var(--ease-out),
+    box-shadow var(--duration-popover) var(--ease-out),
+    background var(--duration-popover) var(--ease-out);
+  min-height: 44px;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.gov-input:hover:not(:focus) {
+  border-color: var(--color-border-strong);
+}
+
+.gov-input:focus {
+  border-color: var(--color-gov-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background: linear-gradient(135deg, var(--color-surface-white) 0%, #f0f4ff 100%);
+}
+
+.gov-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* ── Safe Areas ── */
+.safe-p-top {
+  padding-top: env(safe-area-inset-top, 0.75rem);
+}
+
+.safe-p-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0.75rem);
+}
+
+/* Focus visible for accessibility — --color-focus-ring stays ≥3:1 against
+   the surface in both themes (--color-gov-blue itself does not, in dark) */
+*:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Mobile Bottom Navigation Bar (Main Navigation Only) ── */
+.mobile-nav-bar {
+  border-top: 1px solid var(--color-border-subtle);
+  background: linear-gradient(to top, var(--color-surface-white) 0%, var(--color-surface-muted) 100%);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex: 1;
+  padding: 0.8rem 0.5rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-decoration: none;
+  transition: color 200ms var(--ease-out), background-color 200ms var(--ease-out),
+    transform var(--duration-press) var(--ease-out);
+  position: relative;
+  border-radius: 8px 8px 0 0;
+  min-height: 70px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.mobile-nav-item:active {
+  background-color: rgba(37, 99, 235, 0.06);
+  transform: scale(0.96);
+}
+
+.mobile-nav-item:not(.active):hover {
+  color: var(--color-gov-blue);
+  background-color: rgba(37, 99, 235, 0.04);
+}
+
+.mobile-nav-item.active {
+  color: var(--color-gov-blue);
+  font-weight: 600;
+}
+
+.mobile-nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 8%;
+  right: 8%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-gov-blue), var(--color-gov-blue-vibrant));
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 -2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.mobile-nav-icon {
+  transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-nav-item.active .mobile-nav-icon {
+  transform: scale(1.1);
+}
+
+.mobile-nav-item:active .mobile-nav-icon {
+  transform: scale(1.2);
+}
+
+.dark .mobile-nav-bar {
+  border-top-color: var(--color-border-strong);
+  background: linear-gradient(to top, var(--color-surface-white) 0%, var(--color-surface-muted) 100%);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+}

@@ -1,0 +1,45 @@
+{
+    "version": "1.0.0",
+    "rules": {
+        "missing_threshold": 1,
+        "deadline_warning_days": 3,
+        "doc_types": [
+            "DLL"
+        ],
+        "suggestion_limit": 5,
+        "priority_weights": {
+            "duplicate": 100,
+            "deadline": 90,
+            "missing": 70,
+            "recommendation": 50,
+            "tip": 20
+        }
+    },
+    "templates": {
+        "missing": {
+            "title": "Missing Submission",
+            "message": "{subject} (Grade {grade}) — Week {week} {docType} not yet submitted",
+            "icon": ""
+        },
+        "deadline": {
+            "title": "Deadline Alert",
+            "message": "Week {week} submission is due {days}",
+            "icon": ""
+        },
+        "duplicate": {
+            "title": "Already Submitted",
+            "message": "A {docType} for Week {week} has already been archived for this teaching load",
+            "icon": ""
+        },
+        "recommendation": {
+            "title": "Suggested Upload",
+            "message": "Submit {subject} (Grade {grade}) {docType} to complete this week's requirements",
+            "icon": ""
+        },
+        "tip": {
+            "title": "Compliance Streak",
+            "message": "",
+            "icon": ""
+        }
+    }
+}

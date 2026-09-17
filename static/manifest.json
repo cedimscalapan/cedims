@@ -1,0 +1,139 @@
+{
+  "id": "/",
+  "name": "CEDIMS",
+  "short_name": "CEDIMS",
+  "description": "Calapan East District Instructional Monitoring System — Powered by Smart E-VISION. DepEd Calapan City, Calapan East District.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone"
+  ],
+  "orientation": "portrait",
+  "theme_color": "#0038A8",
+  "background_color": "#f0f4ff",
+  "categories": [
+    "education",
+    "productivity",
+    "government"
+  ],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/app_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "E-VISION Dashboard"
+    },
+    {
+      "src": "/app_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "E-VISION Mobile"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Upload Document",
+      "short_name": "Upload",
+      "url": "/dashboard/upload",
+      "description": "Upload and archive instructional documents",
+      "icons": [
+        {
+          "src": "/favicon.png",
+          "sizes": "48x48"
+        }
+      ]
+    },
+    {
+      "name": "View Inbox",
+      "short_name": "Inbox",
+      "url": "/dashboard/inbox",
+      "description": "Check received notifications and tasks"
+    },
+    {
+      "name": "Verify Document",
+      "short_name": "Verify",
+      "url": "/verify",
+      "description": "Verify document authenticity via QR code"
+    }
+  ],
+  "share_target": {
+    "action": "/dashboard/upload",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "shared_file",
+          "accept": [
+            ".pdf",
+            ".doc",
+            ".docx",
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          ]
+        }
+      ]
+    }
+  },
+  "file_handlers": [
+    {
+      "action": "/dashboard/upload",
+      "name": "Open in E-VISION Archiver",
+      "icons": [
+        {
+          "src": "/favicon.png",
+          "sizes": "48x48",
+          "type": "image/png"
+        }
+      ],
+      "accept": {
+        "application/pdf": [
+          ".pdf"
+        ],
+        "application/msword": [
+          ".doc"
+        ],
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+          ".docx"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" role="img" aria-label="United Nations Sustainable Development Goal 4: Quality Education">
+  <title>SDG 4 — Quality Education</title>
+  <rect width="1000" height="1000" fill="#C5192D"/>
+  <g fill="#FFFFFF">
+    <!-- Goal number and title -->
+    <text x="104" y="293" font-family="'Arial Narrow','Helvetica Neue Condensed',Helvetica,Arial,sans-serif" font-weight="700" font-size="286" textLength="111" lengthAdjust="spacingAndGlyphs">4</text>
+    <text x="296" y="189" font-family="'Arial Narrow','Helvetica Neue Condensed',Helvetica,Arial,sans-serif" font-weight="700" font-size="137" textLength="290" lengthAdjust="spacingAndGlyphs">QUALITY</text>
+    <text x="296" y="296" font-family="'Arial Narrow','Helvetica Neue Condensed',Helvetica,Arial,sans-serif" font-weight="700" font-size="137" textLength="394" lengthAdjust="spacingAndGlyphs">EDUCATION</text>
+
+    <!-- Open book: left cover, left pages, mirrored for the right half -->
+    <g>
+      <path d="M231 441 L245 450 L245 780 L443 836 L443 851 L231 793 Z"/>
+      <path d="M267 437 L442 530 L442 824 L267 771 Z"/>
+    </g>
+    <g transform="translate(895,0) scale(-1,1)">
+      <path d="M231 441 L245 450 L245 780 L443 836 L443 851 L231 793 Z"/>
+      <path d="M267 437 L442 530 L442 824 L267 771 Z"/>
+    </g>
+
+    <!-- Pencil -->
+    <path d="M738 456 L738 424 A21.5 21.5 0 0 1 781 424 L781 456 Z"/>
+    <rect x="738" y="468" width="43" height="281"/>
+    <path d="M738 749 L781 749 L759.5 838 Z"/>
+  </g>
+</svg>
