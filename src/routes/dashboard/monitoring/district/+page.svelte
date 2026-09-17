@@ -2,11 +2,11 @@
   import { profile } from "$lib/utils/auth";
   import { supabase } from "$lib/utils/supabase";
   import StatCard from "$lib/components/StatCard.svelte";
-  import StatusBadge from "$lib/components/StatusBadge.svelte";
   import ComplianceHeatmap from "$lib/components/ComplianceHeatmap.svelte";
   import ComplianceTrendChart from "$lib/components/ComplianceTrendChart.svelte";
   import DrillDownModal from "$lib/components/DrillDownModal.svelte";
   import ProfileUploader from "$lib/components/ProfileUploader.svelte";
+  import PaginatedSubmissionCards from "$lib/components/PaginatedSubmissionCards.svelte";
   import { onMount, onDestroy } from "svelte";
   import { fly, fade } from "svelte/transition";
   import { Building2, Search, ArrowUpDown } from "lucide-svelte";
@@ -375,6 +375,15 @@
       .slice(0, 50);
     showModal = true;
   }
+
+  function formatDate(dateStr: string): string {
+    return new Date(dateStr).toLocaleDateString("en-PH", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
 </script>
 
 <svelte:head>
@@ -672,28 +681,17 @@
         </div>
       </div>
 
-      <div class="divide-y divide-border-subtle max-h-[55vh] overflow-y-auto pr-1 cedims-scroll">
-        {#each selectedSubmissions as sub}
-          <div class="py-3 flex items-center justify-between">
-            <div class="min-w-0 pr-4">
-              <p class="text-sm font-medium text-text-primary truncate">
-                {sub.file_name}
-              </p>
-              <p class="text-xs text-text-muted">
-                {sub.doc_type} - Week {sub.week_number}
-              </p>
-            </div>
-            <StatusBadge
-              status={sub.compliance_status === "late"
-                ? "late"
-                : sub.compliance_status === "missing"
-                  ? "missing"
-                  : "compliant"}
-              size="sm"
-            />
-          </div>
-        {/each}
-      </div>
+      <PaginatedSubmissionCards
+        items={selectedSubmissions.map((sub) => ({
+          key: sub.id,
+          fileName: sub.file_name,
+          docType: sub.doc_type,
+          weekNumber: sub.week_number,
+          complianceStatus: sub.compliance_status,
+          createdAt: sub.created_at,
+        }))}
+        {formatDate}
+      />
     </div>
   {/if}
 </DrillDownModal>

@@ -9,6 +9,7 @@ import {
     TrendingUp,
     Settings,
     QrCode,
+    FileBarChart,
     type Icon,
 } from "lucide-svelte";
 import { showQRScanner } from "$lib/stores/ui";
@@ -140,6 +141,15 @@ export const navItems: NavItem[] = [
         priority: 5,
         roles: ["School Head"],
     },
+    {
+        href: "/dashboard/reports",
+        label: "Reports",
+        icon: FileBarChart,
+        mobileNav: false, // desktop nav only — School Head already has 5 mobile tabs
+        priority: 6,
+        navKey: "reports",
+        roles: ["School Head"],
+    },
 
     // ========== DISTRICT SUPERVISOR (6 tabs) ==========
     {
@@ -184,6 +194,15 @@ export const navItems: NavItem[] = [
         icon: Settings,
         mobileNav: true,
         priority: 6,
+        roles: ["District Supervisor"],
+    },
+    {
+        href: "/dashboard/reports",
+        label: "Reports",
+        icon: FileBarChart,
+        mobileNav: false, // desktop nav only — District Supervisor already has 6 mobile tabs
+        priority: 7,
+        navKey: "reports",
         roles: ["District Supervisor"],
     },
 

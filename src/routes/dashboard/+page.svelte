@@ -25,7 +25,6 @@
         Archive,
         ShieldCheck,
         Zap,
-        Clock,
         ShieldAlert,
         Briefcase,
         Users,
@@ -96,6 +95,24 @@
     const needsAttention = $derived(
         [...teacherCompliance].sort((a, b) => a.rate - b.rate).slice(0, 5),
     );
+
+    // Recent Activity timeline: 6 entries up front, "Show more activity"
+    // reveals more of what's already fetched (see recentActivity above) —
+    // no extra network round trip per click.
+    let activityVisibleCount = $state(6);
+    const visibleActivity = $derived(recentActivity.slice(0, activityVisibleCount));
+
+    const activityStatusClasses: Record<string, string> = {
+        compliant: "bg-gov-green/10 border-gov-green/30 text-gov-green",
+        late: "bg-gov-gold/10 border-gov-gold/40 text-gov-gold-dark",
+        missing: "bg-gov-red/10 border-gov-red/30 text-gov-red",
+        supplementary: "bg-gov-blue/10 border-gov-blue/30 text-gov-blue",
+        review: "bg-gov-blue/10 border-gov-blue/30 text-gov-blue",
+        pending: "bg-surface-muted border-border-strong/30 text-text-secondary",
+    };
+    function activityStatusClass(status: string): string {
+        return activityStatusClasses[status] || activityStatusClasses.pending;
+    }
 
     onMount(async () => {
         try {
@@ -246,10 +263,10 @@
             calendar,
         );
 
-        // 15 rather than 5: the list is now a fixed-height scrollable box,
-        // so extra rows add history to scroll through instead of lengthening
-        // the page.
-        recentActivity = (subsResult.data || []).slice(0, 15);
+        // 30 rather than 15: the timeline below only renders 6 at a time
+        // and reveals more via "Show more activity", so extra rows here are
+        // headroom for that button rather than something rendered up front.
+        recentActivity = (subsResult.data || []).slice(0, 30);
         // ISP/ISR aren't part of the weekly DLL cadence — excluded from the
         // upload count the same way calculateCompliance excludes them above.
         stats.totalUploads = submissions.filter((s: any) =>
@@ -470,8 +487,10 @@
         stats.compliantRate = overallStats.rate;
 
         // Recent activity intentionally keeps ISP/ISR (shown with their doc
-        // type) — it's a feed of everything uploaded, not a compliance metric.
-        recentActivity = allSubs.slice(0, 15);
+        // type) — it's a feed of everything uploaded, not a compliance
+        // metric. 30 rather than 15: the timeline only renders 6 at a time
+        // and reveals more via "Show more activity".
+        recentActivity = allSubs.slice(0, 30);
 
         // Predictive integrity alerts (pattern detection) — DLL-cadence only.
         const { detectPatterns } = await import("$lib/utils/patternDetection");
@@ -983,75 +1002,79 @@
                     </p>
                 </div>
             {:else}
-                <!-- Boxed with its own scrollbar so a long activity list stays
-                     a fixed block on the dashboard instead of pushing every
-                     section below it off the screen. -->
-                <div
-                    class="gov-card-static rounded-2xl p-4 max-h-[26rem] overflow-y-auto"
-                >
-                <div
-                    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
-                >
-                    {#each recentActivity as item, i}
-                        <div
-                            class="bg-surface-white border border-border-subtle rounded-xl p-5 shadow-sm hover:shadow-md transition-colors flex flex-col group relative"
-                            in:fly={{
-                                x: -20,
-                                duration: 400,
-                                delay: 700 + i * 50,
-                            }}
-                        >
-                            <div class="absolute top-4 right-4">
-                                <StatusBadge
-                                    status={normalizeComplianceStatus(
-                                        item.compliance_status,
-                                    )}
-                                    size="sm"
-                                />
-                            </div>
-
-                            <div class="mb-4">
-                                <h4
-                                    class="font-bold text-sm text-text-primary group-hover:text-gov-blue transition-colors leading-snug line-clamp-2 pr-12"
-                                >
-                                    {item.file_name}
-                                </h4>
-                                <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                                    <span
-                                        class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-[10px] font-bold rounded uppercase tracking-wider"
+                <div class="gov-card-static rounded-2xl p-6">
+                    <ol class="flex flex-col">
+                        {#each visibleActivity as item, i (item.id ?? i)}
+                            {@const status = normalizeComplianceStatus(
+                                item.compliance_status,
+                            )}
+                            <li
+                                class="relative flex gap-4"
+                                in:fly={{ x: -20, duration: 400, delay: i * 40 }}
+                            >
+                                <!-- Timeline rail: icon node + connecting line,
+                                     GitHub contribution-activity style. -->
+                                <div class="relative flex-shrink-0 flex flex-col items-center">
+                                    <div
+                                        class="w-9 h-9 rounded-full flex items-center justify-center border-2 {activityStatusClass(
+                                            status,
+                                        )} z-10"
                                     >
-                                        {item.doc_type || "Unknown"}
-                                    </span>
-                                    {#if item.doc_type === "DLL" && item.week_number != null}
-                                        <span
-                                            class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-[10px] font-bold rounded uppercase tracking-wider"
-                                        >
-                                            W{item.week_number}
-                                        </span>
+                                        <FileText size={15} strokeWidth={2.25} />
+                                    </div>
+                                    {#if i < visibleActivity.length - 1}
+                                        <div class="w-px flex-1 bg-border-subtle my-1"></div>
                                     {/if}
                                 </div>
-                            </div>
 
-                            <div
-                                class="mt-auto pt-3 border-t border-border-subtle flex items-center justify-between"
-                            >
-                                <div
-                                    class="flex items-center gap-2 text-text-muted"
-                                >
-                                    <Clock size={12} strokeWidth={2} />
-                                    <span
-                                        class="text-[10px] font-bold uppercase tracking-tighter"
-                                        >{formatDate(item.created_at)}</span
+                                <!-- Content -->
+                                <div class="flex-1 min-w-0 pb-6">
+                                    <div class="flex items-start justify-between gap-3 flex-wrap pt-1.5">
+                                        <p class="text-sm text-text-primary leading-snug break-words">
+                                            Archived <span class="font-bold">{item.file_name}</span>
+                                        </p>
+                                        <span
+                                            class="text-[10px] font-bold text-text-muted uppercase tracking-tight whitespace-nowrap flex-shrink-0"
+                                        >
+                                            {formatDate(item.created_at)}
+                                        </span>
+                                    </div>
+
+                                    <!-- Detail card: same nested-card pattern GitHub
+                                         uses under a notable timeline entry. -->
+                                    <div
+                                        class="mt-2.5 border border-border-subtle rounded-xl px-4 py-3 bg-surface-white flex flex-wrap items-center gap-2"
                                     >
+                                        <span
+                                            class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-[10px] font-bold rounded uppercase tracking-wider whitespace-nowrap"
+                                        >
+                                            {item.doc_type || "Unknown"}
+                                        </span>
+                                        {#if item.doc_type === "DLL" && item.week_number != null}
+                                            <span
+                                                class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-[10px] font-bold rounded uppercase tracking-wider whitespace-nowrap"
+                                            >
+                                                Week {item.week_number}
+                                            </span>
+                                        {/if}
+                                        <span class="ml-auto">
+                                            <StatusBadge {status} size="sm" />
+                                        </span>
+                                    </div>
                                 </div>
-                                <span
-                                    class="text-[9px] font-bold text-gov-blue/60 uppercase tracking-widest"
-                                    >Archived</span
-                                >
-                            </div>
-                        </div>
-                    {/each}
-                </div>
+                            </li>
+                        {/each}
+                    </ol>
+
+                    {#if recentActivity.length > activityVisibleCount}
+                        <button
+                            type="button"
+                            onclick={() => (activityVisibleCount += 6)}
+                            class="w-full py-2.5 rounded-xl border border-border-subtle text-xs font-bold uppercase tracking-widest text-gov-blue hover:bg-gov-blue/5 transition-colors"
+                        >
+                            Show more activity
+                        </button>
+                    {/if}
                 </div>
             {/if}
         </div>

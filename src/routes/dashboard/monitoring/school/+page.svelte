@@ -2,11 +2,11 @@
     import { profile } from "$lib/utils/auth";
     import { supabase } from "$lib/utils/supabase";
     import StatCard from "$lib/components/StatCard.svelte";
-    import StatusBadge from "$lib/components/StatusBadge.svelte";
     import ComplianceHeatmap from "$lib/components/ComplianceHeatmap.svelte";
     import ComplianceTrendChart from "$lib/components/ComplianceTrendChart.svelte";
     import DrillDownModal from "$lib/components/DrillDownModal.svelte";
     import ProfileUploader from "$lib/components/ProfileUploader.svelte";
+    import PaginatedSubmissionCards from "$lib/components/PaginatedSubmissionCards.svelte";
     import { onMount, onDestroy } from "svelte";
     import { fly, fade } from "svelte/transition";
     import { goto } from "$app/navigation";
@@ -857,47 +857,23 @@
             </div>
         </div>
 
-        {#if selectedSubmissions.length === 0}
-            <p class="text-center text-text-muted py-6">No submissions found</p>
-        {:else}
-            <div class="divide-y divide-border-subtle max-h-[55vh] overflow-y-auto pr-1 cedims-scroll">
-                {#each selectedSubmissions as sub}
-                    {@const tl = Array.isArray(sub.teaching_loads)
-                        ? sub.teaching_loads[0]
-                        : sub.teaching_loads}
-                    <div class="flex items-center justify-between py-3">
-                        <div class="min-w-0 flex-1">
-                            <p
-                                class="text-sm font-medium text-text-primary truncate"
-                            >
-                                {sub.file_name}
-                            </p>
-                            <p class="text-xs text-text-muted">
-                                {sub.doc_type}
-                                {#if tl}
-                                    - {tl.subject} - Gr. {tl.grade_level}{/if}
-                            </p>
-                        </div>
-                        <div class="flex items-center gap-3 flex-shrink-0">
-                            <StatusBadge
-                                status={!sub.compliance_status ||
-                                sub.compliance_status === "on-time" ||
-                                sub.compliance_status === "compliant"
-                                    ? "compliant"
-                                    : sub.compliance_status === "late"
-                                      ? "late"
-                                      : "missing"}
-                                size="sm"
-                            />
-                            <span class="text-xs text-text-muted whitespace-nowrap"
-                                >{formatDate(sub.created_at)}</span
-                            >
-
-                        </div>
-                    </div>
-                {/each}
-            </div>
-        {/if}
+        <PaginatedSubmissionCards
+            items={selectedSubmissions.map((sub) => {
+                const tl = Array.isArray(sub.teaching_loads)
+                    ? sub.teaching_loads[0]
+                    : sub.teaching_loads;
+                return {
+                    key: sub.id,
+                    fileName: sub.file_name,
+                    docType: sub.doc_type,
+                    weekNumber: sub.week_number,
+                    complianceStatus: sub.compliance_status,
+                    createdAt: sub.created_at,
+                    subtitle: tl ? `${tl.subject} - Gr. ${tl.grade_level}` : null,
+                };
+            })}
+            {formatDate}
+        />
     {/if}
 </DrillDownModal>
 
