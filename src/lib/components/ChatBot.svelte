@@ -1,7 +1,7 @@
 <script lang="ts">
-    import { X, Send, RefreshCw } from "lucide-svelte";
+    import { X, Send, RefreshCw, Download, FileSpreadsheet, FileText } from "lucide-svelte";
     import { processQuery, loadDllDocumentsFromSupabase } from "$lib/utils/chatbot";
-    import type { ChatResponse, Intent, ChatContext, Lang } from "$lib/utils/chatbot";
+    import type { ChatResponse, Intent, ChatContext, Lang, ChatAttachment } from "$lib/utils/chatbot";
     import { supabase } from "$lib/utils/supabase";
     import { user, profile } from "$lib/utils/auth";
     import { onMount, tick } from "svelte";
@@ -15,7 +15,7 @@
 
     let isOpen = $state(false);
     let hasOpenedOnce = $state(false);
-    let messages: { role: 'user' | 'bot'; text: string; intent?: Intent }[] = $state([]);
+    let messages: { role: 'user' | 'bot'; text: string; intent?: Intent; attachments?: ChatAttachment[] }[] = $state([]);
     let inputText = $state('');
     let inputEl: HTMLInputElement | undefined = $state();
     let launcherEl: HTMLButtonElement | undefined = $state();
@@ -37,8 +37,9 @@
     // opening message says so.
     const greeting =
         "Hi, I'm Gabay — your CEDIMS assistant. I can check your compliance rate, " +
-        "look up deadlines, find DLLs and compare schools, using live data. " +
-        "Ask me in English or Tagalog.";
+        "look up deadlines, find DLLs, compare schools, and (for School Heads and " +
+        "District Supervisors) generate a compliance report in Excel or Word — " +
+        "all using live data. Ask me in English or Tagalog.";
 
     const suggestions = [
         "What is my compliance rate?",
@@ -46,6 +47,7 @@
         "How do I upload a DLL?",
         "Find DLLs about fractions",
         "Compare schools in the district",
+        "Generate a compliance report",
         "Kailan ang susunod na deadline?"
     ];
 
@@ -144,7 +146,12 @@
 
         try {
             const response: ChatResponse = await processQuery(q, ctx);
-            messages.push({ role: 'bot', text: response.answer, intent: response.intent });
+            messages.push({
+                role: 'bot',
+                text: response.answer,
+                intent: response.intent,
+                attachments: response.attachments
+            });
             lastIntent = response.intent;
             lastSlots = response.slots;
             lastLang = response.lang;
@@ -167,6 +174,17 @@
             e.preventDefault();
             handleSend();
         }
+    }
+
+    function downloadAttachment(a: ChatAttachment) {
+        const url = URL.createObjectURL(a.blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = a.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 
     function applySuggestion(s: string) {
@@ -253,12 +271,33 @@
                     class="flex {msg.role === 'user' ? 'justify-end' : 'justify-start'}"
                 >
                     {#if msg.role === 'bot'}
-                        <div class="flex items-start gap-2 max-w-[85%]">
+                        <div class="flex items-start gap-2 max-w-[85%] min-w-0">
                             <div class="w-7 h-7 bg-surface-white border border-border-subtle rounded-full flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
                                 <GabayMascot size={20} wave={false} />
                             </div>
-                            <div class="bg-surface-white border border-border-subtle rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm text-text-primary leading-relaxed shadow-sm">
-                                <span class="sr-only">Gabay said: </span>{msg.text}
+                            <div class="min-w-0 flex flex-col gap-2">
+                                <div class="bg-surface-white border border-border-subtle rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm text-text-primary leading-relaxed shadow-sm whitespace-pre-line">
+                                    <span class="sr-only">Gabay said: </span>{msg.text}
+                                </div>
+                                {#if msg.attachments?.length}
+                                    <div class="flex flex-col gap-1.5">
+                                        {#each msg.attachments as att (att.fileName)}
+                                            <button
+                                                type="button"
+                                                onclick={() => downloadAttachment(att)}
+                                                class="flex items-center gap-2 bg-surface-white border border-border-subtle rounded-xl px-3 py-2 text-xs font-semibold text-text-primary hover:border-gov-blue/40 hover:bg-gov-blue/5 transition-colors text-left shadow-sm"
+                                            >
+                                                {#if att.fileName.endsWith('.xlsx')}
+                                                    <FileSpreadsheet size={16} class="text-gov-green shrink-0" />
+                                                {:else}
+                                                    <FileText size={16} class="text-gov-blue shrink-0" />
+                                                {/if}
+                                                <span class="truncate flex-1 min-w-0">{att.fileName}</span>
+                                                <Download size={14} class="shrink-0 text-text-muted" />
+                                            </button>
+                                        {/each}
+                                    </div>
+                                {/if}
                             </div>
                         </div>
                     {:else}

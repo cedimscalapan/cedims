@@ -185,6 +185,7 @@ const INTENT_TOPIC_LABELS: Record<Lang, Record<Intent, string>> = {
         teacher_stats: 'teacher statistics',
         calendar_info: 'the academic calendar',
         how_to_upload: 'how to upload a document',
+        create_report: 'generating a report',
         general_help: 'general help'
     },
     tl: {
@@ -195,6 +196,7 @@ const INTENT_TOPIC_LABELS: Record<Lang, Record<Intent, string>> = {
         teacher_stats: 'istatistika ng guro',
         calendar_info: 'academic calendar',
         how_to_upload: 'kung paano mag-upload ng dokumento',
+        create_report: 'paggawa ng report',
         general_help: 'pangkalahatang tulong'
     }
 };
@@ -588,7 +590,13 @@ export type Intent =
     | 'teacher_stats'
     | 'calendar_info'
     | 'how_to_upload'
+    | 'create_report'
     | 'general_help';
+
+export interface ChatAttachment {
+    fileName: string;
+    blob: Blob;
+}
 
 export interface ChatResponse {
     intent: Intent;
@@ -596,6 +604,8 @@ export interface ChatResponse {
     answer: string;
     slots: Record<string, string>;
     lang: Lang;
+    /** Present when the reply includes a downloadable report file. */
+    attachments?: ChatAttachment[];
 }
 
 export interface ChatContext {
@@ -792,7 +802,8 @@ function generateTemplateResponse(intent: Intent, slots: Record<string, string>,
         },
         calendar_info: () => pick(["Let me check the academic calendar for you.", "Looking at the school calendar now.", "Let me pull up the academic calendar."]),
         how_to_upload: () => "Uploading a DLL is simple. Head over to the Upload page, then drag and drop your .docx or .pdf file. The system will automatically detect the subject, grade level, and week from the document. You will have a chance to review the extracted information before finalizing the upload. If you are offline, no worries — the document will be saved locally and will sync automatically once you are back online.",
-        general_help: () => "I’m here to help with a bunch of things. I can check your compliance rate, look up deadlines, find DLLs, compare schools, or show teacher stats. Try asking something like, “What is my compliance rate?” or “When is the next deadline?”"
+        create_report: () => "Generating a report needs a live connection so I can pull current compliance data — please try again once you're back online.",
+        general_help: () => "I’m here to help with a bunch of things. I can check your compliance rate, look up deadlines, find DLLs, compare schools, show teacher stats, or generate a compliance report. Try asking something like, “What is my compliance rate?” or “When is the next deadline?”"
     };
 
     const templatesTl: Record<Intent, () => string> = {
@@ -815,7 +826,8 @@ function generateTemplateResponse(intent: Intent, slots: Record<string, string>,
         },
         calendar_info: () => pick(["Titignan ko ang academic calendar para sa'yo.", "Tinitignan ko na ang school calendar.", "Kinukuha ko ang academic calendar."]),
         how_to_upload: () => "Madali lang mag-upload ng DLL. Pumunta ka sa Upload page, tapos i-drag and drop ang .docx o .pdf file mo. Awtomatikong made-detect ng system ang subject, grade level, at linggo mula sa dokumento. Puwede mo pang i-review ang na-extract na impormasyon bago i-finalize ang upload. Kung offline ka, huwag mag-alala — mase-save muna ito sa device mo at awtomatikong mag-sy-sync pagbalik ng internet.",
-        general_help: () => "Nandito ako para tumulong sa maraming bagay. Puwede kong i-check ang compliance rate mo, hanapin ang mga deadline, maghanap ng DLL, ikumpara ang mga paaralan, o ipakita ang teacher stats. Subukan mong itanong, “Ano ang compliance rate ko?” o “Kailan ang susunod na deadline?”"
+        create_report: () => "Kailangan ng live connection para makabuo ng report, para makuha ko ang kasalukuyang compliance data — subukan ulit pag-online ka na.",
+        general_help: () => "Nandito ako para tumulong sa maraming bagay. Puwede kong i-check ang compliance rate mo, hanapin ang mga deadline, maghanap ng DLL, ikumpara ang mga paaralan, ipakita ang teacher stats, o gumawa ng compliance report. Subukan mong itanong, “Ano ang compliance rate ko?” o “Kailan ang susunod na deadline?”"
     };
 
     const templates = lang === 'tl' ? templatesTl : templatesEn;
@@ -1458,43 +1470,245 @@ async function queryCalendarInfo(
     return response;
 }
 
+// ─── Report Generation (School Head / District Supervisor only) ───────────
+// Bilingual phrase pools, picked randomly per compliance tier (same pick()
+// pattern used throughout this file) so two reports generated back to back
+// read as two differently-worded sentences describing the same numbers,
+// rather than one fixed template with values swapped in.
+type ReportTier = 'excellent' | 'good' | 'attention' | 'critical';
+
+const REPORT_OPENERS: Record<Lang, Record<ReportTier, string[]>> = {
+    en: {
+        excellent: [
+            'Compliance across {scope} is excellent this school year.',
+            '{scope} is performing strongly — submissions are largely on track.',
+            'The compliance picture for {scope} looks very healthy.'
+        ],
+        good: [
+            'Compliance across {scope} is solid, with room to close a few gaps.',
+            '{scope} is doing well overall, though a handful of submissions need follow-up.',
+            'Most submissions for {scope} are on track this school year.'
+        ],
+        attention: [
+            'Compliance across {scope} needs attention this school year.',
+            '{scope} has a meaningful number of late or missing submissions to follow up on.',
+            'There are compliance gaps in {scope} worth flagging to teachers.'
+        ],
+        critical: [
+            'Compliance across {scope} is critically low and needs immediate follow-up.',
+            '{scope} has a large share of late or missing submissions.',
+            'This report flags a serious compliance shortfall in {scope}.'
+        ]
+    },
+    tl: {
+        excellent: [
+            'Napakaganda ng compliance sa {scope} ngayong school year.',
+            'Matatag ang performance ng {scope} — halos lahat ng submissions ay on track.',
+            'Napakaayos ng compliance picture para sa {scope}.'
+        ],
+        good: [
+            'Maayos ang compliance sa {scope}, may ilang gaps na lang na dapat asikasuhin.',
+            'Mahusay naman ang {scope} sa kabuuan, pero may ilang submissions na kailangang i-follow up.',
+            'Karamihan ng submissions para sa {scope} ay on track ngayong school year.'
+        ],
+        attention: [
+            'Kailangan ng pansin ang compliance sa {scope} ngayong school year.',
+            'Maraming late o missing submissions sa {scope} na kailangang i-follow up.',
+            'May mga compliance gaps sa {scope} na dapat i-flag sa mga guro.'
+        ],
+        critical: [
+            'Kritikal na mababa ang compliance sa {scope} at kailangan ng agarang follow-up.',
+            'Malaki ang bahagi ng late o missing submissions sa {scope}.',
+            'Binibigyang-diin ng report na ito ang seryosong compliance shortfall sa {scope}.'
+        ]
+    }
+};
+
+const REPORT_CLOSERS: Record<Lang, Record<ReportTier, string[]>> = {
+    en: {
+        excellent: ['Keep up the consistent submission habits.', 'No action needed right now — just keep the momentum going.'],
+        good: ['A quick check-in with the teachers behind on submissions should close most of the gap.', 'Consider a reminder to the small group still catching up.'],
+        attention: ['A follow-up with the affected teachers is recommended this week.', 'Consider reviewing the late/missing list in the report and reaching out directly.'],
+        critical: ['Immediate outreach to the affected teachers is strongly recommended.', 'This warrants a closer look at what is blocking submissions.']
+    },
+    tl: {
+        excellent: ['Ipagpatuloy ang pare-parehong pag-susumite.', 'Walang kailangang gawin sa ngayon — panatilihin lang ang momentum.'],
+        good: ['Ang mabilisang check-in sa mga guro na huli sa submissions ay dapat makasara sa karamihan ng gaps.', 'Isaalang-alang ang paalala sa maliit na grupong nagki-catch up pa.'],
+        attention: ['Inirerekomenda ang follow-up sa mga apektadong guro ngayong linggo.', 'Isaalang-alang ang pagsusuri sa late/missing list sa report at direktang pakikipag-ugnayan.'],
+        critical: ['Mahigpit na inirerekomenda ang agarang pakikipag-ugnayan sa mga apektadong guro.', 'Kailangan ng mas malalim na pagsusuri kung ano ang humaharang sa mga submissions.']
+    }
+};
+
+function reportTier(rate: number): ReportTier {
+    if (rate >= 90) return 'excellent';
+    if (rate >= 75) return 'good';
+    if (rate >= 50) return 'attention';
+    return 'critical';
+}
+
+async function queryCreateReport(
+    db: SupabaseClient,
+    profile: ChatContext['profile'],
+    slots: Record<string, string>,
+    lang: Lang = 'en'
+): Promise<DbResponse> {
+    const role = profile?.role;
+    if (role !== 'School Head' && role !== 'District Supervisor') {
+        return {
+            answer: lang === 'tl'
+                ? 'Paumanhin, available lang ang report generation para sa School Head at District Supervisor accounts.'
+                : 'Sorry, report generation is only available for School Head and District Supervisor accounts.'
+        };
+    }
+
+    // Same RPC the in-app Reports flow used — SECURITY DEFINER, scoped by
+    // the caller's own profile (role/school/district) via auth.uid(), so
+    // this can only ever return what this specific supervisor is already
+    // authorized to see.
+    const { data, error } = await db.rpc('get_compliance_report_rows', {});
+
+    if (error) {
+        console.error('[chatbot] create_report RPC error:', error);
+        return {
+            answer: lang === 'tl'
+                ? "Pasensya na, hindi ko makuha ang report data ngayon. Subukan ulit mamaya."
+                : "Sorry, I couldn't pull the report data just now. Please try again in a moment."
+        };
+    }
+
+    const rows = (data || []) as {
+        teacher_name: string;
+        school_name: string | null;
+        district_name: string | null;
+        doc_type: string;
+        week_number: number | null;
+        school_year: string;
+        compliance_status: string;
+        submitted_at: string;
+    }[];
+
+    if (rows.length === 0) {
+        return {
+            answer: lang === 'tl'
+                ? 'Wala pang submission data na makikita para sa report na ito.'
+                : 'There is no submission data available for this report yet.'
+        };
+    }
+
+    const scopeName = (role === 'District Supervisor'
+        ? rows.find(r => r.district_name)?.district_name
+        : rows.find(r => r.school_name)?.school_name)
+        || (lang === 'tl' ? 'ang saklaw mo' : 'your scope');
+
+    const total = rows.length;
+    const compliant = rows.filter(r => r.compliance_status === 'compliant' || r.compliance_status === 'on-time').length;
+    const late = rows.filter(r => r.compliance_status === 'late').length;
+    const supplementary = rows.filter(r => r.compliance_status === 'supplementary').length;
+    const rate = total > 0 ? Math.round(((compliant + late) / total) * 100) : 0;
+    const tier = reportTier(rate);
+    const reportSchoolYear = rows[0]?.school_year || '';
+
+    const opener = pick(REPORT_OPENERS[lang][tier]).replace('{scope}', scopeName);
+    const closer = pick(REPORT_CLOSERS[lang][tier]);
+
+    const summary = lang === 'tl'
+        ? `${opener}\n\nMayroong ${total} submissions ngayong school year ${reportSchoolYear}: ${compliant} compliant, ${late} late, at ${supplementary} supplementary. Ang overall rate ay ${rate}%.\n\n${closer}\n\nInihanda ko ang isang detalyadong report sa Excel at Word — makikita sa ibaba.`
+        : `${opener}\n\nThere are ${total} submissions for school year ${reportSchoolYear}: ${compliant} compliant, ${late} late, and ${supplementary} supplementary. The overall rate is ${rate}%.\n\nI've prepared a detailed report in Excel and Word — see below.\n\n${closer}`;
+
+    // Reuse the exact same shared, professionally-styled report builders the
+    // app already uses elsewhere (excelExport.ts for Archive exports),
+    // rather than a third, chat-specific format.
+    const { buildReportWorkbook } = await import('./excelExport');
+    const { buildReportDocument } = await import('./wordExport');
+
+    const headers = role === 'District Supervisor'
+        ? ['Teacher', 'School', 'District', 'Doc Type', 'Week', 'Status', 'Submitted']
+        : ['Teacher', 'School', 'Doc Type', 'Week', 'Status', 'Submitted'];
+
+    const tableRows = rows.map(r => {
+        const base: (string | number)[] = [r.teacher_name, r.school_name || '—'];
+        if (role === 'District Supervisor') base.push(r.district_name || '—');
+        base.push(r.doc_type, r.week_number ?? '—', r.compliance_status, new Date(r.submitted_at).toLocaleString('en-PH'));
+        return base;
+    });
+
+    const baseName = `compliance-report-${String(scopeName).replace(/\s+/g, '_')}-${reportSchoolYear}`;
+    const reportOptions = {
+        title: role === 'District Supervisor' ? 'District Compliance Report' : 'School Compliance Report',
+        subtitle: `${scopeName} · School Year ${reportSchoolYear}`,
+        meta: [
+            { label: 'Scope', value: String(scopeName) },
+            { label: 'Total Submissions', value: String(total) },
+            { label: 'Overall Rate', value: `${rate}%` }
+        ],
+        tables: [{ title: 'Submissions', headers, rows: tableRows }]
+    };
+
+    const [excelBuffer, wordBlob] = await Promise.all([
+        buildReportWorkbook({ ...reportOptions, fileName: `${baseName}.xlsx` }),
+        buildReportDocument({ ...reportOptions, fileName: `${baseName}.docx` })
+    ]);
+
+    return {
+        answer: summary,
+        attachments: [
+            {
+                fileName: `${baseName}.xlsx`,
+                blob: new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+            },
+            { fileName: `${baseName}.docx`, blob: wordBlob }
+        ]
+    };
+}
+
+interface DbResponse {
+    answer: string;
+    attachments?: ChatAttachment[];
+}
+
 async function generateDatabaseResponse(
     intent: Intent,
     slots: Record<string, string>,
     ctx: ChatContext,
     rawText?: string,
     lang: Lang = 'en'
-): Promise<string> {
+): Promise<DbResponse> {
     const { supabase: db, userId, profile } = ctx;
 
     try {
         switch (intent) {
             case 'ask_compliance':
-                return await queryCompliance(db, userId, profile, slots, lang);
+                return { answer: await queryCompliance(db, userId, profile, slots, lang) };
             case 'check_deadline':
-                return await queryDeadline(db, profile?.district_id ?? undefined, slots, lang);
+                return { answer: await queryDeadline(db, profile?.district_id ?? undefined, slots, lang) };
             case 'find_dll':
-                return await queryDlls(db, slots, rawText, lang);
+                return { answer: await queryDlls(db, slots, rawText, lang) };
             case 'school_compare':
-                return await querySchoolCompare(db, profile?.district_id ?? undefined, profile, slots, lang);
+                return { answer: await querySchoolCompare(db, profile?.district_id ?? undefined, profile, slots, lang) };
             case 'teacher_stats':
-                return await queryTeacherStats(db, userId, profile, slots, lang);
+                return { answer: await queryTeacherStats(db, userId, profile, slots, lang) };
             case 'calendar_info':
-                return await queryCalendarInfo(db, profile?.district_id ?? undefined, lang);
+                return { answer: await queryCalendarInfo(db, profile?.district_id ?? undefined, lang) };
+            case 'create_report':
+                return await queryCreateReport(db, profile, slots, lang);
             default:
-                return generateTemplateResponse(intent, slots, lang);
+                return { answer: generateTemplateResponse(intent, slots, lang) };
         }
     } catch (err) {
         console.error('[chatbot] DB response error:', err);
         const offline = typeof navigator !== 'undefined' && !navigator.onLine;
         if (lang === 'tl') {
-            return offline
-                ? "Mukhang offline ka ngayon, kaya hindi ko ma-check ang live data para diyan — pero nandito pa rin ako! Tanungin mo ulit ako pag-online ka na, o subukan ang general na tanong sa ngayon."
-                : "Hmm, hindi ko na-fetch iyan ngayon. Subukan mo ulit mamaya — nandito lang ako.";
+            return {
+                answer: offline
+                    ? "Mukhang offline ka ngayon, kaya hindi ko ma-check ang live data para diyan — pero nandito pa rin ako! Tanungin mo ulit ako pag-online ka na, o subukan ang general na tanong sa ngayon."
+                    : "Hmm, hindi ko na-fetch iyan ngayon. Subukan mo ulit mamaya — nandito lang ako."
+            };
         }
-        return offline
-            ? "Looks like you're offline right now, so I can't check the live data for that — but I'm still here! Ask me again once you're back online, or try a general question in the meantime."
-            : "Hmm, I couldn't fetch that just now. Give it another try in a moment — I'll be right here.";
+        return {
+            answer: offline
+                ? "Looks like you're offline right now, so I can't check the live data for that — but I'm still here! Ask me again once you're back online, or try a general question in the meantime."
+                : "Hmm, I couldn't fetch that just now. Give it another try in a moment — I'll be right here."
+        };
     }
 }
 
@@ -1598,6 +1812,7 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
     }
 
     let answer: string;
+    let attachments: ChatAttachment[] | undefined;
 
     // 1. Greetings / small talk / quick facts hit the knowledge base first.
     // how_to_upload is deliberately excluded from this override: its own
@@ -1610,7 +1825,9 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
     if (kbHit && (intent === 'general_help' || confidence < 40)) {
         answer = kbHit;
     } else if (ctx?.supabase) {
-        answer = await generateDatabaseResponse(intent, slots, ctx, text, lang);
+        const dbResponse = await generateDatabaseResponse(intent, slots, ctx, text, lang);
+        answer = dbResponse.answer;
+        attachments = dbResponse.attachments;
     } else {
         answer = generateTemplateResponse(intent, slots, lang);
     }
@@ -1641,7 +1858,7 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
         }
     }
 
-    return { intent, confidence, answer, slots, lang };
+    return { intent, confidence, answer, slots, lang, attachments };
 }
 
 // Common short function words that must never be treated as fuzzy-match
