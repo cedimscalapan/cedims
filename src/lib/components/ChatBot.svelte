@@ -211,7 +211,7 @@
             <span class="absolute inset-0 rounded-full bg-gov-blue/30 animate-ping" aria-hidden="true"></span>
         {/if}
         <span class="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-gov-green border-2 border-surface-white" aria-hidden="true"></span>
-        <GabayMascot size={44} />
+        <GabayMascot size={64} />
     </button>
 {:else}
     <!-- Chat window. Not aria-modal: the page behind it stays usable, and
@@ -227,8 +227,8 @@
         <!-- Header -->
         <div class="bg-gov-blue text-white px-4 py-3.5 flex items-center justify-between gap-2 shrink-0">
             <div class="flex items-center gap-3 min-w-0">
-                <div class="relative w-9 h-9 bg-surface-white rounded-full flex items-center justify-center shrink-0 overflow-hidden">
-                    <GabayMascot size={26} wave={false} />
+                <div class="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
+                    <GabayMascot size={36} wave={false} />
                     <span class="absolute -bottom-0 -right-0 w-2.5 h-2.5 rounded-full bg-gov-green border-2 border-gov-blue" aria-hidden="true"></span>
                 </div>
                 <div class="min-w-0">
@@ -272,8 +272,8 @@
                 >
                     {#if msg.role === 'bot'}
                         <div class="flex items-start gap-2 max-w-[85%] min-w-0">
-                            <div class="w-7 h-7 bg-surface-white border border-border-subtle rounded-full flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
-                                <GabayMascot size={20} wave={false} />
+                            <div class="w-7 h-7 border border-border-subtle rounded-full flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
+                                <GabayMascot size={28} wave={false} />
                             </div>
                             <div class="min-w-0 flex flex-col gap-2">
                                 <div class="bg-surface-white border border-border-subtle rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm text-text-primary leading-relaxed shadow-sm whitespace-pre-line">
@@ -311,8 +311,8 @@
             {#if isLoading}
                 <div class="flex justify-start">
                     <div class="flex items-start gap-2 max-w-[85%]">
-                        <div class="w-7 h-7 bg-surface-white border border-border-subtle rounded-full flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
-                            <GabayMascot size={20} wave={false} />
+                        <div class="w-7 h-7 border border-border-subtle rounded-full flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
+                            <GabayMascot size={28} wave={false} />
                         </div>
                         <div class="bg-surface-white border border-border-subtle rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
                             <span class="sr-only">Gabay is typing…</span>
