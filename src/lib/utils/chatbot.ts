@@ -579,6 +579,58 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Mas mabuti pa rin ang late kaysa missing — nabibilang pa rin ang late submission sa compliance rate mo, pero ang hindi na-submit ay bumababa nang husto ang rate mo.'
             ]
         }
+    },
+    // ─── Regulatory references ─────────────────────────────────────────────
+    // Deliberately narrow: each entry states only what's directly confirmed
+    // by DepEd's own published order (linked in the answer itself) rather
+    // than paraphrasing specific clauses from memory. The link is there on
+    // purpose — the answer's job is to point to the authoritative source,
+    // not to stand in for it. Verified against deped.gov.ph, the Official
+    // Gazette, and the National Privacy Commission as of September 2026;
+    // if DepEd supersedes or amends one of these, this entry needs updating
+    // to match — it is not self-updating.
+    {
+        keywords: [
+            'do 42', 'deped order 42', 'legal basis of the dll', 'legal basis ng dll',
+            'why is the dll required', 'bakit kailangan ang dll', 'dll policy',
+            'basis for dll', 'batayan ng dll', 'requirement for dll', 'k to 12 lesson preparation policy'
+        ],
+        answers: {
+            en: [
+                'The requirement to prepare a Daily Lesson Log (or a more detailed Lesson Plan) comes from DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," issued under RA 10533 (the Enhanced Basic Education Act of 2013). It sets out what a lesson plan needs to cover — objectives, content, learning resources, procedure, and reflection — and affirms the teacher\'s role as a facilitator of learning. Specific submission deadlines and monitoring (like what this system tracks) are set locally by your school/division, not by this order itself. Full text: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
+            ],
+            tl: [
+                'Ang requirement na maghanda ng Daily Lesson Log (o mas detalyadong Lesson Plan) ay galing sa DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," base sa RA 10533 (Enhanced Basic Education Act of 2013). Nakasaad dito ang mga dapat nasa lesson plan — layunin, nilalaman, learning resources, proseso, at reflection. Ang mga specific na deadline at monitoring (tulad ng tina-track ng system na ito) ay itinatakda ng iyong paaralan/dibisyon, hindi ng order mismo. Buong teksto: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
+            ]
+        }
+    },
+    {
+        keywords: [
+            'matatag', 'matatag curriculum', 'do 10 2024', 'deped order 10 2024',
+            'new curriculum', 'bagong curriculum', 'curriculum guide 2024'
+        ],
+        answers: {
+            en: [
+                'The current national curriculum for Kindergarten through Grade 10 is the MATATAG Curriculum, established under DepEd Order No. 10, s. 2024, "Policy Guidelines on the Implementation of the MATATAG Curriculum" (later amended by DO 12, s. 2024). It rolls out in phases by grade level: SY 2024-2025 for Kinder, Grades 1, 4, and 7; SY 2025-2026 for Grades 2, 5, and 8; SY 2026-2027 for Grades 3, 6, and 9; SY 2027-2028 for Grade 10. Grades 11-12 are covered by a separate order. Official PDF: https://www.deped.gov.ph/wp-content/uploads/DO_s2024_010.pdf',
+            ],
+            tl: [
+                'Ang kasalukuyang pambansang kurikulum mula Kindergarten hanggang Grade 10 ay ang MATATAG Curriculum, base sa DepEd Order No. 10, s. 2024, "Policy Guidelines on the Implementation of the MATATAG Curriculum" (kalaunang inamyendahan ng DO 12, s. 2024). Isinasagawa ito nang paunti-unti ayon sa grade level: SY 2024-2025 para sa Kinder, Grades 1, 4, at 7; SY 2025-2026 para sa Grades 2, 5, at 8; SY 2026-2027 para sa Grades 3, 6, at 9; SY 2027-2028 para sa Grade 10. May hiwalay na order para sa Grades 11-12. Opisyal na PDF: https://www.deped.gov.ph/wp-content/uploads/DO_s2024_010.pdf',
+            ]
+        }
+    },
+    {
+        keywords: [
+            'data privacy', 'privacy act', 'ra 10173', 'data privacy act', 'data protection',
+            'proteksyon ng datos', 'privacy ng datos', 'saan napupunta ang data ko', 'data privacy law'
+        ],
+        answers: {
+            en: [
+                'The submissions and personal data this system handles fall under Republic Act No. 10173, the Data Privacy Act of 2012, which governs how personal information is collected, processed, and protected in the Philippines and established the National Privacy Commission as its regulator. It\'s the reason access here is scoped by role (Teacher/School Head/District Supervisor) rather than open to everyone. Official text: https://www.officialgazette.gov.ph/2012/08/15/republic-act-no-10173/ · National Privacy Commission: https://privacy.gov.ph/data-privacy-act/',
+            ],
+            tl: [
+                'Ang mga submission at personal data na hinahawakan ng system na ito ay sakop ng Republic Act No. 10173, ang Data Privacy Act of 2012, na nagtatakda kung paano kinokolekta, pinoproseso, at pinoprotektahan ang personal information sa Pilipinas, at nagtatag ng National Privacy Commission bilang regulator nito. Ito ang dahilan kung bakit naka-scope ang access dito ayon sa role (Teacher/School Head/District Supervisor) at hindi bukas sa lahat. Opisyal na teksto: https://www.officialgazette.gov.ph/2012/08/15/republic-act-no-10173/ · National Privacy Commission: https://privacy.gov.ph/data-privacy-act/',
+            ]
+        }
     }
 ];
 
