@@ -2,8 +2,7 @@
     import { profile } from "$lib/utils/auth";
     import { supabase } from "$lib/utils/supabase";
     import LineChart from "$lib/components/charts/LineChart.svelte";
-    import BarChart from "$lib/components/charts/BarChart.svelte";
-    import ScatterPlot from "$lib/components/charts/ScatterPlot.svelte";
+    import DonutChart from "$lib/components/charts/DonutChart.svelte";
     import ComplianceHeatmap from "$lib/components/ComplianceHeatmap.svelte";
     import StatCard from "$lib/components/StatCard.svelte";
     import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
@@ -13,10 +12,7 @@
         getDistrictSupervisorAnalytics,
         generateComplianceTrend,
         getPerformanceDistribution,
-        kMeansClusterPerformance,
-        getAtRiskEntities,
         forecastCompliance,
-        getComparisonMetrics
     } from "$lib/utils/analyticsQueries";
     import {
         calculateCompliance,
@@ -34,9 +30,6 @@
     let analyticsData = $state<any>(null);
     let trends = $state<any>(null);
     let distributions = $state<any>(null);
-    let clusters = $state<any>(null);
-    let atRiskList = $state<any[]>([]);
-    let comparisonStats = $state<any>(null);
     let heatmap = $state<{
         rows: string[];
         weeks: { week: number; label: string }[];
@@ -89,8 +82,8 @@
 
                 if (analyticsData) {
                     // ISP/ISR aren't part of the weekly DLL cadence these
-                    // trend/distribution/cluster metrics measure — excluded
-                    // the same way calculateCompliance excludes them.
+                    // trend/distribution metrics measure — excluded the same
+                    // way calculateCompliance excludes them.
                     const submissions = (analyticsData.complianceTrend || []).filter(
                         (s: any) => isComplianceTrackedDocType(s.doc_type),
                     );
@@ -107,14 +100,7 @@
                         byTeacher: getPerformanceDistribution(teacherData, 'teacher', analyticsData.roster || [], definedWeeks)
                     };
 
-                    clusters = kMeansClusterPerformance(distributions.byTeacher || []);
-                    atRiskList = getAtRiskEntities(distributions.byTeacher || [], 70);
-                    comparisonStats = getComparisonMetrics(distributions.byTeacher || []);
-                    heatmap = buildComplianceHeatmap(
-                        teacherData,
-                        analyticsData.roster || [],
-                        distributions.byTeacher || [],
-                    );
+                    heatmap = buildComplianceHeatmap(teacherData, analyticsData.roster || []);
                 }
 
                 lastUpdated = new Date();
@@ -129,14 +115,13 @@
 
     // Per-teacher, per-week compliance grid — same shape the district/school
     // monitoring heatmaps use, built here from data already fetched for the
-    // trend/cluster metrics above rather than a separate query. Weeks come
-    // from whatever week numbers the submissions themselves carry (last 8),
-    // and rows are ordered worst-first so the teachers needing attention are
-    // the first thing visible, matching the at-risk table's ordering.
+    // trend/distribution metrics above rather than a separate query. Weeks
+    // come from whatever week numbers the submissions themselves carry (last
+    // 8). Rows stay in roster order — this is a pattern-over-time view, not
+    // a ranking, so it never sorts teachers by how well they're doing.
     function buildComplianceHeatmap(
         rawSubs: any[],
         roster: { id: string; name: string; loadCount: number }[],
-        performances: { name: string; compliance_rate: number }[],
     ) {
         if (roster.length === 0) return { rows: [], weeks: [], cells: [] };
 
@@ -145,13 +130,8 @@
             .slice(-8);
         const weeks = weekNums.map((w) => ({ week: w, label: `W${w}` }));
 
-        const rateByName = new Map(performances.map((p) => [p.name, p.compliance_rate]));
-        const orderedRoster = [...roster]
-            .sort((a, b) => (rateByName.get(a.name) ?? 0) - (rateByName.get(b.name) ?? 0))
-            .slice(0, 12);
-
         const cells: any[] = [];
-        for (const entity of orderedRoster) {
+        for (const entity of roster) {
             const entitySubs = rawSubs.filter((s) => s.user_id === entity.id);
             for (const w of weeks) {
                 const weekSubs = entitySubs.filter((s) => getSubmissionWeek(s) === w.week);
@@ -163,12 +143,12 @@
                     weekLabel: w.label,
                     rate: stats.rate,
                     count: weekSubs.length,
-                    tooltip: `${entity.name} — ${w.label}: ${stats.rate}% compliant (${weekSubs.length} submitted)`,
+                    tooltip: `${entity.name}, ${w.label}: ${stats.rate}% compliant (${weekSubs.length} submitted)`,
                 });
             }
         }
 
-        return { rows: orderedRoster.map((r) => r.name), weeks, cells };
+        return { rows: roster.map((r) => r.name), weeks, cells };
     }
 
     function formatRelativeTime(then: Date | null, nowMs: number): string {
@@ -187,9 +167,9 @@
     onMount(() => {
         loadAnalytics();
 
-        // Keep every chart and cluster live: re-run the analysis whenever any
-        // submission is created/updated/deleted, instead of only ever showing
-        // a stale snapshot from the moment the page was opened.
+        // Keep every chart live: re-run the analysis whenever any submission
+        // is created/updated/deleted, instead of only ever showing a stale
+        // snapshot from the moment the page was opened.
         realtimeChannel = supabase
             .channel("analytics-submissions")
             .on(
@@ -223,6 +203,34 @@
     });
 
     const updatedLabel = $derived(formatRelativeTime(lastUpdated, now));
+
+    // Submission composition: what those totals are made of. A different
+    // question from the KPI row's headline numbers (magnitude vs. makeup),
+    // so pairing the two isn't the same fact shown twice.
+    const submissionComposition = $derived([
+        { label: "Compliant", value: overallStats.compliant, color: "#16a34a" },
+        { label: "Late", value: overallStats.late, color: "#d97706" },
+        { label: "Missing", value: overallStats.missing, color: "#dc2626" },
+    ]);
+
+    // Teachers grouped into fixed compliance bands (same 85%/70% cutoffs the
+    // rest of the app already uses), never sorted or named — a proportion
+    // view, not a leaderboard. "Needs Support" here is the same threshold
+    // and the same count as the KPI card below, computed once.
+    const performanceBands = $derived.by(() => {
+        const list = distributions?.byTeacher || [];
+        const onTrack = list.filter((t: any) => t.compliance_rate >= 85).length;
+        const approaching = list.filter((t: any) => t.compliance_rate >= 70 && t.compliance_rate < 85).length;
+        const needsSupport = list.filter((t: any) => t.compliance_rate < 70).length;
+        const total = list.length || 1;
+        return [
+            { label: "On Track", count: onTrack, pct: Math.round((onTrack / total) * 100), color: "#16a34a" },
+            { label: "Approaching", count: approaching, pct: Math.round((approaching / total) * 100), color: "#d97706" },
+            { label: "Needs Support", count: needsSupport, pct: Math.round((needsSupport / total) * 100), color: "#dc2626" },
+        ];
+    });
+
+    const needsSupportCount = $derived(performanceBands.find((b) => b.label === "Needs Support")?.count || 0);
 </script>
 
 <svelte:head>
@@ -239,7 +247,7 @@
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-text-primary">Analytics & Insights</h1>
-                <p class="text-text-secondary mt-2">Comprehensive compliance analysis and performance metrics</p>
+                <p class="text-text-secondary mt-2">Compliance patterns over time — not a leaderboard</p>
             </div>
 
             {#if !loading && !loadError}
@@ -285,99 +293,49 @@
         {:else}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard label="Overall Compliance" value="{overallStats.rate}%" icon="TrendingUp" color="from-gov-green to-gov-green-dark" />
-                <StatCard label="Compliant" value={overallStats.compliant} icon="TrendingUp" color="from-gov-green to-gov-green-dark" />
-                <StatCard label="Needs Support" value={atRiskList.length} icon="AlertTriangle" color="from-gov-red to-red-700" />
+                <StatCard label="Total Submissions" value={overallStats.total} icon="FileText" color="from-gov-blue to-gov-blue-dark" />
+                <StatCard label="Needs Support" value={needsSupportCount} icon="AlertTriangle" color="from-gov-red to-red-700" />
                 <StatCard label="Teachers" value={distributions?.byTeacher?.length || 0} icon="Users" color="from-gov-blue to-gov-blue-dark" />
             </div>
 
-            {#if comparisonStats?.best}
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-1">
+                    <LineChart data={trends?.forecast || []} title="Compliance Trend & Forecast" series={['rate']} />
+                </div>
+
+                <DonutChart data={submissionComposition} title="Submission Composition" />
+
                 <div class="gov-card-static p-6">
-                    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-                        <h3 class="text-lg font-bold text-text-primary">Performance Spread</h3>
-                        <span class="text-xs font-semibold text-text-muted">{distributions?.byTeacher?.length || 0} teachers compared</span>
-                    </div>
-                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div class="p-3 rounded-lg bg-gov-green/10 border border-gov-green/20">
-                            <p class="text-xs font-semibold text-gov-green uppercase">Best</p>
-                            <p class="text-2xl font-bold text-gov-green">{comparisonStats.best.compliance_rate}%</p>
-                            <p class="text-xs text-text-muted truncate mt-1">{comparisonStats.best.name}</p>
-                        </div>
-                        <div class="p-3 rounded-lg bg-gov-blue/10 border border-gov-blue/20">
-                            <p class="text-xs font-semibold text-gov-blue uppercase">Average</p>
-                            <p class="text-2xl font-bold text-gov-blue">{comparisonStats.average.compliance_rate}%</p>
-                            <p class="text-xs text-text-muted mt-1">Across the whole group</p>
-                        </div>
-                        <div class="p-3 rounded-lg bg-surface-muted border border-border-subtle">
-                            <p class="text-xs font-semibold text-text-secondary uppercase">Median</p>
-                            <p class="text-2xl font-bold text-text-primary">{comparisonStats.median.compliance_rate}%</p>
-                            <p class="text-xs text-text-muted mt-1">Midpoint teacher</p>
-                        </div>
-                        <div class="p-3 rounded-lg bg-gov-red/10 border border-gov-red/20">
-                            <p class="text-xs font-semibold text-gov-red uppercase">Lowest</p>
-                            <p class="text-2xl font-bold text-gov-red">{comparisonStats.worst.compliance_rate}%</p>
-                            <p class="text-xs text-text-muted truncate mt-1">{comparisonStats.worst.name}</p>
-                        </div>
+                    <h3 class="text-lg font-bold text-text-primary mb-6">Teachers by Compliance Band</h3>
+                    <div class="space-y-4">
+                        {#each performanceBands as band}
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5 text-sm">
+                                    <span class="font-semibold text-text-primary">{band.label}</span>
+                                    <span class="text-text-secondary">{band.count} · {band.pct}%</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full bg-surface-muted overflow-hidden">
+                                    <div
+                                        class="h-full rounded-full transition-[width] duration-300"
+                                        style="width: {band.pct}%; background-color: {band.color};"
+                                    ></div>
+                                </div>
+                            </div>
+                        {/each}
                     </div>
                 </div>
-            {/if}
-
-            <LineChart data={trends?.forecast || []} title="Compliance Trend & Forecast" series={['rate']} />
+            </div>
 
             {#if heatmap.rows.length > 0}
                 <div class="gov-card-static p-6">
                     <div class="mb-4">
                         <h3 class="text-lg font-bold text-text-primary">Weekly Compliance Heatmap</h3>
                         <p class="text-xs text-text-muted mt-1">
-                            Lowest-compliance teachers first, across the last {heatmap.weeks.length} weeks
+                            Submission pattern across the last {heatmap.weeks.length} weeks
                         </p>
                     </div>
-                    <ComplianceHeatmap rows={heatmap.rows} weeks={heatmap.weeks} cells={heatmap.cells} />
-                </div>
-            {/if}
-
-            <ScatterPlot data={distributions?.byTeacher || []} title="Performance Distribution (K-means Clustering)" />
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {#if clusters?.high?.length}
-                    <div class="gov-card-static bg-gov-green/5 p-6">
-                        <h3 class="text-lg font-bold text-gov-green mb-4">High Performers ({clusters.high.length})</h3>
-                        <div class="space-y-2">{#each clusters.high.slice(0, 5) as e}<div class="p-2 bg-surface-muted rounded"><p class="text-sm font-semibold truncate">{e.name}</p><p class="text-xs text-gov-green">{e.compliance_rate}%</p></div>{/each}</div>
-                    </div>
-                {/if}
-                {#if clusters?.average?.length}
-                    <div class="gov-card-static bg-gov-gold/5 p-6">
-                        <h3 class="text-lg font-bold text-gov-gold-dark mb-4">Average ({clusters.average.length})</h3>
-                        <div class="space-y-2">{#each clusters.average.slice(0, 5) as e}<div class="p-2 bg-surface-muted rounded"><p class="text-sm font-semibold truncate">{e.name}</p><p class="text-xs text-gov-gold-dark">{e.compliance_rate}%</p></div>{/each}</div>
-                    </div>
-                {/if}
-                {#if clusters?.atRisk?.length}
-                    <div class="gov-card-static bg-gov-red/5 p-6">
-                        <h3 class="text-lg font-bold text-gov-red mb-4">Needs Support ({clusters.atRisk.length})</h3>
-                        <div class="space-y-2">{#each clusters.atRisk.slice(0, 5) as e}<div class="p-2 bg-surface-muted rounded"><p class="text-sm font-semibold truncate">{e.name}</p><p class="text-xs text-gov-red">{e.compliance_rate}%</p></div>{/each}</div>
-                    </div>
-                {/if}
-            </div>
-
-            {#if distributions?.byTeacher?.length}
-                <BarChart
-                    data={[...distributions.byTeacher].sort((a: any, b: any) => b.compliance_rate - a.compliance_rate).slice(0, 15).map((t: any) => ({
-                        label: t.name,
-                        value: t.compliance_rate,
-                        color: t.compliance_rate >= 85 ? '#16a34a' : t.compliance_rate >= 70 ? '#d97706' : '#dc2626'
-                    }))}
-                    title="Performance Rankings"
-                    maxValue={100}
-                />
-            {/if}
-
-            {#if atRiskList?.length}
-                <div class="gov-card-static p-6">
-                    <h3 class="text-lg font-bold mb-4">Below 70% Compliance ({atRiskList.length})</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead><tr class="border-b"><th class="text-left py-2 px-3 text-xs font-semibold">Name</th><th class="text-left py-2 px-3 text-xs font-semibold">Rate</th><th class="text-left py-2 px-3 text-xs font-semibold">Status</th></tr></thead>
-                            <tbody>{#each atRiskList.slice(0, 15) as e}<tr class="border-b"><td class="py-2 px-3">{e.name}</td><td class="py-2 px-3 font-bold text-gov-red">{e.compliance_rate}%</td><td class="py-2 px-3"><span class="px-2 py-1 rounded text-xs bg-gov-red/20 text-gov-red font-bold">{e.risk_level}</span></td></tr>{/each}</tbody>
-                        </table>
+                    <div class="overflow-auto max-h-[70vh] touch-pan-x cedims-scroll">
+                        <ComplianceHeatmap rows={heatmap.rows} weeks={heatmap.weeks} cells={heatmap.cells} />
                     </div>
                 </div>
             {/if}

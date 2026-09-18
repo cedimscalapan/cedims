@@ -82,8 +82,8 @@
   let trendDatasets = $state<any[]>([]);
 
   // Table State
-  let sortField = $state<string>("rate");
-  let sortDir = $state<"asc" | "desc">("desc");
+  let sortField = $state<string>("name");
+  let sortDir = $state<"asc" | "desc">("asc");
   let searchQuery = $state("");
 
   // Modal State
@@ -545,7 +545,7 @@
           <h3
             class="text-sm font-bold text-text-primary uppercase tracking-wider"
           >
-            Institutional Performance Rankings
+            School Directory
           </h3>
         </div>
         <div class="relative group">

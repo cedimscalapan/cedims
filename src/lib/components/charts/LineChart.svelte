@@ -57,9 +57,13 @@
 
     const yScale = (value: number) => chartHeight - (value / yMax) * chartHeight;
 
+    // Descending (100 → 0): the grid below places labels[0] at the top of
+    // the chart, and yScale already puts high values near the top, so an
+    // ascending list here put "0" at the top and "100" at the bottom —
+    // backwards from where the line actually was.
     const yLabels = $derived.by(() => {
         const labels = [];
-        for (let i = 0; i <= 4; i++) {
+        for (let i = 4; i >= 0; i--) {
             labels.push(Math.round((i / 4) * yMax));
         }
         return labels;
@@ -100,7 +104,10 @@
             <p class="text-text-muted">No data available</p>
         </div>
     {:else}
-        <svg {width} {height} class="w-full border border-border-subtle rounded-lg">
+        <!-- viewBox (rather than fixed pixel width/height) lets this scale
+             to fit a narrow column instead of clipping — needed now that
+             this chart sits in a 3-column row alongside the donut/band panels. -->
+        <svg viewBox="0 0 {width} {height}" preserveAspectRatio="xMidYMid meet" class="w-full border border-border-subtle rounded-lg">
             <!-- Grid lines -->
             {#each yLabels as label, i}
                 {@const y = padding.top + (i / (yLabels.length - 1 || 1)) * chartHeight}

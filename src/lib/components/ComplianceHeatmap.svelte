@@ -1,12 +1,10 @@
 <script lang="ts">
-  import { getComplianceColor } from "$lib/utils/useDashboardData";
-
   interface HeatmapCell {
     row: string;
     week: number;
-    weekLabel: string;
+    weekLabel?: string;
     rate: number;
-    count: number;
+    count?: number;
     tooltip: string;
   }
 
@@ -23,68 +21,53 @@
     return cells.find((c) => c.row === row && c.week === week);
   }
 
-  // Takes the cell itself, not a bare rate number: a missing cell (no
-  // submission window existed yet) and a real 0%-compliance cell both used
-  // to collapse into the same "rate || 0" branch below, so a genuinely
-  // empty week and a fully-missed one looked identical. They now get
-  // distinct fills, and the solid -dark backgrounds (vs. the previous
-  // white/gray-text-on-tint pairing) clear 4.5:1 at this cell's ~10px size.
-  function getCellBg(cell: HeatmapCell | undefined): string {
-    if (!cell) return "bg-surface-muted border border-dashed border-text-muted";
+  // One hue at rising intensity (a magnitude scale), not the old red/gold/green
+  // split (a status scale): "how much got submitted" and "is this okay" are
+  // different questions, and folding both into one ramp is what made the old
+  // heatmap read as a grade sheet. A missing cell (no submission window yet)
+  // still gets its own dashed, colorless fill so it stays visibly different
+  // from a real 0%-compliance week.
+  function getCellFill(cell: HeatmapCell | undefined): string {
+    if (!cell) return "bg-surface-muted border border-dashed border-border-subtle";
     if (cell.rate >= 100) return "bg-gov-green-dark";
-    if (cell.rate >= 50) return "bg-gov-gold-dark";
-    return "bg-gov-red-dark";
-  }
-
-  function getCellText(cell: HeatmapCell | undefined): string {
-    if (!cell) return "text-text-secondary";
-    return "text-white";
-  }
-
-  function getCellLabel(cell: HeatmapCell | undefined): string {
-    return cell ? `${cell.rate}%` : "—";
+    if (cell.rate >= 75) return "bg-gov-green";
+    if (cell.rate >= 50) return "bg-gov-green/55";
+    if (cell.rate > 0) return "bg-gov-green/25";
+    return "bg-gov-green/10";
   }
 </script>
 
-<div class="overflow-x-auto">
-  <table class="w-full text-xs">
+<div class="overflow-x-auto cedims-scroll">
+  <table class="border-separate" style="border-spacing: 3px;">
     <thead>
-      <tr class="border-b border-border-subtle bg-surface-muted">
-        <th
-          class="sticky left-0 z-10 bg-surface-white/95 backdrop-blur px-3 py-3 text-left text-[10px] text-text-muted font-bold uppercase tracking-wider min-w-[140px] border-r border-border-subtle"
-        >
-          Institutional Units
-        </th>
+      <tr>
+        <th class="sticky left-0 z-10 bg-surface-white px-2 py-1 min-w-[140px]"></th>
         {#each weeks as w}
-          <th
-            class="px-1 py-3 text-center text-[10px] text-text-muted font-bold uppercase tracking-wider min-w-[45px]"
-          >
+          <th class="px-0 py-1 text-center text-[10px] text-text-muted font-semibold min-w-[24px]">
             {w.label}
           </th>
         {/each}
       </tr>
     </thead>
-    <tbody class="divide-y divide-border-subtle border-t border-border-subtle">
+    <tbody>
       {#each rows as row}
-        <tr class="hover:bg-surface-muted transition-colors">
+        <tr>
           <td
-            class="sticky left-0 z-10 bg-surface-white/95 backdrop-blur px-3 py-2.5 font-bold text-[10px] text-text-primary truncate max-w-[160px] border-r border-border-subtle"
+            class="sticky left-0 z-10 bg-surface-white pr-3 text-[11px] font-semibold text-text-primary text-left truncate max-w-[160px] align-middle"
             title={row}
           >
             {row}
           </td>
           {#each weeks as w}
             {@const cell = getCellData(row, w.week)}
-            <td class="p-0.5 text-center">
+            <td class="p-0 text-center align-middle">
               <button
-                class="w-full h-full py-2 px-1 rounded-sm transition-colors hover:brightness-95 {getCellBg(
-                  cell,
-                )} {getCellText(cell)} text-[10px] font-bold cursor-pointer"
-                title={cell?.tooltip || `${row} — ${w.label}: No data recorded`}
+                type="button"
+                class="block w-5 h-5 sm:w-6 sm:h-6 rounded-[4px] transition-transform hover:scale-110 focus-visible:scale-110 {getCellFill(cell)}"
+                title={cell?.tooltip || `${row}, ${w.label}: no data recorded`}
+                aria-label={cell?.tooltip || `${row}, ${w.label}: no data recorded`}
                 onclick={() => onCellClick?.(row, w.week)}
-              >
-                {getCellLabel(cell)}
-              </button>
+              ></button>
             </td>
           {/each}
         </tr>
@@ -97,22 +80,22 @@
   <div class="p-8 text-center text-text-muted">
     No data available for heatmap
   </div>
+{:else}
+  <!-- Legend: a dedicated "no data" swatch plus a Less→More sequential ramp,
+       matching the ramp used for the cells above. -->
+  <div class="flex flex-wrap items-center gap-4 mt-4 px-2 text-[10px] font-semibold text-text-muted">
+    <span class="flex items-center gap-1.5">
+      <span class="w-3 h-3 rounded-[3px] bg-surface-muted border border-dashed border-border-subtle"></span>
+      No data
+    </span>
+    <span class="flex items-center gap-1.5">
+      Less
+      <span class="w-3 h-3 rounded-[3px] bg-gov-green/10"></span>
+      <span class="w-3 h-3 rounded-[3px] bg-gov-green/25"></span>
+      <span class="w-3 h-3 rounded-[3px] bg-gov-green/55"></span>
+      <span class="w-3 h-3 rounded-[3px] bg-gov-green"></span>
+      <span class="w-3 h-3 rounded-[3px] bg-gov-green-dark"></span>
+      More
+    </span>
+  </div>
 {/if}
-
-<!-- Legend -->
-<div
-  class="flex items-center gap-6 mt-4 px-3 text-[10px] font-bold text-text-muted uppercase tracking-wider"
->
-  <span class="flex items-center gap-2">
-    <span class="w-2.5 h-2.5 rounded-sm bg-gov-green-dark"></span> 100%
-  </span>
-  <span class="flex items-center gap-2">
-    <span class="w-2.5 h-2.5 rounded-sm bg-gov-gold-dark"></span> 50-99%
-  </span>
-  <span class="flex items-center gap-2">
-    <span class="w-2.5 h-2.5 rounded-sm bg-gov-red-dark"></span> &lt;50% (incl. 0%)
-  </span>
-  <span class="flex items-center gap-2">
-    <span class="w-2.5 h-2.5 rounded-sm bg-surface-muted border border-dashed border-text-muted"></span> No data recorded
-  </span>
-</div>
