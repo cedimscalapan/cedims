@@ -303,7 +303,7 @@
                     <LineChart data={trends?.forecast || []} title="Compliance Trend & Forecast" series={['rate']} />
                 </div>
 
-                <DonutChart data={submissionComposition} title="Submission Composition" />
+                <DonutChart data={overallStats.total > 0 ? submissionComposition : []} title="Submission Composition" />
 
                 <div class="gov-card-static p-6">
                     <h3 class="text-lg font-bold text-text-primary mb-6">Teachers by Compliance Band</h3>

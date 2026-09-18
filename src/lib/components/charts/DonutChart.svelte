@@ -37,18 +37,42 @@
             const startAngle = currentAngle;
             const endAngle = currentAngle + sliceAngle;
 
-            const x1 = 100 + outerRadius * Math.cos(startAngle);
-            const y1 = 100 + outerRadius * Math.sin(startAngle);
-            const x2 = 100 + outerRadius * Math.cos(endAngle);
-            const y2 = 100 + outerRadius * Math.sin(endAngle);
-            const x3 = 100 + innerRadius * Math.cos(endAngle);
-            const y3 = 100 + innerRadius * Math.sin(endAngle);
-            const x4 = 100 + innerRadius * Math.cos(startAngle);
-            const y4 = 100 + innerRadius * Math.sin(startAngle);
+            // A slice that holds the whole total (one category at 100%) has
+            // startAngle and endAngle 2π apart, so cos/sin give the SAME
+            // point for both — an SVG arc command with identical endpoints
+            // is defined as drawing nothing, so the "ring" silently
+            // vanished. Two half-circle arcs per radius (traced in opposite
+            // directions so the nonzero fill rule still cuts the hole) draw
+            // a real ring instead.
+            const isFullCircle = sliceAngle >= Math.PI * 2 - 1e-6;
 
-            const largeArc = sliceAngle > Math.PI ? 1 : 0;
+            let path: string;
+            if (isFullCircle) {
+                const midAngle = startAngle + Math.PI;
+                const xo1 = 100 + outerRadius * Math.cos(startAngle);
+                const yo1 = 100 + outerRadius * Math.sin(startAngle);
+                const xoMid = 100 + outerRadius * Math.cos(midAngle);
+                const yoMid = 100 + outerRadius * Math.sin(midAngle);
+                const xi1 = 100 + innerRadius * Math.cos(startAngle);
+                const yi1 = 100 + innerRadius * Math.sin(startAngle);
+                const xiMid = 100 + innerRadius * Math.cos(midAngle);
+                const yiMid = 100 + innerRadius * Math.sin(midAngle);
 
-            const path = `M ${x1} ${y1} A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x4} ${y4} Z`;
+                path = `M ${xo1} ${yo1} A ${outerRadius} ${outerRadius} 0 1 1 ${xoMid} ${yoMid} A ${outerRadius} ${outerRadius} 0 1 1 ${xo1} ${yo1} M ${xi1} ${yi1} A ${innerRadius} ${innerRadius} 0 1 0 ${xiMid} ${yiMid} A ${innerRadius} ${innerRadius} 0 1 0 ${xi1} ${yi1} Z`;
+            } else {
+                const x1 = 100 + outerRadius * Math.cos(startAngle);
+                const y1 = 100 + outerRadius * Math.sin(startAngle);
+                const x2 = 100 + outerRadius * Math.cos(endAngle);
+                const y2 = 100 + outerRadius * Math.sin(endAngle);
+                const x3 = 100 + innerRadius * Math.cos(endAngle);
+                const y3 = 100 + innerRadius * Math.sin(endAngle);
+                const x4 = 100 + innerRadius * Math.cos(startAngle);
+                const y4 = 100 + innerRadius * Math.sin(startAngle);
+
+                const largeArc = sliceAngle > Math.PI ? 1 : 0;
+
+                path = `M ${x1} ${y1} A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x4} ${y4} Z`;
+            }
 
             const labelAngle = startAngle + sliceAngle / 2;
             const labelRadius = (innerRadius + outerRadius) / 2;
