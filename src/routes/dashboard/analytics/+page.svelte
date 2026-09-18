@@ -222,7 +222,7 @@
 
             {#if distributions?.byTeacher?.length}
                 <BarChart
-                    data={distributions.byTeacher.sort((a: any, b: any) => b.compliance_rate - a.compliance_rate).slice(0, 15).map((t: any) => ({
+                    data={[...distributions.byTeacher].sort((a: any, b: any) => b.compliance_rate - a.compliance_rate).slice(0, 15).map((t: any) => ({
                         label: t.name,
                         value: t.compliance_rate,
                         color: t.compliance_rate >= 85 ? '#16a34a' : t.compliance_rate >= 70 ? '#d97706' : '#dc2626'

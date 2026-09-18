@@ -33,11 +33,20 @@ export async function lookupOfflineDoc(hash: string) {
 }
 
 /**
+ * Strip Svelte 5 state proxies (and anything else structured clone can't
+ * store) before handing data to IndexedDB, which otherwise throws
+ * DataCloneError on a raw $state proxy.
+ */
+function toCloneable(data: any) {
+    return data === undefined ? data : JSON.parse(JSON.stringify(data));
+}
+
+/**
  * Cache current dashboard data for offline viewing.
  */
 export async function cacheDashboardData(userId: string, data: any) {
     await set(`${CACHE_PREFIX_HISTORY}${userId}`, {
-        data,
+        data: toCloneable(data),
         timestamp: Date.now()
     });
 }
@@ -54,7 +63,7 @@ export async function getCachedDashboardData(userId: string) {
  */
 export async function cacheMetadata(key: string, data: any) {
     await set(`${CACHE_PREFIX_METADATA}${key}`, {
-        data,
+        data: toCloneable(data),
         timestamp: Date.now()
     });
 }
