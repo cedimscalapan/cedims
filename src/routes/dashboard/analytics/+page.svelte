@@ -4,6 +4,7 @@
     import LineChart from "$lib/components/charts/LineChart.svelte";
     import BarChart from "$lib/components/charts/BarChart.svelte";
     import ScatterPlot from "$lib/components/charts/ScatterPlot.svelte";
+    import ComplianceHeatmap from "$lib/components/ComplianceHeatmap.svelte";
     import StatCard from "$lib/components/StatCard.svelte";
     import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import { onMount, onDestroy } from "svelte";
@@ -21,6 +22,7 @@
         calculateCompliance,
         getDefinedWeeksCount,
         getDynamicSchoolYear,
+        getSubmissionWeek,
         isComplianceTrackedDocType,
     } from "$lib/utils/useDashboardData";
     import { WifiOff } from "lucide-svelte";
@@ -35,6 +37,13 @@
     let clusters = $state<any>(null);
     let atRiskList = $state<any[]>([]);
     let comparisonStats = $state<any>(null);
+    let heatmap = $state<{
+        rows: string[];
+        weeks: { week: number; label: string }[];
+        cells: any[];
+    }>({ rows: [], weeks: [], cells: [] });
+    let lastUpdated = $state<Date | null>(null);
+    let now = $state(Date.now());
     // Expected slots (active teaching loads × opened calendar weeks) for this
     // scope, so "Overall Compliance" here means the same thing as the
     // Dashboard's "Compliance Rate" and District Monitoring's "District
@@ -101,7 +110,14 @@
                     clusters = kMeansClusterPerformance(distributions.byTeacher || []);
                     atRiskList = getAtRiskEntities(distributions.byTeacher || [], 70);
                     comparisonStats = getComparisonMetrics(distributions.byTeacher || []);
+                    heatmap = buildComplianceHeatmap(
+                        teacherData,
+                        analyticsData.roster || [],
+                        distributions.byTeacher || [],
+                    );
                 }
+
+                lastUpdated = new Date();
             }
         } catch (err) {
             console.error('[analytics] Failed to load:', err);
@@ -110,6 +126,63 @@
             loading = false;
         }
     }
+
+    // Per-teacher, per-week compliance grid — same shape the district/school
+    // monitoring heatmaps use, built here from data already fetched for the
+    // trend/cluster metrics above rather than a separate query. Weeks come
+    // from whatever week numbers the submissions themselves carry (last 8),
+    // and rows are ordered worst-first so the teachers needing attention are
+    // the first thing visible, matching the at-risk table's ordering.
+    function buildComplianceHeatmap(
+        rawSubs: any[],
+        roster: { id: string; name: string; loadCount: number }[],
+        performances: { name: string; compliance_rate: number }[],
+    ) {
+        if (roster.length === 0) return { rows: [], weeks: [], cells: [] };
+
+        const weekNums = Array.from(new Set(rawSubs.map((s) => getSubmissionWeek(s))))
+            .sort((a, b) => a - b)
+            .slice(-8);
+        const weeks = weekNums.map((w) => ({ week: w, label: `W${w}` }));
+
+        const rateByName = new Map(performances.map((p) => [p.name, p.compliance_rate]));
+        const orderedRoster = [...roster]
+            .sort((a, b) => (rateByName.get(a.name) ?? 0) - (rateByName.get(b.name) ?? 0))
+            .slice(0, 12);
+
+        const cells: any[] = [];
+        for (const entity of orderedRoster) {
+            const entitySubs = rawSubs.filter((s) => s.user_id === entity.id);
+            for (const w of weeks) {
+                const weekSubs = entitySubs.filter((s) => getSubmissionWeek(s) === w.week);
+                if (weekSubs.length === 0 && entity.loadCount === 0) continue;
+                const stats = calculateCompliance(weekSubs, entity.loadCount || weekSubs.length);
+                cells.push({
+                    row: entity.name,
+                    week: w.week,
+                    weekLabel: w.label,
+                    rate: stats.rate,
+                    count: weekSubs.length,
+                    tooltip: `${entity.name} — ${w.label}: ${stats.rate}% compliant (${weekSubs.length} submitted)`,
+                });
+            }
+        }
+
+        return { rows: orderedRoster.map((r) => r.name), weeks, cells };
+    }
+
+    function formatRelativeTime(then: Date | null, nowMs: number): string {
+        if (!then) return "—";
+        const diffSec = Math.max(0, Math.round((nowMs - then.getTime()) / 1000));
+        if (diffSec < 10) return "just now";
+        if (diffSec < 60) return `${diffSec}s ago`;
+        const diffMin = Math.round(diffSec / 60);
+        if (diffMin < 60) return `${diffMin}m ago`;
+        const diffHr = Math.round(diffMin / 60);
+        return `${diffHr}h ago`;
+    }
+
+    let tickInterval: ReturnType<typeof setInterval> | null = null;
 
     onMount(() => {
         loadAnalytics();
@@ -127,10 +200,14 @@
                 },
             )
             .subscribe();
+
+        // Keeps the "Updated Xs ago" label current between realtime refreshes.
+        tickInterval = setInterval(() => { now = Date.now(); }, 30000);
     });
 
     onDestroy(() => {
         if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+        if (tickInterval) clearInterval(tickInterval);
     });
 
     const overallStats = $derived.by(() => {
@@ -144,6 +221,8 @@
             total: stats.totalUploaded,
         };
     });
+
+    const updatedLabel = $derived(formatRelativeTime(lastUpdated, now));
 </script>
 
 <svelte:head>
@@ -157,9 +236,25 @@
     </div>
 {:else}
     <div class="space-y-8">
-        <div>
-            <h1 class="text-3xl font-bold text-text-primary">Analytics & Insights</h1>
-            <p class="text-text-secondary mt-2">Comprehensive compliance analysis and performance metrics</p>
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-text-primary">Analytics & Insights</h1>
+                <p class="text-text-secondary mt-2">Comprehensive compliance analysis and performance metrics</p>
+            </div>
+
+            {#if !loading && !loadError}
+                <div
+                    class="flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-semibold text-text-secondary"
+                    role="status"
+                >
+                    <span
+                        class="h-2 w-2 rounded-full flex-shrink-0 {$onlineStatus ? 'bg-gov-green' : 'bg-text-muted'}"
+                        aria-hidden="true"
+                    ></span>
+                    <span class="text-text-primary">{$onlineStatus ? 'Live' : 'Offline snapshot'}</span>
+                    <span class="text-text-muted font-normal">· Updated {updatedLabel}</span>
+                </div>
+            {/if}
         </div>
 
         {#if !loading && !$onlineStatus}
@@ -195,7 +290,50 @@
                 <StatCard label="Teachers" value={distributions?.byTeacher?.length || 0} icon="Users" color="from-gov-blue to-gov-blue-dark" />
             </div>
 
+            {#if comparisonStats?.best}
+                <div class="gov-card-static p-6">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <h3 class="text-lg font-bold text-text-primary">Performance Spread</h3>
+                        <span class="text-xs font-semibold text-text-muted">{distributions?.byTeacher?.length || 0} teachers compared</span>
+                    </div>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="p-3 rounded-lg bg-gov-green/10 border border-gov-green/20">
+                            <p class="text-xs font-semibold text-gov-green uppercase">Best</p>
+                            <p class="text-2xl font-bold text-gov-green">{comparisonStats.best.compliance_rate}%</p>
+                            <p class="text-xs text-text-muted truncate mt-1">{comparisonStats.best.name}</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-gov-blue/10 border border-gov-blue/20">
+                            <p class="text-xs font-semibold text-gov-blue uppercase">Average</p>
+                            <p class="text-2xl font-bold text-gov-blue">{comparisonStats.average.compliance_rate}%</p>
+                            <p class="text-xs text-text-muted mt-1">Across the whole group</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-surface-muted border border-border-subtle">
+                            <p class="text-xs font-semibold text-text-secondary uppercase">Median</p>
+                            <p class="text-2xl font-bold text-text-primary">{comparisonStats.median.compliance_rate}%</p>
+                            <p class="text-xs text-text-muted mt-1">Midpoint teacher</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-gov-red/10 border border-gov-red/20">
+                            <p class="text-xs font-semibold text-gov-red uppercase">Lowest</p>
+                            <p class="text-2xl font-bold text-gov-red">{comparisonStats.worst.compliance_rate}%</p>
+                            <p class="text-xs text-text-muted truncate mt-1">{comparisonStats.worst.name}</p>
+                        </div>
+                    </div>
+                </div>
+            {/if}
+
             <LineChart data={trends?.forecast || []} title="Compliance Trend & Forecast" series={['rate']} />
+
+            {#if heatmap.rows.length > 0}
+                <div class="gov-card-static p-6">
+                    <div class="mb-4">
+                        <h3 class="text-lg font-bold text-text-primary">Weekly Compliance Heatmap</h3>
+                        <p class="text-xs text-text-muted mt-1">
+                            Lowest-compliance teachers first, across the last {heatmap.weeks.length} weeks
+                        </p>
+                    </div>
+                    <ComplianceHeatmap rows={heatmap.rows} weeks={heatmap.weeks} cells={heatmap.cells} />
+                </div>
+            {/if}
 
             <ScatterPlot data={distributions?.byTeacher || []} title="Performance Distribution (K-means Clustering)" />
 
