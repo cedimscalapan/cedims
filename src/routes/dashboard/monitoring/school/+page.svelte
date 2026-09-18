@@ -27,7 +27,14 @@
         getDefinedWeeksCount,
         getDynamicSchoolYear,
         getCurrentWeekFromCalendar,
+        isComplianceTrackedDocType,
     } from "$lib/utils/useDashboardData";
+    import {
+        extractFeatures,
+        runKMeansClustering,
+        canCluster,
+    } from "$lib/utils/clusterAnalytics";
+    import ClusterVisualization from "$lib/components/ClusterVisualization.svelte";
     import { cacheMetadata, getCachedMetadata } from "$lib/utils/offline";
   import { canViewUploadedISPISR } from "$lib/utils/documentPermissions";
 
@@ -88,6 +95,12 @@
     // Trend chart data
     let trendLabels = $state<string[]>([]);
     let trendDatasets = $state<any[]>([]);
+
+    // Cluster state
+    let clusterShow = $state(false);
+    let clusterResults = $state<any[]>([]);
+    let clusterSummaries = $state<any[]>([]);
+    let clusterReady = $state(false);
 
     // Table controls
     let sortField = $state<string>("full_name");
@@ -297,6 +310,29 @@
             },
         ];
 
+        // K-Means clustering — ISP/ISR aren't part of the weekly DLL cadence
+        // these behavioral features (punctuality, completeness) measure, so
+        // they're excluded the same way calculateCompliance excludes them.
+        const tData = allSubmissions
+            .filter((s) => isComplianceTrackedDocType(s.doc_type))
+            .map((s) => ({
+                user_id: s.user_id,
+                compliance_status: s.compliance_status,
+                week_number: s.week_number,
+                created_at: s.created_at,
+            }));
+        // Use weeks elapsed so far (not the full calendar's defined weeks,
+        // which can include far-future weeks nobody has reached yet) so
+        // "completeness" isn't unfairly diluted for teachers who are fully
+        // caught up on every week due so far.
+        const features = extractFeatures(teachers, tData, Math.max(1, currentWk));
+        clusterReady = canCluster(features.length, tData.length);
+        if (clusterReady) {
+            const output = runKMeansClustering(features, 3);
+            clusterResults = output.results;
+            clusterSummaries = output.summaries;
+        }
+
         // Cache the full monitoring snapshot for offline viewing
         try {
             await cacheMetadata(`school_monitor_${userProfile.school_id}`, {
@@ -310,6 +346,9 @@
                 heatmapCells,
                 trendLabels,
                 trendDatasets,
+                clusterReady,
+                clusterResults,
+                clusterSummaries,
             });
         } catch (e) {
             console.warn(
@@ -335,6 +374,9 @@
         heatmapCells = s.heatmapCells || [];
         trendLabels = s.trendLabels || [];
         trendDatasets = s.trendDatasets || [];
+        clusterReady = s.clusterReady ?? false;
+        clusterResults = s.clusterResults || [];
+        clusterSummaries = s.clusterSummaries || [];
         console.log(
             "[school-monitor] Restored monitoring snapshot from offline cache",
         );
@@ -702,7 +744,36 @@
              behaviour is a coaching tool, so it belongs to the Master
              Teacher. A School Head already has the at-risk count and the
              roster, and the District Supervisor gets clustering at school
-             level on the Analytics page. -->
+             level on the Analytics page. Groups are unordered behavior
+             patterns (punctuality/consistency/completeness/volume), not a
+             best-to-worst ranking — clusterAnalytics.ts labels them by
+             pattern ("Steadily Progressing", etc.), never by rank. -->
+        {#if $profile?.role === "Master Teacher" && clusterReady && clusterResults.length > 0}
+            <div class="mt-8" in:fade={{ duration: 600 }}>
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-text-primary">
+                            Submission Behavior Patterns
+                        </h3>
+                        <p class="text-sm text-text-secondary">
+                            How teachers submit, grouped by pattern — not a ranking
+                        </p>
+                    </div>
+                    <button
+                        onclick={() => (clusterShow = !clusterShow)}
+                        class="px-4 py-2 text-sm font-semibold rounded-xl border border-border-subtle hover:bg-surface-muted transition-colors"
+                    >
+                        {clusterShow ? "Hide" : "Show"} Patterns
+                    </button>
+                </div>
+                {#if clusterShow}
+                    <ClusterVisualization
+                        results={clusterResults}
+                        summaries={clusterSummaries}
+                    />
+                {/if}
+            </div>
+        {/if}
     {/if}
 </div>
 
