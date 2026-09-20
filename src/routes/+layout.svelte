@@ -45,17 +45,32 @@
 	}
 
 	onMount(() => {
-		const handleModuleError = (e: ErrorEvent) => {
+		// Dynamic `import()` failures (stale chunk hashes after a redeploy,
+		// or a chunk request that got redirected/404'd) surface as a
+		// *rejected promise*, not a thrown error — so the existing 'error'
+		// listener below never sees them. Without this, a build mismatch
+		// left the router permanently stuck instead of self-healing via
+		// reload, which is exactly the "Failed to fetch dynamically
+		// imported module" loop seen in the console.
+		let reloadedForStaleBuild = false;
+		const reloadOnStaleBuild = (message: string | undefined) => {
+			if (reloadedForStaleBuild) return;
 			if (
-				e.message?.includes(
-					"Failed to fetch dynamically imported module",
-				)
+				message?.includes("Failed to fetch dynamically imported module") ||
+				message?.includes("error loading dynamically imported module")
 			) {
+				reloadedForStaleBuild = true;
 				console.warn("[v0] Build mismatch detected. Reloading...");
 				window.location.reload();
 			}
 		};
+
+		const handleModuleError = (e: ErrorEvent) => reloadOnStaleBuild(e.message);
+		const handleModuleRejection = (e: PromiseRejectionEvent) =>
+			reloadOnStaleBuild(e.reason?.message ?? String(e.reason ?? ""));
+
 		window.addEventListener("error", handleModuleError);
+		window.addEventListener("unhandledrejection", handleModuleRejection);
 
 		(async () => {
 			// Initialize auth first
@@ -80,35 +95,63 @@
 			// Defer service worker registration
 			setTimeout(() => {
 				if ("serviceWorker" in navigator && import.meta.env.PROD) {
-					try {
-						navigator.serviceWorker
-							.register("/service-worker.js")
-							.then(
-								(registration) => {
-									console.log(
-										"Service Worker registered:",
-										registration,
-									);
-								},
-								(error) => {
-									console.error(
-										"Service Worker registration failed:",
-										error,
-									);
-								},
+					(async () => {
+						try {
+							// Preview/staging hosts sometimes front every
+							// request with an auth or canonicalization
+							// redirect. Registering a SW whose script
+							// request is redirected throws a SecurityError
+							// (browsers disallow it outright), so probe
+							// first with a manual-redirect HEAD request and
+							// skip registration entirely when that's the
+							// case instead of letting the browser log a
+							// hard failure every load.
+							const probe = await fetch("/service-worker.js", {
+								method: "HEAD",
+								redirect: "manual",
+								cache: "no-store",
+							});
+							if (
+								probe.type === "opaqueredirect" ||
+								(probe.status >= 300 && probe.status < 400)
+							) {
+								console.warn(
+									"[v0] Skipping Service Worker registration: script is served behind a redirect on this host.",
+								);
+								return;
+							}
+						} catch (probeError) {
+							// Network hiccup on the probe itself isn't a
+							// reason to skip registration — fall through
+							// and let register() attempt it normally.
+						}
+
+						try {
+							const registration =
+								await navigator.serviceWorker.register(
+									"/service-worker.js",
+								);
+							console.log(
+								"Service Worker registered:",
+								registration,
 							);
-					} catch (error) {
-						console.error(
-							"Service Worker registration error:",
-							error,
-						);
-					}
+						} catch (error) {
+							console.error(
+								"Service Worker registration failed:",
+								error,
+							);
+						}
+					})();
 				}
 			}, 2000);
 		})();
 
 		return () => {
 			window.removeEventListener("error", handleModuleError);
+			window.removeEventListener(
+				"unhandledrejection",
+				handleModuleRejection,
+			);
 		};
 	});
 </script>
