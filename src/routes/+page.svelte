@@ -254,11 +254,14 @@
                         </span>
                     </div>
 
-                    <p class="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-text-muted sm:text-sm">
-                        CEDIMS — Calapan East District Instructional Monitoring System
+                    <p class="mt-4 flex items-baseline gap-0.5 text-2xl font-extrabold tracking-tight sm:text-3xl">
+                        <span class="text-gov-blue-dark">CE</span><span class="text-gov-blue-vibrant">DIMS</span>
+                    </p>
+                    <p class="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-text-muted sm:text-sm">
+                        Calapan East District Instructional Monitoring System
                     </p>
 
-                    <h1 class="mt-2 text-3xl font-bold leading-[1.15] tracking-tight text-text-primary sm:text-4xl lg:text-5xl">
+                    <h1 class="mt-3 text-3xl font-bold leading-[1.15] tracking-tight text-text-primary sm:text-4xl lg:text-5xl">
                         Instructional monitoring the whole district can keep up with.
                     </h1>
 

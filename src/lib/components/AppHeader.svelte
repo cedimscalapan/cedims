@@ -68,12 +68,13 @@
 >
     <div class="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:gap-5 lg:px-8">
         <!-- Left: Logo -->
-        <a href="/dashboard" class="shrink-0" aria-label="CEDIMS Dashboard">
+        <a href="/dashboard" class="flex shrink-0 flex-col items-start" aria-label="CEDIMS Dashboard">
             <!-- Weight/size carries emphasis, not a gradient — craft-floor:
                  "Gradient text. Emphasis comes from weight or size." -->
-            <span class="text-lg font-extrabold tracking-tight text-gov-blue">
+            <span class="text-lg font-extrabold leading-none tracking-tight text-text-primary">
                 CEDIMS
             </span>
+            <span class="mt-1 h-[3px] w-5 rounded-full bg-gov-blue-vibrant" aria-hidden="true"></span>
         </a>
 
         <!-- Section navigation — lg+ only. Below lg the bottom tab bar owns
