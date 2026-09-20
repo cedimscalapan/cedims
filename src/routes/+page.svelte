@@ -3,6 +3,7 @@
     import { goto } from "$app/navigation";
     import { onMount } from "svelte";
     import { theme } from "$lib/stores/theme";
+    import GabayMascot from "$lib/components/GabayMascot.svelte";
     import {
         ArrowRight,
         BarChart3,
@@ -10,16 +11,20 @@
         ClipboardCheck,
         FileCheck2,
         FileUp,
+        GraduationCap,
         History,
         Lock,
         LogIn,
         Mail,
         MapPin,
+        Menu,
         MessageSquareText,
         PenLine,
         Phone,
         QrCode,
         ShieldCheck,
+        Users,
+        X,
     } from "lucide-svelte";
     import { fly, slide } from "svelte/transition";
 
@@ -27,6 +32,47 @@
     // default so the card stays a credential, not a wall of text; tapping
     // it is an explicit choice to read the definition.
     let sdgDefinitionOpen = $state(false);
+
+    // The desktop nav links are hidden below `md` with nothing to replace
+    // them, so a phone visitor had no way to reach Features/Roles/How it
+    // works/Contact except scrolling past them one section at a time.
+    let mobileMenuOpen = $state(false);
+
+    const navLinks = [
+        { id: "features", href: "#features", label: "Features" },
+        { id: "roles", href: "#roles", label: "Roles" },
+        { id: "how-it-works", href: "#how-it-works", label: "How it works" },
+        { id: "contact", href: "#contact", label: "Contact" },
+    ];
+
+    // Which section is currently in view, so the header nav reflects scroll
+    // position instead of staying static for the whole page.
+    let activeSection = $state<string | null>(null);
+
+    // Fades and lifts an element into place the first time it enters the
+    // viewport. The observer disconnects after firing once, so it never
+    // re-triggers on scroll-back — a section that has already been seen
+    // stays put instead of replaying its entrance every time.
+    function reveal(node: HTMLElement, params: { delay?: number } = {}) {
+        if (typeof IntersectionObserver === "undefined") return {};
+        node.classList.add("reveal-pending");
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (!entry.isIntersecting) continue;
+                    setTimeout(() => node.classList.add("reveal-shown"), params.delay ?? 0);
+                    observer.disconnect();
+                }
+            },
+            { threshold: 0.15 },
+        );
+        observer.observe(node);
+        return {
+            destroy() {
+                observer.disconnect();
+            },
+        };
+    }
 
     // What the system actually does, one card per capability. Each line is a
     // feature a user can point at in the app — not a general claim.
@@ -112,6 +158,16 @@
         },
     ];
 
+    // A scannable, factual beat between the hero's pitch and the fuller
+    // sections below — every figure here matches an array already defined
+    // on this page (schools, roles) rather than an unverifiable claim.
+    const stats = [
+        { label: "Schools onboarded", value: "5", icon: GraduationCap },
+        { label: "Account roles", value: "4", icon: Users },
+        { label: "Document types tracked", value: "3", icon: FileCheck2 },
+        { label: "District office", value: "1", icon: MapPin },
+    ];
+
     const steps = [
         {
             title: "Teacher uploads",
@@ -162,7 +218,28 @@
             }
         });
 
-        return unsubscribe;
+        // Scrollspy: mirrors scroll position in the header nav. A band
+        // through the vertical middle of the viewport, rather than the
+        // top edge, is what a section is "currently being read" means.
+        const sectionObserver = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        activeSection = entry.target.id;
+                    }
+                }
+            },
+            { rootMargin: "-45% 0px -45% 0px" },
+        );
+        for (const link of navLinks) {
+            const el = document.getElementById(link.id);
+            if (el) sectionObserver.observe(el);
+        }
+
+        return () => {
+            unsubscribe();
+            sectionObserver.disconnect();
+        };
     });
 </script>
 
@@ -188,28 +265,76 @@
             </a>
 
             <nav aria-label="Sections" class="hidden items-center gap-7 text-sm font-medium text-text-secondary md:flex">
-                <a href="#features" class="transition-colors hover:text-gov-blue">Features</a>
-                <a href="#roles" class="transition-colors hover:text-gov-blue">Roles</a>
-                <a href="#how-it-works" class="transition-colors hover:text-gov-blue">How it works</a>
-                <a href="#contact" class="transition-colors hover:text-gov-blue">Contact</a>
+                {#each navLinks as link}
+                    <a
+                        href={link.href}
+                        class="relative pb-1 transition-colors hover:text-gov-blue {activeSection === link.id ? 'text-gov-blue' : ''}"
+                    >
+                        {link.label}
+                        <span
+                            class="absolute inset-x-0 -bottom-0.5 h-0.5 origin-left rounded-full bg-gov-blue transition-transform duration-300 {activeSection === link.id ? 'scale-x-100' : 'scale-x-0'}"
+                            aria-hidden="true"
+                        ></span>
+                    </a>
+                {/each}
             </nav>
 
-            {#if !$authLoading}
-                {#if $profile}
-                    <button onclick={() => goto("/dashboard")} class="gov-btn-secondary shrink-0 whitespace-nowrap px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm">
-                        Go to dashboard
-                    </button>
-                {:else}
-                    <button
-                        onclick={() => goto("/auth/login")}
-                        class="gov-btn-primary inline-flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm"
-                    >
-                        <LogIn size={15} />
-                        <span>Sign in</span>
-                    </button>
+            <div class="flex shrink-0 items-center gap-2">
+                {#if !$authLoading}
+                    {#if $profile}
+                        <button onclick={() => goto("/dashboard")} class="gov-btn-secondary shrink-0 whitespace-nowrap px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm">
+                            Go to dashboard
+                        </button>
+                    {:else}
+                        <button
+                            onclick={() => goto("/auth/login")}
+                            class="gov-btn-primary inline-flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm"
+                        >
+                            <LogIn size={15} />
+                            <span>Sign in</span>
+                        </button>
+                    {/if}
                 {/if}
-            {/if}
+
+                <button
+                    type="button"
+                    onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
+                    class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border-subtle text-text-secondary transition-colors hover:border-gov-blue hover:text-gov-blue md:hidden"
+                    aria-expanded={mobileMenuOpen}
+                    aria-controls="mobile-nav"
+                    aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                >
+                    {#if mobileMenuOpen}
+                        <X size={18} />
+                    {:else}
+                        <Menu size={18} />
+                    {/if}
+                </button>
+            </div>
         </div>
+
+        {#if mobileMenuOpen}
+            <nav
+                id="mobile-nav"
+                aria-label="Sections"
+                transition:slide={{ duration: 200 }}
+                class="border-t border-border-subtle bg-surface-white px-4 py-3 md:hidden"
+            >
+                <ul class="flex flex-col gap-1 text-sm font-medium text-text-secondary">
+                    {#each navLinks as link}
+                        <li>
+                            <a
+                                href={link.href}
+                                onclick={() => (mobileMenuOpen = false)}
+                                class="block rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-muted hover:text-gov-blue {activeSection === link.id ? 'text-gov-blue' : ''}"
+                            >
+                                {link.label}
+                            </a>
+                        </li>
+                    {/each}
+                </ul>
+            </nav>
+        {/if}
     </header>
 
     <main>
@@ -282,6 +407,14 @@
                         <a href="#how-it-works" class="gov-btn-secondary inline-flex w-full items-center justify-center gap-2 px-5 py-3 text-sm sm:w-auto">
                             See how it works
                         </a>
+                    </div>
+
+                    <div class="mt-4 inline-flex max-w-xl items-center gap-2.5 rounded-full border border-border-subtle bg-surface-white/70 py-1.5 pl-1.5 pr-4">
+                        <GabayMascot size={28} wave={false} />
+                        <p class="text-xs leading-5 text-text-secondary">
+                            Stuck? <span class="font-semibold text-gov-blue">Ask Gabay</span> — the chat assistant in the
+                            corner answers in English or Tagalog.
+                        </p>
                     </div>
 
                     <dl class="mt-9 grid max-w-xl gap-x-6 gap-y-5 border-t border-border-subtle pt-6 sm:grid-cols-3">
@@ -394,10 +527,33 @@
             </div>
         </section>
 
+        <!-- Quick facts — a scannable, animated beat between the hero's
+             pitch and the fuller features/roles sections below. -->
+        <section class="border-b border-border-subtle bg-surface-white">
+            <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                <ul class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    {#each stats as stat, index}
+                        <li
+                            use:reveal={{ delay: index * 90 }}
+                            class="flex items-center gap-3 rounded-2xl border border-border-subtle bg-surface-muted p-4"
+                        >
+                            <span class="inline-flex shrink-0 rounded-xl bg-gov-blue/10 p-2.5 text-gov-blue">
+                                <stat.icon size={18} strokeWidth={1.75} />
+                            </span>
+                            <div>
+                                <p class="text-lg font-bold leading-none text-text-primary">{stat.value}</p>
+                                <p class="mt-1 text-xs leading-4 text-text-secondary">{stat.label}</p>
+                            </div>
+                        </li>
+                    {/each}
+                </ul>
+            </div>
+        </section>
+
         <!-- What the system does -->
         <section id="features" class="scroll-mt-20 border-b border-border-subtle">
             <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-                <div class="max-w-2xl">
+                <div use:reveal class="max-w-2xl">
                     <p class="text-xs font-semibold uppercase tracking-[0.22em] text-gov-blue sm:text-sm">What it does</p>
                     <h2 class="mt-3 text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
                         Everything monitoring needs, and nothing that gets in the way.
@@ -405,8 +561,11 @@
                 </div>
 
                 <ul class="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
-                    {#each features as feature}
-                        <li class="rounded-2xl border border-border-subtle bg-surface-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
+                    {#each features as feature, index}
+                        <li
+                            use:reveal={{ delay: (index % 3) * 90 }}
+                            class="rounded-2xl border border-border-subtle bg-surface-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6"
+                        >
                             <span class="inline-flex rounded-xl bg-gov-blue/10 p-3 text-gov-blue">
                                 <feature.icon size={20} strokeWidth={1.75} />
                             </span>
@@ -421,7 +580,7 @@
         <!-- Who holds an account, and what each role can actually do -->
         <section id="roles" class="scroll-mt-20 border-b border-border-subtle bg-surface-white">
             <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-                <div class="max-w-2xl">
+                <div use:reveal class="max-w-2xl">
                     <p class="text-xs font-semibold uppercase tracking-[0.22em] text-gov-blue sm:text-sm">Who uses it</p>
                     <h2 class="mt-3 text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
                         Four roles, each with its own view.
@@ -434,8 +593,11 @@
                 </div>
 
                 <ul class="mt-8 grid gap-4 sm:mt-10 sm:grid-cols-2 sm:gap-5 xl:grid-cols-4">
-                    {#each roles as role}
-                        <li class="flex flex-col rounded-2xl border border-border-subtle bg-surface-muted p-5 sm:p-6">
+                    {#each roles as role, index}
+                        <li
+                            use:reveal={{ delay: (index % 4) * 90 }}
+                            class="flex flex-col rounded-2xl border border-border-subtle bg-surface-muted p-5 sm:p-6"
+                        >
                             <span class="inline-flex w-fit rounded-xl bg-gov-blue/10 p-2.5 text-gov-blue">
                                 <role.icon size={18} strokeWidth={1.75} />
                             </span>
@@ -453,7 +615,7 @@
         <!-- The path a document takes, and why the record it leaves holds up -->
         <section id="how-it-works" class="scroll-mt-20 border-b border-border-subtle bg-surface-white">
             <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-                <div class="max-w-2xl">
+                <div use:reveal class="max-w-2xl">
                     <p class="text-xs font-semibold uppercase tracking-[0.22em] text-gov-blue sm:text-sm">How it works</p>
                     <h2 class="mt-3 text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
                         One path from upload to district report.
@@ -466,7 +628,7 @@
                         aria-hidden="true"
                     ></div>
                     {#each steps as step, index}
-                        <li class="relative">
+                        <li use:reveal={{ delay: index * 110 }} class="relative">
                             <div class="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-border-subtle bg-surface-white text-gov-blue shadow-sm">
                                 <step.icon size={20} strokeWidth={1.75} />
                             </div>
@@ -481,8 +643,8 @@
                      verifiable, stated as three short facts rather than its own
                      full section. -->
                 <ul class="mt-10 grid gap-3 border-t border-border-subtle pt-8 sm:mt-12 sm:grid-cols-3 sm:gap-4">
-                    {#each assurances as item}
-                        <li class="flex items-start gap-3 rounded-xl bg-surface-muted p-4">
+                    {#each assurances as item, index}
+                        <li use:reveal={{ delay: index * 90 }} class="flex items-start gap-3 rounded-xl bg-surface-muted p-4">
                             <span class="inline-flex shrink-0 rounded-lg bg-gov-blue/10 p-2 text-gov-blue">
                                 <item.icon size={16} strokeWidth={1.75} />
                             </span>
@@ -499,7 +661,7 @@
         <!-- Way in, and who to ask -->
         <section id="contact" class="scroll-mt-20">
             <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-                <div class="overflow-hidden rounded-3xl border border-border-subtle bg-gov-blue text-white shadow-sm">
+                <div use:reveal class="overflow-hidden rounded-3xl border border-border-subtle bg-gov-blue text-white shadow-sm">
                     <div class="grid gap-8 p-6 sm:p-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-12">
                         <div>
                             <h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">Ready to log in?</h2>
@@ -568,3 +730,28 @@
         </div>
     </footer>
 </div>
+
+<style>
+    /* Paired with the `reveal` action in the script block: the action adds
+       `.reveal-pending` immediately, then swaps in `.reveal-shown` the
+       first time the element crosses into the viewport. */
+    :global(.reveal-pending) {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+
+    :global(.reveal-shown) {
+        opacity: 1;
+        transform: translateY(0);
+        transition:
+            opacity 550ms var(--ease-out),
+            transform 550ms var(--ease-out);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        :global(.reveal-pending) {
+            opacity: 1;
+            transform: none;
+        }
+    }
+</style>
