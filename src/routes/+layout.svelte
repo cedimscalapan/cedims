@@ -170,7 +170,6 @@
      browser to verify against. -->
 <LoadingScreen
 	appName="CEDIMS"
-	subtitle="Intelligent Document Management System"
 	duration={1200}
 />
 
