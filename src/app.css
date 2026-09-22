@@ -840,3 +840,38 @@ a {
   background: linear-gradient(to top, var(--color-surface-white) 0%, var(--color-surface-muted) 100%);
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
 }
+
+/* Calm UI pass: keep the product focused on monitoring work. Navigation and
+   status surfaces use one solid surface, one border, and one state color;
+   decorative gradients, glass blur, and animated scale do not add meaning
+   here and make dense screens feel busier than they are. */
+.mobile-nav-bar,
+.dark .mobile-nav-bar {
+  background: var(--color-surface-white);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.mobile-nav-item {
+  transition: color var(--duration-popover) var(--ease-out),
+    background-color var(--duration-popover) var(--ease-out);
+}
+
+.mobile-nav-item:active,
+.mobile-nav-item:active .mobile-nav-icon,
+.mobile-nav-item.active .mobile-nav-icon {
+  transform: none;
+}
+
+.mobile-nav-item.active::after {
+  height: 2px;
+  background: var(--color-gov-blue);
+  box-shadow: none;
+}
+
+/* Keep public verification and loading states legible without decorative
+   background effects competing with the document result. */
+.gradient-mesh {
+  background: var(--color-surface) !important;
+}
