@@ -610,7 +610,22 @@
 
 <div>
     <!-- Header -->
-    <PageHeader title={$profile?.role === 'Teacher' ? 'Overview' : 'Supervision dashboard'} description={$profile?.role === 'Teacher' ? 'Track your submissions and documents requiring attention.' : 'Review submissions and monitor instructional requirements.'} />
+    <PageHeader
+        title={$profile?.role === 'Teacher'
+            ? 'My Weekly Submissions'
+            : $profile?.role === 'Master Teacher'
+                ? 'Review and Coaching Queue'
+                : $profile?.role === 'School Head'
+                    ? 'Staff Compliance'
+                    : 'District Oversight'}
+        description={$profile?.role === 'Teacher'
+            ? 'Track this week’s uploads, deadlines, and reviewer feedback.'
+            : $profile?.role === 'Master Teacher'
+                ? 'Prioritize reviews and support teachers who need follow-up.'
+                : $profile?.role === 'School Head'
+                    ? 'Monitor staff submissions and decide where support is needed.'
+                    : 'Compare schools, follow district trends, and act on gaps.'}
+    />
 
     <!-- This page has no cache-then-network fallback the way archive/
          monitoring do — adding one would be new data-fetching logic, out
@@ -973,7 +988,7 @@
                     <p
                         class="text-text-muted font-bold text-xs uppercase tracking-normal"
                     >
-                        No recent submissions detected
+                        No recent submissions yet. New uploads and reviewer activity will appear here.
                     </p>
                 </div>
             {:else}

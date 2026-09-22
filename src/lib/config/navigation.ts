@@ -57,11 +57,20 @@ export const navItems: NavItem[] = [
         roles: ["Teacher"],
     },
     {
+        href: "/dashboard/load",
+        label: "Teaching Load",
+        icon: Briefcase,
+        mobileNav: true,
+        priority: 4,
+        navKey: "load",
+        roles: ["Teacher"],
+    },
+    {
         href: "/dashboard/settings",
         label: "Settings",
         icon: Settings,
         mobileNav: true,
-        priority: 4,
+        priority: 5,
         roles: ["Teacher"],
     },
 
@@ -111,6 +120,15 @@ export const navItems: NavItem[] = [
         roles: ["School Head"],
     },
     {
+        href: "/dashboard/analytics",
+        label: "Analytics",
+        icon: TrendingUp,
+        mobileNav: true,
+        priority: 5,
+        navKey: "analytics",
+        roles: ["School Head"],
+    },
+    {
         href: "/dashboard/monitoring/school",
         label: "Staff",
         icon: Briefcase,
@@ -133,7 +151,7 @@ export const navItems: NavItem[] = [
         label: "Settings",
         icon: Settings,
         mobileNav: true,
-        priority: 5,
+        priority: 6,
         roles: ["School Head"],
     },
     {
@@ -160,7 +178,7 @@ export const navItems: NavItem[] = [
         icon: TrendingUp,
         mobileNav: true,
         priority: 4,
-        navKey: "alerts",
+        navKey: "analytics",
         roles: ["District Supervisor"],
     },
     {

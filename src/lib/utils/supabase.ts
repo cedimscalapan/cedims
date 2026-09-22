@@ -88,9 +88,6 @@ export const supabase = createClient(
             flowType: 'pkce',
             storage: new ReslientStorage(),
             storageKey: 'sb-auth-token-v3',
-            lock: (name: string, acquireTimeout: number, callback: () => Promise<any>) => {
-                return callback();
-            }
         },
         global: {
             headers: {

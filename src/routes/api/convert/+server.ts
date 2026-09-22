@@ -7,6 +7,45 @@ import { env as privateEnv } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 import { supabase } from '$lib/utils/supabase';
 
+async function createTextFallbackPdf(file: File): Promise<Uint8Array> {
+    const mammoth = await import('mammoth');
+    const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+    const extracted = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    const text = extracted.value.trim() || 'This document contains no extractable text.';
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const fontSize = 11;
+    const lineHeight = 16;
+    const margin = 48;
+    const pageWidth = 612;
+    const pageHeight = 792;
+    const maxChars = 92;
+    const lines = text.split(/\r?\n/).flatMap((line) => {
+        const words = line.split(/\s+/);
+        const wrapped: string[] = [];
+        let current = '';
+        for (const word of words) {
+            if ((current + ' ' + word).trim().length > maxChars) {
+                if (current) wrapped.push(current);
+                current = word;
+            } else current = (current + ' ' + word).trim();
+        }
+        if (current) wrapped.push(current);
+        return wrapped.length ? wrapped : [''];
+    });
+    let page = pdf.addPage([pageWidth, pageHeight]);
+    let y = pageHeight - margin;
+    for (const line of lines) {
+        if (y < margin) {
+            page = pdf.addPage([pageWidth, pageHeight]);
+            y = pageHeight - margin;
+        }
+        page.drawText(line, { x: margin, y, size: fontSize, font, color: rgb(0.1, 0.12, 0.16) });
+        y -= lineHeight;
+    }
+    return pdf.save({ useObjectStreams: true });
+}
+
 async function findLibreOffice(): Promise<string | null> {
     const candidates = ['soffice', 'libreoffice', 'soffice.exe', 'libreoffice.exe'];
     for (const cmd of candidates) {
@@ -68,7 +107,17 @@ export async function POST({ request }) {
 
     const GAS_URL = publicEnv.PUBLIC_GOOGLE_SCRIPT_URL;
     if (!GAS_URL) {
-        throw error(500, 'No conversion engine available. Install LibreOffice on the server or deploy a Google Apps Script and set PUBLIC_GOOGLE_SCRIPT_URL.');
+        try {
+            const pdfBytes = await createTextFallbackPdf(f);
+            return new Response(pdfBytes, {
+                headers: {
+                    'Content-Type': 'application/pdf',
+                    'X-CEDIMS-Conversion-Fallback': 'text-extraction'
+                }
+            });
+        } catch (fallbackError: any) {
+            throw error(500, `No conversion engine available. Text fallback failed: ${fallbackError.message}`);
+        }
     }
 
     try {
@@ -86,6 +135,20 @@ export async function POST({ request }) {
             headers: { 'Content-Type': 'application/pdf' }
         });
     } catch (err: any) {
-        throw error(500, `All conversion engines failed: ${err.message}`);
+        // Keep the upload usable when both external conversion engines are
+        // unavailable. The fallback preserves the document's text for OCR,
+        // metadata detection, hashing, and archival, while clearly marking
+        // the response so the client can surface the degraded conversion.
+        try {
+            const pdfBytes = await createTextFallbackPdf(f);
+            return new Response(pdfBytes, {
+                headers: {
+                    'Content-Type': 'application/pdf',
+                    'X-CEDIMS-Conversion-Fallback': 'text-extraction'
+                }
+            });
+        } catch (fallbackError: any) {
+            throw error(500, `All conversion engines failed: ${err.message}. Text fallback failed: ${fallbackError.message}`);
+        }
     }
 }

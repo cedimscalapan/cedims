@@ -160,18 +160,7 @@
 	<title>CEDIMS · Powered by Smart E-VISION</title>
 </svelte:head>
 
-<!-- duration is a fixed, fake wait — the progress bar is Math.random(),
-     not tied to real auth/data readiness (see LoadingScreen.svelte). This
-     fires on every full page load, so 3000ms was a guaranteed, unconditional
-     tax on every session for every teacher, every day — directly against
-     the plan's efficiency goal. Cut to a brief brand flash rather than
-     rewiring it to a real readiness signal, which would need auditing this
-     layout's full auth-init timing to change safely without a live
-     browser to verify against. -->
-<LoadingScreen
-	appName="CEDIMS"
-	duration={1200}
-/>
+<LoadingScreen appName="CEDIMS" />
 
 <Toast />
 

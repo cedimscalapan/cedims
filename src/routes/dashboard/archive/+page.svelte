@@ -100,6 +100,7 @@
     let remarkText = $state("");
     let existingRemark = $state<string | null>(null);
     let savingRemark = $state(false);
+    let openingSubmissionId = $state<string | null>(null);
 
     const canReview = $derived(
         $profile ? canAddReviewRemarks($profile.role) : false,
@@ -731,12 +732,25 @@
     }
 
     async function handleView(sub: Submission) {
+        if (openingSubmissionId) return;
         const path = sub.file_path || `${sub.id}/${sub.file_name}`;
-        const url = await getSignedUrl(path);
-        if (url) {
-            window.open(url, "_blank");
-        } else {
-            addToast("error", "Could not retrieve file. Please try again.");
+        // Open synchronously so popup blockers do not reject the tab after the
+        // asynchronous presign request completes.
+        const previewWindow = window.open("about:blank", "_blank");
+        openingSubmissionId = sub.id;
+        try {
+            const url = await getSignedUrl(path);
+            if (!url) throw new Error("Could not retrieve a secure preview link");
+            if (previewWindow && !previewWindow.closed) {
+                previewWindow.location.href = url;
+            } else {
+                window.location.href = url;
+            }
+        } catch (err) {
+            previewWindow?.close();
+            addToast("error", "Could not open this document. Please try again.");
+        } finally {
+            openingSubmissionId = null;
         }
     }
 
@@ -1150,7 +1164,9 @@
                                     handleView(sub);
                                 }}
                                 class="min-w-[44px] min-h-[44px] flex items-center justify-center text-text-muted hover:text-gov-blue hover:bg-gov-blue/10 rounded-lg transition-colors"
-                                title="View Information"
+                                title={openingSubmissionId === sub.id ? "Opening document" : "View document"}
+                                aria-label={openingSubmissionId === sub.id ? "Opening document" : `View ${sub.file_name}`}
+                                disabled={openingSubmissionId !== null}
                             >
                                 <Eye size={16} />
                             </button>

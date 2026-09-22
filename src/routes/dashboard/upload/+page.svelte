@@ -27,7 +27,6 @@
     import { goto } from "$app/navigation";
     import { onMount, untrack } from "svelte";
     import { fade } from "svelte/transition";
-    import CEDIMSLoader from "$lib/components/CEDIMSLoader.svelte";
     import { extractMetadata, type DocMetadata } from "$lib/utils/ocr";
     import { transcodeToPdf } from "$lib/utils/transcode";
     import { predictLoad, validateSelection } from "$lib/utils/copilot";
@@ -72,6 +71,7 @@
     let ocrConfidence = $state<number | null>(null);
     let fileSizeWarning = $state(false);
     let detectingMetadata = $state(false);
+    let scanProgress = $state(0);
     let detectedMetadata = $state<any>(null);
     let fileHash = $state<string>("");
     // Caches the PDF bytes produced by the pre-upload OCR conversion step
@@ -320,6 +320,7 @@
             untrack(() => {
                 // District Supervisors cannot upload - redirect to archive
                 if ($profile!.role === 'District Supervisor') {
+                    dataLoadedForProfile = $profile!.id;
                     addToast('info', 'District Supervisors use the Archives tab to review submissions and add remarks.');
                     goto('/dashboard/archive');
                     return;
@@ -597,10 +598,12 @@
 
         // Runs OCR-based metadata detection: doc type, week number, and teaching load auto-fill
         detectingMetadata = true;
+        scanProgress = 5;
         try {
             const ext = file.name.split('.').pop()?.toLowerCase();
             let ocrTarget = file;
             if ((ext === 'docx' || ext === 'doc') && navigator.onLine) {
+                scanProgress = 20;
                 // Same server-proxy -> Google Apps Script fallback chain the
                 // actual upload pipeline uses (transcode.ts), so pre-upload
                 // metadata detection doesn't silently skip OCR for Word docs
@@ -610,14 +613,18 @@
                     // Cached so handleUpload's pipeline run can reuse these
                     // bytes instead of converting this exact file again.
                     preConvertedPdf = { file, bytes: pdfBytes };
+                    scanProgress = 48;
                     ocrTarget = new File([pdfBytes as BlobPart], file.name.replace(/\.\w+$/, '.pdf'), { type: 'application/pdf' });
                 } catch (err) {
                     console.warn('[upload] Pre-upload conversion failed, skipping OCR metadata detection:', err);
                 }
             }
+            scanProgress = Math.max(scanProgress, 55);
             const metadata = await extractMetadata(ocrTarget);
+            scanProgress = 82;
             console.log("[upload] OCR metadata result:", metadata);
             detectedMetadata = metadata;
+            scanProgress = 92;
 
             if (metadata.docType !== "Unknown") {
                 docType = metadata.docType;
@@ -664,9 +671,11 @@
 
             const { speak } = await import("$lib/utils/voiceGuide");
             speak("Smart detection complete. Fields updated.");
+            scanProgress = 100;
         } catch (err) {
             console.error("[upload] OCR error:", err);
         } finally {
+            scanProgress = 100;
             detectingMetadata = false;
         }
 
@@ -1047,28 +1056,9 @@
                         </div>
                         {#if detectingMetadata}
                             <div
-                                class="flex items-center gap-2 text-gov-blue text-xs font-bold "
+                                class="text-gov-blue text-xs font-bold"
                             >
-                                <svg
-                                    class="animate-spin h-4 w-4"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <circle
-                                        class="opacity-25"
-                                        cx="12"
-                                        cy="12"
-                                        r="10"
-                                        stroke="currentColor"
-                                        stroke-width="4"
-                                        fill="none"
-                                    ></circle>
-                                    <path
-                                        class="opacity-75"
-                                        fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                    ></path>
-                                </svg>
-                                Scanning...
+                                Scanning {scanProgress}%
                             </div>
                         {:else}
                             <div
@@ -1080,8 +1070,15 @@
                     </div>
 
                     {#if detectingMetadata}
-                        <div class="gov-card-static">
-                            <CEDIMSLoader compact label="Detecting metadata..." />
+                        <div class="rounded-lg border border-border-subtle bg-surface-muted p-4" role="status" aria-live="polite">
+                            <div class="flex items-center justify-between gap-3 mb-2">
+                                <span class="text-sm font-semibold text-text-primary">Scanning document</span>
+                                <span class="text-xs font-bold text-gov-blue">{scanProgress}%</span>
+                            </div>
+                            <div class="h-2 w-full overflow-hidden rounded-full bg-border-subtle" role="progressbar" aria-label="Document scan progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={scanProgress}>
+                                <div class="h-full rounded-full bg-gov-blue transition-[width] duration-300 ease-out" style={`width: ${scanProgress}%`}></div>
+                            </div>
+                            <p class="mt-2 text-xs text-text-muted">Reading the document and detecting its type, week, and teaching load.</p>
                         </div>
                     {:else}
                         <div class="space-y-6 animate-fade-in">
@@ -1217,6 +1214,16 @@
                                         {/if}
                                     </div>
                                 </div>
+
+                                {#if docType === "DLL" && teachingLoads.length === 0 && ($profile?.role === "Teacher" || $profile?.role === "Master Teacher")}
+                                    <div class="rounded-lg border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm text-gov-gold-dark" role="status">
+                                        <p class="font-bold">DLL uploads need a teaching load first.</p>
+                                        <p class="mt-1 text-xs font-medium">{#if $profile?.role === "Teacher"}Open Teaching Load to add your subjects and schedule.{:else}You can still upload ISP or ISR. Configure a teaching load before submitting a DLL.{/if}</p>
+                                        {#if $profile?.role === "Teacher"}
+                                            <button type="button" class="mt-2 text-xs font-bold underline" onclick={() => goto("/dashboard/load")}>Open Teaching Load</button>
+                                        {/if}
+                                    </div>
+                                {/if}
 
                                 {#if docType === "DLL"}
                                 <!-- Week -->
@@ -1548,8 +1555,11 @@
             </div>
             <div class="max-h-[60vh] overflow-y-auto p-4 space-y-2">
                 {#if loadingTeachingLoads}
-                    <div class="gov-card-static">
-                        <CEDIMSLoader compact label="Loading teaching loads..." />
+                    <div class="gov-card-static p-4" role="status" aria-live="polite">
+                        <p class="text-sm font-semibold text-text-secondary mb-2">Loading teaching loads...</p>
+                        <div class="h-2 w-full overflow-hidden rounded-full bg-surface-muted" role="progressbar" aria-label="Loading teaching loads">
+                            <div class="h-full w-2/5 rounded-full bg-gov-blue animate-pulse"></div>
+                        </div>
                     </div>
                 {:else}
                     {#each teachingLoads as load}

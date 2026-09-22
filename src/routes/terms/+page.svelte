@@ -29,8 +29,15 @@
     />
 </svelte:head>
 
-<div class="min-h-dvh bg-surface-muted px-4 py-10 sm:px-6 lg:px-8">
+<div class="policy-page min-h-dvh bg-surface-muted px-4 py-8 sm:px-6 lg:px-8">
     <div class="mx-auto max-w-3xl">
+        <div class="mb-8 flex items-center justify-between gap-4">
+            <a href="/" class="flex items-center gap-3" aria-label="CEDIMS home">
+                <img src="/app_icon.png" alt="" width="40" height="40" class="rounded-lg" />
+                <span class="text-sm font-bold text-text-primary">CEDIMS<small class="block text-xs font-medium text-text-muted">Calapan East District</small></span>
+            </a>
+            <a href="/auth/login" class="text-sm font-bold text-gov-blue hover:underline">Sign in</a>
+        </div>
         <a
             href="/"
             class="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-text-muted transition-colors hover:text-gov-blue"
@@ -39,7 +46,7 @@
             Back to CEDIMS
         </a>
 
-        <article class="rounded-2xl border border-border-subtle bg-surface-white p-6 shadow-sm sm:p-10">
+        <article class="policy-card rounded-2xl border border-border-subtle bg-surface-white p-6 shadow-sm sm:p-10">
             <header class="border-b border-border-subtle pb-6">
                 <div class="flex items-center gap-3">
                     <div class="rounded-xl bg-gov-blue/10 p-2.5 text-gov-blue">
@@ -170,8 +177,8 @@
                     <address class="not-italic">
                         Calapan East District Office, Calapan City, Oriental Mindoro<br />
                         Email:
-                        <a href="mailto:support@cedims.gov.ph" class="font-semibold text-gov-blue hover:underline">
-                            support@cedims.gov.ph
+                        <a href="mailto:cedimscalapan@gmail.com" class="font-semibold text-gov-blue hover:underline">
+                            cedimscalapan@gmail.com
                         </a>
                         · Phone:
                         <a href="tel:+63432881234" class="font-semibold text-gov-blue hover:underline">
@@ -207,3 +214,9 @@
         </nav>
     </div>
 </div>
+
+<style>
+    .policy-page { font-family: var(--font-family-sans, "Segoe UI", sans-serif); }
+    .policy-card { border-top: 4px solid var(--color-gov-gold); }
+    :global(.dark) .policy-card { box-shadow: var(--shadow-md); }
+</style>

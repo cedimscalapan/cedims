@@ -123,7 +123,6 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
 
     // Image path: OCR via Tesseract (multilingual).
     if (!file.type.startsWith('image/')) {
-        console.warn('[ocr] Skipping OCR for unsupported file type:', file.type || 'unknown');
         return createDefaultMetadata();
     }
 

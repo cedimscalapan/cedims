@@ -148,6 +148,13 @@
 
     $effect(() => {
         if (!visible) return;
+        const keydownHandler = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                finish();
+            }
+        };
+        window.addEventListener("keydown", keydownHandler);
         resizeHandler = () => currentEl && positionAround(currentEl);
         window.addEventListener("resize", resizeHandler);
         window.addEventListener("scroll", resizeHandler, true);
@@ -156,6 +163,7 @@
                 window.removeEventListener("resize", resizeHandler);
                 window.removeEventListener("scroll", resizeHandler, true);
             }
+            window.removeEventListener("keydown", keydownHandler);
         };
     });
 
@@ -267,6 +275,12 @@
                         {stepIndex + 1} / {totalSteps}
                     </span>
                     <div class="flex gap-2">
+                        <button
+                            onclick={finish}
+                            class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold text-text-muted hover:text-text-primary hover:bg-surface-muted transition-colors"
+                        >
+                            Skip tour
+                        </button>
                         {#if stepIndex > 0}
                             <button
                                 onclick={prev}

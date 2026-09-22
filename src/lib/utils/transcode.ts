@@ -54,6 +54,10 @@ async function convertViaServerProxy(file: File): Promise<Uint8Array | null> {
 
         if (!res.ok) return null;
 
+        if (res.headers.get('X-CEDIMS-Conversion-Fallback') === 'text-extraction' && import.meta.env.DEV) {
+            console.info('[transcode] Using text extraction PDF fallback; refresh the deployed Google Apps Script for full document layout.');
+        }
+
         const buffer = await res.arrayBuffer();
         return new Uint8Array(buffer);
     } catch {

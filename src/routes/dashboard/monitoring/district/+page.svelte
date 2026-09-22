@@ -1,16 +1,17 @@
 <script lang="ts">
   import { profile } from "$lib/utils/auth";
+  import { getRoleDashboardPath } from "$lib/utils/auth";
+  import { goto } from "$app/navigation";
   import { supabase } from "$lib/utils/supabase";
   import StatCard from "$lib/components/StatCard.svelte";
   import ComplianceHeatmap from "$lib/components/ComplianceHeatmap.svelte";
   import ComplianceTrendChart from "$lib/components/ComplianceTrendChart.svelte";
   import DrillDownModal from "$lib/components/DrillDownModal.svelte";
-  import ProfileUploader from "$lib/components/ProfileUploader.svelte";
   import PaginatedSubmissionCards from "$lib/components/PaginatedSubmissionCards.svelte";
   import PaginatedRosterGrid from "$lib/components/PaginatedRosterGrid.svelte";
   import { onMount, onDestroy } from "svelte";
   import { fly, fade } from "svelte/transition";
-  import { Building2, Search, ArrowUpDown } from "lucide-svelte";
+  import { Search, ArrowUpDown } from "lucide-svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
   import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
   import { addToast } from "$lib/stores/toast";
@@ -64,7 +65,6 @@
   let allSubmissions = $state<Submission[]>([]);
   let loading = $state(true);
   let loadError = $state<string | null>(null);
-  let districtLogoUrl = $state<string | null>(null);
   let currentDefinedWeeks = $state(1);
   let kpi = $state<KPI>({
     totalSchools: 0,
@@ -92,8 +92,25 @@
   let selectedSubmissions = $state<Submission[]>([]);
 
   let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+  let redirectedUnauthorized = $state(false);
+
+  const canViewDistrict = $derived(
+    $profile?.role === "District Supervisor" || $profile?.role === "Admin",
+  );
+
+  $effect(() => {
+    const userProfile = $profile;
+    if (!userProfile || canViewDistrict || redirectedUnauthorized) return;
+    redirectedUnauthorized = true;
+    addToast("error", "District monitoring is available only to District Supervisors.");
+    goto(getRoleDashboardPath(userProfile.role));
+  });
 
   onMount(async () => {
+    if (!canViewDistrict) {
+      loading = false;
+      return;
+    }
     try {
       await loadDistrictData();
     } finally {
@@ -118,7 +135,7 @@
 
   async function loadDistrictData() {
     const userProfile = $profile;
-    if (!userProfile?.district_id) return;
+    if (!canViewDistrict || !userProfile?.district_id) return;
 
     // Offline: restore cached monitoring snapshot without touching Supabase
     if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -133,10 +150,6 @@
 
     loadError = null;
     try {
-    // Fetch District Logo
-    const { data: distData } = await supabase.from('districts').select('avatar_url').eq('id', userProfile.district_id).single();
-    if (distData) districtLogoUrl = distData.avatar_url;
-
     // 1. Fetch District Schools
     const { data: schoolsData } = await supabase
       .from("schools")
@@ -281,7 +294,6 @@
     // Cache the full monitoring snapshot for offline viewing
     try {
       await cacheMetadata(`district_monitor_${userProfile.district_id}`, {
-        districtLogoUrl,
         schools,
         allSubmissions,
         currentDefinedWeeks,
@@ -303,7 +315,6 @@
   }
 
   function applyDistrictSnapshot(s: any) {
-    districtLogoUrl = s.districtLogoUrl ?? null;
     schools = s.schools || [];
     allSubmissions = s.allSubmissions || [];
     currentDefinedWeeks = s.currentDefinedWeeks ?? 1;
@@ -414,27 +425,6 @@
       </p>
     </div>
 
-    {#if $profile?.role === 'District Supervisor' && $profile?.district_id}
-    <div class="flex items-center gap-4 bg-surface-white p-4 rounded-2xl border border-border-subtle shadow-sm">
-        <ProfileUploader 
-            id={$profile.district_id}
-            bucket="avatars"
-            path="districts"
-            label="District Logo"
-            size="md"
-            placeholderIcon={Building2}
-            bind:url={districtLogoUrl} 
-            onUpload={async (newUrl) => {
-                await supabase.from('districts').update({ avatar_url: newUrl }).eq('id', $profile?.district_id || '');
-                addToast("success", "District logo updated");
-            }}
-        />
-        <div class="hidden sm:block">
-            <h4 class="text-sm font-bold text-text-primary uppercase tracking-tight">District Branding</h4>
-            <p class="text-xs text-text-muted font-medium">Official Governance Logo</p>
-        </div>
-    </div>
-    {/if}
   </div>
 
   {#if loading}

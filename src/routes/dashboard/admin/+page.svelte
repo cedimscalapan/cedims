@@ -26,6 +26,7 @@
     let settings = $state<any[]>([]);
     let loading = $state(true);
     let saving = $state(false);
+    let redirectedUnauthorized = $state(false);
     let message = $state({ text: "", type: "success" });
     let showPassword = $state(false);
 
@@ -76,8 +77,10 @@
         if (
             $profile &&
             $profile.role !== "District Supervisor" &&
-            $profile.role !== "Admin"
+            $profile.role !== "Admin" &&
+            !redirectedUnauthorized
         ) {
+            redirectedUnauthorized = true;
             addToast("error", "You don't have access to the Admin panel.");
             goto("/dashboard");
         }

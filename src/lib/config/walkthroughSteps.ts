@@ -98,6 +98,12 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
                 tip: "Guide improvement with clear remarks.",
                 target: "submissions",
             },
+            {
+                title: "Analytics",
+                content: "Review compliance trends and identify staff who need follow-up support.",
+                tip: "Use the trend view before planning your next staff check-in.",
+                target: "analytics",
+            },
         ],
     },
     "District Supervisor": {

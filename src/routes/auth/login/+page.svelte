@@ -158,11 +158,11 @@
     <title>Sign In: CEDIMS · Powered by Smart E-VISION</title>
 </svelte:head>
 
-<div class="min-h-dvh bg-surface-muted">
+<div class="login-page min-h-dvh bg-surface-muted">
     <!-- Form panel -->
     <main class="mx-auto flex w-full max-w-[440px] flex-col px-4 py-5 sm:py-8">
         <!-- Compact brand row shared by desktop and mobile. -->
-        <a href="/" class="mb-4 flex items-center gap-2.5">
+        <a href="/" class="mb-6 flex items-center gap-2.5">
             <img src="/app_icon.png" alt="" class="h-9 w-9 rounded-lg" />
             <span>
                 <span class="block text-sm font-semibold leading-tight text-text-primary">CEDIMS</span>
@@ -173,7 +173,7 @@
         </a>
 
         <div class="mx-auto w-full max-w-md">
-            <div class="rounded-2xl border border-border-subtle bg-surface-white p-5 shadow-sm sm:p-6">
+            <div class="login-card rounded-2xl border border-border-subtle bg-surface-white p-5 shadow-sm sm:p-7">
                 <div class="mb-4">
                     <h1 class="text-2xl font-bold tracking-tight text-text-primary">Sign in to CEDIMS</h1>
                     <p class="mt-1.5 text-sm text-text-secondary">
@@ -233,7 +233,7 @@
                                 class="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-3.5 text-text-muted transition-colors hover:text-gov-blue"
                                 aria-pressed={showPassword}
                                 aria-controls="password"
-                                aria-label={showPassword ? "Hide password" : "Show password"}
+                                aria-label={showPassword ? "Hide entered password" : "Show entered password"}
                             >
                                 {#if showPassword}
                                     <EyeOff size={18} strokeWidth={1.5} />
@@ -323,3 +323,8 @@
         </div>
     </main>
 </div>
+
+<style>
+    .login-page { font-family: var(--font-family-sans, "Segoe UI", sans-serif); }
+    .login-card { border-top: 4px solid var(--color-gov-blue); }
+</style>
