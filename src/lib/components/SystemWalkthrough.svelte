@@ -263,7 +263,7 @@
                     {/each}
                 </div>
                 <div class="flex items-center justify-between gap-2">
-                    <span class="text-[11px] font-semibold text-text-muted uppercase tracking-wide">
+                    <span class="text-xs font-semibold text-text-muted uppercase tracking-wide">
                         {stepIndex + 1} / {totalSteps}
                     </span>
                     <div class="flex gap-2">

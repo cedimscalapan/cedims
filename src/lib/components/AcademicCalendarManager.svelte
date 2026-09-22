@@ -368,7 +368,7 @@
                         class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-hidden"
                         onclick={(e) => e.stopPropagation()}
                         onkeydown={() => {}}
-                        role="listbox"
+                        role="listbox" tabindex="-1"
                     >
                         {#each schoolYears as sy}
                             <button
@@ -407,7 +407,7 @@
                         class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-hidden"
                         onclick={(e) => e.stopPropagation()}
                         onkeydown={() => {}}
-                        role="listbox"
+                        role="listbox" tabindex="-1"
                     >
                         {#each terms as t}
                             <button
@@ -426,11 +426,10 @@
         </div>
     </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8" in:fade>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             {#each deadlines as d, i (d.week_number)}
                 <div
                     class="gov-card-static p-8 group relative"
-                    in:fly={{ y: 20, delay: i * 50 }}
                 >
                     <div class="flex items-center justify-between mb-8">
                         <div class="flex items-center gap-4">
@@ -448,14 +447,14 @@
                                 <div class="flex items-center gap-1.5 mt-1">
                                     {#if d.is_active}
                                         <div
-                                            class="flex items-center gap-1 text-[10px] font-semibold uppercase text-gov-green-dark dark:text-[#4ade80]"
+                                            class="flex items-center gap-1 text-xs font-semibold uppercase text-gov-green-dark dark:text-[#4ade80]"
                                         >
                                             <CheckCircle2 size={10} />
                                             Open
                                         </div>
                                     {:else}
                                         <div
-                                            class="flex items-center gap-1 text-[10px] font-semibold uppercase text-text-muted"
+                                            class="flex items-center gap-1 text-xs font-semibold uppercase text-text-muted"
                                         >
                                             <Clock size={10} />
                                             Scheduled
@@ -492,7 +491,7 @@
                     <div class="space-y-4">
                         <div class="relative">
                             <label
-                                class="absolute -top-2 left-3 px-1 bg-surface-white text-[10px] font-bold text-gov-blue uppercase tracking-wide z-10"
+                                class="absolute -top-2 left-3 px-1 bg-surface-white text-xs font-bold text-gov-blue uppercase tracking-wide z-10"
                                 for="date-{i}"
                             >
                                 Due Date
@@ -523,7 +522,7 @@
 
                         <div class="relative">
                             <label
-                                class="absolute -top-2 left-3 px-1 bg-surface-white text-[10px] font-bold text-text-muted uppercase tracking-wide z-10"
+                                class="absolute -top-2 left-3 px-1 bg-surface-white text-xs font-bold text-text-muted uppercase tracking-wide z-10"
                                 for="desc-{i}"
                             >
                                 Notes / Purpose
@@ -565,7 +564,7 @@
                             </h4>
                             <p class="text-sm text-text-secondary leading-relaxed">
                                 Each week is saved individually by clicking the <span
-                                    class="inline-flex items-center justify-center px-2 py-0.5 rounded bg-gov-blue/10 text-gov-blue-dark dark:text-[#5a8fde] font-bold text-[10px] uppercase"
+                                    class="inline-flex items-center justify-center px-2 py-0.5 rounded bg-gov-blue/10 text-gov-blue-dark dark:text-[#5a8fde] font-bold text-xs uppercase"
                                     >Save</span
                                 >
                                 icon. Deadlines are set to

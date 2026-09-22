@@ -27,12 +27,12 @@
         height = 300,
         showLegend = true,
         series = ['rate']
-    } = $props<Props>();
+    }: Props = $props();
 
     const padding = { top: 40, right: 40, bottom: 40, left: 60 };
     const width = 800;
     const chartWidth = width - padding.left - padding.right;
-    const chartHeight = height - padding.top - padding.bottom;
+    const chartHeight = $derived(height - padding.top - padding.bottom);
 
     const colors = {
         compliant: '#10b981',

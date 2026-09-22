@@ -30,11 +30,11 @@
         title = 'Performance Distribution',
         width = 600,
         height = 400
-    } = $props<Props>();
+    }: Props = $props();
 
     const padding = { top: 40, right: 40, bottom: 50, left: 60 };
-    const chartWidth = width - padding.left - padding.right;
-    const chartHeight = height - padding.top - padding.bottom;
+    const chartWidth = $derived(width - padding.left - padding.right);
+    const chartHeight = $derived(height - padding.top - padding.bottom);
 
     const riskColors = {
         low: '#10b981',

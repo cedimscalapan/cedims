@@ -27,7 +27,7 @@
         showValue = true,
         height = 400,
         barHeight = 30
-    } = $props<Props>();
+    }: Props = $props();
 
     const defaultColors = [
         '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',

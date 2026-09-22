@@ -73,14 +73,14 @@
                             <div class="flex flex-wrap items-center gap-1.5">
                                 {#if item.docType}
                                     <span
-                                        class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-[10px] font-bold rounded uppercase tracking-wider whitespace-nowrap"
+                                        class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-xs font-bold rounded uppercase tracking-wider whitespace-nowrap"
                                     >
                                         {item.docType}
                                     </span>
                                 {/if}
                                 {#if item.weekNumber != null}
                                     <span
-                                        class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-[10px] font-bold rounded uppercase tracking-wider whitespace-nowrap"
+                                        class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-bold rounded uppercase tracking-wider whitespace-nowrap"
                                     >
                                         Week {item.weekNumber}
                                     </span>
@@ -95,7 +95,7 @@
                         <div class="mt-auto pt-2.5 border-t border-border-subtle flex items-center justify-between gap-2 flex-wrap">
                             <StatusBadge status={normalizeStatus(item.complianceStatus)} size="sm" />
                             <span
-                                class="text-[10px] font-bold text-text-muted uppercase tracking-tight whitespace-nowrap"
+                                class="text-xs font-bold text-text-muted uppercase tracking-tight whitespace-nowrap"
                             >
                                 {formatDate(item.createdAt)}
                             </span>
@@ -115,7 +115,7 @@
                 >
                     <ChevronLeft size={14} /> Previous
                 </button>
-                <span class="text-xs font-bold text-text-muted uppercase tracking-widest">
+                <span class="text-xs font-bold text-text-muted uppercase tracking-normal">
                     Page {page} of {totalPages}
                 </span>
                 <button

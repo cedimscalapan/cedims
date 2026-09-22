@@ -1,6 +1,6 @@
 <script lang="ts">
     import * as Lucide from "lucide-svelte";
-    import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from "lucide-svelte";
+    import { ArrowUpRight, ArrowDownRight } from "lucide-svelte";
 
     interface Props {
         value: string | number;
@@ -35,22 +35,22 @@
      it). hover:shadow-lg is dropped too — .gov-card already declares
      elevation via border only, so pairing it with a shadow here re-created
      the ghost-card pattern the shared class was just fixed to avoid. -->
-<div class="gov-card p-6 transition-colors duration-300">
+<div class="gov-card p-4 sm:p-5">
     <div class="flex items-start justify-between gap-4">
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2.5 mb-3">
                 {#if IconComponent}
-                    <div class="p-2.5 rounded-lg {colorClasses.bg} {colorClasses.text}">
-                        <IconComponent size={18} strokeWidth={2} />
+                    <div class="text-text-secondary">
+                        <IconComponent size={18} strokeWidth={2} aria-hidden="true" />
                     </div>
                 {/if}
-                <p class="text-xs sm:text-sm font-bold uppercase tracking-wider text-text-muted">
+                <p class="text-sm font-medium text-text-secondary">
                     {label}
                 </p>
             </div>
 
             <div class="space-y-2">
-                <p class="text-3xl sm:text-4xl font-black text-text-primary tracking-tight">
+                <p class="text-2xl font-semibold text-text-primary tabular-nums">
                     {value}
                 </p>
 

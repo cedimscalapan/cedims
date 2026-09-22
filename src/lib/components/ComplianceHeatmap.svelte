@@ -43,7 +43,7 @@
       <tr>
         <th class="sticky left-0 z-10 bg-surface-white px-2 py-1 min-w-[140px]"></th>
         {#each weeks as w}
-          <th class="px-0 py-1 text-center text-[10px] text-text-muted font-semibold min-w-[24px]">
+          <th class="px-0 py-1 text-center text-xs text-text-muted font-semibold min-w-[24px]">
             {w.label}
           </th>
         {/each}
@@ -53,7 +53,7 @@
       {#each rows as row}
         <tr>
           <td
-            class="sticky left-0 z-10 bg-surface-white pr-3 text-[11px] font-semibold text-text-primary text-left truncate max-w-[160px] align-middle"
+            class="sticky left-0 z-10 bg-surface-white pr-3 text-xs font-semibold text-text-primary text-left truncate max-w-[160px] align-middle"
             title={row}
           >
             {row}
@@ -83,7 +83,7 @@
 {:else}
   <!-- Legend: a dedicated "no data" swatch plus a Less→More sequential ramp,
        matching the ramp used for the cells above. -->
-  <div class="flex flex-wrap items-center gap-4 mt-4 px-2 text-[10px] font-semibold text-text-muted">
+  <div class="flex flex-wrap items-center gap-4 mt-4 px-2 text-xs font-semibold text-text-muted">
     <span class="flex items-center gap-1.5">
       <span class="w-3 h-3 rounded-[3px] bg-surface-muted border border-dashed border-border-subtle"></span>
       No data

@@ -50,7 +50,7 @@
         />
         {#if $unreadCount > 0}
             <span
-                class="absolute -top-1 -right-1 w-5 h-5 bg-gov-red text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white animate-bounce-subtle shadow-sm"
+                class="absolute -top-1 -right-1 w-5 h-5 bg-gov-red text-white text-xs font-bold flex items-center justify-center rounded-full border-2 border-white animate-bounce-subtle shadow-sm"
             >
                 {$unreadCount > 9 ? "9+" : $unreadCount}
             </span>
@@ -82,7 +82,7 @@
                 {#if $unreadCount > 0}
                     <button
                         onclick={handleMarkAllRead}
-                        class="text-[10px] font-bold text-gov-blue hover:underline uppercase tracking-tight"
+                        class="text-xs font-bold text-gov-blue hover:underline uppercase tracking-tight"
                     >
                         Mark all as read
                     </button>
@@ -131,7 +131,7 @@
                                         {n.title}
                                     </p>
                                     <span
-                                        class="text-[9px] text-text-muted font-medium ml-2"
+                                        class="text-xs text-text-muted font-medium ml-2"
                                     >
                                         {new Date(
                                             n.created_at,
@@ -142,7 +142,7 @@
                                     </span>
                                 </div>
                                 <p
-                                    class="text-[11px] text-text-secondary leading-normal mb-2 line-clamp-3"
+                                    class="text-xs text-text-secondary leading-normal mb-2 line-clamp-3"
                                 >
                                     {n.message}
                                 </p>
@@ -151,7 +151,7 @@
                                     {#if !n.read}
                                         <button
                                             onclick={() => handleMarkRead(n.id)}
-                                            class="text-[10px] sm:text-[9px] font-bold text-gov-blue hover:text-gov-blue-dark flex items-center gap-1 uppercase tracking-wider py-1 sm:py-0"
+                                            class="text-xs sm:text-xs font-bold text-gov-blue hover:text-gov-blue-dark flex items-center gap-1 uppercase tracking-wider py-1 sm:py-0"
                                         >
                                             <Check
                                                 size={12}
@@ -163,7 +163,7 @@
                                     {#if n.link}
                                         <a
                                             href={n.link}
-                                            class="text-[10px] sm:text-[9px] font-bold text-text-muted hover:text-text-primary flex items-center gap-1 uppercase tracking-wider py-1 sm:py-0"
+                                            class="text-xs sm:text-xs font-bold text-text-muted hover:text-text-primary flex items-center gap-1 uppercase tracking-wider py-1 sm:py-0"
                                             onclick={() => (isOpen = false)}
                                         >
                                             <ArrowRight
@@ -185,7 +185,7 @@
                     class="p-3 border-t border-border-subtle bg-surface-muted text-center flex-shrink-0"
                 >
                     <p
-                        class="text-[9px] font-bold text-text-muted uppercase tracking-widest"
+                        class="text-xs font-bold text-text-muted uppercase tracking-normal"
                     >
                         System Hub Monitoring Active
                     </p>

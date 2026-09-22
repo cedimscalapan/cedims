@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Upload, File, FileText, AlertCircle } from "lucide-svelte";
+    import { Upload, FileText, AlertCircle } from "lucide-svelte";
 
     interface Props {
         accept?: string;
@@ -63,11 +63,11 @@
 </script>
 
 <div
-    class="relative rounded-xl border-2 border-dashed transition-colors duration-300 cursor-pointer min-h-[240px] flex items-center justify-center
+    class="relative rounded-lg border border-dashed transition-colors cursor-pointer min-h-[180px] flex items-center justify-center
 		{disabled
             ? 'opacity-50 cursor-not-allowed border-border-subtle bg-surface-muted'
             : dragOver
-            ? 'border-gov-blue bg-gov-blue/10 scale-[1.02] shadow-lg'
+            ? 'border-gov-blue bg-gov-blue/10'
             : 'border-border-strong hover:border-gov-blue bg-surface-muted/30 hover:bg-gov-blue/5'}"
     ondrop={handleDrop}
     ondragover={handleDragOver}
@@ -82,6 +82,7 @@
     role="button"
     tabindex="0"
     aria-label="Drop zone for file upload"
+    aria-disabled={disabled}
 >
     <input
         bind:this={inputEl}
@@ -92,19 +93,19 @@
         {disabled}
     />
 
-    <div class="text-center px-6 sm:px-8 py-10 sm:py-12 w-full">
+    <div class="text-center px-4 sm:px-6 py-6 w-full min-w-0">
         {#if selectedFile}
             <div class="space-y-4">
                 <!-- File Icon -->
                 <div class="flex justify-center">
-                    <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-gov-blue to-gov-blue-vibrant flex items-center justify-center text-white shadow-lg">
+                    <div class="w-10 h-10 flex items-center justify-center text-gov-blue">
                         <FileText size={28} strokeWidth={2} />
                     </div>
                 </div>
 
                 <!-- File Info -->
                 <div>
-                    <p class="font-bold text-lg sm:text-xl text-text-primary">
+                    <p class="font-semibold text-base text-text-primary break-all">
                         {selectedFile.name}
                     </p>
                     <p class="text-sm text-text-secondary mt-1 font-medium">
@@ -117,25 +118,24 @@
                     class="text-sm font-bold text-gov-blue hover:text-gov-blue-dark transition-colors px-3 py-3 rounded-lg"
                     onclick={(e) => {
                         e.stopPropagation();
-                        selectedFile = null;
-                        inputEl.value = "";
+                        if (!disabled) inputEl.click();
                     }}
                 >
-                    ✓ Choose Different File
+                    Choose another file
                 </button>
             </div>
         {:else}
             <div class="space-y-4">
                 <!-- Upload Icon -->
                 <div class="flex justify-center">
-                    <div class="w-16 h-16 rounded-xl bg-gov-blue/15 flex items-center justify-center text-gov-blue">
+                    <div class="w-10 h-10 flex items-center justify-center text-text-secondary">
                         <Upload size={32} strokeWidth={1.5} />
                     </div>
                 </div>
 
                 <!-- Main Text -->
                 <div>
-                    <p class="font-bold text-lg sm:text-xl text-text-primary">
+                    <p class="font-semibold text-base text-text-primary">
                         {dragOver
                             ? "Drop your file now"
                             : "Drag & drop your file"}
@@ -143,13 +143,13 @@
                     <p class="text-sm text-text-secondary mt-1 font-medium">
                         {dragOver
                             ? "or press to browse"
-                            : "or click to browse your computer"}
+                            : "or select a file from your device"}
                     </p>
                 </div>
 
                 <!-- Error or Info -->
                 {#if errorMessage}
-                    <div class="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gov-red/10 border border-gov-red/30">
+                    <div role="alert" class="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gov-red/10 border border-gov-red/30">
                         <AlertCircle size={18} class="text-gov-red flex-shrink-0" strokeWidth={2} />
                         <p class="text-sm font-bold text-gov-red">{errorMessage}</p>
                     </div>
@@ -162,4 +162,3 @@
         {/if}
     </div>
 </div>
-

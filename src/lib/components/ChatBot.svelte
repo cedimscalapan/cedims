@@ -231,15 +231,11 @@
         data-tour="chatbot"
         onclick={() => (isOpen = true)}
         transition:scale={{ duration: 150, start: 0.85 }}
-        class="fixed right-6 z-50 w-16 h-16 bg-surface-white rounded-full shadow-lg border border-border-subtle flex items-center justify-center transition-[color,background-color,border-color,transform] duration-200 ease-out hover:scale-105 hover:shadow-xl active:scale-95 {inDashboard
+        class="fixed right-6 z-50 w-16 h-16 bg-surface-white rounded-full shadow-lg border border-border-subtle flex items-center justify-center transition-[color,background-color,border-color,transform] duration-200 ease-out hover:scale-105 hover:border-border-strong active:scale-95 {inDashboard
             ? 'bottom-24'
             : 'bottom-6'}"
         aria-label="Open Gabay, the CEDIMS chat assistant"
     >
-        {#if !hasOpenedOnce}
-            <span class="absolute inset-0 rounded-full bg-gov-blue/30 animate-ping" aria-hidden="true"></span>
-        {/if}
-        <span class="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-gov-green border-2 border-surface-white" aria-hidden="true"></span>
         <GabayMascot size={64} />
     </button>
 {:else}
@@ -262,7 +258,7 @@
                 </div>
                 <div class="min-w-0">
                     <p class="text-sm font-bold leading-tight">Gabay</p>
-                    <p class="text-[11px] leading-tight text-white/85">English or Tagalog · live data</p>
+                    <p class="text-xs leading-tight text-white/85">English or Tagalog · live data</p>
                 </div>
             </div>
             <div class="flex items-center gap-0.5 shrink-0">

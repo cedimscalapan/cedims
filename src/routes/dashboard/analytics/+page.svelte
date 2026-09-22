@@ -54,10 +54,12 @@
                 const schoolId = $profile.school_id;
                 const districtId = $profile.district_id;
 
-                if (role === 'School Head') {
+                if (role === 'School Head' && schoolId && districtId) {
                     analyticsData = await getSchoolHeadAnalytics(schoolId, districtId);
-                } else {
+                } else if (role === 'District Supervisor' && districtId) {
                     analyticsData = await getDistrictSupervisorAnalytics(districtId);
+                } else {
+                    throw new Error('Your account is missing the school or district assignment needed for analytics.');
                 }
 
                 // Expected total for this scope: active teaching loads for

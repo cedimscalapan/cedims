@@ -231,7 +231,7 @@
     <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
             <div
-                class="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 text-indigo-600"
+                class="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600"
             >
                 <svg
                     class="w-5 h-5"
@@ -253,7 +253,7 @@
                 >
                     Behavioral Clusters
                 </h3>
-                <p class="text-[10px] text-text-muted font-medium">
+                <p class="text-xs text-text-muted font-medium">
                     K-Means unsupervised grouping
                 </p>
             </div>
@@ -263,7 +263,7 @@
         >
             <button
                 onclick={() => (activeTab = "scatter")}
-                class="px-3 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wide transition-colors {activeTab ===
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-colors {activeTab ===
                 'scatter'
                     ? 'bg-surface-white text-gov-blue shadow-sm'
                     : 'text-text-muted hover:text-text-primary'}"
@@ -272,7 +272,7 @@
             </button>
             <button
                 onclick={() => (activeTab = "radar")}
-                class="px-3 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wide transition-colors {activeTab ===
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-colors {activeTab ===
                 'radar'
                     ? 'bg-surface-white text-gov-blue shadow-sm'
                     : 'text-text-muted hover:text-text-primary'}"
@@ -322,7 +322,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {#each summaries as summary (summary.clusterId)}
             <button
-                class="p-4 rounded-md border transition-colors hover:shadow-md text-left cursor-pointer group/card"
+                class="p-4 rounded-md border transition-colors hover:border-border-strong text-left cursor-pointer group/card"
                 style="border-color: {summary.color}20; background: {summary.color}05"
                 onclick={() => {
                     selectedClusterId = summary.clusterId;
@@ -341,12 +341,12 @@
                             style="background: {summary.color}"
                         ></div>
                         <span
-                            class="text-[10px] font-semibold uppercase tracking-wide text-text-primary"
+                            class="text-xs font-semibold uppercase tracking-wide text-text-primary"
                             >{summary.label}</span
                         >
                     </div>
                     <span
-                        class="text-text-muted opacity-0 group-hover/card:opacity-100 transition-opacity text-[10px]"
+                        class="text-text-muted opacity-0 group-hover/card:opacity-100 transition-opacity text-xs"
                     >
                         Review â†’
                     </span>
@@ -358,12 +358,12 @@
                     {summary.count}
                 </p>
                 <p
-                    class="text-[9px] text-text-muted font-bold uppercase tracking-wider mt-1"
+                    class="text-xs text-text-muted font-bold uppercase tracking-wider mt-1"
                 >
                     Teachers
                 </p>
                 <div class="mt-3 space-y-1">
-                    <div class="flex justify-between text-[9px]">
+                    <div class="flex justify-between text-xs">
                         <span class="text-text-muted font-bold"
                             >Punctuality</span
                         >
@@ -371,7 +371,7 @@
                             >{summary.avgPunctuality}%</span
                         >
                     </div>
-                    <div class="flex justify-between text-[9px]">
+                    <div class="flex justify-between text-xs">
                         <span class="text-text-muted font-bold"
                             >Consistency</span
                         >
@@ -379,7 +379,7 @@
                             >{summary.avgConsistency}%</span
                         >
                     </div>
-                    <div class="flex justify-between text-[9px]">
+                    <div class="flex justify-between text-xs">
                         <span class="text-text-muted font-bold"
                             >Completeness</span
                         >
@@ -396,11 +396,11 @@
 <!-- Teacher Drill-down Modal -->
 {#if showDrillDown && selectedCluster}
     <div
-        class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+        class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-black/40 "
         transition:fade
     >
         <div
-            class="bg-surface-white rounded-3xl shadow-sm w-full max-w-2xl overflow-hidden"
+            class="bg-surface-white rounded-xl shadow-sm w-full max-w-2xl overflow-hidden"
             in:fly={{ y: 40, duration: 500 }}
         >
             <div
@@ -463,7 +463,7 @@
                     {#each membersInCluster as member}
                         {@const isExpanded = expandedMemberId === member.teacher.teacherId}
                         <div
-                            class="rounded-md bg-surface-muted border border-border-subtle group hover:bg-surface-white hover:shadow-md transition-colors"
+                            class="rounded-md bg-surface-muted border border-border-subtle group hover:bg-surface-white hover:border-border-strong transition-colors"
                         >
                             <div class="p-4 flex items-center justify-between">
                                 <div>
@@ -471,7 +471,7 @@
                                         {member.teacher.teacherName}
                                     </p>
                                     <p
-                                        class="text-[10px] text-text-muted font-medium uppercase tracking-wider"
+                                        class="text-xs text-text-muted font-medium uppercase tracking-wider"
                                     >
                                         {member.teacher.schoolName}
                                     </p>
@@ -484,7 +484,7 @@
                                             {member.teacher.punctuality}%
                                         </p>
                                         <p
-                                            class="text-[9px] text-text-muted font-bold uppercase tracking-normal"
+                                            class="text-xs text-text-muted font-bold uppercase tracking-normal"
                                         >
                                             Punctuality
                                         </p>
@@ -496,7 +496,7 @@
                                             {member.teacher.completeness}%
                                         </p>
                                         <p
-                                            class="text-[9px] text-text-muted font-bold uppercase tracking-normal"
+                                            class="text-xs text-text-muted font-bold uppercase tracking-normal"
                                         >
                                             Completeness
                                         </p>
@@ -534,7 +534,7 @@
                                         <p class="text-xs font-semibold text-text-primary">
                                             {member.teacher.consistency}%
                                         </p>
-                                        <p class="text-[9px] text-text-muted font-bold uppercase tracking-normal">
+                                        <p class="text-xs text-text-muted font-bold uppercase tracking-normal">
                                             Consistency
                                         </p>
                                     </div>
@@ -542,7 +542,7 @@
                                         <p class="text-xs font-semibold text-text-primary">
                                             {member.teacher.volume}%
                                         </p>
-                                        <p class="text-[9px] text-text-muted font-bold uppercase tracking-normal">
+                                        <p class="text-xs text-text-muted font-bold uppercase tracking-normal">
                                             Volume
                                         </p>
                                     </div>

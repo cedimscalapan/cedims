@@ -35,7 +35,7 @@ export async function POST({ request }) {
         }
 
         const supabaseAdmin = createClient(
-            publicEnv.PUBLIC_SUPABASE_URL,
+            publicEnv.PUBLIC_SUPABASE_URL || '',
             serviceRoleKey,
             { auth: { autoRefreshToken: false, persistSession: false } }
         );

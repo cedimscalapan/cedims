@@ -214,7 +214,7 @@
         <!-- Logo -->
         <div class="text-center mb-8">
             <div
-                class="w-14 h-14 mx-auto rounded-md bg-gradient-to-br from-gov-blue to-gov-blue-dark flex items-center justify-center text-white text-2xl font-bold shadow-sm mb-3"
+                class="w-14 h-14 mx-auto rounded-md bg-gov-blue flex items-center justify-center text-white text-2xl font-bold shadow-sm mb-3"
             >
                 E
             </div>
@@ -255,7 +255,7 @@
                 <div
                     class="p-3 bg-gov-red/5 rounded-lg border border-gov-red/10"
                 >
-                    <code class="text-[10px] text-gov-red font-mono break-all"
+                    <code class="text-xs text-gov-red font-mono break-all"
                         >{hash}</code
                     >
                 </div>
@@ -291,7 +291,7 @@
 
                     {#if isOfflineData}
                         <div
-                            class="inline-flex items-center gap-1.5 px-3 py-1 bg-gov-gold/10 text-gov-gold rounded-full text-[10px] font-semibold uppercase tracking-wide mt-4 border border-gov-gold/20"
+                            class="inline-flex items-center gap-1.5 px-3 py-1 bg-gov-gold/10 text-gov-gold rounded-full text-xs font-semibold uppercase tracking-wide mt-4 border border-gov-gold/20"
                         >
                             <WifiOff size={10} />
                             Offline Mode Verification
@@ -310,7 +310,7 @@
                             </div>
                             <div class="flex-1 min-w-0">
                                 <p
-                                    class="text-[10px] text-text-muted font-semibold uppercase tracking-wide mb-1"
+                                    class="text-xs text-text-muted font-semibold uppercase tracking-wide mb-1"
                                 >
                                     Document Name
                                 </p>
@@ -331,7 +331,7 @@
                                 </div>
                                 <div>
                                     <p
-                                        class="text-[10px] text-text-muted font-semibold uppercase tracking-wide mb-1"
+                                        class="text-xs text-text-muted font-semibold uppercase tracking-wide mb-1"
                                     >
                                         Status
                                     </p>
@@ -359,7 +359,7 @@
                                 </div>
                                 <div>
                                     <p
-                                        class="text-[10px] text-text-muted font-semibold uppercase tracking-wide mb-1"
+                                        class="text-xs text-text-muted font-semibold uppercase tracking-wide mb-1"
                                     >
                                         Upload Time
                                     </p>
@@ -378,10 +378,10 @@
                                     class="flex justify-between items-center text-sm"
                                 >
                                     <span
-                                        class="text-text-muted font-bold uppercase tracking-wide text-[10px]"
+                                        class="text-text-muted font-bold uppercase tracking-wide text-xs"
                                         >Submitted By</span
                                     >
-                                    <span class="text-text-primary font-black"
+                                    <span class="text-text-primary font-semibold"
                                         >{result.teacher_name}</span
                                     >
                                 </div>
@@ -391,10 +391,10 @@
                                     class="flex justify-between items-center text-sm"
                                 >
                                     <span
-                                        class="text-text-muted font-bold uppercase tracking-wide text-[10px]"
+                                        class="text-text-muted font-bold uppercase tracking-wide text-xs"
                                         >Origination</span
                                     >
-                                    <span class="text-text-primary font-black"
+                                    <span class="text-text-primary font-semibold"
                                         >{result.school_name}</span
                                     >
                                 </div>
@@ -404,11 +404,11 @@
                                     class="flex justify-between items-center text-sm"
                                 >
                                     <span
-                                        class="text-text-muted font-bold uppercase tracking-wide text-[10px]"
+                                        class="text-text-muted font-bold uppercase tracking-wide text-xs"
                                         >Category</span
                                     >
                                     <span
-                                        class="text-gov-blue font-black uppercase text-[10px] px-2 py-0.5 bg-gov-blue/5 rounded"
+                                        class="text-gov-blue font-semibold uppercase text-xs px-2 py-0.5 bg-gov-blue/5 rounded"
                                         >{result.doc_type}</span
                                     >
                                 </div>
@@ -419,12 +419,12 @@
                             class="p-4 bg-surface-muted/50 rounded-md border border-gray-100"
                         >
                             <p
-                                class="text-[10px] text-text-muted font-black uppercase tracking-wide mb-2"
+                                class="text-xs text-text-muted font-semibold uppercase tracking-wide mb-2"
                             >
                                 Registry Hash (SHA-256)
                             </p>
                             <code
-                                class="text-[11px] font-mono text-gov-blue break-all leading-relaxed block"
+                                class="text-xs font-mono text-gov-blue break-all leading-relaxed block"
                                 >{hash}</code
                             >
                         </div>
@@ -443,7 +443,7 @@
                                 <button
                                     onclick={handleOpenDocument}
                                     disabled={openingDoc}
-                                    class="w-full flex items-center justify-center gap-2 py-3.5 px-6 bg-gradient-to-r from-gov-green to-emerald-600 text-white font-bold text-sm uppercase tracking-wide rounded-md shadow-lg hover:shadow-xl active:scale-[0.98] transition-[color,background-color,border-color,transform] duration-200 ease-out min-h-[48px] disabled:opacity-60 disabled:cursor-wait"
+                                    class="w-full flex items-center justify-center gap-2 py-3.5 px-6 bg-gov-green text-white font-bold text-sm uppercase tracking-wide rounded-md shadow-lg hover:border-border-strong active:scale-[0.98] transition-[color,background-color,border-color,transform] duration-200 ease-out min-h-[48px] disabled:opacity-60 disabled:cursor-wait"
                                 >
                                     {#if openingDoc}
                                         <Loader2 size={18} class="animate-spin" />
@@ -455,7 +455,7 @@
                                 </button>
                             {:else}
                                 <div
-                                    class="w-full flex items-center justify-center gap-2 py-3.5 px-6 bg-gray-50 text-text-muted font-bold text-[11px] uppercase tracking-wide rounded-md border border-gray-200 min-h-[48px] cursor-not-allowed"
+                                    class="w-full flex items-center justify-center gap-2 py-3.5 px-6 bg-gray-50 text-text-muted font-bold text-xs uppercase tracking-wide rounded-md border border-gray-200 min-h-[48px] cursor-not-allowed"
                                 >
                                     <Lock size={16} />
                                     Access Restricted: {result?.school_name ? `${result.school_name} personnel only` : 'Owner only'}
@@ -472,7 +472,7 @@
             <!-- Scan Another Document Button (WBS 13.4 — Continuous Mobile QR) -->
             <button
                 onclick={openScanner}
-                class="w-full flex items-center justify-center gap-2 py-3.5 px-6 bg-gradient-to-r from-gov-blue to-gov-blue-dark text-white font-bold text-sm uppercase tracking-wide rounded-md shadow-lg hover:shadow-xl active:scale-[0.98] transition-[color,background-color,border-color,transform] duration-200 ease-out min-h-[48px]"
+                class="w-full flex items-center justify-center gap-2 py-3.5 px-6 bg-gov-blue text-white font-bold text-sm uppercase tracking-wide rounded-md shadow-lg hover:border-border-strong active:scale-[0.98] transition-[color,background-color,border-color,transform] duration-200 ease-out min-h-[48px]"
                 aria-label="Scan another QR code to verify a different document"
             >
                 <ScanLine size={18} />

@@ -160,7 +160,7 @@
 >
     <!-- Scanner Overlay -->
     <div
-        class="relative w-full max-w-sm aspect-square rounded-3xl overflow-hidden border-2 border-white/20 shadow-sm"
+        class="relative w-full max-w-sm aspect-square rounded-xl overflow-hidden border-2 border-white/20 shadow-sm"
     >
         <!-- Camera Feed -->
         <!-- svelte-ignore a11y_media_has_caption -->
@@ -195,7 +195,7 @@
 
         {#if error}
             <div
-                class="absolute inset-0 flex items-center justify-center p-8 bg-black/60 backdrop-blur-sm text-center"
+                class="absolute inset-0 flex items-center justify-center p-8 bg-black/60  text-center"
             >
                 <p class="text-white text-sm font-medium">{error}</p>
             </div>

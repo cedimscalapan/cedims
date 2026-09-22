@@ -40,9 +40,9 @@
     <title>Forgot Password: CEDIMS</title>
 </svelte:head>
 
-<div class="min-h-dvh bg-gradient-to-br from-gov-blue/5 via-surface-white to-surface-muted px-4 py-8 sm:px-6 sm:py-12 lg:px-8 flex items-center justify-center">
+<div class="min-h-dvh bg-surface px-4 py-8 sm:px-6 sm:py-12 lg:px-8 flex items-center justify-center">
     <div class="w-full max-w-md">
-        <div class="rounded-2xl border border-border-subtle bg-surface-white backdrop-blur-sm p-6 sm:p-8 shadow-xl">
+        <div class="gov-card-static p-6 sm:p-8">
             <!-- Header -->
             <div class="mb-7 sm:mb-8 text-center">
                 <div class="mx-auto w-16 h-16 bg-surface-white border border-border-subtle rounded-2xl flex items-center justify-center shadow-lg mb-4">

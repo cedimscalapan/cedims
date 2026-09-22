@@ -42,14 +42,14 @@
 </script>
 
 <div
-    class="fixed inset-0 z-[var(--z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
+    class="fixed inset-0 z-[var(--z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 "
     transition:fade={{ duration: 150 }}
     onclick={onClose}
     onkeydown={(e) => { if (e.key === "Escape") onClose(); }}
     role="presentation"
 >
     <div
-        class="w-full max-w-md max-h-[90vh] bg-surface-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        class="w-full max-w-md max-h-[90vh] bg-surface-white rounded-t-3xl sm:rounded-xl shadow-2xl overflow-hidden flex flex-col"
         onclick={(e) => e.stopPropagation()}
         onkeydown={(e) => { e.stopPropagation(); if (e.key === "Escape") onClose(); }}
         role="dialog"
@@ -102,7 +102,7 @@
                     </div>
                     <div class="pt-2 border-t border-border-subtle">
                         <span class="text-text-muted block mb-1">SHA-256</span>
-                        <code class="font-mono text-[11px] text-gov-blue break-all">{result.fileHash}</code>
+                        <code class="font-mono text-xs text-gov-blue break-all">{result.fileHash}</code>
                     </div>
                 </div>
 
@@ -113,7 +113,7 @@
                         {:else}
                             <div class="w-28 h-28 rounded-lg border border-border-subtle bg-surface-muted animate-pulse"></div>
                         {/if}
-                        <p class="text-[11px] text-text-muted text-center max-w-xs">
+                        <p class="text-xs text-text-muted text-center max-w-xs">
                             Scan to verify this document's authenticity at any time.
                         </p>
                     </div>

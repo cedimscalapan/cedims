@@ -415,7 +415,7 @@
     </div>
 
     {#if $profile?.role === 'District Supervisor' && $profile?.district_id}
-    <div class="flex items-center gap-4 bg-surface-white p-4 rounded-2xl border border-border-subtle shadow-sm" in:fade>
+    <div class="flex items-center gap-4 bg-surface-white p-4 rounded-2xl border border-border-subtle shadow-sm">
         <ProfileUploader 
             id={$profile.district_id}
             bucket="avatars"
@@ -431,7 +431,7 @@
         />
         <div class="hidden sm:block">
             <h4 class="text-sm font-bold text-text-primary uppercase tracking-tight">District Branding</h4>
-            <p class="text-[10px] text-text-muted font-medium">Official Governance Logo</p>
+            <p class="text-xs text-text-muted font-medium">Official Governance Logo</p>
         </div>
     </div>
     {/if}
@@ -455,7 +455,7 @@
   {:else}
     <!-- KPI Cards -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
-      <div in:fly={{ y: 20, duration: 400 }}>
+      <div>
         <StatCard
           icon="School"
           value={kpi.totalSchools}
@@ -463,7 +463,7 @@
         />
       </div>
 
-      <div in:fly={{ y: 20, duration: 400, delay: 100 }}>
+      <div>
         <StatCard
           icon="Activity"
           value="{kpi.overallRate}%"
@@ -472,7 +472,7 @@
         />
       </div>
 
-      <div in:fly={{ y: 20, duration: 400, delay: 200 }}>
+      <div>
         <StatCard
           icon="Clock"
           value={kpi.lateCount}
@@ -481,7 +481,7 @@
         />
       </div>
 
-      <div in:fly={{ y: 20, duration: 400, delay: 300 }}>
+      <div>
         <StatCard
           icon="ShieldAlert"
           value={kpi.atRiskCount}
@@ -495,7 +495,6 @@
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div
         class="gov-card-static p-6"
-        in:fly={{ y: 20, duration: 500, delay: 400 }}
       >
         <h3 class="text-lg font-bold text-text-primary mb-4">
           Submissions by Week
@@ -515,7 +514,6 @@
 
       <div
         class="gov-card-static p-6"
-        in:fly={{ y: 20, duration: 500, delay: 500 }}
       >
         <h3 class="text-lg font-bold text-text-primary mb-4">
           District-Wide Trend
@@ -535,7 +533,6 @@
     <!-- School Table -->
     <div
       class="gov-card-static overflow-hidden"
-      in:fade={{ duration: 500, delay: 600 }}
     >
       <div
         class="px-6 py-5 border-b border-border-subtle flex items-center justify-between flex-wrap gap-4 bg-surface-muted"
@@ -569,14 +566,14 @@
             type="text"
             bind:value={searchQuery}
             placeholder="Search school records..."
-            class="w-full sm:w-72 pl-10 pr-4 py-2 text-[11px] font-bold bg-surface-white border border-border-subtle rounded-md outline-none focus:ring-2 focus:ring-gov-blue/20 transition-colors placeholder:text-text-muted/60 uppercase tracking-tight"
+            class="w-full sm:w-72 pl-10 pr-4 py-2 text-xs font-bold bg-surface-white border border-border-subtle rounded-md outline-none focus:ring-2 focus:ring-gov-blue/20 transition-colors placeholder:text-text-muted/60 uppercase tracking-tight"
           />
         </div>
         <div class="flex items-center gap-2">
           <select
             bind:value={sortField}
             aria-label="Sort schools by"
-            class="px-3 py-2 text-[11px] font-bold bg-surface-white border border-border-subtle rounded-md outline-none focus:ring-2 focus:ring-gov-blue/20 uppercase tracking-tight"
+            class="px-3 py-2 text-xs font-bold bg-surface-white border border-border-subtle rounded-md outline-none focus:ring-2 focus:ring-gov-blue/20 uppercase tracking-tight"
           >
             <option value="name">Name</option>
             <option value="rate">Compliance Rate</option>

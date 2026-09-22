@@ -1,4 +1,5 @@
 <script lang="ts">
+    import PageHeader from '$lib/components/PageHeader.svelte';
     import { profile, resetPasswordForEmail } from "$lib/utils/auth";
     import { supabase } from "$lib/utils/supabase";
     import { logAudit } from "$lib/utils/audit";
@@ -380,18 +381,8 @@
     <title>Admin Config â€” CEDIMS</title>
 </svelte:head>
 
-<div class="max-w-5xl mx-auto" role="main" aria-label="Admin Configuration">
-    <div class="mb-8">
-        <h1
-            class="text-2xl font-bold text-text-primary uppercase tracking-tight flex items-center gap-2"
-        >
-            <Settings size={24} />
-            Admin Configuration
-        </h1>
-        <p class="text-text-secondary mt-1">
-            Manage system parameters and user accounts.
-        </p>
-    </div>
+<div class="max-w-5xl mx-auto">
+    <PageHeader title="Administration" description="Manage user accounts, submission settings, and the academic calendar." />
 
     <!-- Tab Navigation -->
     <div
@@ -449,13 +440,11 @@
             id="settings-panel"
             role="tabpanel"
             aria-labelledby="settings-tab"
-            in:fade={{ duration: 200 }}
         >
                 <div class="grid gap-6">
                     {#each settings as s}
                         <div
                             class="gov-card-static p-6 flex flex-col md:flex-row md:items-center justify-between gap-6"
-                            in:fly={{ y: 20, duration: 400 }}
                         >
                             <div class="max-w-md">
                                 <h3
@@ -539,7 +528,6 @@
             id="users-panel"
             role="tabpanel"
             aria-labelledby="users-tab"
-            in:fade={{ duration: 200 }}
         >
             <!-- Search & Refresh & Create -->
             <div class="flex items-center gap-3 mb-6">
@@ -587,13 +575,12 @@
                 {#each ROLES as role, i}
                     <div
                         class="gov-card-static p-4 text-center"
-                        in:fly={{ y: 10, delay: i * 50 }}
                     >
                         <p class="text-2xl font-semibold text-text-primary">
                             {users.filter((u) => u.role === role).length}
                         </p>
                         <p
-                            class="text-[10px] text-text-muted font-bold uppercase tracking-wide mt-1"
+                            class="text-xs text-text-muted font-bold uppercase tracking-wide mt-1"
                         >
                             {role === "District Supervisor"
                                 ? "Supervisors"
@@ -651,7 +638,7 @@
                                                 {user.full_name || "â€”"}
                                             </p>
                                             <p
-                                                class="text-[11px] text-text-muted"
+                                                class="text-xs text-text-muted"
                                             >
                                                 {user.email || "â€”"}
                                             </p>
@@ -663,14 +650,14 @@
                                                 {user.school_name}
                                             </p>
                                             <p
-                                                class="text-[10px] text-text-muted"
+                                                class="text-xs text-text-muted"
                                             >
                                                 {user.district_name}
                                             </p>
                                         </td>
                                         <td class="px-4 py-3.5 text-center">
                                             <span
-                                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider {getRoleBadgeClass(
+                                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider {getRoleBadgeClass(
                                                     user.role,
                                                 )}"
                                             >
@@ -681,14 +668,14 @@
                                         <td class="px-4 py-3.5 text-center">
                                             {#if user.is_active}
                                                 <span
-                                                    class="inline-flex items-center gap-1 text-[10px] font-bold text-gov-green uppercase"
+                                                    class="inline-flex items-center gap-1 text-xs font-bold text-gov-green uppercase"
                                                 >
                                                     <UserCheck size={12} />
                                                     Active
                                                 </span>
                                             {:else}
                                                 <span
-                                                    class="inline-flex items-center gap-1 text-[10px] font-bold text-gov-red uppercase"
+                                                    class="inline-flex items-center gap-1 text-xs font-bold text-gov-red uppercase"
                                                 >
                                                     <UserX size={12} />
                                                     Inactive
@@ -702,7 +689,7 @@
                                                 <button
                                                     onclick={() =>
                                                         openRoleChange(user)}
-                                                    class="px-3 py-1.5 text-[10px] font-bold text-gov-blue border border-gov-blue/20 rounded-lg hover:bg-gov-blue/5 transition-colors min-h-[32px]"
+                                                    class="px-3 py-1.5 text-xs font-bold text-gov-blue border border-gov-blue/20 rounded-lg hover:bg-gov-blue/5 transition-colors min-h-[32px]"
                                                     aria-label="Manage {user.full_name}"
                                                 >
                                                     Manage
@@ -710,7 +697,7 @@
                                                 <button
                                                     onclick={() =>
                                                         resetUserPassword(user)}
-                                                    class="px-3 py-1.5 text-[10px] font-bold text-gov-gold-dark border border-gov-gold/30 rounded-lg hover:bg-gov-gold/10 transition-colors min-h-[32px]"
+                                                    class="px-3 py-1.5 text-xs font-bold text-gov-gold-dark border border-gov-gold/30 rounded-lg hover:bg-gov-gold/10 transition-colors min-h-[32px]"
                                                     aria-label="Send password reset email to {user.full_name}"
                                                 >
                                                     Reset Password
@@ -718,7 +705,7 @@
                                                 <button
                                                     onclick={() =>
                                                         toggleUserActive(user)}
-                                                    class="px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors min-h-[32px] {user.is_active
+                                                    class="px-3 py-1.5 text-xs font-bold rounded-lg transition-colors min-h-[32px] {user.is_active
                                                         ? 'text-gov-red border border-gov-red/20 hover:bg-gov-red/5'
                                                         : 'text-gov-green border border-gov-green/20 hover:bg-gov-green/5'}"
                                                     aria-label="{user.is_active
@@ -761,12 +748,11 @@
             'success'
                 ? 'bg-gov-green/10 text-gov-green'
                 : 'bg-gov-red/10 text-gov-red'} flex items-center gap-3 font-bold text-sm z-[var(--z-toast)]"
-            in:fly={{ x: 50 }}
             out:fade
             role="alert"
         >
             <span
-                class="w-6 h-6 rounded-full bg-surface-white flex items-center justify-center text-[10px] shadow-sm"
+                class="w-6 h-6 rounded-full bg-surface-white flex items-center justify-center text-xs shadow-sm"
             >
                 {message.type === "success" ? "OK" : "!!"}
             </span>
@@ -778,15 +764,14 @@
 <!-- Role Change Modal -->
 {#if roleChangeModal.open}
     <div
-        class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[var(--z-modal)] flex items-center justify-center p-6"
+        class="fixed inset-0 bg-black/50  z-[var(--z-modal)] flex items-center justify-center p-6"
         transition:fade={{ duration: 200 }}
         role="dialog"
         aria-modal="true"
         aria-label="Manage user"
     >
         <div
-            class="bg-surface-white rounded-3xl shadow-sm w-full max-w-md overflow-hidden"
-            in:fly={{ y: 30, duration: 300 }}
+            class="bg-surface-white rounded-xl shadow-sm w-full max-w-md overflow-hidden"
         >
             <div class="p-6 border-b border-gray-100">
                 <h3 class="text-lg font-bold text-text-primary">
@@ -829,7 +814,7 @@
                                 class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-hidden"
                                 onclick={(e) => e.stopPropagation()}
                                 onkeydown={() => {}}
-                                role="listbox"
+                                role="listbox" tabindex="-1"
                             >
                                 {#each ROLES as r}
                                     <button
@@ -875,7 +860,7 @@
                                 class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-y-auto max-h-48"
                                 onclick={(e) => e.stopPropagation()}
                                 onkeydown={() => {}}
-                                role="listbox"
+                                role="listbox" tabindex="-1"
                             >
                                 <button
                                     type="button"
@@ -930,7 +915,7 @@
                                 class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-y-auto max-h-48"
                                 onclick={(e) => e.stopPropagation()}
                                 onkeydown={() => {}}
-                                role="listbox"
+                                role="listbox" tabindex="-1"
                             >
                                 <button
                                     type="button"
@@ -1004,7 +989,7 @@
 
 <!-- Calendar Tab -->
 {#if activeTab === "calendar"}
-    <div id="calendar-panel" role="tabpanel" in:fade={{ duration: 200 }}>
+    <div id="calendar-panel" role="tabpanel">
         <AcademicCalendarManager />
     </div>
 {/if}
@@ -1012,15 +997,14 @@
 <!-- Create User Modal -->
 {#if showCreateUser}
     <div
-        class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[var(--z-modal)] flex items-center justify-center p-6"
+        class="fixed inset-0 bg-black/50  z-[var(--z-modal)] flex items-center justify-center p-6"
         transition:fade={{ duration: 200 }}
         role="dialog"
         aria-modal="true"
         aria-label="Create new user"
     >
         <div
-            class="bg-surface-white rounded-3xl shadow-sm w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
-            in:fly={{ y: 30, duration: 300 }}
+            class="bg-surface-white rounded-xl shadow-sm w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
         >
             <div class="p-6 border-b border-border-subtle shrink-0">
                 <h3 class="text-lg font-bold text-text-primary">
@@ -1110,7 +1094,7 @@
                                     class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-hidden"
                                     onclick={(e) => e.stopPropagation()}
                                     onkeydown={() => {}}
-                                    role="listbox"
+                                    role="listbox" tabindex="-1"
                                 >
                                     {#each ROLES as r}
                                         <button
@@ -1152,7 +1136,7 @@
                                     class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-y-auto max-h-48"
                                     onclick={(e) => e.stopPropagation()}
                                     onkeydown={() => {}}
-                                    role="listbox"
+                                    role="listbox" tabindex="-1"
                                 >
                                     {#each districts as d}
                                         <button
@@ -1195,7 +1179,7 @@
                                 class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-y-auto max-h-48"
                                 onclick={(e) => e.stopPropagation()}
                                 onkeydown={() => {}}
-                                role="listbox"
+                                role="listbox" tabindex="-1"
                             >
                                 {#each schools as s}
                                     <button
@@ -1232,4 +1216,3 @@
         </div>
     </div>
 {/if}
-

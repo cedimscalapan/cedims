@@ -6,7 +6,7 @@
     import { signOut } from "$lib/utils/auth";
     import { goto } from "$app/navigation";
     import { page } from "$app/stores";
-    import { Sun, Moon, LogOut, WifiOff, RefreshCw, QrCode, Settings } from "lucide-svelte";
+    import { Sun, Moon, LogOut, WifiOff, RefreshCw, QrCode, Settings, Menu } from "lucide-svelte";
     import { focusTrap } from "$lib/actions/focusTrap";
     import { getNavItemsForRole } from "$lib/config/navigation";
     import { showQRScanner } from "$lib/stores/ui";
@@ -15,6 +15,7 @@
 
     const { isOnline: onlineStatus, pendingCount } = connectivity;
     const isMobile = isMobileDevice();
+    let { onMenu }: { onMenu?: () => void } = $props();
 
     // The app's top bar at every width. At lg+ it carries the section nav
     // itself; below lg the bottom tab bar (MobileTabBar.svelte) is the nav
@@ -64,9 +65,10 @@
 </script>
 
 <header
-    class="sticky top-0 z-30 w-full border-b border-border-subtle bg-surface-white/95 backdrop-blur-md shadow-sm"
+    class="sticky top-0 z-30 w-full border-b border-border-subtle bg-surface-white"
 >
     <div class="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:gap-5 lg:px-8">
+        <button class="icon-button lg:hidden" onclick={onMenu} aria-label="Open navigation menu" aria-haspopup="dialog"><Menu size={22} aria-hidden="true" /></button>
         <!-- Left: Logo -->
         <a href="/dashboard" class="flex shrink-0 flex-col items-start" aria-label="CEDIMS Dashboard">
             <!-- Weight/size carries emphasis, not a gradient — craft-floor:
@@ -80,29 +82,9 @@
         <!-- Section navigation — lg+ only. Below lg the bottom tab bar owns
              this, and repeating it here would be a second nav on a phone.
              data-nav carries the walkthrough's target for each item. -->
-        <nav
-            class="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex"
-            aria-label="Section navigation"
-        >
-            {#each navItems as item}
-                {@const NavIcon = item.icon}
-                <a
-                    href={item.href}
-                    data-sveltekit-preload-data="hover"
-                    data-sveltekit-preload-code="hover"
-                    data-nav={item.navKey || null}
-                    class="flex items-center gap-2 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors {isActive(
-                        item.href,
-                    )
-                        ? 'bg-gov-blue/10 text-gov-blue'
-                        : 'text-text-secondary hover:bg-surface-muted hover:text-text-primary'}"
-                    aria-current={isActive(item.href) ? "page" : undefined}
-                >
-                    <NavIcon size={17} strokeWidth={isActive(item.href) ? 2.5 : 2} aria-hidden="true" />
-                    {item.label}
-                </a>
-            {/each}
-        </nav>
+        <p class="hidden min-w-0 truncate text-sm font-medium text-text-secondary lg:block">
+            {navItems.find(item => isActive(item.href))?.label || 'CEDIMS'}
+        </p>
 
         <!-- Right: Actions & Profile -->
         <div class="ml-auto flex flex-shrink-0 items-center gap-2 sm:gap-3">
@@ -189,7 +171,7 @@
                         />
                     {:else}
                         <div
-                            class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-gov-blue to-gov-blue-vibrant text-xs font-bold text-white flex-shrink-0"
+                            class="flex h-8 w-8 items-center justify-center rounded-lg bg-gov-blue text-xs font-bold text-white flex-shrink-0"
                         >
                             {$profile?.full_name?.charAt(0) || "U"}
                         </div>

@@ -23,7 +23,7 @@
 {#if isOpen}
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
-    class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-16 overflow-y-auto"
+    class="fixed inset-0 bg-black/40  z-50 flex items-start justify-center p-4 pt-16 overflow-y-auto"
     onclick={handleBackdropClick}
     onkeydown={handleKeydown}
     role="dialog"

@@ -39,7 +39,7 @@
 
 {#if items.length === 0}
     <div class="gov-card-static p-8 text-center rounded-2xl">
-        <p class="text-text-muted font-bold text-xs uppercase tracking-widest">{emptyMessage}</p>
+        <p class="text-text-muted font-bold text-xs uppercase tracking-normal">{emptyMessage}</p>
     </div>
 {:else}
     <div class="flex flex-col gap-4">
@@ -56,7 +56,7 @@
                             {item.rate}%
                         </span>
                     </div>
-                    <p class="text-[11px] text-text-muted break-words">
+                    <p class="text-xs text-text-muted break-words">
                         {item.missing} missing · {item.late} late · {item.expected} expected
                     </p>
                 </div>
@@ -73,7 +73,7 @@
                 >
                     <ChevronLeft size={14} /> Previous
                 </button>
-                <span class="text-xs font-bold text-text-muted uppercase tracking-widest">
+                <span class="text-xs font-bold text-text-muted uppercase tracking-normal">
                     Page {page} of {totalPages}
                 </span>
                 <button

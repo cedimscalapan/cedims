@@ -43,7 +43,7 @@
                 aria-label="Upload progress"
             >
                 <div
-                    class="h-full bg-gradient-to-r from-gov-blue to-gov-blue-light rounded-full transition-[width] duration-500 ease-out"
+                    class="h-full bg-gov-blue rounded-full transition-[width] duration-500 ease-out"
                     style="width: {progress}%"
                 ></div>
             </div>

@@ -166,7 +166,7 @@
             <img src="/app_icon.png" alt="" class="h-9 w-9 rounded-lg" />
             <span>
                 <span class="block text-sm font-semibold leading-tight text-text-primary">CEDIMS</span>
-                <span class="block text-[10px] font-semibold uppercase leading-tight tracking-[0.22em] text-gov-blue">
+                <span class="block text-xs font-semibold uppercase leading-tight tracking-[0.22em] text-gov-blue">
                     Instructional Monitoring
                 </span>
             </span>

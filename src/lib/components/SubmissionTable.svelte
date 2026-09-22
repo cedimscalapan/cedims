@@ -34,7 +34,7 @@
         searchQuery = '',
         onSearchChange,
         itemsPerPage = 10
-    } = $props<Props>();
+    }: Props = $props();
 
     let currentPage = $state(1);
 
@@ -78,6 +78,7 @@
     );
 
     const totalPages = $derived(Math.ceil(filteredSubmissions.length / itemsPerPage));
+    $effect(() => { currentPage = Math.min(currentPage, Math.max(1, totalPages)); });
 
     function handleSort(field: string) {
         if (sortField === field) {
@@ -101,16 +102,18 @@
 </script>
 
 <div class="gov-card-static p-6 space-y-4">
-    <div class="flex items-center justify-between gap-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h3 class="text-lg font-bold text-text-primary">{title}</h3>
         <div class="relative flex-1 max-w-xs">
             <Search size={16} class="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted" />
             <input
-                type="text"
+                type="search"
+                aria-label="Search submissions by file name or document type"
                 placeholder="Search submissions..."
                 value={searchQuery}
-                onchange={(e) => {
-                    onSearchChange?.(e.currentTarget.value);
+                oninput={(e) => {
+                    searchQuery = e.currentTarget.value;
+                    onSearchChange?.(searchQuery);
                     currentPage = 1;
                 }}
                 class="w-full pl-10 pr-4 py-2 border border-border-subtle rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gov-blue/30"
@@ -119,7 +122,8 @@
     </div>
 
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="professional-table">
+            <caption class="sr-only">{title}. Sort using the column headings.</caption>
             <thead>
                 <tr class="border-b border-border-subtle">
                     <th class="text-left py-3 px-4 font-semibold text-text-secondary uppercase tracking-wide text-xs">
@@ -191,7 +195,11 @@
                         onclick={() => onRowClick?.(submission)}
                     >
                         <td class="py-4 px-4">
-                            <p class="font-medium text-text-primary truncate">{submission.file_name}</p>
+                            {#if onRowClick}
+                                <button class="text-left font-medium text-gov-blue underline break-all" onclick={(event) => { event.stopPropagation(); onRowClick?.(submission); }}>{submission.file_name}</button>
+                            {:else}
+                                <p class="font-medium text-text-primary break-all">{submission.file_name}</p>
+                            {/if}
                             {#if submission.week_number}
                                 <p class="text-xs text-text-muted">Week {submission.week_number}</p>
                             {/if}
@@ -215,12 +223,12 @@
 
     {#if filteredSubmissions.length === 0}
         <div class="text-center py-8">
-            <p class="text-text-muted">No submissions found</p>
+            <p class="text-text-secondary">{searchQuery ? 'No submissions match your search. Try a different file name or document type.' : 'No submissions yet. Submitted documents will appear here.'}</p>
         </div>
     {/if}
 
     {#if totalPages > 1}
-        <div class="flex items-center justify-between mt-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 mt-6">
             <p class="text-sm text-text-muted">
                 Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredSubmissions.length)} of {filteredSubmissions.length}
             </p>

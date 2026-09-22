@@ -151,7 +151,7 @@
         <button 
             type="button"
             onclick={triggerFileInput}
-            class="block text-[10px] text-gov-blue font-bold hover:underline mt-1"
+            class="block text-xs text-gov-blue font-bold hover:underline mt-1"
         >
             {url ? 'Change Photo' : 'Upload Photo'}
         </button>

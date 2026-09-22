@@ -55,7 +55,7 @@
         {#each pageItems as item (item.key)}
             <button
                 type="button"
-                class="bg-surface-white border border-border-subtle rounded-xl p-6 shadow-sm hover:shadow-md hover:border-gov-blue/20 transition-colors flex flex-col group cursor-pointer text-left w-full min-w-0"
+                class="bg-surface-white border border-border-subtle rounded-xl p-6 shadow-sm hover:border-border-strong hover:border-gov-blue/20 transition-colors flex flex-col group cursor-pointer text-left w-full min-w-0"
                 onclick={() => onSelect(item.key)}
                 in:fly={{ y: 20, duration: 400 }}
             >
@@ -68,14 +68,14 @@
                         </h4>
                         {#if item.subtitle}
                             <p
-                                class="text-[10px] text-text-muted font-bold uppercase tracking-tight mt-1 break-words"
+                                class="text-xs text-text-muted font-bold uppercase tracking-tight mt-1 break-words"
                             >
                                 {item.subtitle}
                             </p>
                         {/if}
                     </div>
                     <span
-                        class="px-2.5 py-1 rounded-full text-[10px] font-bold {rateBgClass(
+                        class="px-2.5 py-1 rounded-full text-xs font-bold {rateBgClass(
                             item.rate,
                         )} {rateClass(item.rate)} uppercase tracking-wide flex-shrink-0"
                     >
@@ -85,19 +85,19 @@
 
                 <div class="grid grid-cols-3 gap-2 mb-6">
                     <div class="bg-gov-green/5 p-2 rounded text-center">
-                        <p class="text-[9px] font-bold text-gov-green-dark dark:text-[#4ade80] uppercase leading-none mb-1">
+                        <p class="text-xs font-bold text-gov-green-dark dark:text-[#4ade80] uppercase leading-none mb-1">
                             Pass
                         </p>
                         <p class="text-xs font-bold text-text-primary">{item.compliant}</p>
                     </div>
                     <div class="bg-gov-gold/5 p-2 rounded text-center">
-                        <p class="text-[9px] font-bold text-gov-gold-dark dark:text-[#fbbf24] uppercase leading-none mb-1">
+                        <p class="text-xs font-bold text-gov-gold-dark dark:text-[#fbbf24] uppercase leading-none mb-1">
                             Late
                         </p>
                         <p class="text-xs font-bold text-text-primary">{item.late}</p>
                     </div>
                     <div class="bg-gov-red/5 p-2 rounded text-center">
-                        <p class="text-[9px] font-bold text-gov-red-dark dark:text-[#f87171] uppercase leading-none mb-1">
+                        <p class="text-xs font-bold text-gov-red-dark dark:text-[#f87171] uppercase leading-none mb-1">
                             Miss
                         </p>
                         <p class="text-xs font-bold text-text-primary">{item.missing}</p>
@@ -106,7 +106,7 @@
 
                 <div class="mt-auto pt-4 border-t border-gray-50">
                     <div
-                        class="w-full py-2 bg-gov-blue/5 text-gov-blue group-hover:bg-gov-blue group-hover:text-white rounded-lg transition-colors font-bold text-[10px] uppercase tracking-widest border border-gov-blue/10 flex items-center justify-center"
+                        class="w-full py-2 bg-gov-blue/5 text-gov-blue group-hover:bg-gov-blue group-hover:text-white rounded-lg transition-colors font-bold text-xs uppercase tracking-normal border border-gov-blue/10 flex items-center justify-center"
                     >
                         {buttonLabel}
                     </div>
@@ -125,7 +125,7 @@
             >
                 <ChevronLeft size={14} /> Previous
             </button>
-            <span class="text-xs font-bold text-text-muted uppercase tracking-widest">
+            <span class="text-xs font-bold text-text-muted uppercase tracking-normal">
                 Page {page} of {totalPages} · {items.length} total
             </span>
             <button

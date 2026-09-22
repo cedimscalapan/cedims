@@ -172,7 +172,7 @@
         </div>
         <button
             onclick={openAdd}
-            class="px-6 py-3 bg-gov-blue text-white text-xs font-bold uppercase tracking-widest rounded-xl shadow-lg hover:shadow-gov-blue/20 transition-colors flex items-center gap-2 group"
+            class="px-6 py-3 bg-gov-blue text-white text-xs font-bold uppercase tracking-normal rounded-xl shadow-lg hover:shadow-gov-blue/20 transition-colors flex items-center gap-2 group"
         >
             <Plus
                 size={16}
@@ -199,7 +199,7 @@
         </div>
     {:else if loads.length === 0}
         <div
-            class="bg-surface-muted backdrop-blur-md border border-dashed border-border-strong rounded-3xl p-20 text-center"
+            class="gov-card-static p-6 sm:p-10 text-center"
         >
             <div
                 class="w-16 h-16 bg-gov-blue/10 text-gov-blue rounded-2xl flex items-center justify-center mx-auto mb-6"
@@ -210,15 +210,15 @@
                 No teaching loads configured
             </p>
             <p
-                class="text-xs font-bold text-text-muted mt-2 uppercase tracking-widest"
+                class="text-xs font-bold text-text-muted mt-2 uppercase tracking-normal"
             >
-                ARCHIVE YOUR FIRST GRADE LEVEL & SUBJECT TO BEGIN
+                Add a grade level and subject before submitting a Daily Lesson Log.
             </p>
             <button
                 onclick={openAdd}
-                class="mt-8 px-8 py-3 bg-gov-blue text-white text-xs font-bold uppercase tracking-widest rounded-xl shadow-md hover:bg-gov-blue-dark transition-colors"
+                class="mt-8 px-8 py-3 bg-gov-blue text-white text-xs font-bold uppercase tracking-normal rounded-xl shadow-md hover:bg-gov-blue-dark transition-colors"
             >
-                Setup Initial Load
+                Add teaching load
             </button>
         </div>
     {:else}
@@ -227,8 +227,7 @@
         >
             {#each loads as load}
                 <div
-                    class="bg-surface-white border border-border-subtle rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-gov-blue/20 transition-colors group relative flex flex-col h-full"
-                    in:fly={{ y: 20, duration: 400 }}
+                    class="bg-surface-white border border-border-subtle rounded-2xl p-6 shadow-sm hover:border-border-strong hover:border-gov-blue/20 transition-colors group relative flex flex-col h-full"
                 >
                     <!-- Status Badge -->
                     <div class="absolute top-6 right-6">
@@ -252,7 +251,7 @@
                         <div class="flex items-center gap-2 mb-3">
                             <Layers size={14} class="text-gov-blue" />
                             <span
-                                class="px-2.5 py-1 bg-gov-blue/5 text-gov-blue text-[10px] font-bold uppercase tracking-widest rounded-full"
+                                class="px-2.5 py-1 bg-gov-blue/5 text-gov-blue text-xs font-bold uppercase tracking-normal rounded-full"
                             >
                                 {load.grade_level}
                             </span>
@@ -269,7 +268,7 @@
                     >
                         <div class="flex items-center gap-2">
                             <span
-                                class="text-[10px] font-bold text-text-muted uppercase tracking-tighter"
+                                class="text-xs font-bold text-text-muted uppercase tracking-tighter"
                                 >Modified Recently</span
                             >
                         </div>
@@ -302,7 +301,7 @@
 {#if showModal}
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
-        class="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+        class="fixed inset-0 bg-black/30  z-50 flex items-center justify-center p-6"
         onclick={() => { showModal = false; gradeOpen = false; subjectOpen = false; }}
         onkeydown={(e) => { if (e.key === "Escape") { showModal = false; gradeOpen = false; subjectOpen = false; } }}
         role="dialog"
@@ -348,7 +347,7 @@
                                 class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-y-auto"
                                 onclick={(e) => e.stopPropagation()}
                                 onkeydown={() => {}}
-                                role="listbox"
+                                role="listbox" tabindex="-1"
                             >
                                 {#each gradeLevels as gl}
                                     <button
@@ -394,7 +393,7 @@
                                 class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-y-auto max-h-48"
                                 onclick={(e) => e.stopPropagation()}
                                 onkeydown={() => {}}
-                                role="listbox"
+                                role="listbox" tabindex="-1"
                             >
                                 {#each availableSubjects as s}
                                     <button
@@ -425,7 +424,7 @@
                 </button>
                 <button
                     onclick={handleSave}
-                    class="flex-1 py-3 bg-gradient-to-r from-gov-blue to-gov-blue-dark text-white font-semibold rounded-xl min-h-[48px] shadow-md hover:shadow-lg transition-colors"
+                    class="flex-1 py-3 bg-gov-blue text-white font-semibold rounded-xl min-h-[48px] shadow-md hover:border-border-strong transition-colors"
                 >
                     {editingId ? "Update" : "Add"}
                 </button>

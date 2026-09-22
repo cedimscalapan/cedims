@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+@layer components {
+  .page-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+  .page-heading h1 { font-size: clamp(1.375rem, 2vw, 1.625rem); line-height: 1.3; font-weight: 650; color: var(--color-text-primary); }
+  .page-heading p { margin-top: .375rem; color: var(--color-text-secondary); font-size: .9375rem; max-width: 65ch; }
+  .page-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
+  .icon-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex-shrink: 0; border-radius: .375rem; cursor: pointer; }
+  .icon-button:hover { background: var(--color-surface-muted); }
+  .workspace-content { min-width: 0; }
+  .workspace-content :where(h1) { font-size: clamp(1.375rem, 2vw, 1.625rem); font-weight: 650; }
+  .workspace-content :where(input:not([type='checkbox']):not([type='radio']):not([type='file']), select, textarea) { background-color: var(--color-surface-white); color: var(--color-text-primary); min-height: 44px; }
+  .workspace-content :where([role='tab'], [role='option']) { min-height: 44px; }
+  .workspace-content :where([role='dialog'][aria-modal='true']) { max-height: calc(100dvh - 2rem); overflow-y: auto; }
+  .workspace-content :where(.grid > *, .flex > *) { min-width: 0; }
+  @media (max-width: 639px) {
+    .workspace-content :where(input:not([type='checkbox']):not([type='radio']), select, textarea) { font-size: 1rem; }
+    .professional-table th, .professional-table td { padding: .75rem; }
+  }
+}
+
 /* ── Class-Based Dark Mode ── */
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -54,7 +73,7 @@
   border-radius: 999px;
 }
 .cedims-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #1a3a5c, #2f5d8f);
+  background: var(--color-border-strong);
   border-radius: 999px;
 }
 .cedims-scroll::-webkit-scrollbar-thumb:hover {
@@ -79,7 +98,7 @@
   --breakpoint-xs: 475px;
 
   /* Brand Colors — Modern Institutional Navy & Education Palette */
-  --color-gov-blue: #2563eb;
+  --color-gov-blue: #1e40af;
   --color-gov-blue-light: #60a5fa;
   --color-gov-blue-dark: #1e40af;
   --color-gov-blue-vibrant: #3b82f6;
@@ -151,9 +170,9 @@
   /* Radius — Modern, education-friendly */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.75rem;
   --radius-full: 9999px;
 
   /* Motion — curves per emil-design-eng / animate skill standards.
@@ -303,7 +322,7 @@ a {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .gov-card:hover {
+  a.gov-card:hover, button.gov-card:hover {
     border-color: var(--color-gov-blue-vibrant);
   }
 }
@@ -323,7 +342,7 @@ a {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .glass-card:hover {
+  a.glass-card:hover, button.glass-card:hover {
     border-color: var(--color-gov-blue-vibrant);
   }
 }
@@ -335,7 +354,7 @@ a {
 }
 
 .gov-header-gradient {
-  background: linear-gradient(135deg, var(--color-gov-blue) 0%, var(--color-gov-blue-vibrant) 100%);
+  background: var(--color-gov-blue);
 }
 
 /* ── Modern Typography Utilities ── */
@@ -427,13 +446,13 @@ a {
     box-shadow var(--duration-popover) var(--ease-out),
     transform var(--duration-press) var(--ease-out);
   min-height: 44px;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+  box-shadow: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .gov-btn-primary:hover:not(:disabled) {
     background: var(--color-gov-blue-dark);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    box-shadow: none;
   }
 }
 
@@ -501,8 +520,8 @@ a {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: normal;
   margin-bottom: 0.5rem;
 }
 
@@ -719,7 +738,7 @@ a {
 .gov-input:focus {
   border-color: var(--color-gov-blue);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-  background: linear-gradient(135deg, var(--color-surface-white) 0%, #f0f4ff 100%);
+  background: var(--color-surface-white);
 }
 
 .gov-input::placeholder {

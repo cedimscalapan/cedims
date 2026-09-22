@@ -1,4 +1,5 @@
 <script lang="ts">
+    import PageHeader from '$lib/components/PageHeader.svelte';
     import { profile } from "$lib/utils/auth";
     import { supabase } from "$lib/utils/supabase";
     import StatCard from "$lib/components/StatCard.svelte";
@@ -609,18 +610,7 @@
 
 <div>
     <!-- Header -->
-    <div class="mb-6">
-        <h1 class="text-3xl font-semibold text-text-primary tracking-tight">
-            {$profile?.role === "Teacher"
-                ? "Overview"
-                : "Supervision Dashboard"}
-        </h1>
-        <p class="text-base text-text-secondary mt-1">
-            Welcome back, <span class="font-bold text-gov-blue"
-                >{$profile?.full_name || "User"}</span
-            >
-        </p>
-    </div>
+    <PageHeader title={$profile?.role === 'Teacher' ? 'Overview' : 'Supervision dashboard'} description={$profile?.role === 'Teacher' ? 'Track your submissions and documents requiring attention.' : 'Review submissions and monitor instructional requirements.'} />
 
     <!-- This page has no cache-then-network fallback the way archive/
          monitoring do — adding one would be new data-fetching logic, out
@@ -643,14 +633,14 @@
 
         <!-- Stats Row -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <div in:fly={{ y: 20, duration: 400, delay: 0 }}>
+            <div>
                 <StatCard
                     icon="CloudUpload"
                     value={stats.totalUploads}
                     label="Total Uploads"
                 />
             </div>
-            <div in:fly={{ y: 20, duration: 400, delay: 100 }}>
+            <div>
                 <StatCard
                     icon="ShieldCheck"
                     value="{complianceStats.rate}%"
@@ -658,7 +648,7 @@
                     color="from-gov-green to-gov-green-dark"
                 />
             </div>
-            <div in:fly={{ y: 20, duration: 400, delay: 200 }}>
+            <div>
                 <StatCard
                     icon="Clock"
                     value={complianceStats.Late}
@@ -666,7 +656,7 @@
                     color="from-gov-gold to-gov-gold-dark"
                 />
             </div>
-            <div in:fly={{ y: 20, duration: 400, delay: 300 }}>
+            <div>
                 <StatCard
                     icon="ShieldAlert"
                     value={complianceStats.NonCompliant}
@@ -677,7 +667,7 @@
         </div>
 
         <!-- Quick Actions -->
-        <div class="mb-10" in:fade={{ duration: 600, delay: 500 }}>
+        <div class="mb-10">
             <div class="flex items-center gap-3 mb-6">
                 <div class="p-2 rounded-md bg-gov-blue/10 text-gov-blue">
                     <Zap size={20} fill="currentColor" strokeWidth={1.5} />
@@ -705,7 +695,7 @@
                             Upload
                         </p>
                         <p
-                            class="text-[10px] text-text-muted mt-1 leading-relaxed"
+                            class="text-xs text-text-muted mt-1 leading-relaxed"
                         >
                             Submit DLL, ISP, or ISR reports.
                         </p>
@@ -727,7 +717,7 @@
                             Archive
                         </p>
                         <p
-                            class="text-[10px] text-text-muted mt-1 leading-relaxed"
+                            class="text-xs text-text-muted mt-1 leading-relaxed"
                         >
                             Retrieve submitted documents.
                         </p>
@@ -749,7 +739,7 @@
                             Load
                         </p>
                         <p
-                            class="text-[10px] text-text-muted mt-1 leading-relaxed"
+                            class="text-xs text-text-muted mt-1 leading-relaxed"
                         >
                             Manage subjects and schedules.
                         </p>
@@ -771,7 +761,7 @@
                             Scan
                         </p>
                         <p
-                            class="text-[10px] text-text-muted mt-1 leading-relaxed"
+                            class="text-xs text-text-muted mt-1 leading-relaxed"
                         >
                             Verify document authenticity.
                         </p>
@@ -780,7 +770,7 @@
             </div>
         </div>
 
-        <div class="mb-6 rounded-2xl border border-border-subtle bg-surface-white p-5 shadow-sm" in:fade={{ duration: 500, delay: 400 }}>
+        <div class="mb-6 rounded-2xl border border-border-subtle bg-surface-white p-5 shadow-sm">
             <h3 class="text-sm font-semibold uppercase tracking-wide text-text-primary mb-3">
                 Current Focus
             </h3>
@@ -790,7 +780,7 @@
         </div>
 
         <!-- Teacher Checklist: Interactive checkpoint hub for all active teaching loads -->
-        <div class="mb-6" in:fade={{ duration: 500, delay: 600 }}>
+        <div class="mb-6">
             <TeacherChecklist
                 {submissions}
                 teachingLoads={activeTeachingLoads}
@@ -830,23 +820,23 @@
             <!-- Reviewing is the Master Teacher's job here, so the queue is
                  the headline, not a compliance percentage. -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <div in:fly={{ y: 20, duration: 400, delay: 0 }}>
+                <div>
                     <StatCard icon="ClipboardList" value={awaitingReview.length} label="Awaiting My Review" color="gov-gold" />
                 </div>
-                <div in:fly={{ y: 20, duration: 400, delay: 100 }}>
+                <div>
                     <StatCard icon="Users" value={teachersAtRisk.length} label="Teachers Needing Support" color="gov-red" />
                 </div>
-                <div in:fly={{ y: 20, duration: 400, delay: 150 }}>
+                <div>
                     <StatCard icon="ShieldCheck" value="{stats.compliantRate}%" label="School Rate" color="gov-green" />
                 </div>
-                <div in:fly={{ y: 20, duration: 400, delay: 200 }}>
+                <div>
                     <StatCard icon="Clock" value={stats.lateCount} label="Late Submissions" color="gov-blue" />
                 </div>
             </div>
 
-            <div class="mb-6" in:fade={{ duration: 500, delay: 300 }}>
+            <div class="mb-6">
                 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <h2 class="text-sm font-bold text-text-muted uppercase tracking-widest flex items-center gap-2">
+                    <h2 class="text-sm font-bold text-text-muted uppercase tracking-normal flex items-center gap-2">
                         <div class="h-1 w-4 bg-gov-gold"></div>
                         Awaiting My Review
                         <span class="text-xs font-semibold text-text-muted/70">({awaitingReview.length})</span>
@@ -878,23 +868,23 @@
                  roster lives on the Staff tab; Home shows only who needs
                  acting on today. -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <div in:fly={{ y: 20, duration: 400, delay: 0 }}>
+                <div>
                     <StatCard icon="Users" value={stats.totalTeachers} label="Teachers" />
                 </div>
-                <div in:fly={{ y: 20, duration: 400, delay: 100 }}>
+                <div>
                     <StatCard icon="ShieldCheck" value="{stats.compliantRate}%" label="School Rate" color="gov-green" />
                 </div>
-                <div in:fly={{ y: 20, duration: 400, delay: 150 }}>
+                <div>
                     <StatCard icon="ShieldAlert" value={teachersAtRisk.length} label="Teachers At Risk" color="gov-red" />
                 </div>
-                <div in:fly={{ y: 20, duration: 400, delay: 200 }}>
+                <div>
                     <StatCard icon="ShieldX" value={stats.nonCompliantCount} label="Missing" color="gov-red" />
                 </div>
             </div>
 
-            <div class="mb-6" in:fade={{ duration: 500, delay: 300 }}>
+            <div class="mb-6">
                 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <h2 class="text-sm font-bold text-text-muted uppercase tracking-widest flex items-center gap-2">
+                    <h2 class="text-sm font-bold text-text-muted uppercase tracking-normal flex items-center gap-2">
                         <div class="h-1 w-4 bg-gov-red"></div>
                         Needs Attention
                     </h2>
@@ -921,23 +911,23 @@
             <!-- District Supervisor: school altitude. Per-teacher detail is
                  the Schools tab's job, so this rolls the same rows up. -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <div in:fly={{ y: 20, duration: 400, delay: 0 }}>
+                <div>
                     <StatCard icon="Building2" value={schoolStandings.length} label="Schools" />
                 </div>
-                <div in:fly={{ y: 20, duration: 400, delay: 100 }}>
+                <div>
                     <StatCard icon="ShieldCheck" value="{stats.compliantRate}%" label="District Rate" color="gov-green" />
                 </div>
-                <div in:fly={{ y: 20, duration: 400, delay: 150 }}>
+                <div>
                     <StatCard icon="ShieldAlert" value={schoolsBelowTarget.length} label="Schools Below Target" color="gov-red" />
                 </div>
-                <div in:fly={{ y: 20, duration: 400, delay: 200 }}>
+                <div>
                     <StatCard icon="ShieldX" value={stats.nonCompliantCount} label="Missing" color="gov-red" />
                 </div>
             </div>
 
-            <div class="mb-6" in:fade={{ duration: 500, delay: 300 }}>
+            <div class="mb-6">
                 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <h2 class="text-sm font-bold text-text-muted uppercase tracking-widest flex items-center gap-2">
+                    <h2 class="text-sm font-bold text-text-muted uppercase tracking-normal flex items-center gap-2">
                         <div class="h-1 w-4 bg-gov-blue"></div>
                         School Standings
                         <span class="text-xs font-semibold text-text-muted/70">(lowest first)</span>
@@ -965,9 +955,9 @@
 
 
         <!-- Recent Activity as Cards -->
-        <div in:fade={{ duration: 600, delay: 600 }}>
+        <div>
             <h2
-                class="text-sm font-bold text-text-muted uppercase tracking-widest mb-6 flex items-center gap-2"
+                class="text-sm font-bold text-text-muted uppercase tracking-normal mb-6 flex items-center gap-2"
             >
                 <div class="h-1 w-4 bg-gov-gold"></div>
                 <!-- This whole block lives in the non-Teacher branch, so only
@@ -981,7 +971,7 @@
             {#if recentActivity.length === 0}
                 <div class="gov-card-static p-12 text-center rounded-2xl">
                     <p
-                        class="text-text-muted font-bold text-xs uppercase tracking-widest"
+                        class="text-text-muted font-bold text-xs uppercase tracking-normal"
                     >
                         No recent submissions detected
                     </p>
@@ -999,7 +989,6 @@
                             )}
                             <li
                                 class="relative flex gap-4"
-                                in:fly={{ x: -20, duration: 400, delay: i * 40 }}
                             >
                                 <!-- Timeline rail: icon node + connecting line,
                                      GitHub contribution-activity style. -->
@@ -1023,7 +1012,7 @@
                                             Archived <span class="font-bold">{item.file_name}</span>
                                         </p>
                                         <span
-                                            class="text-[10px] font-bold text-text-muted uppercase tracking-tight whitespace-nowrap flex-shrink-0"
+                                            class="text-xs font-bold text-text-muted uppercase tracking-tight whitespace-nowrap flex-shrink-0"
                                         >
                                             {formatDate(item.created_at)}
                                         </span>
@@ -1035,13 +1024,13 @@
                                         class="mt-2.5 border border-border-subtle rounded-xl px-4 py-3 bg-surface-white flex flex-wrap items-center gap-2"
                                     >
                                         <span
-                                            class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-[10px] font-bold rounded uppercase tracking-wider whitespace-nowrap"
+                                            class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-xs font-bold rounded uppercase tracking-wider whitespace-nowrap"
                                         >
                                             {item.doc_type || "Unknown"}
                                         </span>
                                         {#if item.doc_type === "DLL" && item.week_number != null}
                                             <span
-                                                class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-[10px] font-bold rounded uppercase tracking-wider whitespace-nowrap"
+                                                class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-bold rounded uppercase tracking-wider whitespace-nowrap"
                                             >
                                                 Week {item.week_number}
                                             </span>
@@ -1059,7 +1048,7 @@
                         <button
                             type="button"
                             onclick={() => (activityVisibleCount += 6)}
-                            class="w-full mt-4 py-2.5 rounded-xl border border-border-subtle text-xs font-bold uppercase tracking-widest text-gov-blue hover:bg-gov-blue/5 transition-colors flex-shrink-0"
+                            class="w-full mt-4 py-2.5 rounded-xl border border-border-subtle text-xs font-bold uppercase tracking-normal text-gov-blue hover:bg-gov-blue/5 transition-colors flex-shrink-0"
                         >
                             Show more activity
                         </button>

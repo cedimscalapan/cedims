@@ -1,4 +1,5 @@
 <script lang="ts">
+    import PageHeader from '$lib/components/PageHeader.svelte';
     import { profile, user, signOut } from "$lib/utils/auth";
     import { addToast } from "$lib/stores/toast";
     import { goto } from "$app/navigation";
@@ -100,17 +101,12 @@
 </script>
 
 <svelte:head>
-    <title>Profile Settings â€” CEDIMS</title>
+    <title>Account settings · CEDIMS</title>
 </svelte:head>
 
 <div class="max-w-3xl mx-auto space-y-8 pb-12">
     <!-- Header -->
-    <div class="mb-2">
-        <h1 class="text-3xl font-bold text-text-primary tracking-tight">Account Identity</h1>
-        <p class="text-text-secondary mt-1 font-medium">
-            Manage your personal profile and system preferences.
-        </p>
-    </div>
+    <PageHeader title="Account settings" description="Update your profile, password, and display preferences." />
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Left Column: Identity Card -->
@@ -130,13 +126,13 @@
                 
                 <div class="mt-6 w-full">
                     <h2 class="text-xl font-bold text-text-primary truncate">{fullName || 'User Name'}</h2>
-                    <p class="text-xs font-bold text-gov-blue uppercase tracking-widest mt-1">{$profile?.role || 'User'}</p>
+                    <p class="text-xs font-bold text-gov-blue uppercase tracking-normal mt-1">{$profile?.role || 'User'}</p>
                 </div>
 
                 <div class="mt-8 w-full space-y-3 pt-6 border-t border-border-subtle text-left">
                     <div class="flex items-center gap-3 text-text-secondary">
                         <ShieldCheck size={14} class="text-gov-blue" />
-                        <span class="text-[10px] font-bold uppercase tracking-wider">Access Secured</span>
+                        <span class="text-xs font-bold uppercase tracking-wider">Access Secured</span>
                     </div>
                 </div>
             </div>
@@ -148,12 +144,12 @@
             <div class="gov-card-static p-6">
                 <div class="flex items-center gap-2 mb-6 text-gov-blue">
                     <User size={18} />
-                    <h2 class="text-sm font-bold uppercase tracking-widest">Personal Details</h2>
+                    <h2 class="text-sm font-bold uppercase tracking-normal">Personal Details</h2>
                 </div>
 
                 <div class="space-y-6">
                     <div>
-                        <label for="fullName" class="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Display Name (User Name)</label>
+                        <label for="fullName" class="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Display Name (User Name)</label>
                         <input
                             id="fullName"
                             type="text"
@@ -165,13 +161,13 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <span class="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Official Email</span>
+                            <span class="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Official Email</span>
                             <div class="px-4 py-3 text-sm bg-surface-muted border-border-subtle rounded-xl text-text-muted italic flex items-center min-h-[48px]">
                                 {$user?.email || 'Not verified'}
                             </div>
                         </div>
                         <div>
-                            <span class="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Connection Status</span>
+                            <span class="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Connection Status</span>
                             <div class="px-4 py-3 text-sm bg-surface-muted border-border-subtle rounded-xl text-text-muted flex items-center min-h-[48px]">
                                  <LogOut size={14} class="mr-2 rotate-180 opacity-40" />
                                  {queueCount > 0 ? `${queueCount} Pending Sync` : 'Synchronized'}
@@ -183,7 +179,7 @@
                         <button
                             onclick={updateProfile}
                             disabled={saving}
-                            class="px-8 py-3 bg-gov-blue text-white font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-gov-blue-dark active:scale-95 transition-[color,background-color,border-color,transform] duration-200 ease-out disabled:opacity-50 shadow-sm"
+                            class="px-8 py-3 bg-gov-blue text-white font-bold rounded-xl text-xs uppercase tracking-normal hover:bg-gov-blue-dark active:scale-95 transition-[color,background-color,border-color,transform] duration-200 ease-out disabled:opacity-50 shadow-sm"
                         >
                             {saving ? 'Syncing...' : 'Update Identity'}
                         </button>
@@ -195,7 +191,7 @@
             <div class="gov-card-static p-6">
                 <div class="flex items-center gap-2 mb-6 text-gov-blue">
                     <Bell size={18} />
-                    <h2 class="text-sm font-bold uppercase tracking-widest">System Experience</h2>
+                    <h2 class="text-sm font-bold uppercase tracking-normal">System Experience</h2>
                 </div>
 
                 <div class="space-y-4">
@@ -207,7 +203,7 @@
                             </div>
                             <div>
                                 <span class="block text-sm font-bold text-text-primary">Voice Assistance</span>
-                                <p class="text-[10px] text-text-muted font-medium">Auditory feedback for accessibility.</p>
+                                <p class="text-xs text-text-muted font-medium">Auditory feedback for accessibility.</p>
                             </div>
                         </div>
                         <button
@@ -227,7 +223,7 @@
                             </div>
                             <div>
                                 <span class="block text-sm font-bold text-text-primary">Live Alerts</span>
-                                <p class="text-[10px] text-text-muted font-medium">Real-time deadline and review notifications.</p>
+                                <p class="text-xs text-text-muted font-medium">Real-time deadline and review notifications.</p>
                             </div>
                         </div>
                         <button
@@ -262,7 +258,7 @@
                             </div>
                             <div>
                                 <span class="block text-sm font-bold text-text-primary">System Walkthrough</span>
-                                <p class="text-[10px] text-text-muted font-medium">Replay the interactive tour of your dashboard's tabs and controls.</p>
+                                <p class="text-xs text-text-muted font-medium">Replay the interactive tour of your dashboard's tabs and controls.</p>
                             </div>
                         </div>
                         <button
@@ -285,12 +281,12 @@
             <div class="gov-card-static p-6">
                 <div class="flex items-center gap-2 mb-6 text-gov-blue">
                     <Key size={18} />
-                    <h2 class="text-sm font-bold uppercase tracking-widest">Change Password</h2>
+                    <h2 class="text-sm font-bold uppercase tracking-normal">Change Password</h2>
                 </div>
 
                 <div class="space-y-4">
                     <div>
-                        <label for="currentPassword" class="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Current Password</label>
+                        <label for="currentPassword" class="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Current Password</label>
                         <div class="relative">
                             <input id="currentPassword" type={showCurrent ? "text" : "password"} bind:value={currentPassword} placeholder="Enter current password" class="w-full px-4 py-3 text-sm bg-surface-muted border-border-subtle rounded-xl focus:ring-2 focus:ring-gov-blue/20 focus:border-gov-blue outline-none transition-colors font-bold pr-11" />
                             <button type="button" onclick={() => showCurrent = !showCurrent} class="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors p-1" tabindex="-1" aria-label={showCurrent ? "Hide password" : "Show password"}>
@@ -299,7 +295,7 @@
                         </div>
                     </div>
                     <div>
-                        <label for="newPassword" class="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">New Password</label>
+                        <label for="newPassword" class="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">New Password</label>
                         <div class="relative">
                             <input id="newPassword" type={showNew ? "text" : "password"} bind:value={newPassword} placeholder="At least 6 characters" class="w-full px-4 py-3 text-sm bg-surface-muted border-border-subtle rounded-xl focus:ring-2 focus:ring-gov-blue/20 focus:border-gov-blue outline-none transition-colors font-bold pr-11" minlength="6" />
                             <button type="button" onclick={() => showNew = !showNew} class="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors p-1" tabindex="-1" aria-label={showNew ? "Hide password" : "Show password"}>
@@ -308,7 +304,7 @@
                         </div>
                     </div>
                     <div>
-                        <label for="confirmPassword" class="block text-[10px] font-bold text-text-muted uppercase tracking-wider mb-2">Confirm New Password</label>
+                        <label for="confirmPassword" class="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Confirm New Password</label>
                         <div class="relative">
                             <input id="confirmPassword" type={showConfirm ? "text" : "password"} bind:value={confirmPassword} placeholder="Re-enter new password" class="w-full px-4 py-3 text-sm bg-surface-muted border-border-subtle rounded-xl focus:ring-2 focus:ring-gov-blue/20 focus:border-gov-blue outline-none transition-colors font-bold pr-11" />
                             <button type="button" onclick={() => showConfirm = !showConfirm} class="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors p-1" tabindex="-1" aria-label={showConfirm ? "Hide password" : "Show password"}>
@@ -320,7 +316,7 @@
                         <button
                             onclick={handleChangePassword}
                             disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
-                            class="px-8 py-3 bg-gov-blue text-white font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-gov-blue-dark active:scale-95 transition-[color,background-color,border-color,transform] duration-200 ease-out disabled:opacity-50 shadow-sm flex items-center gap-2"
+                            class="px-8 py-3 bg-gov-blue text-white font-bold rounded-xl text-xs uppercase tracking-normal hover:bg-gov-blue-dark active:scale-95 transition-[color,background-color,border-color,transform] duration-200 ease-out disabled:opacity-50 shadow-sm flex items-center gap-2"
                         >
                             {#if changingPassword}
                                 <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
@@ -338,7 +334,7 @@
             <div class="pt-4">
                 <button
                     onclick={handleSignOut}
-                    class="w-full py-4 border-2 border-gov-red/20 text-gov-red font-bold rounded-2xl text-xs uppercase tracking-widest hover:bg-gov-red/5 transition-colors flex items-center justify-center gap-2 group"
+                    class="w-full py-4 border-2 border-gov-red/20 text-gov-red font-bold rounded-2xl text-xs uppercase tracking-normal hover:bg-gov-red/5 transition-colors flex items-center justify-center gap-2 group"
                 >
                     <LogOut size={16} class="group-hover:translate-x-1 transition-transform" />
                     Sign Out Securely

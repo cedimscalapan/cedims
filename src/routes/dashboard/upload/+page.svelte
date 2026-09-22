@@ -870,7 +870,7 @@
                 class="text-2xl font-bold text-text-primary flex items-center gap-2"
             >
                 Upload Document <span
-                    class="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-normal border
+                    class="px-2 py-0.5 rounded-md text-xs font-semibold uppercase tracking-normal border
                     {isOnline
                         ? 'bg-gov-green/5 text-gov-green border-gov-green/10'
                         : 'bg-gov-gold/10 text-gov-gold-dark border-gov-gold/20'}"
@@ -918,7 +918,7 @@
                     <div class="flex items-center gap-2">
                         <span class="relative flex h-2 w-2">
                             <span
-                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-gov-gold opacity-75"
+                                class=" absolute inline-flex h-full w-full rounded-full bg-gov-gold opacity-75"
                             ></span>
                             <span
                                 class="relative inline-flex rounded-full h-2 w-2 bg-gov-gold"
@@ -985,7 +985,7 @@
                                     </p>
                                 </div>
                                 <code
-                                    class="text-[9px] text-gov-blue font-mono ml-2 flex-shrink-0"
+                                    class="text-xs text-gov-blue font-mono ml-2 flex-shrink-0"
                                     >{item.fileHash.slice(0, 8)}</code
                                 >
                             </div>
@@ -1008,7 +1008,7 @@
 
             {#if $settings.maintenance_mode}
                 <div
-                    class="p-4 bg-gov-red/10 border border-gov-red/20 rounded-md text-gov-red text-center font-bold animate-pulse"
+                    class="p-4 bg-gov-red/10 border border-gov-red/20 rounded-md text-gov-red text-center font-bold "
                     role="alert"
                 >
                     <svg
@@ -1035,7 +1035,7 @@
                             <h3 class="text-lg font-bold text-text-primary">
                                 {docType === 'DLL' ? 'Document Review' : 'Document Details'}
                             </h3>
-                            <p class="text-[10px] text-text-muted font-medium">
+                            <p class="text-xs text-text-muted font-medium">
                                 {docType === 'DLL'
                                     ? 'Review the detected load and week before submission'
                                     : docType === 'ISP'
@@ -1047,7 +1047,7 @@
                         </div>
                         {#if detectingMetadata}
                             <div
-                                class="flex items-center gap-2 text-gov-blue text-xs font-bold animate-pulse"
+                                class="flex items-center gap-2 text-gov-blue text-xs font-bold "
                             >
                                 <svg
                                     class="animate-spin h-4 w-4"
@@ -1072,7 +1072,7 @@
                             </div>
                         {:else}
                             <div
-                                class="text-[10px] font-bold text-gov-green bg-gov-green/5 px-2 py-1 rounded-md border border-gov-green/10"
+                                class="text-xs font-bold text-gov-green bg-gov-green/5 px-2 py-1 rounded-md border border-gov-green/10"
                             >
                                 Ready
                             </div>
@@ -1088,8 +1088,7 @@
                             <!-- Mismatch Alert -->
                             {#if mismatchAlert}
                                 <div
-                                    class="p-4 rounded-md bg-gov-red/5 border-2 border-gov-red/20 border-dashed animate-pulse"
-                                    in:fade
+                                    class="p-4 rounded-md bg-gov-red/5 border-2 border-gov-red/20 border-dashed "
                                 >
                                     <div class="flex items-start gap-3">
                                         <svg
@@ -1124,19 +1123,19 @@
                             <!-- Matched Teaching Load -->
                             <div class="space-y-2">
                                 <span
-                                    class="text-[10px] font-bold text-text-muted uppercase tracking-wide ml-1"
+                                    class="text-xs font-bold text-text-muted uppercase tracking-wide ml-1"
                                     >Teaching Load</span
                                 >
                                 <button
                                     onclick={() => (showLoadPicker = true)}
                                     class="w-full p-5 rounded-md transition-colors border-2 text-left flex items-center justify-between group {teachingLoadId
                                         ? 'bg-gov-blue/5 border-gov-blue/20 hover:border-gov-blue/40'
-                                        : 'bg-gov-red/5 border-gov-red/20 border-dashed animate-pulse'}"
+                                        : 'bg-gov-red/5 border-gov-red/20 border-dashed '}"
                                 >
                                     <div>
                                         {#if teachingLoadId}
                                             <p
-                                                class="text-[10px] font-semibold text-gov-blue uppercase tracking-normal mb-1"
+                                                class="text-xs font-semibold text-gov-blue uppercase tracking-normal mb-1"
                                             >
                                                 Detected Load
                                             </p>
@@ -1194,7 +1193,7 @@
                                 <!-- Doc Type -->
                                 <div class="space-y-2">
                                     <span
-                                        class="text-[10px] font-bold text-text-muted uppercase tracking-wide ml-1"
+                                        class="text-xs font-bold text-text-muted uppercase tracking-wide ml-1"
                                         >Document Type</span
                                     >
                                     <div
@@ -1223,7 +1222,7 @@
                                 <!-- Week -->
                                 <div class="space-y-2">
                                     <span
-                                        class="text-[10px] font-bold text-text-muted uppercase tracking-wide ml-1"
+                                        class="text-xs font-bold text-text-muted uppercase tracking-wide ml-1"
                                         >Target Week</span
                                     >
                                     <button
@@ -1268,7 +1267,7 @@
                                             {/if}
                                         </div>
                                         <div
-                                            class="px-2 py-1 rounded bg-gov-blue/10 text-gov-blue text-[10px] font-semibold uppercase"
+                                            class="px-2 py-1 rounded bg-gov-blue/10 text-gov-blue text-xs font-semibold uppercase"
                                         >
                                             {teachingLoads.length === 0
                                                 ? 'Pending'
@@ -1292,15 +1291,15 @@
                                         ? 'bg-gov-green'
                                         : ocrConfidence > 50
                                           ? 'bg-gov-gold'
-                                          : 'bg-gov-red'} shadow-sm animate-pulse"
+                                          : 'bg-gov-red'} shadow-sm "
                                 ></div>
                                 <div>
                                     <p
-                                        class="text-[10px] font-semibold text-text-primary uppercase tracking-normal"
+                                        class="text-xs font-semibold text-text-primary uppercase tracking-normal"
                                     >
                                         Auto-Detected Details
                                     </p>
-                                    <p class="text-[9px] text-text-muted">
+                                    <p class="text-xs text-text-muted">
                                         How sure the system is
                                     </p>
                                 </div>
@@ -1344,7 +1343,7 @@
                                 </div>
                             </div>
                             <p
-                                class="mt-2 text-[10px] text-text-muted text-center uppercase tracking-widest font-bold"
+                                class="mt-2 text-xs text-text-muted text-center uppercase tracking-normal font-bold"
                             >
                                 This exact file has already been uploaded.
                             </p>
@@ -1355,9 +1354,7 @@
                                     (requiresTeachingLoadSelection($profile?.role || '', docType) && !teachingLoadId) ||
                                     (docType === "DLL" && !weekNumber) ||
                                     processing}
-                                class="mt-6 w-full py-4 bg-gradient-to-r {isOnline
-                                    ? 'from-gov-blue to-gov-blue-dark'
-                                    : 'from-gov-gold-dark to-gov-gold'} text-white text-lg font-extrabold rounded-md shadow-lg hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:grayscale transition-[color,background-color,border-color,transform] duration-300 min-h-[60px] flex items-center justify-center gap-3 uppercase tracking-wide"
+                                class="gov-btn-primary mt-6 w-full"
                             >
                                 {#if processing}
                                     <svg
@@ -1508,14 +1505,14 @@
 <!-- Selection Modals -->
 {#if showLoadPicker}
     <div
-        class="fixed inset-0 z-[var(--z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity"
+        class="fixed inset-0 z-[var(--z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60  transition-opacity"
         onclick={() => (showLoadPicker = false)}
         onkeydown={(e) => e.key === "Escape" && (showLoadPicker = false)}
         role="presentation"
         transition:fade={{ duration: 200 }}
     >
         <div
-            class="w-full max-w-lg bg-surface-white rounded-t-3xl sm:rounded-3xl shadow-sm overflow-hidden animate-slide-up sm:animate-scale-in"
+            class="w-full max-w-lg bg-surface-white rounded-t-3xl sm:rounded-xl shadow-sm overflow-hidden animate-slide-up sm:animate-scale-in"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => { e.stopPropagation(); if (e.key === "Escape") showLoadPicker = false; }}
             role="dialog"
@@ -1597,7 +1594,7 @@
                             <p class="text-text-muted text-sm italic">
                                 No teaching loads found.
                             </p>
-                            <p class="text-[10px] text-text-muted mt-2">
+                            <p class="text-xs text-text-muted mt-2">
                                 Check your profile or connection.
                             </p>
                         </div>
@@ -1622,14 +1619,14 @@
 
 {#if showWeekPicker}
     <div
-        class="fixed inset-0 z-[var(--z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity"
+        class="fixed inset-0 z-[var(--z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60  transition-opacity"
         onclick={() => (showWeekPicker = false)}
         onkeydown={(e) => e.key === "Escape" && (showWeekPicker = false)}
         role="presentation"
         transition:fade={{ duration: 200 }}
     >
         <div
-            class="w-full max-w-sm bg-surface-white rounded-t-3xl sm:rounded-3xl shadow-sm overflow-hidden animate-slide-up sm:animate-scale-in"
+            class="w-full max-w-sm bg-surface-white rounded-t-3xl sm:rounded-xl shadow-sm overflow-hidden animate-slide-up sm:animate-scale-in"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => { e.stopPropagation(); if (e.key === "Escape") showWeekPicker = false; }}
             role="dialog"
@@ -1678,7 +1675,7 @@
                             : 'bg-surface-muted hover:bg-gov-blue/5 border border-transparent hover:border-gov-blue/20'}"
                     >
                         <span
-                            class="text-[10px] font-semibold uppercase tracking-wide {weekNumber ===
+                            class="text-xs font-semibold uppercase tracking-wide {weekNumber ===
                             wk
                                 ? 'text-white/70'
                                 : 'text-text-muted'}">Week</span

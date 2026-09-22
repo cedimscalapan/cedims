@@ -212,7 +212,7 @@
 
             <div class="grid grid-cols-7 gap-1 mb-1">
                 {#each WEEKDAY_LABELS as wd}
-                    <div class="text-center text-[10px] font-bold uppercase text-text-muted py-1">
+                    <div class="text-center text-xs font-bold uppercase text-text-muted py-1">
                         {wd}
                     </div>
                 {/each}

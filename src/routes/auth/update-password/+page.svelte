@@ -65,14 +65,14 @@
     <title>Reset Password: CEDIMS</title>
 </svelte:head>
 
-<div class="min-h-dvh bg-gradient-to-br from-surface-muted via-surface-white to-gov-blue/5 px-4 py-8 sm:px-6 sm:py-10 lg:px-8 flex items-center justify-center">
+<div class="min-h-dvh bg-surface px-4 py-8 sm:px-6 sm:py-10 lg:px-8 flex items-center justify-center">
     <div class="w-full max-w-md">
-        <div class="rounded-2xl sm:rounded-3xl border border-border-subtle bg-surface-white/80 backdrop-blur-sm p-6 sm:p-8 shadow-lg">
+        <div class="gov-card-static p-6 sm:p-8">
             <div class="mb-5 sm:mb-6 text-center">
                 <img src="/app_icon.png" alt="CEDIMS" class="mx-auto h-12 w-12 sm:h-14 sm:w-14 rounded-xl shadow-sm mb-3 sm:mb-4" />
                 <div class="inline-flex items-center gap-2 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 mb-3">
                     <ShieldCheck size={14} class="text-gov-blue" />
-                    <span class="text-[10px] font-semibold uppercase tracking-wider text-gov-blue">Reset Password</span>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-gov-blue">Reset Password</span>
                 </div>
                 <h1 class="text-lg sm:text-xl font-semibold text-text-primary">Choose a new password</h1>
                 <p class="mt-1 text-xs sm:text-sm text-text-secondary">Must be at least 6 characters.</p>

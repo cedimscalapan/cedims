@@ -61,6 +61,7 @@
         created_at: string;
         week_number?: number;
         teaching_loads?: any;
+        profiles?: { school_id?: string | null; district_id?: string | null; role?: string | null } | { school_id?: string | null; district_id?: string | null; role?: string | null }[];
     }
 
     interface KPI {
@@ -187,7 +188,7 @@
                 supabase
                     .from("submissions")
                     .select(
-                        "id, user_id, file_name, doc_type, compliance_status, created_at, week_number, profiles!inner(school_id), teaching_loads(subject, grade_level)",
+                        "id, user_id, file_name, doc_type, compliance_status, created_at, week_number, profiles!inner(school_id, role, district_id), teaching_loads(subject, grade_level)",
                     )
                     .eq("profiles.school_id", userProfile.school_id)
                     .order("created_at", { ascending: false }),
@@ -237,7 +238,8 @@
             }
             // Additional filter for ISP/ISR: only show if School Head uploaded it
             const role = userProfile?.role || '';
-            return canViewUploadedISPISR(role, s.doc_type, s.user_id, userProfile?.id || '');
+            const uploader = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+            return canViewUploadedISPISR(role, userProfile?.id || '', s.user_id, uploader?.role || 'Teacher', s.doc_type, userProfile?.school_id || null, uploader?.school_id || userProfile?.school_id || null, userProfile?.district_id || null, uploader?.district_id || userProfile?.district_id || null);
         });
 
         // Calculate KPIs
@@ -518,7 +520,7 @@
         </div>
 
         {#if $profile?.role === 'School Head' && $profile?.school_id}
-        <div class="flex items-center gap-4 bg-surface-white p-4 rounded-2xl border border-border-subtle shadow-sm" in:fade>
+        <div class="flex items-center gap-4 bg-surface-white p-4 rounded-2xl border border-border-subtle shadow-sm">
             <ProfileUploader 
                 id={$profile.school_id}
                 bucket="avatars"
@@ -534,7 +536,7 @@
             />
             <div class="hidden sm:block">
                 <h4 class="text-sm font-bold text-text-primary uppercase tracking-tight">School Branding</h4>
-                <p class="text-[10px] text-text-muted font-medium">Official Institutional Logo</p>
+                <p class="text-xs text-text-muted font-medium">Official Institutional Logo</p>
             </div>
         </div>
         {/if}
@@ -559,14 +561,14 @@
         <!-- KPI Cards -->
         <!-- KPI Row -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-            <div in:fly={{ y: 20, duration: 400 }}>
+            <div>
                 <StatCard
                     icon="Users"
                     value={kpi.totalTeachers}
                     label="Total Teachers"
                 />
             </div>
-            <div in:fly={{ y: 20, duration: 400, delay: 100 }}>
+            <div>
                 <StatCard
                     icon="Activity"
                     value="{kpi.overallRate}%"
@@ -574,7 +576,7 @@
                     color="from-gov-green to-gov-green-dark"
                 />
             </div>
-            <div in:fly={{ y: 20, duration: 400, delay: 200 }}>
+            <div>
                 <StatCard
                     icon="Clock"
                     value={kpi.lateCount}
@@ -582,7 +584,7 @@
                     color="from-gov-gold to-gov-gold-dark"
                 />
             </div>
-            <div in:fly={{ y: 20, duration: 400, delay: 300 }}>
+            <div>
                 <StatCard
                     icon="ShieldAlert"
                     value={kpi.atRiskCount}
@@ -596,7 +598,6 @@
         {#if alertTeachers().length > 0}
             <div
                 class="gov-card-static bg-gov-gold/5 p-5 mb-8"
-                in:fade={{ duration: 500, delay: 400 }}
             >
                 <h3 class="text-sm font-bold text-gov-gold-dark mb-2">
                     Attention: {alertTeachers().length} teacher{alertTeachers()
@@ -626,7 +627,6 @@
             {#if $profile?.role === "Master Teacher"}
             <div
                 class="gov-card-static p-6"
-                in:fly={{ y: 20, duration: 500, delay: 500 }}
             >
                 <h3 class="text-lg font-bold text-text-primary mb-4">
                     Submissions by Week
@@ -648,7 +648,6 @@
             {:else}
             <div
                 class="gov-card-static p-6"
-                in:fly={{ y: 20, duration: 500, delay: 600 }}
             >
                 <h3 class="text-lg font-bold text-text-primary mb-4">
                     School vs Target
@@ -674,7 +673,6 @@
         <!-- Teacher Table -->
         <div
             class="gov-card-static overflow-hidden"
-            in:fade={{ duration: 500, delay: 700 }}
         >
             <div
                 class="px-6 py-4 border-b border-border-subtle flex items-center justify-between flex-wrap gap-3"
@@ -749,7 +747,7 @@
              best-to-worst ranking — clusterAnalytics.ts labels them by
              pattern ("Steadily Progressing", etc.), never by rank. -->
         {#if $profile?.role === "Master Teacher" && clusterReady && clusterResults.length > 0}
-            <div class="mt-8" in:fade={{ duration: 600 }}>
+            <div class="mt-8">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h3 class="text-lg font-bold text-text-primary">
@@ -830,4 +828,3 @@
         />
     {/if}
 </DrillDownModal>
-

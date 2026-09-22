@@ -1,5 +1,6 @@
 ﻿<script lang="ts">
     import { supabase, getRows } from "$lib/utils/supabase";
+    import PageHeader from '$lib/components/PageHeader.svelte';
     import { profile } from "$lib/utils/auth";
     import StatusBadge from "$lib/components/StatusBadge.svelte";
     import FolderCard from "$lib/components/FolderCard.svelte";
@@ -894,10 +895,7 @@
 
 <div>
     <!-- Header -->
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-text-primary">Archives</h1>
-        <p class="text-base text-text-secondary mt-1">{getSubtitle()}</p>
-    </div>
+    <PageHeader title="Archives" description={getSubtitle()} />
 
     <!-- Breadcrumb + Search Bar -->
     <div
@@ -1031,7 +1029,6 @@
         <!-- Folder Grid -->
         <div
             class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
-            in:fade={{ duration: 200 }}
         >
             {#each currentFolders as folder, i (folder.id)}
                 <FolderCard
@@ -1046,7 +1043,7 @@
         </div>
     {:else if filteredByPath.length === 0}
         <!-- Empty State -->
-        <div in:fade={{ duration: 300 }}>
+        <div>
             <EmptyState
                 icon={FolderOpen}
                 title={searchQuery ? "No matching files" : "This folder is empty"}
@@ -1062,12 +1059,10 @@
         <!-- File Grid -->
         <div
             class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-            in:fade={{ duration: 200 }}
         >
             {#each paginatedData as sub, i (sub.id)}
                 <div
                     class="gov-card p-0 overflow-hidden flex flex-col group h-[220px]"
-                    in:fly={{ y: 12, duration: 250, delay: i * 30 }}
                 >
                     <!-- Card Top: Icon & Status -->
                     <div
@@ -1085,7 +1080,7 @@
 
                         <!-- Centered Icon -->
                         <div
-                            class="w-14 h-14 rounded-md bg-gradient-to-br from-gov-blue/10 to-gov-blue/5 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-gov-blue/15 transition-[color,background-color,border-color,transform] duration-300 shadow-sm"
+                            class="w-14 h-14 rounded-md bg-gov-blue/10 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-gov-blue/15 transition-[color,background-color,border-color,transform] duration-300 shadow-sm"
                         >
                             <FileText size={28} class="text-gov-blue" />
                         </div>
@@ -1104,23 +1099,23 @@
                         >
                             {#if sub.doc_type === 'DLL'}
                                 {#if reviewsMap[sub.id]?.reviewer_comment}
-                                    <span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-[10px] font-bold rounded uppercase tracking-wider">
+                                    <span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold rounded uppercase tracking-wider">
                                         Checked
                                     </span>
                                 {:else}
-                                    <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold rounded uppercase tracking-wider">
+                                    <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-bold rounded uppercase tracking-wider">
                                         For Checking
                                     </span>
                                 {/if}
                             {/if}
                             <span
-                                class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-[10px] font-bold rounded uppercase tracking-wider"
+                                class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-xs font-bold rounded uppercase tracking-wider"
                             >
                                 {sub.doc_type}
                             </span>
                             {#if sub.week_number != null}
                                 <span
-                                    class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-[10px] font-bold rounded uppercase tracking-wider"
+                                    class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-bold rounded uppercase tracking-wider"
                                 >
                                     W{sub.week_number}
                                 </span>
@@ -1134,13 +1129,13 @@
                     >
                         <div class="flex flex-col">
                             <span
-                                class="text-[10px] font-semibold text-text-muted uppercase tracking-tight"
+                                class="text-xs font-semibold text-text-muted uppercase tracking-tight"
                             >
                                 {formatDate(sub.created_at)}
                             </span>
                             {#if sub.file_size}
                                 <span
-                                    class="text-[10px] text-text-muted/70 font-medium"
+                                    class="text-xs text-text-muted/70 font-medium"
                                 >
                                     {formatSize(sub.file_size)}
                                 </span>
@@ -1274,7 +1269,7 @@
                     </div>
                     <div class="p-4 bg-gov-gold/5 border border-gov-gold/20 rounded-xl">
                         <p class="text-sm text-text-primary leading-relaxed">{existingRemark}</p>
-                        <p class="text-[10px] text-text-muted mt-2 font-medium">Reviewed by supervisor</p>
+                        <p class="text-xs text-text-muted mt-2 font-medium">Reviewed by supervisor</p>
                     </div>
                     <div class="flex justify-end mt-4">
                         <button
@@ -1329,4 +1324,3 @@
         </div>
     </div>
 {/if}
-

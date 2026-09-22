@@ -24,13 +24,14 @@
         innerRadius = 50,
         outerRadius = 80,
         showPercent = true
-    } = $props<Props>();
+    }: Props = $props();
 
     const total = $derived(data.reduce((sum, d) => sum + d.value, 0));
 
     const slices = $derived.by(() => {
         let currentAngle = -Math.PI / 2;
-        const sliceList = [];
+        const sliceList: { path: string; color: string; labelX: number; labelY: number; percent: number; value: number; label: string }[] = [];
+        if (total <= 0) return sliceList;
 
         data.forEach(d => {
             const sliceAngle = (d.value / total) * Math.PI * 2;
@@ -99,7 +100,7 @@
 <div class="gov-card-static p-6">
     <h3 class="text-lg font-bold text-text-primary mb-6">{title}</h3>
 
-    {#if data.length === 0}
+    {#if data.length === 0 || total <= 0}
         <div class="text-center py-8">
             <p class="text-text-muted">No data available</p>
         </div>

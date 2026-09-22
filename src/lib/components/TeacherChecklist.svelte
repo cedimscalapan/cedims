@@ -148,23 +148,23 @@
         <div class="px-6 py-5 bg-surface-muted border-b border-border-subtle">
             <div class="grid grid-cols-5 gap-4">
                 <div>
-                    <p class="text-[10px] font-bold text-text-muted uppercase tracking-tight">Total Expected</p>
+                    <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Total Expected</p>
                     <p class="text-2xl font-bold text-text-primary mt-1">{statistics.total}</p>
                 </div>
                 <div>
-                    <p class="text-[10px] font-bold text-gov-green uppercase tracking-tight">Compliant</p>
+                    <p class="text-xs font-bold text-gov-green uppercase tracking-tight">Compliant</p>
                     <p class="text-2xl font-bold text-gov-green mt-1">{statistics.compliant}</p>
                 </div>
                 <div>
-                    <p class="text-[10px] font-bold text-gov-gold uppercase tracking-tight">Late</p>
+                    <p class="text-xs font-bold text-gov-gold uppercase tracking-tight">Late</p>
                     <p class="text-2xl font-bold text-gov-gold mt-1">{statistics.late}</p>
                 </div>
                 <div>
-                    <p class="text-[10px] font-bold text-gov-red uppercase tracking-tight">Missing</p>
+                    <p class="text-xs font-bold text-gov-red uppercase tracking-tight">Missing</p>
                     <p class="text-2xl font-bold text-gov-red mt-1">{statistics.missing}</p>
                 </div>
                 <div>
-                    <p class="text-[10px] font-bold text-text-muted uppercase tracking-tight">Compliance Rate</p>
+                    <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Compliance Rate</p>
                     <p class="text-2xl font-bold {complianceRate >= 80 ? 'text-gov-green' : complianceRate >= 50 ? 'text-gov-gold' : 'text-gov-red'} mt-1">{complianceRate}%</p>
                 </div>
             </div>
@@ -186,11 +186,11 @@
             <table class="w-full text-left border-collapse text-sm">
                 <thead>
                     <tr class="bg-surface-muted border-b border-border-subtle">
-                        <th class="py-2 px-3 text-[10px] font-bold text-text-muted uppercase tracking-widest sticky left-0 bg-surface-muted backdrop-blur-sm z-20 min-w-[120px] border-r border-border-subtle">
+                        <th class="py-2 px-3 text-xs font-bold text-text-muted uppercase tracking-normal sticky left-0 bg-surface-muted  z-20 min-w-[120px] border-r border-border-subtle">
                             Timeline
                         </th>
                         {#each uniqueSubjects as subject}
-                            <th class="py-2 px-3 text-[10px] font-bold text-text-muted uppercase tracking-widest text-center min-w-[110px]">
+                            <th class="py-2 px-3 text-xs font-bold text-text-muted uppercase tracking-normal text-center min-w-[110px]">
                                 <div class="truncate max-w-[160px] mx-auto" title={subject}>
                                     {subject}
                                 </div>
@@ -205,7 +205,7 @@
                                 <div class="flex flex-col">
                                     <span class="font-bold text-xs text-text-primary">Week {week.week_number}</span>
                                     {#if week.start_date && week.end_date}
-                                        <span class="text-[9px] text-text-muted font-medium mt-0.5 whitespace-nowrap">
+                                        <span class="text-xs text-text-muted font-medium mt-0.5 whitespace-nowrap">
                                             {new Date(week.start_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} - {new Date(week.end_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}
                                         </span>
                                     {/if}
@@ -217,7 +217,7 @@
                                 <td class="p-2 text-center border-l border-border-subtle/30 first:border-l-0 align-middle">
                                     <div class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full border {getStatusColor(status)} shadow-[0_1px_2px_rgba(0,0,0,0.02)] whitespace-nowrap transition-transform hover:scale-105 cursor-default">
                                         <Icon size={12} strokeWidth={2.5} />
-                                        <span class="text-[9px] font-bold uppercase tracking-widest">
+                                        <span class="text-xs font-bold uppercase tracking-normal">
                                             {getStatusLabel(status)}
                                         </span>
                                     </div>
@@ -232,7 +232,7 @@
     </div>
 
     <!-- Legend & Notes -->
-    <div class="px-6 py-4 bg-surface-muted border-t border-border-subtle text-[10px] text-text-muted space-y-2">
+    <div class="px-6 py-4 bg-surface-muted border-t border-border-subtle text-xs text-text-muted space-y-2">
         <p><strong>Compliant:</strong> Submitted on time</p>
         <p><strong>Late:</strong> Submitted after the deadline</p>
         <p><strong>Missing:</strong> No submission recorded for this week and subject</p>

@@ -1,6 +1,7 @@
 <script lang="ts">
-    import MobileTabBar from "$lib/components/MobileTabBar.svelte";
+    import MobileDrawer from "$lib/components/MobileDrawer.svelte";
     import AppHeader from "$lib/components/AppHeader.svelte";
+    import AppSidebar from "$lib/components/AppSidebar.svelte";
     import InstallPrompt from "$lib/components/InstallPrompt.svelte";
     import UpdatePrompt from "$lib/components/UpdatePrompt.svelte";
     import SystemWalkthrough from "$lib/components/SystemWalkthrough.svelte";
@@ -17,6 +18,8 @@
     import { onMount } from "svelte";
 
     let { children } = $props();
+    let sidebarCollapsed = $state(false);
+    let menuOpen = $state(false);
 
     // Auth guard — skip during password change to avoid redirect when supabase temporarily signs out
     $effect(() => {
@@ -76,25 +79,26 @@
          governs AppHeader vs <main>. AppHeader is the top bar at every width
          now (it carries the section nav itself at lg+), so <main> is
          full-width: there is no sidebar left to offset past. -->
-    <div class="min-h-dvh bg-surface flex flex-col">
+    <AppSidebar bind:collapsed={sidebarCollapsed} />
+    <div class="min-h-dvh bg-surface flex flex-col dashboard-shell" class:compact-nav={sidebarCollapsed}>
         <!-- Bottom tab bar — the nav surface below lg -->
-        <MobileTabBar />
+        <MobileDrawer bind:open={menuOpen} />
 
         <!-- Top bar at every width: logo, connectivity, theme, notifications
              and profile, plus the section nav itself at lg+. -->
-        <AppHeader />
+        <AppHeader onMenu={() => menuOpen = true} />
 
         <!-- Main content area — full-width; the nav is entirely in the top bar -->
         <main
             id="main-content"
-            class="flex-1 min-h-dvh flex flex-col bg-surface"
+            class="flex-1 min-w-0 flex flex-col bg-surface"
             aria-label="Dashboard content"
         >
             <!-- Content with proper spacing. Bottom padding clears the fixed
                  bottom tab bar below lg; at lg+ that bar is hidden (the top
                  bar's own nav takes over), so the clearance drops to the
                  ordinary section padding instead of wasting space. -->
-            <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-32 sm:pb-24 lg:pb-8 flex-1">
+            <div class="workspace-content w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 flex-1">
                 {@render children()}
             </div>
         </main>
@@ -107,3 +111,10 @@
         <SystemWalkthrough />
     </div>
 {/if}
+
+<style>
+    @media (min-width: 1024px) {
+        .dashboard-shell { margin-left: 232px; }
+        .dashboard-shell.compact-nav { margin-left: 72px; }
+    }
+</style>

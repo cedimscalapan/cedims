@@ -56,7 +56,7 @@
 						aria-hidden="true"
 					/>
 				</div>
-				<span class="text-[10px] font-semibold leading-tight"
+				<span class="text-xs font-semibold leading-tight"
 					>{item.label}</span
 				>
 			</a>
