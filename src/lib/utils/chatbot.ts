@@ -1971,9 +1971,18 @@ export function loadDllDocuments(docs: DllDocument[]) {
     dllSearchEngine.setDocuments(docs);
 }
 
+// Keep one request/index build per academic year for the lifetime of the SPA.
+// ChatBot is mounted in the root layout, but this guard also protects against
+// duplicate opens and hot route remounts racing the same expensive query.
+const dllDocumentsPromises = new Map<string, Promise<number>>();
+
 export async function loadDllDocumentsFromSupabase(db: SupabaseClient, schoolYear?: string): Promise<number> {
     const year = schoolYear || getDynamicSchoolYear();
-    const { data, error } = await db
+    const existing = dllDocumentsPromises.get(year);
+    if (existing) return existing;
+
+    const request = (async () => {
+      const { data, error } = await db
         .from('submissions')
         .select('id, subject, week_number, file_hash, raw_text, profiles!inner(full_name)')
         .not('raw_text', 'is', null)
@@ -1981,12 +1990,12 @@ export async function loadDllDocumentsFromSupabase(db: SupabaseClient, schoolYea
         .eq('school_year', year)
         .limit(1000);
 
-    if (error || !data) {
+      if (error || !data) {
         console.warn('[chatbot] Failed to load DLL documents:', error?.message);
         return 0;
-    }
+      }
 
-    const docs: DllDocument[] = data.map((r: any) => ({
+      const docs: DllDocument[] = data.map((r: any) => ({
         id: r.id,
         subject: r.subject || '',
         grade: '',
@@ -1995,9 +2004,13 @@ export async function loadDllDocumentsFromSupabase(db: SupabaseClient, schoolYea
         school: r.profiles?.schools?.name || 'Unknown',
         bodyText: r.raw_text,
         fileHash: r.file_hash
-    }));
+      }));
 
-    dllSearchEngine.setDocuments(docs);
-    console.log(`[chatbot] Loaded ${docs.length} documents into search engine`);
-    return docs.length;
+      dllSearchEngine.setDocuments(docs);
+      console.log(`[chatbot] Loaded ${docs.length} documents into search engine`);
+      return docs.length;
+    })();
+
+    dllDocumentsPromises.set(year, request);
+    return request;
 }

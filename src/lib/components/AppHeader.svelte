@@ -88,6 +88,8 @@
                 {@const NavIcon = item.icon}
                 <a
                     href={item.href}
+                    data-sveltekit-preload-data="hover"
+                    data-sveltekit-preload-code="hover"
                     data-nav={item.navKey || null}
                     class="flex items-center gap-2 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors {isActive(
                         item.href,

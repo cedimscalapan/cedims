@@ -35,8 +35,10 @@
 	<div class="flex items-center justify-around w-full px-0 py-0">
 		{#each mobileNavItems as item}
 			{@const MobileIcon = item.icon}
-			<a
-				href={item.href}
+                <a
+                    href={item.href}
+                    data-sveltekit-preload-data="hover"
+                    data-sveltekit-preload-code="hover"
 				class="mobile-nav-item {isActive(item.href) ? 'active' : ''}"
 				aria-current={isActive(item.href) ? "page" : undefined}
 				aria-label={item.label}
