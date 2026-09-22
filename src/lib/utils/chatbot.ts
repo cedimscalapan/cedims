@@ -658,6 +658,8 @@ export interface ChatResponse {
     lang: Lang;
     /** Present when the reply includes a downloadable report file. */
     attachments?: ChatAttachment[];
+    /** True when the question is outside Gabay's CEDIMS capabilities. */
+    outOfScope?: boolean;
 }
 
 export interface ChatContext {
@@ -1845,8 +1847,26 @@ export const intentClassifier = new IntentClassifier(intentModel as unknown as I
 export const dllSearchEngine = new DllSearchEngine();
 let dllEngineLoaded = false;
 
+const OUT_OF_SCOPE_PATTERNS = [
+    /\b(weather|forecast|temperature|rain|typhoon)\b/i,
+    /\b(recipe|cook|cooking|food|restaurant|movie|song|music lyrics|joke)\b/i,
+    /\b(president|politics|election|celebrity|news|stock|crypto|bitcoin)\b/i,
+    /\b(homework|essay|school assignment|solve this equation|math problem)\b/i,
+    /\b(write|debug|fix|generate)\s+(?:my\s+)?(?:code|program|script|html|css|javascript)\b/i,
+    /\b(translate|translation)\b/i,
+];
+const CEDIMS_SCOPE_TERMS = /\b(cedims|gabay|compliance|compliant|submission|submissions|submit|deadline|dll|lesson plan|academic calendar|school year|teacher|school head|district supervisor|upload|report|school|district|missing|late)\b/i;
+
+function isClearlyOutOfScope(text: string, intent: Intent, confidence: number): boolean {
+    if (OUT_OF_SCOPE_PATTERNS.some((pattern) => pattern.test(text))) return true;
+    return intent !== 'general_help' && confidence < 45 && !CEDIMS_SCOPE_TERMS.test(text);
+}
+
 export async function processQuery(text: string, ctx?: ChatContext): Promise<ChatResponse> {
-    const { intent, confidence } = intentClassifier.predict(text);
+    const prediction = intentClassifier.predict(text);
+    const outOfScope = isClearlyOutOfScope(text, prediction.intent, prediction.confidence);
+    const intent = prediction.intent;
+    const confidence = outOfScope ? 0 : prediction.confidence;
     const slots = extractSlots(text, intent, ctx?.memory);
 
     // Detect language from THIS message. A short reply like "oo" or "sige"
@@ -1869,7 +1889,11 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
     // definition entry) hijack a clear how-to-upload question with a
     // definition answer instead of the actual steps.
     const kbHit = matchKnowledgeBase(text, lang);
-    if (kbHit && (intent === 'general_help' || confidence < 40)) {
+    if (outOfScope) {
+        answer = lang === 'tl'
+            ? 'Ang tanong na ito ay wala sa saklaw ko. Ako si Gabay, ang CEDIMS assistant, at makakatulong ako sa compliance status, deadlines, paghahanap ng DLL, school comparisons, teacher statistics, academic calendar, uploads, at compliance reports.'
+            : 'That question is outside my scope. I’m Gabay, the CEDIMS assistant, and I can help with compliance status, submission deadlines, DLL searches, school comparisons, teacher statistics, the academic calendar, uploads, and compliance reports.';
+    } else if (kbHit && (intent === 'general_help' || confidence < 40)) {
         answer = kbHit;
     } else if (ctx?.supabase) {
         const dbResponse = await generateDatabaseResponse(intent, slots, ctx, text, lang);
@@ -1905,7 +1929,7 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
         }
     }
 
-    return { intent, confidence, answer, slots, lang, attachments };
+    return { intent, confidence, answer, slots, lang, attachments, outOfScope };
 }
 
 // Common short function words that must never be treated as fuzzy-match

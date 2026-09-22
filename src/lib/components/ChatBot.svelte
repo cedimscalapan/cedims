@@ -15,7 +15,7 @@
 
     let isOpen = $state(false);
     let hasOpenedOnce = $state(false);
-    let messages: { role: 'user' | 'bot'; text: string; intent?: Intent; attachments?: ChatAttachment[] }[] = $state([]);
+    let messages: { role: 'user' | 'bot'; text: string; intent?: Intent; attachments?: ChatAttachment[]; outOfScope?: boolean }[] = $state([]);
     let inputText = $state('');
     let inputEl: HTMLInputElement | undefined = $state();
     let launcherEl: HTMLButtonElement | undefined = $state();
@@ -50,6 +50,34 @@
         "Generate a compliance report",
         "Kailan ang susunod na deadline?"
     ];
+
+    const roleSuggestions: Record<string, string[]> = {
+        Teacher: [
+            "What is my compliance rate?",
+            "What DLL submissions are missing?",
+            "When is my next submission deadline?",
+            "How do I upload a DLL?",
+            "Find my DLLs about fractions",
+        ],
+        "School Head": [
+            "What is my school's compliance rate?",
+            "Show teacher statistics for my school",
+            "Which teachers have missing submissions?",
+            "When is the next submission deadline?",
+            "Generate a compliance report",
+        ],
+        "District Supervisor": [
+            "Compare schools in my district",
+            "Show district compliance statistics",
+            "Which schools have the lowest compliance?",
+            "When is the next submission deadline?",
+            "Generate a compliance report",
+        ],
+    };
+
+    function suggestionsForRole(): string[] {
+        return roleSuggestions[currentProfile?.role || ''] || suggestions;
+    }
 
     onMount(() => {
         messages.push({ role: 'bot', text: greeting, intent: 'general_help' });
@@ -150,7 +178,8 @@
                 role: 'bot',
                 text: response.answer,
                 intent: response.intent,
-                attachments: response.attachments
+                attachments: response.attachments,
+                outOfScope: response.outOfScope,
             });
             lastIntent = response.intent;
             lastSlots = response.slots;
@@ -327,11 +356,13 @@
             {/if}
 
             <!-- Suggestions on first message -->
-            {#if messages.length === 1}
+            {#if messages.length === 1 || messages.at(-1)?.outOfScope}
                 <div class="mt-3">
-                    <p class="text-xs text-text-muted font-semibold mb-2">Try asking:</p>
+                    <p class="text-xs text-text-muted font-semibold mb-2">
+                        {messages.at(-1)?.outOfScope ? 'Try one of these CEDIMS questions:' : 'Try asking:'}
+                    </p>
                     <div class="flex flex-wrap gap-1.5">
-                        {#each suggestions as s}
+                        {#each suggestionsForRole() as s}
                             <button
                                 onclick={() => applySuggestion(s)}
                                 class="text-xs bg-surface-white border border-border-subtle rounded-full px-3 py-1.5 text-text-secondary hover:bg-gov-blue/5 hover:border-gov-blue/30 hover:text-gov-blue transition-colors"
