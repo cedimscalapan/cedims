@@ -131,49 +131,27 @@ function pick<T>(arr: T[]): T {
 }
 
 const OPENERS: Record<Lang, string[]> = {
-    en: [
-        'Here you go!', 'Got it.', 'Sure thing!', 'Here’s what I found:', 'Of course!',
-        'Alright, let’s see.', 'No problem, here’s what I have.',
-        'Okay, pulled it up for you.', 'Here’s the latest.', 'Right, here we go.'
+    "en": [
+        "Certainly."
     ],
-    tl: [
-        'Heto na!', 'Ayan, nakuha ko na.', 'Sige, tignan natin.', 'Eto ang nakita ko:',
-        'Ok lang, ayos na.', 'Heto, nakuha ko na ang kailangan mo.', 'Sandali, eto na.',
-        'Ayan, updated na.', 'Ito ang bagong data.'
+    "tl": [
+        "Narito po ang impormasyon."
     ]
 };
 const LOW_CONFIDENCE_PREFIXES: Record<Lang, string[]> = {
-    en: [
-        'I think you might be asking about',
-        'I’m not 100% sure, but this looks related to',
-        'If I understand you correctly, you’re asking about',
-        'I think you mean',
-        'Correct me if I’m wrong: sounds like you’re asking about',
-        'Let me take a guess: this seems to be about'
+    "en": [
+        "Please confirm whether your question concerns"
     ],
-    tl: [
-        'Sa tingin ko, tungkol ito sa',
-        'Medyo hindi ako sigurado, pero mukhang tungkol ito sa',
-        'Kung tama ang pagkaunawa ko, tinatanong mo ang tungkol sa',
-        'Baka ito ang ibig mong sabihin:',
-        'Tama ba kung tungkol ito sa'
+    "tl": [
+        "Pakikumpirma po kung ang inyong tanong ay tungkol sa"
     ]
 };
 const LOW_CONFIDENCE_SUFFIXES: Record<Lang, string[]> = {
-    en: [
-        'If that wasn’t what you meant, just rephrase it and I’ll give it another go.',
-        'Let me know if I got that right.',
-        'If I misread you, try rephrasing in a different way.',
-        'Does that sound about right?',
-        'Feel free to correct me if I’m off.',
-        'Just say the word if you meant something else.'
+    "en": [
+        "If you meant a different topic, please clarify your question."
     ],
-    tl: [
-        'Sabihin mo lang kung mali ako, aayusin ko agad.',
-        'Sabihin mo kung tama ba ‘to.',
-        'Kung mali ang pagkakaintindi ko, ulitin mo na lang sa ibang paraan.',
-        'Tama ba ang nahulaan ko?',
-        'Puwede mo akong itama kung kailangan.'
+    "tl": [
+        "Kung ibang paksa po ang inyong tinutukoy, pakilinaw ang inyong tanong."
     ]
 };
 const INTENT_TOPIC_LABELS: Record<Lang, Record<Intent, string>> = {
@@ -201,20 +179,11 @@ const INTENT_TOPIC_LABELS: Record<Lang, Record<Intent, string>> = {
     }
 };
 const CONFUSED_RESPONSES: Record<Lang, string[]> = {
-    en: [
-        'Hmm, I’m not quite sure I caught that. Could you rephrase it for me?',
-        'I didn’t quite understand that. Try asking in a different way.',
-        'That one’s a little fuzzy for me. Can you say it another way?',
-        'I’m having trouble parsing that. Try something like, “What is my compliance rate?”',
-        'I’m drawing a blank on that one. Mind rewording it?',
-        'That went a little over my head. Try asking about compliance, deadlines, DLLs, or schools?'
+    "en": [
+        "I could not determine your request. Please rephrase your question or ask about CEDIMS submissions, deadlines, or compliance."
     ],
-    tl: [
-        'Pasensya na, hindi ko masyadong nakuha ‘yan. Puwede mo bang ulitin sa ibang paraan?',
-        'Hindi ko masyadong naintindihan ‘yan. Subukan mong itanong sa ibang paraan.',
-        'Medyo malabo sa akin ‘yan. Puwede mo bang sabihin ulit?',
-        'Nahihirapan akong intindihin ‘yan. Subukan mo, “Ano ang compliance rate ko?”',
-        'Blangko ako diyan. Puwede mo bang i-rephrase?'
+    "tl": [
+        "Paumanhin po, hindi ko matukoy ang inyong kahilingan. Pakilinaw ang inyong tanong tungkol sa submissions, deadlines, o compliance sa CEDIMS."
     ]
 };
 
@@ -238,8 +207,8 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Think of a DLL as your weekly proof of teaching plans: one per subject, per week.'
             ],
             tl: [
-                'Ang DLL (Daily Lesson Log) ay ang lingguhang banghay-aralin na kailangan mong i-submit para sa bawat asignatura, ginagamit para i-monitor ang compliance mo.',
-                'Ang DLL ay ang lesson plan mo bawat linggo, per subject. Chinecheck ng system ang subject, grade, at week nito laban sa teaching load mo.',
+                'Ang DLL (Daily Lesson Log) ay ang lingguhang banghay-aralin na kailangan ninyong i-submit para sa bawat asignatura, ginagamit para i-monitor ang compliance ninyo.',
+                'Ang DLL ay ang lesson plan ninyo bawat linggo, per subject. Chinecheck ng system ang subject, grade, at week nito laban sa teaching load ninyo.',
                 'DLL ang tawag sa lingguhang lesson plan: isa ito bawat subject, bawat linggo, kailangan i-submit para sa compliance.'
             ]
         }
@@ -278,8 +247,8 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Here’s the formula in plain terms: (compliant + late submissions) ÷ (teaching loads × calendar weeks) × 100. Submitting late still counts toward the rate. It’s only the ones you never submit that drag it down.'
             ],
             tl: [
-                'Ang compliance ay ang aktwal mong na-submit hinati sa inaasahan (ang inaasahan ay ang active teaching loads mo × bilang ng linggo sa academic calendar). On time = compliant, huli = late, hindi na-submit = missing.',
-                'Simpleng bersyon: kung ilan sa mga inaasahang DLL mo ang na-submit mo, on time man o late, iyan ang compliance rate mo. Extra ("Supplementary") DLLs ay hindi nakakaapekto rito.'
+                'Ang compliance ay ang aktwal ninyong na-submit hinati sa inaasahan (ang inaasahan ay ang active teaching loads ninyo × bilang ng linggo sa academic calendar). On time = compliant, huli = late, hindi na-submit = missing.',
+                'Simpleng bersyon: kung ilan sa mga inaasahang DLL ninyo ang na-submit ninyo, on time man o late, iyan ang compliance rate ninyo. Extra ("Supplementary") DLLs ay hindi nakakaapekto rito.'
             ]
         }
     },
@@ -291,8 +260,8 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'No signal? No problem. The app queues your uploads on your device and pushes them to the server as soon as you reconnect. You don’t need to redo anything.'
             ],
             tl: [
-                'Puwede ka pa ring mag-upload kahit walang internet: ise-save muna ito sa iyong device, tapos automatic na mag-sync pagbalik ng connection.',
-                'Walang signal? Okay lang. Ise-save muna ng app ang upload mo sa device mo, tapos ipapadala ito sa server pagbalik ng koneksyon. Hindi mo na kailangang ulitin.'
+                'Puwede kayo pa ring mag-upload kahit walang internet: ise-save muna ito sa inyong device, tapos automatic na mag-sync pagbalik ng connection.',
+                'Kung walang koneksyon, Ise-save muna ng app ang upload ninyo sa device ninyo, tapos ipapadala ito sa server pagbalik ng koneksyon. Hindi ninyo na kailangang ulitin.'
             ]
         }
     },
@@ -318,7 +287,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
             ],
             tl: [
                 'Sa Archive, "For Checking" muna ang isang dokumento hanggang may maidagdag na remark ang reviewer. Pag may remark na, magiging "Checked" ito. Walang hiwalay na approval, ang pagdagdag ng remark na mismo ang review.',
-                'Dalawa lang ang status: "For Checking" (wala pang remark) at "Checked" (may naikomento na ang reviewer). Simple lang. Walang ibang approval step.'
+                'Dalawa lang ang status: "For Checking" (wala pang remark) at "Checked" (may naikomento na ang reviewer). Walang hiwalay na approval step.'
             ]
         }
     },
@@ -327,11 +296,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         answers: {
             en: [
                 'A "Supplementary" submission is an extra DLL for a week/subject that already has one on file: it’s kept for reference but never counts toward your compliance rate, upload totals, or a "missing" mark.',
-                'Nag-upload ka ba ng pangalawang DLL sa parehong linggo at subject? That extra one gets tagged "Supplementary": it’s just extra documentation, it won’t hurt or help your compliance number.'
+                'Nag-upload kayo ba ng pangalawang DLL sa parehong linggo at subject? That extra one gets tagged "Supplementary": it’s just extra documentation, it won’t hurt or help your compliance number.'
             ],
             tl: [
                 'Ang "Supplementary" ay dagdag na DLL para sa linggo/subject na may na-submit na: itinatago ito bilang reference pero hindi ito nabibilang sa compliance rate, total uploads, o "missing" mark.',
-                'Nag-upload ka ba ng pangalawang DLL sa parehong linggo at subject? Ito ay tatawaging "Supplementary": extra documentation lang ito, hindi nakakaapekto sa compliance number mo.'
+                'Nag-upload kayo ba ng pangalawang DLL sa parehong linggo at subject? Ito ay tatawaging "Supplementary": extra documentation lang ito, hindi nakakaapekto sa compliance number ninyo.'
             ]
         }
     },
@@ -343,8 +312,8 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'That depends on the week: ask me about a specific week or the next one coming up, and I’ll check the academic calendar live.'
             ],
             tl: [
-                'Ang mga deadline ay batay sa academic calendar na itinakda ng distrito mo. Tanungin mo ako ng “Kailan ang susunod na deadline?” at kukunin ko agad ang eksaktong petsa.',
-                'Depende sa linggo: tanungin mo ako tungkol sa specific na linggo o sa susunod, at che-check ko agad ang academic calendar.'
+                'Ang mga deadline ay batay sa academic calendar na itinakda ng distrito ninyo. Tanungin ninyo ako ng “Kailan ang susunod na deadline?” at kukunin ko agad ang eksaktong petsa.',
+                'Depende sa linggo: tanungin ninyo ako tungkol sa specific na linggo o sa susunod, at che-check ko agad ang academic calendar.'
             ]
         }
     },
@@ -352,12 +321,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['greeting', 'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'kamusta', 'kumusta'],
         answers: {
             en: [
-                'Hello! I’m Gabay, your CEDIMS assistant. I can check your compliance, find DLLs, look up deadlines, compare schools, and show teacher stats. What would you like to know?',
-                'Hey there! Ask me anything about your submissions, deadlines, or how the system works. Happy to help.'
+                'Hello. I’m Gabay, your CEDIMS assistant. I can check your compliance, find DLLs, look up deadlines, compare schools, and show teacher stats. What would you like to know?',
+                'Hello. You may ask about your submissions, deadlines, or how the system works.'
             ],
             tl: [
-                'Kumusta! Ako si Gabay. Puwede mo akong tanungin tungkol sa compliance mo, deadlines, o kahit ano tungkol sa CEDIMS.',
-                'Hoy, kumusta! Itanong mo lang sa akin ang tungkol sa submissions, deadlines, o kung paano gumagana ang system. Masaya akong tumulong.'
+                'Magandang araw po. Ako si Gabay, ang CEDIMS assistant. Paano ko po kayo matutulungan sa compliance, submissions, o deadlines?',
+                'Magandang araw po. Maaari ninyo akong tanungin tungkol sa submissions, deadlines, at paggamit ng CEDIMS.'
             ]
         }
     },
@@ -365,14 +334,14 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['salamat', 'thanks', 'thank you', 'maraming salamat', 'thank u'],
         answers: {
             en: [
-                'You’re welcome! Anything else I can help you check?',
-                'Happy to help! Let me know if you need anything else.',
-                'Anytime! Ask me if anything else comes up.'
+                'You are welcome. May I assist you with another CEDIMS question?',
+                'I am pleased to assist. Please let me know if you have another CEDIMS question.',
+                'You are welcome. Please let me know if you require further assistance.'
             ],
             tl: [
-                'Walang anuman! May iba ka pa bang gustong i-check?',
-                'Masaya akong makatulong! Sabihin mo lang kung may kailangan ka pa.',
-                'Ayos lang yan! Tanungin mo lang ako kung may iba ka pang katanungan.'
+                'Walang anuman po. May iba pa po ba kayong nais suriin?',
+                'Ikinagagalak ko pong makatulong. Mangyaring ipaalam kung may kailangan pa kayo.',
+                'Walang anuman po. Maaari kayong magtanong tungkol sa iba pang feature ng CEDIMS.'
             ]
         }
     },
@@ -380,11 +349,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['who are you', 'your name', 'about yourself', 'what are you', 'sino ka', 'tell me about you'],
         answers: {
             en: [
-                'I’m Gabay (Filipino for "guide"). I live right in the app and answer using live data, no separate internet bill needed. Ask me anything about compliance, DLLs, deadlines, or school performance!'
+                'I am Gabay, the CEDIMS assistant. I can help with submissions, compliance, deadlines, and the records available to your role.'
             ],
             tl: [
-                'Gabay ang pangalan ko, parang katulong mong laging nasa app, tutulong sayo mag-check ng compliance, maghanap ng DLL, o mag-alam ng deadlines.',
-                'Ako si Gabay, ang CEDIMS assistant mo. Nabubuhay ako dito mismo sa app at sumasagot gamit ang live na datos. Tanungin mo lang ako ng kahit ano tungkol sa system.'
+                'Ako po si Gabay, ang CEDIMS assistant. Makakatulong ako sa pagsusuri ng compliance, paghahanap ng DLL, at pagtukoy ng deadlines.',
+                'Ako po si Gabay, ang CEDIMS assistant. Maaari ninyo akong tanungin tungkol sa mga feature at tala na saklaw ng inyong account.'
             ]
         }
     },
@@ -396,7 +365,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Quick rundown: green means Compliant, gold/amber means Late, red means Missing, and blue usually means Supplementary or Under Review.'
             ],
             tl: [
-                'Ang mga status na makikita mo: Compliant (naisumite sa oras), Late (naisumite pero pagkatapos ng deadline), Missing (hindi pa naisusumite), Supplementary (dagdag na kopya), at Pending/Under Review habang pinoproseso.',
+                'Ang mga status na makikita ninyo: Compliant (naisumite sa oras), Late (naisumite pero pagkatapos ng deadline), Missing (hindi pa naisusumite), Supplementary (dagdag na kopya), at Pending/Under Review habang pinoproseso.',
                 'Mabilisang gabay: berde ay Compliant, ginto/amber ay Late, pula ay Missing, at asul ay karaniwang Supplementary o Under Review.'
             ]
         }
@@ -410,7 +379,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
             ],
             tl: [
                 'Ang CEDIMS ay Calapan East District Instructional Monitoring System: dito nagsusumite ng DLL ang mga guro at sinusubaybayan ng mga supervisor ang compliance sa buong paaralan.',
-                'Ito ang CEDIMS: parang digital na tahanan para sa DLL submissions, pagsubaybay ng deadline, at compliance monitoring, para wala nang kailangang maghabol ng papeles.'
+                'Ang CEDIMS ay isang sistema para sa DLL submissions, pagsubaybay sa deadlines, at compliance monitoring ng paaralan at distrito.'
             ]
         }
     },
@@ -422,8 +391,8 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'The bottom (or side) nav is your main way around: Dashboard for the overview, Archive/Submissions for documents, Analytics for trends and clusters if you’re a supervisor, and Settings for your account.'
             ],
             tl: [
-                'Ang Dashboard ay ang home screen: dito makikita ang compliance rate mo (o ng paaralan/distrito), recent activity, at mabilisang stats. Nagbabago ang mga tab depende sa role mo.',
-                'Ang nav sa ibaba (o gilid) ang pangunahing daan mo: Dashboard para sa overview, Archive/Submissions para sa dokumento, Analytics para sa trends kung supervisor ka, at Settings para sa account mo.'
+                'Ang Dashboard ay ang home screen: dito makikita ang compliance rate ninyo (o ng paaralan/distrito), recent activity, at mabilisang stats. Nagbabago ang mga tab depende sa role ninyo.',
+                'Ang nav sa ibaba (o gilid) ang pangunahing daan ninyo: Dashboard para sa overview, Archive/Submissions para sa dokumento, Analytics para sa trends kung supervisor kayo, at Settings para sa account ninyo.'
             ]
         }
     },
@@ -475,7 +444,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
             ],
             tl: [
                 'Ang Admin panel (para lang sa District Supervisors) ay may tatlong tab: Settings para sa system-wide options, Users para sa paggawa ng account at pamamahala ng role, at Calendar para sa academic calendar.',
-                'Gusto mong magdagdag ng bagong teacher account o baguhin ang role/school ng isang tao? Nasa Admin → Users ang lahat niyan.'
+                'Gusto ninyong magdagdag ng bagong teacher account o baguhin ang role/school ng isang tao? Nasa Admin → Users ang lahat niyan.'
             ]
         }
     },
@@ -487,7 +456,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Notifications fire mainly around deadline changes: a supervisor opens or updates a week, and everyone affected gets pinged.'
             ],
             tl: [
-                'May notification ka kapag na-update ang deadline o may bagong linggo na bumukas para sa submissions. Tingnan ang bell icon sa taas para sa mga alerto mo.',
+                'May notification kayo kapag na-update ang deadline o may bagong linggo na bumukas para sa submissions. Tingnan ang bell icon sa taas para sa mga alerto ninyo.',
                 'Karaniwang tumutunog ang notification kapag may binago sa deadline: nag-o-open o nag-a-update ang supervisor ng linggo, at nade-notify ang lahat ng apektado.'
             ]
         }
@@ -500,8 +469,8 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Yes, dark mode is built in. Look for the toggle near the notification bell.'
             ],
             tl: [
-                'May light/dark mode toggle (ang moon/sun icon) sa taas. Pindutin mo lang para lumipat ng theme kahit kailan.',
-                'Oo, meron dark mode. Hanapin mo ang toggle malapit sa notification bell.'
+                'May light/dark mode toggle (ang moon/sun icon) sa taas. Pindutin ninyo lang para lumipat ng theme kahit kailan.',
+                'Oo, meron dark mode. Hanapin ninyo ang toggle malapit sa notification bell.'
             ]
         }
     },
@@ -513,7 +482,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Scanning a document’s QR code pulls up its verification page, so anyone can confirm it’s a genuine, unaltered submission.'
             ],
             tl: [
-                'Ang QR scanner ay nagpapahintulot sa iyong i-verify agad ang tunay na dokumento sa pamamagitan ng pag-scan ng code dito. Hanapin mo ang scan option sa navigation.',
+                'Ang QR scanner ay nagpapahintulot sa inyong i-verify agad ang tunay na dokumento sa pamamagitan ng pag-scan ng code dito. Hanapin ninyo ang scan option sa navigation.',
                 'Kapag na-scan ang QR code ng dokumento, lalabas ang verification page nito, para masiguro ng lahat na tunay at hindi binago ang submission.'
             ]
         }
@@ -526,8 +495,8 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Each active teaching load is one more expected DLL per week. If your compliance math looks off, it’s worth double-checking your teaching loads are set up correctly.'
             ],
             tl: [
-                'Ang teaching loads mo ay ang kombinasyon ng subject at grade level na naka-assign sa iyo: dito hinahango ang "expected submissions", kaya siguraduhing tama at active ang mga ito.',
-                'Bawat active na teaching load ay isa pang inaasahang DLL kada linggo. Kung mukhang mali ang compliance mo, siguraduhing tama ang setup ng teaching loads mo.'
+                'Ang teaching loads ninyo ay ang kombinasyon ng subject at grade level na naka-assign sa inyo: dito hinahango ang "expected submissions", kaya siguraduhing tama at active ang mga ito.',
+                'Bawat active na teaching load ay isa pang inaasahang DLL kada linggo. Kung mukhang mali ang compliance ninyo, siguraduhing tama ang setup ng teaching loads ninyo.'
             ]
         }
     },
@@ -545,8 +514,8 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Locked out? Try "Forgot Password" on the login page first. If that doesn’t work, your district supervisor can reset your account from Admin.'
             ],
             tl: [
-                'Puwede mong i-reset ang password mo sa "Forgot Password" na link sa login screen, o hilingin sa District Supervisor mo: puwede niyang i-reset ito mula sa Admin → Users.',
-                'Naka-lock ka ba? Subukan mo muna ang "Forgot Password" sa login page. Kung hindi gumana, puwedeng i-reset ng district supervisor mo ang account mo mula sa Admin.'
+                'Puwede ninyong i-reset ang password ninyo sa "Forgot Password" na link sa login screen, o hilingin sa District Supervisor ninyo: puwede niyang i-reset ito mula sa Admin → Users.',
+                'Naka-lock kayo ba? Subukan ninyo muna ang "Forgot Password" sa login page. Kung hindi gumana, puwedeng i-reset ng district supervisor ninyo ang account ninyo mula sa Admin.'
             ]
         }
     },
@@ -558,8 +527,8 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Nobody outside your school/district chain can see your submissions. Access is scoped strictly by role.'
             ],
             tl: [
-                'Ang visibility ay nakabatay sa role at hierarchy mo: nakikita lang ng Teacher ang sariling dokumento, nakikita ng School Head ang paaralan niya, at nakikita ng District Supervisor ang buong distrito.',
-                'Walang makakakita ng submissions mo sa labas ng school/district chain mo. Mahigpit itong nakabatay sa role.'
+                'Ang visibility ay nakabatay sa role at hierarchy ninyo: nakikita lang ng Teacher ang sariling dokumento, nakikita ng School Head ang paaralan niya, at nakikita ng District Supervisor ang buong distrito.',
+                'Walang makakakita ng submissions ninyo sa labas ng school/district chain ninyo. Mahigpit itong nakabatay sa role.'
             ]
         }
     },
@@ -575,8 +544,8 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'Late is still better than missing: a late submission still counts toward your compliance rate, but an un-submitted one counts as missing and drags your rate down further.'
             ],
             tl: [
-                'Kapag na-miss mo ang deadline, magiging "Late" ang submission mo kapag na-submit mo rin, o "Missing" kung hindi. Pareho itong nakakaapekto sa compliance rate mo, pero hindi ka i-loloko o pipenalize ng system.',
-                'Mas mabuti pa rin ang late kaysa missing: nabibilang pa rin ang late submission sa compliance rate mo, pero ang hindi na-submit ay bumababa nang husto ang rate mo.'
+                'Ang dokumentong naisumite pagkatapos ng deadline ay may status na "Late". Ang inaasahang dokumentong hindi pa naisusumite ay "Missing". Nabibilang ang late submission sa compliance rate, ngunit hiwalay itong nakatala sa on-time submissions.',
+                'Mas mabuti pa rin ang late kaysa missing: nabibilang pa rin ang late submission sa compliance rate ninyo, pero ang hindi na-submit ay bumababa nang husto ang rate ninyo.'
             ]
         }
     },
@@ -600,7 +569,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'The requirement to prepare a Daily Lesson Log (or a more detailed Lesson Plan) comes from DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," issued under RA 10533 (the Enhanced Basic Education Act of 2013). It sets out what a lesson plan needs to cover (objectives, content, learning resources, procedure, and reflection) and affirms the teacher\'s role as a facilitator of learning. Specific submission deadlines and monitoring (like what this system tracks) are set locally by your school/division, not by this order itself. Full text: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
             ],
             tl: [
-                'Ang requirement na maghanda ng Daily Lesson Log (o mas detalyadong Lesson Plan) ay galing sa DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," base sa RA 10533 (Enhanced Basic Education Act of 2013). Nakasaad dito ang mga dapat nasa lesson plan: layunin, nilalaman, learning resources, proseso, at reflection. Ang mga specific na deadline at monitoring (tulad ng tina-track ng system na ito) ay itinatakda ng iyong paaralan/dibisyon, hindi ng order mismo. Buong teksto: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
+                'Ang requirement na maghanda ng Daily Lesson Log (o mas detalyadong Lesson Plan) ay galing sa DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," base sa RA 10533 (Enhanced Basic Education Act of 2013). Nakasaad dito ang mga dapat nasa lesson plan: layunin, nilalaman, learning resources, proseso, at reflection. Ang mga specific na deadline at monitoring (tulad ng tina-track ng system na ito) ay itinatakda ng inyong paaralan/dibisyon, hindi ng order mismo. Buong teksto: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
             ]
         }
     },
@@ -837,8 +806,8 @@ function extractSlots(text: string, intent: Intent, memory?: ChatContext['memory
 
 function generateTemplateResponse(intent: Intent, slots: Record<string, string>, lang: Lang = 'en'): string {
     const templatesEn: Record<Intent, () => string> = {
-        ask_compliance: () => pick(["Let me check your compliance data. One moment.", "On it! Checking your compliance records now.", "Sure, pulling up your compliance status."]),
-        check_deadline: () => pick(["Let me look up the deadlines from the academic calendar.", "Checking the calendar for deadlines.", "On it, grabbing the deadline dates for you."]),
+        ask_compliance: () => pick(["Let me check your compliance data. One moment.", "I will check your compliance records.", "I will retrieve your compliance status."]),
+        check_deadline: () => pick(["Let me look up the deadlines from the academic calendar.", "Checking the calendar for deadlines.", "I will look up the submission deadlines."]),
         find_dll: () => {
             let filters = '';
             if (slots.subject) filters += ` for ${slots.subject}`;
@@ -855,14 +824,14 @@ function generateTemplateResponse(intent: Intent, slots: Record<string, string>,
             return pick(["Let me gather the teacher submission statistics.", "Pulling up teacher stats.", "Fetching teacher performance data."]);
         },
         calendar_info: () => pick(["Let me check the academic calendar for you.", "Looking at the school calendar now.", "Let me pull up the academic calendar."]),
-        how_to_upload: () => "Uploading a DLL is simple. Head over to the Upload page, then drag and drop your .docx or .pdf file. The system will automatically detect the subject, grade level, and week from the document. You will have a chance to review the extracted information before finalizing the upload. If you are offline, no worries: the document will be saved locally and will sync automatically once you are back online.",
+        how_to_upload: () => "Uploading a DLL is simple. Please open the Upload page, then drag and drop your .docx or .pdf file. The system will automatically detect the subject, grade level, and week from the document. You will have a chance to review the extracted information before finalizing the upload. If you are offline, the document will be saved locally and will sync automatically once you are back online.",
         create_report: () => "Generating a report needs a live connection so I can pull current compliance data. Please try again once you're back online.",
-        general_help: () => "I’m here to help with a bunch of things. I can check your compliance rate, look up deadlines, find DLLs, compare schools, show teacher stats, or generate a compliance report. Try asking something like, “What is my compliance rate?” or “When is the next deadline?”"
+        general_help: () => "I can assist with CEDIMS-related questions. I can check your compliance rate, look up deadlines, find DLLs, compare schools, show teacher stats, or generate a compliance report. Try asking something like, “What is my compliance rate?” or “When is the next deadline?”"
     };
 
     const templatesTl: Record<Intent, () => string> = {
-        ask_compliance: () => pick(["Sandali lang, che-check ko ang compliance data mo.", "Sige! Tinitignan ko na ang compliance records mo.", "Ok, kinukuha ko ang compliance status mo."]),
-        check_deadline: () => pick(["Titignan ko ang mga deadline sa academic calendar.", "Chineck ko ang calendar para sa deadlines.", "Sige, kinukuha ko ang deadline dates mo."]),
+        ask_compliance: () => pick(["Susuriin ko po ang inyong compliance data.", "Susuriin ko po ang inyong compliance records.", "Kukunin ko po ang inyong compliance status."]),
+        check_deadline: () => pick(["Titignan ko ang mga deadline sa academic calendar.", "Chineck ko ang calendar para sa deadlines.", "Kukunin ko po ang inyong mga deadline."]),
         find_dll: () => {
             let filters = '';
             if (slots.subject) filters += ` para sa ${slots.subject}`;
@@ -872,16 +841,16 @@ function generateTemplateResponse(intent: Intent, slots: Record<string, string>,
         },
         school_compare: () => {
             if (slots.school) return pick([`Kinukuha ko ang compliance data para sa ${slots.school}.`, `Chineck ko kung kumusta ang ${slots.school}.`]);
-            return pick(["Ihahambing ko ang compliance rates ng mga paaralan sa distrito mo.", "Kinukumpara ko ngayon ang mga paaralan sa distrito.", "Kinukuha ko ang school comparison data."]);
+            return pick(["Ihahambing ko ang compliance rates ng mga paaralan sa distrito ninyo.", "Kinukumpara ko ngayon ang mga paaralan sa distrito.", "Kinukuha ko ang school comparison data."]);
         },
         teacher_stats: () => {
             if (slots.teacher) return pick([`Hinahanap ko ang submission records ni ${slots.teacher}.`, `Chineck ko ang stats ni ${slots.teacher}.`]);
             return pick(["Kinukuha ko ang teacher submission statistics.", "Kinukuha ko ang teacher stats.", "Kinukuha ko ang performance data ng mga guro."]);
         },
         calendar_info: () => pick(["Titignan ko ang academic calendar para sa'yo.", "Tinitignan ko na ang school calendar.", "Kinukuha ko ang academic calendar."]),
-        how_to_upload: () => "Madali lang mag-upload ng DLL. Pumunta ka sa Upload page, tapos i-drag and drop ang .docx o .pdf file mo. Awtomatikong made-detect ng system ang subject, grade level, at linggo mula sa dokumento. Puwede mo pang i-review ang na-extract na impormasyon bago i-finalize ang upload. Kung offline ka, huwag mag-alala: mase-save muna ito sa device mo at awtomatikong mag-sy-sync pagbalik ng internet.",
-        create_report: () => "Kailangan ng live connection para makabuo ng report, para makuha ko ang kasalukuyang compliance data. Subukan ulit pag-online ka na.",
-        general_help: () => "Nandito ako para tumulong sa maraming bagay. Puwede kong i-check ang compliance rate mo, hanapin ang mga deadline, maghanap ng DLL, ikumpara ang mga paaralan, ipakita ang teacher stats, o gumawa ng compliance report. Subukan mong itanong, “Ano ang compliance rate ko?” o “Kailan ang susunod na deadline?”"
+        how_to_upload: () => "Upang mag-upload ng DLL, buksan po ang Upload page at piliin ang inyong .docx o .pdf file. Susuriin ng system ang subject, grade level, at linggo sa dokumento. Pakisuri ang nakuhang impormasyon bago kumpirmahin ang submission. Kung offline, ise-save muna ang dokumento sa inyong device at magsi-sync kapag bumalik ang koneksyon.",
+        create_report: () => "Kailangan po ng koneksyon upang makuha ang kasalukuyang compliance data para sa report. Mangyaring subukan muli kapag online na.",
+        general_help: () => "Nandito ako para tumulong sa maraming bagay. Puwede kong i-check ang compliance rate ninyo, hanapin ang mga deadline, maghanap ng DLL, ikumpara ang mga paaralan, ipakita ang teacher stats, o gumawa ng compliance report. Subukan ninyong itanong, “Ano ang compliance rate ko?” o “Kailan ang susunod na deadline?”"
     };
 
     const templates = lang === 'tl' ? templatesTl : templatesEn;
@@ -905,7 +874,7 @@ async function queryCompliance(
     slots: Record<string, string>,
     lang: Lang = 'en'
 ): Promise<string> {
-    if (!userId) return lang === 'tl' ? 'Mag-login ka muna para ma-check ang compliance rate mo.' : 'Please log in to check your compliance rate.';
+    if (!userId) return lang === 'tl' ? 'Mangyaring mag-sign in upang masuri ang inyong compliance rate.' : 'Please log in to check your compliance rate.';
 
     const role = profile?.role;
     const schoolYear = getDynamicSchoolYear();
@@ -921,24 +890,24 @@ async function queryCompliance(
             .from('profiles')
             .select('id')
             .eq('school_id', profile.school_id);
-        if (!teacherIds || teacherIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa paaralan mo.' : 'No teachers found in your school.';
+        if (!teacherIds || teacherIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa paaralan ninyo.' : 'No teachers found in your school.';
         userFilter = teacherIds.map((t: any) => t.id);
-        scopeLabel = lang === 'tl' ? 'Ang compliance ng paaralan mo' : 'Your school\'s';
+        scopeLabel = lang === 'tl' ? 'Ang compliance ng paaralan ninyo' : 'Your school\'s';
     } else if (role === 'District Supervisor' && districtId) {
         const { data: schoolIds } = await db
             .from('schools')
             .select('id')
             .eq('district_id', districtId);
-        if (!schoolIds || schoolIds.length === 0) return lang === 'tl' ? 'Walang nahanap na paaralan sa distrito mo.' : 'No schools found in your district.';
+        if (!schoolIds || schoolIds.length === 0) return lang === 'tl' ? 'Walang nahanap na paaralan sa distrito ninyo.' : 'No schools found in your district.';
         const { data: teacherIds } = await db
             .from('profiles')
             .select('id')
             .in('school_id', schoolIds.map((s: any) => s.id));
-        if (!teacherIds || teacherIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa distrito mo.' : 'No teachers found in your district.';
+        if (!teacherIds || teacherIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa distrito ninyo.' : 'No teachers found in your district.';
         userFilter = teacherIds.map((t: any) => t.id);
-        scopeLabel = lang === 'tl' ? 'Ang compliance ng distrito mo' : 'Your district\'s';
+        scopeLabel = lang === 'tl' ? 'Ang compliance ng distrito ninyo' : 'Your district\'s';
     } else {
-        return lang === 'tl' ? 'Hindi ma-determine ang scope mo. Mag-login gamit ang valid na account.' : 'Unable to determine your scope. Please log in with a valid account.';
+        return lang === 'tl' ? 'Hindi ma-determine ang scope ninyo. Mag-login gamit ang valid na account.' : 'Unable to determine your scope. Please log in with a valid account.';
     }
 
     // Calculate expected count (matches dashboard: teachingLoadsCount × definedWeeks)
@@ -1033,7 +1002,7 @@ async function queryCompliance(
 
     const { data, error } = await query;
 
-    if (error) return lang === 'tl' ? 'Pasensya na, hindi ma-access ngayon ang compliance data. Subukan ulit.' : "Sorry, I couldn't access the compliance data right now. Please try again.";
+    if (error) return lang === 'tl' ? 'Paumanhin po, hindi ma-access ngayon ang compliance data. Mangyaring subukan muli.' : "Sorry, I couldn't access the compliance data right now. Please try again.";
 
     // Calculate compliance against expected
     const actualSubmissions = data || [];
@@ -1061,21 +1030,8 @@ async function queryCompliance(
             if (pendingReview > 0 && compliantExplicit < compliant) {
                 response += ` ${pendingReview} submission ang na-upload pero hinihintay pa ang official review.`;
             }
-            if (rate >= 90) response += ' ' + pick([
-                'Ang galing, halos wala nang kulang!',
-                'Napakagaling, sige lang nang ganyan!',
-                'Magaling, malapit ka nang perfect.'
-            ]);
-            else if (rate >= 75) response += ' ' + pick([
-                'Malapit ka na, konti na lang kulang.',
-                'Maganda ang takbo mo, konti na lang at tapos ka na.',
-                'Ayos, patuloy lang nang kaunti pa.'
-            ]);
-            else response += ' ' + pick([
-                'Puwede pang bawian, subukan mong ma-catch up ang mga kulang na DLL kapag may oras.',
-                'May puwang pa para umangat, walang rush, pero try mong asikasuhin ang mga kulang.',
-                'Konting push pa lang at aangat ang rate mo, kaya mo yan.'
-            ]);
+            if (nonCompliant > 0) response += ' Mangyaring suriin ang mga kulang na DLL at ang mga itinakdang deadline.';
+            else response += ' Naisumite na ang lahat ng inaasahang DLL para sa saklaw na ito.';
         }
         return response;
     }
@@ -1093,21 +1049,8 @@ async function queryCompliance(
         if (pendingReview > 0 && compliantExplicit < compliant) {
             response += ` ${pendingReview} submission${pendingReview > 1 ? 's are' : ' is'} uploaded but awaiting official review.`;
         }
-        if (rate >= 90) response += ' ' + pick([
-            'You’re doing excellently, keep it up!',
-            'Great work, that’s a strong rate.',
-            'Excellent, you’re nearly perfect.'
-        ]);
-        else if (rate >= 75) response += ' ' + pick([
-            'You’re on the right track, just a few more to go.',
-            'Solid progress, just a bit more and you’re there.',
-            'Nice pace, keep it going.'
-        ]);
-        else response += ' ' + pick([
-            'There’s room for improvement, try to catch up on the missing DLLs when you can.',
-            'A few more submissions would really help your rate, no rush, just when you’re able.',
-            'A little more effort and your rate will climb. You’ve got this.'
-        ]);
+        if (nonCompliant > 0) response += ' Please review the missing DLLs and their submission deadlines.';
+        else response += ' All expected DLLs for this scope have been submitted.';
     }
 
     return response;
@@ -1132,10 +1075,10 @@ async function queryDeadline(
 
     const { data, error } = await query;
 
-    if (error) return lang === 'tl' ? 'Pasensya na, hindi ma-access ngayon ang academic calendar.' : "Sorry, I couldn't access the academic calendar right now.";
+    if (error) return lang === 'tl' ? 'Paumanhin po, hindi ma-access ngayon ang academic calendar.' : "Sorry, I couldn't access the academic calendar right now.";
     if (!data || data.length === 0) {
         if (slots.week) return lang === 'tl' ? `Walang nahanap na deadline para sa Week ${slots.week} sa academic calendar.` : `I couldn't find a deadline for Week ${slots.week} in the academic calendar.`;
-        return lang === 'tl' ? 'Walang paparating na deadline. Baka hindi pa naka-set up ang academic calendar para sa distrito mo.' : 'No upcoming deadlines found. The academic calendar may not be set up yet for your district.';
+        return lang === 'tl' ? 'Walang paparating na deadline. Baka hindi pa naka-set up ang academic calendar para sa distrito ninyo.' : 'No upcoming deadlines found. The academic calendar may not be set up yet for your district.';
     }
 
     if (slots.week) {
@@ -1216,7 +1159,7 @@ async function queryDlls(
     query = query.limit(5);
     const { data, error } = await query;
 
-    if (error) return lang === 'tl' ? 'Pasensya na, hindi mahanap ngayon ang mga DLL.' : "Sorry, I couldn't search DLLs right now.";
+    if (error) return lang === 'tl' ? 'Paumanhin po, hindi mahanap ngayon ang mga DLL.' : "Sorry, I couldn't search DLLs right now.";
     if (!data || data.length === 0) {
         const parts: string[] = [];
         if (slots.subject) parts.push(slots.subject);
@@ -1277,8 +1220,8 @@ async function querySchoolCompare(
 
     const { data: schools, error: schoolErr } = await schoolQuery;
     if (schoolErr || !schools || schools.length === 0) {
-        if (slots.school) return lang === 'tl' ? `Walang nahanap na paaralang tugma sa "${slots.school}" sa distrito mo.` : `I couldn't find a school matching "${slots.school}" in your district.`;
-        return lang === 'tl' ? 'Walang nahanap na paaralan sa distrito mo.' : 'No schools found in your district.';
+        if (slots.school) return lang === 'tl' ? `Walang nahanap na paaralang tugma sa "${slots.school}" sa distrito ninyo.` : `I couldn't find a school matching "${slots.school}" in your district.`;
+        return lang === 'tl' ? 'Walang nahanap na paaralan sa distrito ninyo.' : 'No schools found in your district.';
     }
 
     // Get teachers at these schools
@@ -1354,7 +1297,7 @@ async function querySchoolCompare(
     });
 
     return lang === 'tl'
-        ? `Paghahambing ng compliance ng mga paaralan sa distrito mo:\n${lines.join('\n')}`
+        ? `Paghahambing ng compliance ng mga paaralan sa distrito ninyo:\n${lines.join('\n')}`
         : `School compliance comparison in your district:\n${lines.join('\n')}`;
 }
 
@@ -1366,7 +1309,7 @@ async function queryTeacherStats(
     lang: Lang = 'en'
 ): Promise<string> {
     const role = profile?.role;
-    if (!userId) return lang === 'tl' ? 'Mag-login ka muna para makita ang teacher statistics.' : 'Please log in to view teacher statistics.';
+    if (!userId) return lang === 'tl' ? 'Mangyaring mag-sign in upang makita ang teacher statistics.' : 'Please log in to view teacher statistics.';
 
     let userQuery = db.from('profiles').select('id, full_name, school_id, role');
 
@@ -1381,7 +1324,7 @@ async function queryTeacherStats(
             .eq('school_id', profile.school_id)
             .eq('role', 'Teacher');
         const tIds = (schoolTeachers || []).map((t: any) => t.id);
-        if (tIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa paaralan mo.' : 'No teachers found in your school.';
+        if (tIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa paaralan ninyo.' : 'No teachers found in your school.';
         userQuery = userQuery.in('id', tIds);
     } else if (profile?.district_id) {
         const { data: schoolIds } = await db
@@ -1395,7 +1338,7 @@ async function queryTeacherStats(
                 .in('school_id', schoolIds.map((s: any) => s.id))
                 .eq('role', 'Teacher');
             const tIds = (districtTeachers || []).map((t: any) => t.id);
-            if (tIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa distrito mo.' : 'No teachers found in your district.';
+            if (tIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa distrito ninyo.' : 'No teachers found in your district.';
             userQuery = userQuery.in('id', tIds);
         }
     }
@@ -1413,7 +1356,7 @@ async function queryTeacherStats(
         .in('user_id', teacherIds)
         .not('file_hash', 'like', 'nc_%');
 
-    if (sErr) return lang === 'tl' ? 'Pasensya na, hindi ma-load ang submission data.' : "Sorry, I couldn't load submission data.";
+    if (sErr) return lang === 'tl' ? 'Paumanhin po, hindi ma-load ang submission data.' : "Sorry, I couldn't load submission data.";
 
     const teacherSubMap = new Map<string, { total: number; compliant: number; late: number }>();
     for (const t of teachers as any[]) {
@@ -1479,11 +1422,11 @@ async function queryCalendarInfo(
 
     const { data, error } = await query;
 
-    if (error) return lang === 'tl' ? 'Pasensya na, hindi ma-access ngayon ang academic calendar.' : "Sorry, I couldn't access the academic calendar right now.";
+    if (error) return lang === 'tl' ? 'Paumanhin po, hindi ma-access ngayon ang academic calendar.' : "Sorry, I couldn't access the academic calendar right now.";
 
     if (!data || data.length === 0) {
         return lang === 'tl'
-            ? 'Hindi pa naka-set up ang academic calendar para sa distrito mo. Makipag-ugnayan sa district supervisor para i-configure ito.'
+            ? 'Hindi pa naka-set up ang academic calendar para sa distrito ninyo. Makipag-ugnayan sa district supervisor para i-configure ito.'
             : "The academic calendar hasn't been set up for your district yet. Contact your district supervisor to configure it.";
     }
 
@@ -1620,7 +1563,7 @@ async function queryCreateReport(
         console.error('[chatbot] create_report RPC error:', error);
         return {
             answer: lang === 'tl'
-                ? "Pasensya na, hindi ko makuha ang report data ngayon. Subukan ulit mamaya."
+                ? "Paumanhin po, hindi ko makuha ang report data ngayon. Mangyaring subukan muli mamaya."
                 : "Sorry, I couldn't pull the report data just now. Please try again in a moment."
         };
     }
@@ -1647,7 +1590,7 @@ async function queryCreateReport(
     const scopeName = (role === 'District Supervisor'
         ? rows.find(r => r.district_name)?.district_name
         : rows.find(r => r.school_name)?.school_name)
-        || (lang === 'tl' ? 'ang saklaw mo' : 'your scope');
+        || (lang === 'tl' ? 'ang saklaw ninyo' : 'your scope');
 
     const total = rows.length;
     const compliant = rows.filter(r => r.compliance_status === 'compliant' || r.compliance_status === 'on-time').length;
@@ -1749,8 +1692,8 @@ async function generateDatabaseResponse(
         if (lang === 'tl') {
             return {
                 answer: offline
-                    ? "Mukhang offline ka ngayon, kaya hindi ko ma-check ang live data para diyan. Pero nandito pa rin ako! Tanungin mo ulit ako pag-online ka na, o subukan ang general na tanong sa ngayon."
-                    : "Hmm, hindi ko na-fetch iyan ngayon. Subukan mo ulit mamaya. Nandito lang ako."
+                    ? "Hindi ko po ma-access ang kasalukuyang datos. Pakisuri ang inyong koneksyon at subukan muli. Maaari pa rin akong magbigay ng pangkalahatang gabay sa paggamit ng CEDIMS."
+                    : "Hmm, hindi ko na-fetch iyan ngayon. Subukan ninyo ulit mamaya. Nandito lang ako."
             };
         }
         return {
@@ -1858,6 +1801,7 @@ const OUT_OF_SCOPE_PATTERNS = [
 const CEDIMS_SCOPE_TERMS = /\b(cedims|gabay|compliance|compliant|submission|submissions|submit|deadline|dll|lesson plan|academic calendar|school year|teacher|school head|district supervisor|upload|report|school|district|missing|late)\b/i;
 
 function isClearlyOutOfScope(text: string, intent: Intent, confidence: number): boolean {
+    if (/^(?:(?:hello|hi|hey|good morning|good afternoon|good evening|kumusta|kamusta|magandang araw)|(?:thanks|thank you|salamat|maraming salamat))(?:\s+po)?[!.?\s]*$/i.test(text.trim())) return false;
     if (OUT_OF_SCOPE_PATTERNS.some((pattern) => pattern.test(text))) return true;
     return intent !== 'general_help' && confidence < 45 && !CEDIMS_SCOPE_TERMS.test(text);
 }
@@ -1889,10 +1833,14 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
     // definition entry) hijack a clear how-to-upload question with a
     // definition answer instead of the actual steps.
     const kbHit = matchKnowledgeBase(text, lang);
+    const courtesy = /^(?:hello|hi|hey|good morning|good afternoon|good evening|kumusta|kamusta|magandang araw|thanks|thank you|salamat|maraming salamat)(?:\s+po)?[!.?\s]*$/i.test(text.trim());
+    if (courtesy && kbHit) {
+        return { intent: 'general_help', confidence, answer: kbHit, slots: {}, lang };
+    }
     if (outOfScope) {
         answer = lang === 'tl'
-            ? 'Ang tanong na ito ay wala sa saklaw ko. Ako si Gabay, ang CEDIMS assistant, at makakatulong ako sa compliance status, deadlines, paghahanap ng DLL, school comparisons, teacher statistics, academic calendar, uploads, at compliance reports.'
-            : 'That question is outside my scope. I’m Gabay, the CEDIMS assistant, and I can help with compliance status, submission deadlines, DLL searches, school comparisons, teacher statistics, the academic calendar, uploads, and compliance reports.';
+            ? 'Paumanhin po, ang tanong na ito ay wala sa saklaw ng aking tulong sa CEDIMS. Ako si Gabay, ang CEDIMS assistant, at makakatulong ako sa compliance status, deadlines, paghahanap ng DLL, school comparisons, teacher statistics, academic calendar, uploads, at compliance reports.'
+            : 'I am sorry, but that question is outside my CEDIMS support scope. I’m Gabay, the CEDIMS assistant, and I can help with compliance status, submission deadlines, DLL searches, school comparisons, teacher statistics, the academic calendar, uploads, and compliance reports.';
     } else if (kbHit && (intent === 'general_help' || confidence < 40)) {
         answer = kbHit;
     } else if (ctx?.supabase) {
@@ -1912,19 +1860,19 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
     // band where a misfired guess got neither a confident tone nor an uncertainty
     // flag — that gap is precisely where a wrong answer looked most convincing.
     const greetingStarts = lang === 'tl'
-        ? ['Kumusta', 'Hoy', 'Walang anuman', 'Gabay', 'Masaya akong makatulong', 'Ayos lang yan']
-        : ['Hello', 'Hey there', 'You’re welcome', 'I’m Gabay', 'Happy to help', 'Anytime'];
+        ? ['Kumusta', 'Magandang araw', 'Walang anuman', 'Gabay', 'Ikinagagalak kong makatulong']
+        : ['Hello', 'You are welcome', 'I am Gabay', 'I’m Gabay', 'I am pleased to assist'];
     const looksLikeGreeting = greetingStarts.some(s => answer.startsWith(s));
     if (confidence >= 60 && !looksLikeGreeting) {
         answer = `${pick(OPENERS[lang])} ${answer}`;
-    } else if (confidence < 60 && !kbHit) {
+    } else if (confidence < 60 && !kbHit && !outOfScope) {
         if (intent === 'general_help') {
             const topics = lang === 'tl'
-                ? ['compliance status mo', 'paghahanap ng DLL', 'mga paparating na deadline', 'paghahambing ng paaralan', 'istatistika ng guro', 'kung paano mag-upload ng dokumento']
+                ? ['compliance status ninyo', 'paghahanap ng DLL', 'mga paparating na deadline', 'paghahambing ng paaralan', 'istatistika ng guro', 'kung paano mag-upload ng dokumento']
                 : ['your compliance status', 'finding a DLL', 'upcoming deadlines', 'school comparisons', 'teacher statistics', 'how to upload a document'];
             answer = `${pick(LOW_CONFIDENCE_PREFIXES[lang])} ${pick(topics)}. ${pick(LOW_CONFIDENCE_SUFFIXES[lang])}`;
         } else {
-            const closer = lang === 'tl' ? 'eto ang nakita ko' : 'here’s what I found';
+            const closer = lang === 'tl' ? 'narito ang nahanap na impormasyon' : 'here’s what I found';
             answer = `${pick(LOW_CONFIDENCE_PREFIXES[lang])} ${INTENT_TOPIC_LABELS[lang][intent]}, ${closer}:\n\n${answer}\n\n${pick(LOW_CONFIDENCE_SUFFIXES[lang])}`;
         }
     }
@@ -1941,7 +1889,7 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
 const KB_FUZZY_STOPWORDS = new Set([
     'can', 'all', 'the', 'and', 'are', 'was', 'has', 'not', 'you', 'who', 'how',
     'why', 'out', 'get', 'let', 'yes', 'see', 'use', 'for', 'but', 'yet', 'own',
-    'ang', 'ng', 'sa', 'mo', 'ko', 'ba', 'na', 'pa', 'din', 'rin', 'may', 'oo', 'ka'
+    'ang', 'ng', 'sa', 'mo', 'ninyo', 'ko', 'ba', 'na', 'pa', 'din', 'rin', 'may', 'oo', 'ka', 'kayo'
 ]);
 
 function matchKnowledgeBase(text: string, lang: Lang = 'en'): string | null {

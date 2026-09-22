@@ -36,7 +36,7 @@
     // utils/chatbot.ts), which a user has no way to discover unless the
     // opening message says so.
     const greeting =
-        "Hi, I'm Gabay, your CEDIMS assistant. I can check your compliance rate, " +
+        "Hello. I am Gabay, your CEDIMS assistant. I can check your compliance rate, " +
         "look up deadlines, find DLLs, compare schools, and (for School Heads and " +
         "District Supervisors) generate a compliance report in Excel or Word, " +
         "all using live data. Ask me in English or Tagalog.";

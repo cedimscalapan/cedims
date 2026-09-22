@@ -9,7 +9,7 @@
     import { goto } from "$app/navigation";
     import { onMount } from "svelte";
     import { env } from "$env/dynamic/public";
-    import { LogIn, ShieldCheck, ArrowLeft, Eye, EyeOff, CheckCircle2 } from "lucide-svelte";
+    import { LogIn, ShieldCheck, ArrowLeft, Eye, EyeOff } from "lucide-svelte";
 
     let email = $state("");
     let password = $state("");
@@ -158,71 +158,11 @@
     <title>Sign In: CEDIMS · Powered by Smart E-VISION</title>
 </svelte:head>
 
-<div class="min-h-dvh bg-surface-muted lg:grid lg:grid-cols-[1fr_1.1fr] xl:grid-cols-[1fr_1fr]">
-    <!-- Brand panel — fills the viewport on desktop so the form never floats
-         in empty space; collapses to a compact header strip on small screens. -->
-    <aside class="relative hidden overflow-hidden bg-gov-blue px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between xl:px-14">
-        <div
-            class="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-2xl"
-            aria-hidden="true"
-        ></div>
-        <div
-            class="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-black/10 blur-2xl"
-            aria-hidden="true"
-        ></div>
-
-        <a href="/" class="relative flex items-center gap-3">
-            <img src="/app_icon.png" alt="" class="h-10 w-10 rounded-lg bg-white/95 p-1" />
-            <span>
-                <span class="block text-sm font-semibold leading-tight">CEDIMS</span>
-                <span class="block text-[10px] font-semibold uppercase leading-tight tracking-[0.22em] text-slate-200">
-                    Instructional Monitoring
-                </span>
-            </span>
-        </a>
-
-        <div class="relative max-w-md">
-            <p class="text-3xl font-bold leading-[1.2] tracking-tight xl:text-4xl">
-                Monitor instruction,<br />support learning.
-            </p>
-            <p class="mt-4 text-base leading-8 text-slate-100">
-                Submit Daily Lesson Logs, record checking remarks, and follow district
-                compliance: all against one set of records.
-            </p>
-
-            <ul class="mt-8 space-y-3.5">
-                {#each [
-                    "Daily Lesson Log submission and checking",
-                    "Remarks and revisions kept in full history",
-                    "QR-verifiable documents, offline-ready uploads",
-                ] as item}
-                    <li class="flex items-start gap-3 text-sm text-slate-100">
-                        <CheckCircle2 size={18} strokeWidth={2} class="mt-0.5 shrink-0 text-white" />
-                        <span>{item}</span>
-                    </li>
-                {/each}
-            </ul>
-        </div>
-
-        <div class="relative flex items-center gap-4 rounded-2xl bg-white/10 p-4">
-            <img
-                src="/sdg-4-quality-education.svg"
-                alt="United Nations Sustainable Development Goal 4: Quality Education"
-                width="64"
-                height="64"
-                class="h-16 w-16 shrink-0 rounded-lg"
-            />
-            <p class="text-xs leading-6 text-slate-100">
-                Built to support <span class="font-semibold text-white">UN Sustainable Development Goal 4</span>:
-                inclusive and equitable quality education.
-            </p>
-        </div>
-    </aside>
-
+<div class="min-h-dvh bg-surface-muted">
     <!-- Form panel -->
-    <main class="flex min-h-dvh flex-col px-4 py-8 sm:px-6 sm:py-10 lg:min-h-0 lg:justify-center lg:px-10 lg:py-12">
-        <!-- Mobile brand row — the aside is hidden at this width -->
-        <a href="/" class="mb-8 flex items-center gap-2.5 lg:hidden">
+    <main class="mx-auto flex w-full max-w-[440px] flex-col px-4 py-5 sm:py-8">
+        <!-- Compact brand row shared by desktop and mobile. -->
+        <a href="/" class="mb-4 flex items-center gap-2.5">
             <img src="/app_icon.png" alt="" class="h-9 w-9 rounded-lg" />
             <span>
                 <span class="block text-sm font-semibold leading-tight text-text-primary">CEDIMS</span>
@@ -233,15 +173,15 @@
         </a>
 
         <div class="mx-auto w-full max-w-md">
-            <div class="rounded-2xl border border-border-subtle bg-surface-white p-6 shadow-sm sm:p-8">
-                <div class="mb-7">
+            <div class="rounded-2xl border border-border-subtle bg-surface-white p-5 shadow-sm sm:p-6">
+                <div class="mb-4">
                     <h1 class="text-2xl font-bold tracking-tight text-text-primary">Sign in to CEDIMS</h1>
                     <p class="mt-1.5 text-sm text-text-secondary">
                         Use the DepEd account issued to you by the District Office.
                     </p>
                 </div>
 
-                <form onsubmit={handleSubmit} class="space-y-5" novalidate aria-busy={loading}>
+                <form onsubmit={handleSubmit} class="space-y-3" novalidate aria-busy={loading}>
                     <div>
                         <label for="email" class="mb-2 block text-sm font-semibold text-text-primary">
                             Email address
