@@ -160,10 +160,10 @@
 
 <div class="login-page min-h-dvh bg-surface-muted">
     <!-- Form panel -->
-    <main class="mx-auto flex w-full max-w-[440px] flex-col px-4 py-5 sm:py-8">
+    <main class="mx-auto flex w-full max-w-[410px] flex-col px-4 py-3 sm:py-4">
         <!-- Compact brand row shared by desktop and mobile. -->
-        <a href="/" class="mb-6 flex items-center gap-2.5">
-            <img src="/app_icon.png" alt="" class="h-9 w-9 rounded-lg" />
+        <a href="/" class="mb-3 flex items-center gap-2.5">
+            <img src="/app_icon.png" alt="" class="h-8 w-8 rounded-lg" />
             <span>
                 <span class="block text-sm font-semibold leading-tight text-text-primary">CEDIMS</span>
                 <span class="block text-xs font-semibold uppercase leading-tight tracking-[0.22em] text-gov-blue">
@@ -173,17 +173,17 @@
         </a>
 
         <div class="mx-auto w-full max-w-md">
-            <div class="login-card rounded-2xl border border-border-subtle bg-surface-white p-5 shadow-sm sm:p-7">
-                <div class="mb-4">
-                    <h1 class="text-2xl font-bold tracking-tight text-text-primary">Sign in to CEDIMS</h1>
-                    <p class="mt-1.5 text-sm text-text-secondary">
+            <div class="login-card rounded-2xl border border-border-subtle bg-surface-white p-4 sm:p-5">
+                <div class="mb-3">
+                    <h1 class="text-xl font-bold tracking-tight text-text-primary">Sign in to CEDIMS</h1>
+                    <p class="mt-1 text-xs text-text-secondary">
                         Use the DepEd account issued to you by the District Office.
                     </p>
                 </div>
 
-                <form onsubmit={handleSubmit} class="space-y-3" novalidate aria-busy={loading}>
+                <form onsubmit={handleSubmit} class="space-y-2.5" novalidate aria-busy={loading}>
                     <div>
-                        <label for="email" class="mb-2 block text-sm font-semibold text-text-primary">
+                        <label for="email" class="mb-1.5 block text-sm font-semibold text-text-primary">
                             Email address
                         </label>
                         <input
@@ -204,7 +204,7 @@
                     </div>
 
                     <div>
-                        <div class="mb-2 flex items-center justify-between gap-3">
+                        <div class="mb-1.5 flex items-center justify-between gap-3">
                             <label for="password" class="block text-sm font-semibold text-text-primary">Password</label>
                             <a
                                 href="/auth/forgot-password"
@@ -230,7 +230,7 @@
                             <button
                                 type="button"
                                 onclick={() => (showPassword = !showPassword)}
-                                class="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-3.5 text-text-muted transition-colors hover:text-gov-blue"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-2.5 text-text-muted transition-colors hover:text-gov-blue"
                                 aria-pressed={showPassword}
                                 aria-controls="password"
                                 aria-label={showPassword ? "Hide entered password" : "Show entered password"}
@@ -252,7 +252,7 @@
                     {/if}
 
                     <!-- Terms & Privacy agreement -->
-                    <div class="flex items-start gap-2.5 rounded-xl bg-surface-muted p-3.5">
+                    <div class="flex items-start gap-2.5 rounded-xl bg-surface-muted p-2.5">
                         <input
                             id="agree"
                             type="checkbox"
@@ -262,7 +262,7 @@
                             aria-invalid={errorField === "terms"}
                             aria-describedby={errorField === "terms" ? "login-error" : undefined}
                         />
-                        <label for="agree" class="text-xs leading-5 text-text-secondary">
+                        <label for="agree" class="text-[0.7rem] leading-4 text-text-secondary">
                             I have read and agree to the
                             <a
                                 href="/terms"
@@ -287,14 +287,14 @@
                             <p
                                 id="login-error"
                                 role="alert"
-                                class="rounded-xl border border-gov-red/30 bg-gov-red/10 p-3 text-sm font-semibold text-gov-red-dark"
+                                class="rounded-xl border border-gov-red/30 bg-gov-red/10 p-2 text-xs font-semibold text-gov-red-dark"
                             >
                                 {errorMsg}
                             </p>
                         {/if}
                     </div>
 
-                    <button type="submit" disabled={loading} class="gov-btn-primary w-full justify-center py-3 text-sm">
+                    <button type="submit" disabled={loading} class="gov-btn-primary w-full justify-center py-2.5 text-sm">
                         {#if loading}
                             <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
                             <span>Signing in…</span>
@@ -305,7 +305,7 @@
                     </button>
                 </form>
 
-                <div class="mt-6 border-t border-border-subtle pt-5 text-center">
+                <div class="mt-3 border-t border-border-subtle pt-3 text-center">
                     <a
                         href="/"
                         class="inline-flex items-center gap-1.5 text-sm font-medium text-text-muted transition-colors hover:text-gov-blue"
@@ -316,7 +316,7 @@
                 </div>
             </div>
 
-            <p class="mt-6 flex items-center justify-center gap-2 text-xs text-text-muted">
+            <p class="mt-3 flex items-center justify-center gap-2 text-xs text-text-muted">
                 <ShieldCheck size={14} strokeWidth={2} class="shrink-0 text-gov-blue" />
                 Accounts are issued by the Calapan East District Office.
             </p>
@@ -326,5 +326,9 @@
 
 <style>
     .login-page { font-family: var(--font-family-sans, "Segoe UI", sans-serif); }
-    .login-card { border-top: 4px solid var(--color-gov-blue); }
+    .login-card { border-top: 3px solid var(--color-gov-blue); }
+    :global(.login-page .gov-input) {
+        min-height: 44px;
+        padding-block: .55rem;
+    }
 </style>

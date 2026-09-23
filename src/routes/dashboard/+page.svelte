@@ -580,7 +580,7 @@
             schoolStandings = Object.values(bySchool)
                 .map((s) => ({
                     ...s,
-                    rate: s.expected > 0 ? Math.round(((s.compliant + s.late) / s.expected) * 100) : 0,
+                    rate: s.expected > 0 ? Math.round((s.compliant / s.expected) * 100) : 0,
                 }))
                 .sort((a, b) => a.rate - b.rate);
         }

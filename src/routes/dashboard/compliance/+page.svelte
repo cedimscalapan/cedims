@@ -105,7 +105,7 @@
                 (row.schoolName || "").toLowerCase().includes(q);
             const matchesStatus =
                 statusFilter === "all" ||
-                (statusFilter === "compliant" && row.missing === 0 && row.late === 0) ||
+                (statusFilter === "compliant" && row.missing === 0) ||
                 (statusFilter === "missing" && row.missing > 0) ||
                 (statusFilter === "late" && row.late > 0) ||
                 (statusFilter === "forChecking" && row.forChecking > 0) ||
@@ -296,7 +296,7 @@
             const rows = teacherRows.filter((row) => row.schoolId === school.id);
             const stats = summarizeRows(rows);
             const expected = rows.reduce((sum, row) => sum + row.expected, 0);
-            const actual = stats.compliant + stats.late;
+            const actual = stats.compliant;
             return {
                 id: school.id,
                 name: school.name,
@@ -473,7 +473,7 @@
                                 <span class="h-3 w-3 rounded-full" style={`background:${cluster.color}`}></span>
                             </div>
                             <p class="text-2xl font-extrabold text-text-primary">{cluster.count}</p>
-                            <p class="mt-1 text-xs font-semibold text-text-muted">Avg completeness {cluster.avgCompleteness}% · punctuality {cluster.avgPunctuality}%</p>
+                            <p class="mt-1 text-xs font-semibold text-text-muted">Avg completeness {cluster.avgCompleteness}% · fulfillment {cluster.avgPunctuality}%</p>
                         </div>
                     {/each}
                 </div>

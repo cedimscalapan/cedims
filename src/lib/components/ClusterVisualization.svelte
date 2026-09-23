@@ -142,7 +142,7 @@
                         callbacks: {
                             label: (ctx: any) => {
                                 const point = ctx.raw;
-                                return `${point.label}: On-time ${point.x}%, Regularity ${point.y}%`;
+                                return `${point.label}: Fulfilled ${point.x}%, Regularity ${point.y}%`;
                             },
                         },
                     },
@@ -151,7 +151,7 @@
                     x: {
                         title: {
                             display: true,
-                            text: "On-time Score (%)",
+                            text: "Fulfillment Score (%)",
                             font: { weight: "bold" as const, size: 11 },
                         },
                         min: 0,
@@ -199,7 +199,7 @@
             type: "radar",
             data: {
                 labels: [
-                    "On-time",
+                    "Fulfilled",
                     "Regularity",
                     "Complete",
                     "Uploads",
@@ -398,7 +398,7 @@
                 <div class="mt-3 space-y-1">
                     <div class="flex justify-between text-xs">
                         <span class="text-text-muted font-bold"
-                            >On-time</span
+                            >Fulfilled</span
                         >
                         <span class="font-semibold text-text-primary"
                             >{summary.avgPunctuality}%</span
@@ -521,7 +521,7 @@
                                         <p
                                             class="text-xs text-text-muted font-bold uppercase tracking-normal"
                                         >
-                                            On-time
+                                            Fulfilled
                                         </p>
                                     </div>
                                     <div class="text-right">

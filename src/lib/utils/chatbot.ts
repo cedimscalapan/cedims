@@ -244,7 +244,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         answers: {
             en: [
                 'Compliance is your actual submissions divided by your expected submissions (expected being your active teaching loads × the weeks defined in the academic calendar). On time = compliant, after the deadline = late, never submitted = missing.',
-                'Here’s the formula in plain terms: (compliant + late submissions) ÷ (teaching loads × calendar weeks) × 100. Submitting late still counts toward the rate. It’s only the ones you never submit that drag it down.'
+                'Here’s the formula in plain terms: (on-time submissions + late submissions) ÷ (teaching loads × calendar weeks) × 100. Both on-time and late submissions are fulfilled, while only missing submissions reduce the rate.'
             ],
             tl: [
                 'Ang compliance ay ang aktwal ninyong na-submit hinati sa inaasahan (ang inaasahan ay ang active teaching loads ninyo × bilang ng linggo sa academic calendar). On time = compliant, huli = late, hindi na-submit = missing.',
@@ -452,11 +452,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['k-means', 'kmeans', 'compliance group', 'cluster', 'clustering', 'submission pattern', 'teacher grouping', 'school grouping'],
         answers: {
             en: [
-                'K-Means groups teachers or schools with similar compliance behavior. It looks at patterns such as punctuality, consistency, completeness, and upload volume, then summarizes groups so supervisors can quickly see who is doing well and who may need support.',
+                'K-Means groups teachers or schools with similar compliance behavior. It looks at fulfillment (on-time plus late submissions), consistency, completeness, and upload volume, then summarizes groups so supervisors can quickly see who is doing well and who may need support.',
                 'K-Means does not punish or decide for users. It only groups similar submission patterns to help Master Teachers, School Heads, and District Supervisors monitor compliance more easily.'
             ],
             tl: [
-                'Ang K-Means ay naggu-group ng teachers o schools na magkakapareho ang compliance behavior. Tinitingnan nito ang punctuality, consistency, completeness, at upload volume para makita agad kung sino ang maayos at sino ang kailangan ng support.',
+                'Ang K-Means ay naggu-group ng teachers o schools na magkakapareho ang compliance behavior. Tinitingnan nito ang fulfillment (on-time at late submissions), consistency, completeness, at upload volume para makita agad kung sino ang maayos at sino ang kailangan ng support.',
                 'Hindi nagpaparusa o gumagawa ng final decision ang K-Means. Ginagamit lang ito para i-group ang similar submission patterns at makatulong sa monitoring ng Master Teacher, School Head, at District Supervisor.'
             ]
         }
@@ -929,7 +929,7 @@ function formatDate(dateStr: string): string {
 }
 
 function isCompliant(status: string | null | undefined): boolean {
-    return !status || status === 'compliant' || status === 'on-time';
+    return !status || status === 'compliant' || status === 'on-time' || status === 'late';
 }
 
 async function queryCompliance(
@@ -1073,7 +1073,7 @@ async function queryCompliance(
     const actualSubmissions = data || [];
     const compliant = actualSubmissions.filter((s: any) => isCompliant(s.compliance_status)).length;
     const late = actualSubmissions.filter((s: any) => s.compliance_status === 'late').length;
-    const actualUploads = compliant + late;
+    const actualUploads = compliant;
     const nonCompliant = Math.max(0, expectedTotal - actualUploads);
     const rate = expectedTotal > 0 ? Math.round((actualUploads / expectedTotal) * 100) : 0;
 
@@ -1084,7 +1084,7 @@ async function queryCompliance(
     if (lang === 'tl') {
         if (slots.week) {
             response = `Para sa Week ${slots.week}${slots.subject ? ` (${slots.subject})` : ''}, ang compliance rate ay ${rate}% (${actualUploads} sa ${expectedTotal}).`;
-            if (compliant > 0) response += ` ${compliant} submission ang compliant.`;
+            if (compliant > 0) response += ` ${compliant} submission ang compliant, kabilang ang late kung mayroon.`;
             if (late > 0) response += ` ${late} submission ang late.`;
             if (nonCompliant > 0) response += ` ${nonCompliant} submission pa ang missing.`;
         } else {
@@ -1103,7 +1103,7 @@ async function queryCompliance(
 
     if (slots.week) {
         response = `For Week ${slots.week}${slots.subject ? ` (${slots.subject})` : ''}, the compliance rate is ${rate}% (${actualUploads} out of ${expectedTotal}).`;
-        if (compliant > 0) response += ` ${compliant} submission${compliant !== 1 ? 's are' : ' is'} compliant.`;
+        if (compliant > 0) response += ` ${compliant} submission${compliant !== 1 ? 's are' : ' is'} compliant, including late if any.`;
         if (late > 0) response += ` ${late} submission${late !== 1 ? 's are' : ' is'} late.`;
         if (nonCompliant > 0) response += ` ${nonCompliant} submission${nonCompliant !== 1 ? 's are' : ' is'} still missing.`;
     } else {
@@ -1432,7 +1432,7 @@ async function queryTeacherStats(
         if (entry) {
             entry.total++;
             if (isCompliant(s.compliance_status)) entry.compliant++;
-            else if (s.compliance_status === 'late') entry.late++;
+            if (s.compliance_status === 'late') entry.late++;
         }
     }
 
@@ -1453,7 +1453,9 @@ async function queryTeacherStats(
     if (slots.teacher || sorted.length === 1) {
         const t = sorted[0] as any;
         const rate = t.total > 0 ? Math.round((t.compliant / t.total) * 100) : 0;
-        const nonCompliant = t.total - t.compliant - t.late;
+        // Late submissions are already included in compliant, so subtract them
+        // only once when deriving the missing count.
+        const nonCompliant = Math.max(0, t.total - t.compliant);
         if (lang === 'tl') {
             return `Si ${t.name} ay may ${t.total} submission na may compliance rate na ${rate}% (${t.compliant} compliant${t.late > 0 ? `, ${t.late} late` : ''}${nonCompliant > 0 ? `, ${nonCompliant} missing` : ''}).`;
         }
@@ -1658,10 +1660,11 @@ async function queryCreateReport(
         || (lang === 'tl' ? 'ang saklaw ninyo' : 'your scope');
 
     const total = rows.length;
-    const compliant = rows.filter(r => r.compliance_status === 'compliant' || r.compliance_status === 'on-time').length;
+    const onTime = rows.filter(r => r.compliance_status === 'compliant' || r.compliance_status === 'on-time').length;
     const late = rows.filter(r => r.compliance_status === 'late').length;
+    const fulfilled = onTime + late;
     const supplementary = rows.filter(r => r.compliance_status === 'supplementary').length;
-    const rate = total > 0 ? Math.round(((compliant + late) / total) * 100) : 0;
+    const rate = total > 0 ? Math.round((fulfilled / total) * 100) : 0;
     const tier = reportTier(rate);
     const reportSchoolYear = rows[0]?.school_year || '';
 
@@ -1669,8 +1672,8 @@ async function queryCreateReport(
     const closer = pick(REPORT_CLOSERS[lang][tier]);
 
     const summary = lang === 'tl'
-        ? `${opener}\n\nMayroong ${total} submissions ngayong school year ${reportSchoolYear}: ${compliant} compliant, ${late} late, at ${supplementary} supplementary. Ang overall rate ay ${rate}%.\n\n${closer}\n\nInihanda ko ang isang detalyadong report sa Excel at Word: makikita sa ibaba.`
-        : `${opener}\n\nThere are ${total} submissions for school year ${reportSchoolYear}: ${compliant} compliant, ${late} late, and ${supplementary} supplementary. The overall rate is ${rate}%.\n\nI've prepared a detailed report in Excel and Word: see below.\n\n${closer}`;
+        ? `${opener}\n\nMayroong ${total} submissions ngayong school year ${reportSchoolYear}: ${fulfilled} fulfilled (${onTime} on-time at ${late} late), at ${supplementary} supplementary. Ang overall rate ay ${rate}%.\n\n${closer}\n\nInihanda ko ang isang detalyadong report sa Excel at Word: makikita sa ibaba.`
+        : `${opener}\n\nThere are ${total} submissions for school year ${reportSchoolYear}: ${fulfilled} fulfilled (${onTime} on-time and ${late} late), and ${supplementary} supplementary. The overall rate is ${rate}%.\n\nI've prepared a detailed report in Excel and Word: see below.\n\n${closer}`;
 
     // Reuse the exact same shared, professionally-styled report builders the
     // app already uses elsewhere (excelExport.ts for Archive exports),

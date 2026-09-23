@@ -2,7 +2,7 @@
  * Cluster-Based Performance Analytics (K-Means)
  * 
  * Unsupervised machine learning that groups teachers by behavioral patterns:
- * - Punctuality (on-time submission rate)
+ * - Compliance fulfillment (submitted on-time or late)
  * - Consistency (regularity of submission day)
  * - Completeness (% of weeks with submissions)
  * - Volume (docs per week average)
@@ -15,7 +15,7 @@ export interface TeacherFeatureVector {
     teacherId: string;
     teacherName: string;
     schoolName: string;
-    /** 0-100: % of submissions that were on-time */
+    /** 0-100: % of submitted records that count as compliant, including late */
     punctuality: number;
     /** 0-100: how regular the submission schedule is */
     consistency: number;
@@ -82,10 +82,12 @@ export function extractFeatures(
             continue;
         }
 
-        // Punctuality: % compliant out of total
+        // Compliance fulfillment: late still counts as complied/submitted.
+        // Missing/non-compliant is the negative signal; lateness is tracked
+        // separately in the UI but should not reduce the compliance cluster.
         const compliant = subs.filter(s => {
             const cs = (s.compliance_status || '').toLowerCase();
-            return cs === 'compliant' || cs === 'on-time';
+            return cs === 'compliant' || cs === 'on-time' || cs === 'late';
         }).length;
         const punctuality = Math.round((compliant / subs.length) * 100);
 

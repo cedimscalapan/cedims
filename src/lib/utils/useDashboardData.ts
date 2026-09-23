@@ -7,7 +7,9 @@
  */
 
 export interface ComplianceStats {
+  /** Submitted/covered requirements. Includes on-time/compliant and late uploads. */
   Compliant: number;
+  /** Late uploads are still compliant, but tracked separately for timing analysis. */
   Late: number;
   NonCompliant: number;
   totalUploaded: number;
@@ -187,8 +189,10 @@ export function calculateCompliance(
   const counts = countSubmissionsByStatus(deduped as { compliance_status?: string }[]);
 
   // Instead of counting DB records for non-compliant, we deduce it:
-  // Expected Total = (Setted Weeks) * (Teaching Loads)
-  // Actual Uploads = Compliant + Late
+  // Expected Total = (Set Weeks) * (Teaching Loads)
+  // Actual Uploads = On-time/compliant + Late.
+  // Late still means the teacher complied; it is tracked separately only for
+  // timeliness, not deducted from the compliance rate.
   const actualUploads = counts.compliant + counts.late;
   const nonCompliant = Math.max(0, expectedTotal - actualUploads);
 
@@ -196,10 +200,10 @@ export function calculateCompliance(
   const rate = expectedTotal > 0 ? Math.min(100, Math.round((actualUploads / expectedTotal) * 100)) : 0;
 
   return {
-    Compliant: counts.compliant,
+    Compliant: actualUploads,
     Late: counts.late,
     NonCompliant: nonCompliant,
-    totalUploaded: counts.total,
+    totalUploaded: actualUploads,
     expected: expectedTotal,
     rate
   };

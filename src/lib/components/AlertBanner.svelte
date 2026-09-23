@@ -34,30 +34,30 @@
 </script>
 
 {#if totalCount > 0}
-    <div class="mb-6" in:fly={{ y: -10, duration: 300 }}>
+    <div class="mb-4" in:fly={{ y: -10, duration: 300 }}>
         <div class={cardClass} style="background-color: {cardBg}">
             <button
-                class="w-full flex items-center justify-between gap-4 px-4 sm:px-6 py-4 sm:py-5 cursor-pointer text-left hover:bg-black/2 transition-colors duration-200"
+                class="w-full flex items-center justify-between gap-3 px-4 py-3 cursor-pointer text-left hover:bg-black/2 transition-colors duration-200"
                 onclick={() => (expanded = !expanded)}
                 aria-expanded={expanded}
             >
-                <div class="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
-                    <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center" style="background-color: {iconBg}; color: {iconColor}">
+                <div class="flex items-start gap-3 flex-1 min-w-0">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: {iconBg}; color: {iconColor}">
                         {#if isHighSeverity}
-                            <AlertTriangle size={20} strokeWidth={2.5} />
+                            <AlertTriangle size={16} strokeWidth={2.5} />
                         {:else}
-                            <AlertCircle size={20} strokeWidth={2.5} />
+                            <AlertCircle size={16} strokeWidth={2.5} />
                         {/if}
                     </div>
 
                     <div class="min-w-0 flex-1">
-                        <h3 class="font-bold text-text-primary text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                        <h3 class="font-bold text-text-primary text-sm flex items-center gap-2 flex-wrap">
                             Compliance Alerts
                             <span class="inline-flex items-center justify-center px-2 py-1 rounded-lg text-xs font-bold text-white" style="background-color: {badgeBg}">
                                 {totalCount}
                             </span>
                         </h3>
-                        <p class="text-xs sm:text-sm text-text-secondary mt-1.5">
+                        <p class="text-xs text-text-secondary mt-1">
                             {#if isHighSeverity}
                                 <strong>{highSeverityAlerts.length}</strong> teacher{highSeverityAlerts.length !== 1 ? "s requiring" : " requiring"} immediate intervention.
                             {:else}
@@ -68,7 +68,7 @@
                 </div>
 
                 <div class="flex-shrink-0">
-                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-black/5 transition-colors duration-200">
+                    <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-black/5 transition-colors duration-200">
                         <span class="hidden sm:inline text-xs font-semibold text-text-muted">
                             {expanded ? "Hide" : "Show"}
                         </span>

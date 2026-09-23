@@ -50,35 +50,35 @@
 </script>
 
 <div
-	class="fixed right-4 sm:right-6 z-[var(--z-toast)] flex flex-col gap-2 max-w-sm w-full sm:w-96 pointer-events-none px-4 sm:px-0 {inDashboard
+	class="fixed right-4 sm:right-5 z-[var(--z-toast)] flex flex-col gap-2 max-w-xs w-full sm:w-80 pointer-events-none px-4 sm:px-0 {inDashboard
 		? 'bottom-24'
 		: 'bottom-4 sm:bottom-6'}"
 >
 	{#each $toasts as toast (toast.id)}
 		{@const ToastIcon = icons[toast.type]}
 		<div
-			class="pointer-events-auto flex items-start gap-3 px-4 sm:px-5 py-4 rounded-lg shadow-xl {styles[toast.type].bg} {styles[toast.type].text} border border-white/20"
+			class="pointer-events-auto flex items-start gap-2.5 px-3.5 py-3 rounded-lg shadow-md {styles[toast.type].bg} {styles[toast.type].text} border border-white/20"
 			role="alert"
 			in:fly={{ x: 400, duration: 300 }}
 			out:fly={{ x: 400, duration: 300 }}
 		>
-			<div class="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg {styles[toast.type].icon}">
-				<ToastIcon size={20} strokeWidth={2} />
+			<div class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg {styles[toast.type].icon}">
+				<ToastIcon size={16} strokeWidth={2} />
 			</div>
 			<div class="flex-1 min-w-0 py-0.5">
-				<p class="text-sm font-bold leading-tight">
+				<p class="text-xs font-bold leading-tight">
 					{toast.type.charAt(0).toUpperCase() + toast.type.slice(1)}
 				</p>
-				<p class="text-sm font-medium opacity-95 mt-1 leading-snug">
+				<p class="text-xs font-medium opacity-95 mt-0.5 leading-snug">
 					{toast.message}
 				</p>
 			</div>
 			<button
-				class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/15 transition-colors duration-200 p-1"
+				class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/15 transition-colors duration-200 p-1"
 				onclick={() => toasts.remove(toast.id)}
 				aria-label="Dismiss notification"
 			>
-				<X size={18} strokeWidth={2} />
+				<X size={15} strokeWidth={2} />
 			</button>
 		</div>
 	{/each}
