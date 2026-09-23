@@ -413,12 +413,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['analytics', 'trend', 'forecast', 'k-means', 'kmeans', 'clustering', 'high performer', 'at-risk', 'at risk entities'],
         answers: {
             en: [
-                'The Analytics page (School Head and District Supervisor only) shows compliance trends over time, a short forecast, a document-type breakdown, and a K-Means clustering view that groups teachers or schools into High Performers, Average, and At-Risk based on their submission behavior.',
-                'Analytics groups people/schools automatically using a clustering algorithm: it looks at compliance rate and submission frequency and buckets everyone into performance tiers.'
+                'The Analytics page (School Head and District Supervisor only) shows compliance trends over time, a short forecast, a document-type breakdown, and submission pattern groups that organize teachers or schools by similar submission behavior.',
+                'Analytics groups people/schools automatically by looking at compliance rate and submission frequency, then showing which groups are doing well and which may need support.'
             ],
             tl: [
-                'Ang Analytics page (para lang sa School Head at District Supervisor) ay nagpapakita ng compliance trends, maikling forecast, breakdown ng doc types, at K-Means clustering na naghahati sa mga guro o paaralan sa High Performers, Average, at At-Risk.',
-                'Awtomatikong ginugrupo ng Analytics ang mga tao/paaralan gamit ang clustering algorithm: tinitingnan nito ang compliance rate at dalas ng submission para malaman kung sino ang nangangailangan ng tulong.'
+                'Ang Analytics page (para lang sa School Head at District Supervisor) ay nagpapakita ng compliance trends, maikling forecast, breakdown ng doc types, at submission pattern groups para sa mga guro o paaralan.',
+                'Awtomatikong ginugrupo ng Analytics ang mga tao/paaralan batay sa compliance rate at dalas ng submission para mas madaling makita kung sino ang maayos ang takbo at sino ang maaaring kailangan ng tulong.'
             ]
         }
     },

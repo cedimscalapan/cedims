@@ -142,7 +142,7 @@
                         callbacks: {
                             label: (ctx: any) => {
                                 const point = ctx.raw;
-                                return `${point.label}: Punctuality ${point.x}%, Consistency ${point.y}%`;
+                                return `${point.label}: On-time ${point.x}%, Regularity ${point.y}%`;
                             },
                         },
                     },
@@ -151,7 +151,7 @@
                     x: {
                         title: {
                             display: true,
-                            text: "Punctuality Score (%)",
+                            text: "On-time Score (%)",
                             font: { weight: "bold" as const, size: 11 },
                         },
                         min: 0,
@@ -161,7 +161,7 @@
                     y: {
                         title: {
                             display: true,
-                            text: "Consistency Score (%)",
+                            text: "Regularity Score (%)",
                             font: { weight: "bold" as const, size: 11 },
                         },
                         min: 0,
@@ -199,10 +199,10 @@
             type: "radar",
             data: {
                 labels: [
-                    "Punctuality",
-                    "Consistency",
-                    "Completeness",
-                    "Volume",
+                    "On-time",
+                    "Regularity",
+                    "Complete",
+                    "Uploads",
                 ],
                 datasets,
             },
@@ -269,10 +269,10 @@
                 <h3
                     class="text-sm font-semibold text-text-primary uppercase tracking-wide"
                 >
-                    Behavioral Clusters
+                    Submission Pattern Groups
                 </h3>
                 <p class="text-xs text-text-muted font-medium">
-                    K-Means unsupervised grouping
+                    Teachers grouped by similar submission habits
                 </p>
             </div>
         </div>
@@ -288,7 +288,7 @@
                         ? 'bg-surface-white text-gov-blue shadow-sm'
                         : 'text-text-muted hover:text-text-primary'}"
                 >
-                    Scatter
+                    Map
                 </button>
                 <button
                     onclick={() => (activeTab = "radar")}
@@ -297,7 +297,7 @@
                         ? 'bg-surface-white text-gov-blue shadow-sm'
                         : 'text-text-muted hover:text-text-primary'}"
                 >
-                    Radar
+                    Summary
                 </button>
             </div>
             <button
@@ -381,7 +381,7 @@
                     <span
                         class="text-text-muted opacity-0 group-hover/card:opacity-100 transition-opacity text-xs"
                     >
-                        Review →
+                        View details →
                     </span>
                 </div>
                 <p
@@ -398,7 +398,7 @@
                 <div class="mt-3 space-y-1">
                     <div class="flex justify-between text-xs">
                         <span class="text-text-muted font-bold"
-                            >Punctuality</span
+                            >On-time</span
                         >
                         <span class="font-semibold text-text-primary"
                             >{summary.avgPunctuality}%</span
@@ -406,7 +406,7 @@
                     </div>
                     <div class="flex justify-between text-xs">
                         <span class="text-text-muted font-bold"
-                            >Consistency</span
+                            >Regularity</span
                         >
                         <span class="font-semibold text-text-primary"
                             >{summary.avgConsistency}%</span
@@ -414,7 +414,7 @@
                     </div>
                     <div class="flex justify-between text-xs">
                         <span class="text-text-muted font-bold"
-                            >Completeness</span
+                            >Complete</span
                         >
                         <span class="font-semibold text-text-primary"
                             >{summary.avgCompleteness}%</span
@@ -465,10 +465,10 @@
                         <h3
                             class="text-lg font-semibold text-text-primary tracking-tight"
                         >
-                            {selectedCluster.label} Group
+                            {selectedCluster.label}
                         </h3>
                         <p class="text-xs text-text-muted font-medium">
-                            {membersInCluster.length} teachers grouped by behavior
+                            {membersInCluster.length} teachers with similar submission habits
                         </p>
                     </div>
                 </div>
@@ -521,7 +521,7 @@
                                         <p
                                             class="text-xs text-text-muted font-bold uppercase tracking-normal"
                                         >
-                                            Punctuality
+                                            On-time
                                         </p>
                                     </div>
                                     <div class="text-right">
@@ -533,7 +533,7 @@
                                         <p
                                             class="text-xs text-text-muted font-bold uppercase tracking-normal"
                                         >
-                                            Completeness
+                                            Complete
                                         </p>
                                     </div>
                                     <button
@@ -570,7 +570,7 @@
                                             {member.teacher.consistency}%
                                         </p>
                                         <p class="text-xs text-text-muted font-bold uppercase tracking-normal">
-                                            Consistency
+                                            Regularity
                                         </p>
                                     </div>
                                     <div>
@@ -578,7 +578,7 @@
                                             {member.teacher.volume}%
                                         </p>
                                         <p class="text-xs text-text-muted font-bold uppercase tracking-normal">
-                                            Volume
+                                            Upload volume
                                         </p>
                                     </div>
                                 </div>
@@ -595,7 +595,7 @@
                     onclick={() => (showDrillDown = false)}
                     class="px-6 py-2.5 bg-surface-white border border-border-strong rounded-xl text-xs font-bold text-text-primary hover:border-gov-blue transition-colors"
                 >
-                    Close Analysis
+                    Close
                 </button>
             </div>
         </div>

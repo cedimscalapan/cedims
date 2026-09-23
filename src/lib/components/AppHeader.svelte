@@ -15,7 +15,11 @@
     const isMobile = isMobileDevice();
     let { onMenu }: { onMenu?: () => void } = $props();
 
-    const navItems = $derived(getNavItemsForRole($profile?.role));
+    const navItems = $derived(
+        getNavItemsForRole($profile?.role).filter(
+            (item) => item.href !== "/dashboard/settings" && !item.onClick,
+        ),
+    );
 
     function isActive(href: string): boolean {
         const currentPath = $page.url.pathname;
