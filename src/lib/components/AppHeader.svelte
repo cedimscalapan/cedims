@@ -57,7 +57,7 @@
             <img
                 src="/app_icon.png"
                 alt=""
-                class="h-10 w-10 rounded-lg object-contain lg:h-11 lg:w-11"
+                class="h-9 w-9 rounded-lg object-contain lg:h-10 lg:w-10"
                 loading="eager"
                 aria-hidden="true"
             />
@@ -77,7 +77,7 @@
                         aria-label={item.label}
                         title={item.label}
                     >
-                        <Icon size={22} aria-hidden="true" />
+                        <Icon size={20} aria-hidden="true" />
                         <span>{item.label}</span>
                     </button>
                 {:else}
@@ -88,7 +88,7 @@
                         aria-current={isActive(item.href) ? "page" : undefined}
                         data-nav={item.navKey || null}
                     >
-                        <Icon size={22} aria-hidden="true" />
+                        <Icon size={20} aria-hidden="true" />
                         <span>{item.label}</span>
                     </a>
                 {/if}
@@ -121,22 +121,22 @@
 
             <button
                 onclick={() => showQRScanner.set(true)}
-                class="hidden h-10 w-10 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue xl:flex"
+                class="hidden h-9 w-9 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue xl:flex"
                 aria-label="Scan QR code"
             >
-                <QrCode size={24} strokeWidth={1.8} aria-hidden="true" />
+                <QrCode size={21} strokeWidth={1.8} aria-hidden="true" />
             </button>
 
             <button
                 data-tour="theme-toggle"
                 onclick={() => theme.toggle()}
-                class="flex h-10 w-10 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue"
+                class="flex h-9 w-9 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue"
                 aria-label={$theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             >
                 {#if $theme === "dark"}
-                    <Sun size={24} strokeWidth={1.8} />
+                    <Sun size={21} strokeWidth={1.8} />
                 {:else}
-                    <Moon size={24} strokeWidth={1.8} />
+                    <Moon size={21} strokeWidth={1.8} />
                 {/if}
             </button>
 
@@ -158,11 +158,11 @@
                         <img
                             src={$profile.avatar_url}
                             alt={$profile.full_name}
-                            class="h-9 w-9 flex-shrink-0 rounded-lg border-2 border-gov-blue/20 object-cover"
+                            class="h-8 w-8 flex-shrink-0 rounded-lg border-2 border-gov-blue/20 object-cover"
                             loading="lazy"
                         />
                     {:else}
-                        <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gov-blue text-base font-bold text-white">
+                        <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gov-blue text-sm font-bold text-white">
                             {$profile?.full_name?.charAt(0) || "U"}
                         </div>
                     {/if}
@@ -223,24 +223,24 @@
     .app-header-inner {
         width: 100%;
         max-width: 96rem;
-        min-height: 4.5rem;
+        min-height: 4rem;
         margin: 0 auto;
-        padding: 0.6rem 1.25rem;
+        padding: 0.5rem 1rem;
         display: grid;
         grid-template-columns: auto minmax(0, 1fr) auto;
         align-items: center;
-        gap: 1rem;
+        gap: 0.875rem;
     }
 
     .app-brand {
         display: inline-flex;
         align-items: center;
-        gap: 0.65rem;
+        gap: 0.55rem;
         min-width: max-content;
     }
 
     .brand-title {
-        font-size: clamp(1.25rem, 1.6vw, 1.55rem);
+        font-size: clamp(1.15rem, 1.35vw, 1.4rem);
         line-height: 1;
         font-weight: 850;
         color: var(--color-text-primary);
@@ -250,7 +250,7 @@
         min-width: 0;
         display: flex;
         align-items: center;
-        gap: 0.45rem;
+        gap: 0.35rem;
         overflow-x: auto;
         scrollbar-width: none;
         -ms-overflow-style: none;
@@ -264,19 +264,19 @@
         min-width: max-content;
         display: flex;
         align-items: center;
-        gap: 0.45rem;
+        gap: 0.35rem;
         justify-content: flex-end;
     }
 
     .top-nav-link {
         display: inline-flex;
         align-items: center;
-        gap: 0.42rem;
-        min-height: 2.9rem;
-        padding: 0.6rem 0.8rem;
+        gap: 0.38rem;
+        min-height: 2.55rem;
+        padding: 0.5rem 0.68rem;
         border-radius: 0.5rem;
         color: var(--color-text-secondary);
-        font-size: clamp(0.95rem, 0.95vw, 1.05rem);
+        font-size: clamp(0.9rem, 0.9vw, 1rem);
         font-weight: 700;
         white-space: nowrap;
         flex: 0 0 auto;
