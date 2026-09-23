@@ -23,7 +23,7 @@ export async function getSchoolHeadAnalytics(schoolId: string, districtId: strin
             `)
             .eq('profiles.school_id', schoolId)
             .order('created_at', { ascending: true })
-            .limit(500),
+            .limit(10000),
 
         // Teacher performance metrics (week_number + teaching_load_id are
         // required for calculateCompliance's slot-dedup — see
@@ -41,7 +41,7 @@ export async function getSchoolHeadAnalytics(schoolId: string, districtId: strin
             `)
             .eq('profiles.school_id', schoolId)
             .order('created_at', { ascending: false })
-            .limit(300),
+            .limit(10000),
 
         // Teachers below compliance threshold (< 70%)
         supabase
@@ -53,7 +53,7 @@ export async function getSchoolHeadAnalytics(schoolId: string, districtId: strin
             `)
             .eq('profiles.school_id', schoolId)
             .order('user_id')
-            .limit(300),
+            .limit(10000),
 
         // Full teacher/master-teacher roster for this school, so an entity
         // with zero submissions still shows up (at 0%) instead of being
@@ -108,7 +108,7 @@ export async function getDistrictSupervisorAnalytics(districtId: string) {
             `)
             .eq('profiles.district_id', districtId)
             .order('created_at', { ascending: true })
-            .limit(1000),
+            .limit(10000),
 
         // School performance metrics
         supabase
@@ -118,7 +118,7 @@ export async function getDistrictSupervisorAnalytics(districtId: string) {
                 profiles!inner(district_id, school_id, schools(name))
             `)
             .eq('profiles.district_id', districtId)
-            .limit(1000),
+            .limit(10000),
 
         // Teacher performance distribution (for k-means clustering).
         // week_number + teaching_load_id are required for
@@ -136,7 +136,7 @@ export async function getDistrictSupervisorAnalytics(districtId: string) {
             `)
             .eq('profiles.district_id', districtId)
             .order('user_id')
-            .limit(500),
+            .limit(10000),
 
         // Critical alerts
         supabase

@@ -213,11 +213,12 @@
     <div class="w-full max-w-lg animate-slide-up">
         <!-- Logo -->
         <div class="text-center mb-8">
-            <div
-                class="w-14 h-14 mx-auto rounded-md bg-gov-blue flex items-center justify-center text-white text-2xl font-bold shadow-sm mb-3"
-            >
-                E
-            </div>
+            <img
+                src="/app_icon.png"
+                alt="CEDIMS logo"
+                class="w-16 h-16 mx-auto rounded-md object-contain shadow-sm mb-3"
+                loading="eager"
+            />
             <h1 class="text-xl font-bold text-text-primary">CEDIMS</h1>
             <p class="text-sm text-text-muted">Document Verification</p>
         </div>

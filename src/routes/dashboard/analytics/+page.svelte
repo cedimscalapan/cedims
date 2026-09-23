@@ -105,8 +105,8 @@
                     ).filter((s: any) => isComplianceTrackedDocType(s.doc_type));
 
                     trends = {
-                        compliance: generateComplianceTrend(submissions, 'week'),
-                        forecast: forecastCompliance(generateComplianceTrend(submissions, 'week'), 4)
+                        compliance: buildExpectedComplianceTrend(submissions, totalLoads, definedWeeks),
+                        forecast: forecastCompliance(buildExpectedComplianceTrend(submissions, totalLoads, definedWeeks), 4)
                     };
 
                     distributions = {
@@ -182,6 +182,38 @@
         return { rows: roster.map((r) => r.name), weeks, cells };
     }
 
+    function buildExpectedComplianceTrend(
+        submissions: any[],
+        totalLoads: number,
+        definedWeeks: number,
+    ) {
+        const submittedWeeks = Array.from(new Set(submissions.map((s) => getSubmissionWeek(s))))
+            .filter((w) => Number.isFinite(w) && w > 0)
+            .sort((a, b) => a - b);
+        const openedWeeks = Array.from(
+            { length: Math.max(0, definedWeeks) },
+            (_, i) => i + 1,
+        );
+        const weeks = Array.from(new Set([...openedWeeks, ...submittedWeeks]))
+            .sort((a, b) => a - b)
+            .slice(-12);
+
+        if (weeks.length === 0) return generateComplianceTrend(submissions, 'week');
+
+        return weeks.map((week) => {
+            const weekSubs = submissions.filter((s) => getSubmissionWeek(s) === week);
+            const stats = calculateCompliance(weekSubs, totalLoads);
+            return {
+                period: `W${week}`,
+                compliant: stats.Compliant,
+                late: stats.Late,
+                missing: stats.NonCompliant,
+                total: stats.totalUploaded,
+                rate: stats.rate,
+            };
+        });
+    }
+
     function formatRelativeTime(then: Date | null, nowMs: number): string {
         if (!then) return "—";
         const diffSec = Math.max(0, Math.round((nowMs - then.getTime()) / 1000));
@@ -198,14 +230,27 @@
     onMount(() => {
         loadAnalytics();
 
-        // Keep every chart live: re-run the analysis whenever any submission
-        // is created/updated/deleted, instead of only ever showing a stale
-        // snapshot from the moment the page was opened.
+        // Keep every chart live: re-run the analysis whenever submissions,
+        // teaching loads, or opened calendar weeks change.
         realtimeChannel = supabase
-            .channel("analytics-submissions")
+            .channel("analytics-live-data")
             .on(
                 "postgres_changes",
                 { event: "*", schema: "public", table: "submissions" },
+                () => {
+                    if (!loading) loadAnalytics();
+                },
+            )
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "teaching_loads" },
+                () => {
+                    if (!loading) loadAnalytics();
+                },
+            )
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "academic_calendar" },
                 () => {
                     if (!loading) loadAnalytics();
                 },
