@@ -3,6 +3,7 @@
     import { goto } from "$app/navigation";
     import { supabase } from "$lib/utils/supabase";
     import StatusBadge from "$lib/components/StatusBadge.svelte";
+    import { getDocumentLabel } from "$lib/utils/documentLabels";
     import QRScanner from "$lib/components/QRScanner.svelte";
     import { onMount } from "svelte";
     import { lookupOfflineDoc, cacheVerifiedDoc } from "$lib/utils/offline";
@@ -410,7 +411,7 @@
                                     >
                                     <span
                                         class="text-gov-blue font-semibold uppercase text-xs px-2 py-0.5 bg-gov-blue/5 rounded"
-                                        >{result.doc_type}</span
+                                        >{getDocumentLabel(result.doc_type)}</span
                                     >
                                 </div>
                             {/if}

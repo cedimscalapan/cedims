@@ -5,6 +5,7 @@
     import { focusTrap } from "$lib/actions/focusTrap";
     import { config } from "$lib/utils/config";
     import type { PipelineResult } from "$lib/types/pipeline";
+    import { getDocumentLabel } from "$lib/utils/documentLabels";
 
     interface Props {
         result: PipelineResult;
@@ -93,7 +94,7 @@
                     <div class="flex justify-between gap-3">
                         <span class="text-text-muted">Type</span>
                         <span class="font-semibold text-text-primary">
-                            {docType}{weekNumber ? ` · Week ${weekNumber}` : ""}
+                            {getDocumentLabel(docType)}{weekNumber ? ` · Week ${weekNumber}` : ""}
                         </span>
                     </div>
                     <div class="flex justify-between gap-3">

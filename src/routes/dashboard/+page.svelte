@@ -39,6 +39,7 @@
     } from "lucide-svelte";
     import { showQRScanner } from "$lib/stores/ui";
     import { connectivity } from "$lib/stores/connectivity";
+    import { getDocumentLabel } from "$lib/utils/documentLabels";
     const { isOnline: onlineStatus } = connectivity;
 
     let submissions = $state<any[]>([]);
@@ -173,7 +174,7 @@
                                     rec.compliance_status === "missing"
                                         ? "high"
                                         : "medium",
-                                    `A teacher submitted a ${rec.compliance_status} DLL (Week ${rec.week_number || "?"}).`,
+                                    `A teacher submitted a ${rec.compliance_status} Daily Lesson Plan (Week ${rec.week_number || "?"}).`,
                                 );
                             } catch (e) {
                                 console.warn(
@@ -712,7 +713,7 @@
                         <p
                             class="text-xs text-text-muted mt-1 leading-relaxed"
                         >
-                            Submit DLL, ISP, or ISR reports.
+                            Submit Daily Lesson Plan, ISP — Instructional Supervisory Plan, or ISR — Instructional Supervisory Report.
                         </p>
                     </div>
                 </a>
@@ -1041,7 +1042,7 @@
                                         <span
                                             class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-xs font-bold rounded uppercase tracking-wider whitespace-nowrap"
                                         >
-                                            {item.doc_type || "Unknown"}
+                                            {getDocumentLabel(item.doc_type)}
                                         </span>
                                         {#if item.doc_type === "DLL" && item.week_number != null}
                                             <span

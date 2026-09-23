@@ -1,6 +1,7 @@
 <script lang="ts">
     import { ChevronUp, ChevronDown, Search } from "lucide-svelte";
     import StatusBadge from "./StatusBadge.svelte";
+    import { getDocumentLabel } from "$lib/utils/documentLabels";
 
     interface Submission {
         id: string;
@@ -46,7 +47,7 @@
             const query = searchQuery.toLowerCase();
             filtered = filtered.filter(s =>
                 s.file_name.toLowerCase().includes(query) ||
-                s.doc_type.toLowerCase().includes(query)
+                s.doc_type.toLowerCase().includes(query) || getDocumentLabel(s.doc_type).toLowerCase().includes(query)
             );
         }
 
@@ -206,7 +207,7 @@
                         </td>
                         <td class="py-4 px-4">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gov-blue/10 text-gov-blue">
-                                {submission.doc_type}
+                                {getDocumentLabel(submission.doc_type)}
                             </span>
                         </td>
                         <td class="py-4 px-4">

@@ -27,7 +27,7 @@
 ## 1. System Overview
 
 **Smart E-VISION** streamlines the daily instructional-document workflow of the Calapan East
-District: teachers upload their **DLLs (Daily Lesson Logs)**, **ISPs (Instructional Supervisory
+District: teachers upload their **DLLs (Daily Lesson Plans)**, **ISPs (Instructional Supervisory
 Plans)**, and **ISRs (Instructional Supervisory Reports)**; an **AI-assisted pipeline** reads each
 document, verifies its content, classifies it as compliant or non-compliant, and produces live
 compliance analytics, risk alerts, and a tamper-evident audit trail for district supervisors and
@@ -416,7 +416,7 @@ Use these as starting points for the capstone's Related Literature sections:
 
 | Term | Definition |
 |------|------------|
-| **DLL** | Daily Lesson Log — a teacher's per-day lesson plan for DepEd |
+| **DLL** | Daily Lesson Plan — a teacher's per-day lesson plan for DepEd |
 | **ISP** | Instructional Supervisory Plan — supervisory planning document |
 | **ISR** | Instructional Supervisory Report — supervisory reporting document |
 | **OCR** | Optical Character Recognition — converting images/scans into machine-readable text |

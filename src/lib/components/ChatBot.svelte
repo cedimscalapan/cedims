@@ -37,15 +37,15 @@
     // opening message says so.
     const greeting =
         "Hello. I am Gabay, your CEDIMS assistant. I can check your compliance rate, " +
-        "look up deadlines, find DLLs, compare schools, and (for School Heads and " +
+        "look up deadlines, find Daily Lesson Plans, compare schools, and (for School Heads and " +
         "District Supervisors) generate a compliance report in Excel or Word, " +
         "all using live data. Ask me in English or Tagalog.";
 
     const suggestions = [
         "What is my compliance rate?",
         "When is the next deadline?",
-        "How do I upload a DLL?",
-        "Find DLLs about fractions",
+        "How do I upload a Daily Lesson Plan?",
+        "Find Daily Lesson Plans about fractions",
         "Compare schools in the district",
         "Generate a compliance report",
         "Kailan ang susunod na deadline?"
@@ -54,10 +54,10 @@
     const roleSuggestions: Record<string, string[]> = {
         Teacher: [
             "What is my compliance rate?",
-            "What DLL submissions are missing?",
+            "What Daily Lesson Plan submissions are missing?",
             "When is my next submission deadline?",
-            "How do I upload a DLL?",
-            "Find my DLLs about fractions",
+            "How do I upload a Daily Lesson Plan?",
+            "Find my Daily Lesson Plans about fractions",
         ],
         "School Head": [
             "What is my school's compliance rate?",

@@ -158,7 +158,7 @@ const INTENT_TOPIC_LABELS: Record<Lang, Record<Intent, string>> = {
     en: {
         ask_compliance: 'your compliance status',
         check_deadline: 'upcoming deadlines',
-        find_dll: 'finding a DLL',
+        find_dll: 'finding a Daily Lesson Plan',
         school_compare: 'school comparisons',
         teacher_stats: 'teacher statistics',
         calendar_info: 'the academic calendar',
@@ -169,7 +169,7 @@ const INTENT_TOPIC_LABELS: Record<Lang, Record<Intent, string>> = {
     tl: {
         ask_compliance: 'compliance status mo',
         check_deadline: 'mga paparating na deadline',
-        find_dll: 'paghahanap ng DLL',
+        find_dll: 'paghahanap ng Daily Lesson Plan',
         school_compare: 'paghahambing ng paaralan',
         teacher_stats: 'istatistika ng guro',
         calendar_info: 'academic calendar',
@@ -199,17 +199,17 @@ interface KnowledgeEntry {
 
 const KNOWLEDGE_BASE: KnowledgeEntry[] = [
     {
-        keywords: ['dll', 'daily lesson log', 'weekly lesson log', 'lingguhang aralin', 'lesson plan', 'banghay'],
+        keywords: ['dll', 'daily lesson plan', 'weekly lesson log', 'lingguhang aralin', 'lesson plan', 'banghay'],
         answers: {
             en: [
-                'A DLL (Daily Lesson Log) is the DepEd weekly lesson planning document that teachers prepare and submit for compliance monitoring. Each one covers the learning area, grade level, teaching dates, and week for your teaching load.',
-                'DLL stands for Daily Lesson Log: it’s the weekly lesson plan every teacher submits per subject. The system checks its subject, grade, and week against your teaching load to see if you’re compliant.',
-                'Think of a DLL as your weekly proof of teaching plans: one per subject, per week.'
+                'A Daily Lesson Plan is the DepEd weekly lesson planning document that teachers prepare and submit for compliance monitoring. Each one covers the learning area, grade level, teaching dates, and week for your teaching load.',
+                'Daily Lesson Plan: it’s the weekly lesson plan every teacher submits per subject. The system checks its subject, grade, and week against your teaching load to see if you’re compliant.',
+                'Think of a Daily Lesson Plan as your weekly proof of teaching plans: one per subject, per week.'
             ],
             tl: [
-                'Ang DLL (Daily Lesson Log) ay ang lingguhang banghay-aralin na kailangan ninyong i-submit para sa bawat asignatura, ginagamit para i-monitor ang compliance ninyo.',
-                'Ang DLL ay ang lesson plan ninyo bawat linggo, per subject. Chinecheck ng system ang subject, grade, at week nito laban sa teaching load ninyo.',
-                'DLL ang tawag sa lingguhang lesson plan: isa ito bawat subject, bawat linggo, kailangan i-submit para sa compliance.'
+                'Ang Daily Lesson Plan ay ang lingguhang banghay-aralin na kailangan ninyong i-submit para sa bawat asignatura, ginagamit para i-monitor ang compliance ninyo.',
+                'Ang Daily Lesson Plan ay ang lesson plan ninyo bawat linggo, per subject. Chinecheck ng system ang subject, grade, at week nito laban sa teaching load ninyo.',
+                'Daily Lesson Plan ang tawag sa lingguhang lesson plan: isa ito bawat subject, bawat linggo, kailangan i-submit para sa compliance.'
             ]
         }
     },
@@ -231,11 +231,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         answers: {
             en: [
                 'An ISR (Instructional Supervisory Report) is the report a Master Teacher files after observing a classroom: it records the teacher observed, findings, and the technical assistance given.',
-                'ISR stands for Instructional Supervisory Report. It’s filed monthly after a classroom observation, and it’s separate from your regular DLL submissions.'
+                'ISR stands for Instructional Supervisory Report. It’s filed monthly after a classroom observation, and it’s separate from your regular Daily Lesson Plan submissions.'
             ],
             tl: [
                 'Ang ISR (Instructional Supervisory Report) ay ang report na isinusumite ng Master Teacher matapos mag-observe ng klase: naka-record dito ang guro, findings, at tulong na ibinigay.',
-                'Buwanang isinusumite ito matapos mag-classroom observation, at hiwalay ito sa regular na DLL submissions.'
+                'Buwanang isinusumite ito matapos mag-classroom observation, at hiwalay ito sa regular na Daily Lesson Plan submissions.'
             ]
         }
     },
@@ -248,7 +248,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
             ],
             tl: [
                 'Ang compliance ay ang aktwal ninyong na-submit hinati sa inaasahan (ang inaasahan ay ang active teaching loads ninyo × bilang ng linggo sa academic calendar). On time = compliant, huli = late, hindi na-submit = missing.',
-                'Simpleng bersyon: kung ilan sa mga inaasahang DLL ninyo ang na-submit ninyo, on time man o late, iyan ang compliance rate ninyo. Extra ("Supplementary") DLLs ay hindi nakakaapekto rito.'
+                'Simpleng bersyon: kung ilan sa mga inaasahang Daily Lesson Plan ninyo ang na-submit ninyo, on time man o late, iyan ang compliance rate ninyo. Extra ("Supplementary") Daily Lesson Plans ay hindi nakakaapekto rito.'
             ]
         }
     },
@@ -269,11 +269,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['role', 'master teacher', 'school head', 'district supervisor', 'administrator'],
         answers: {
             en: [
-                'Each role gets its own view: Teachers manage their own DLLs, Master Teachers review and endorse, School Heads monitor their whole school, and District Supervisors compare across every school in the district.',
+                'Each role gets its own view: Teachers manage their own Daily Lesson Plans, Master Teachers review and endorse, School Heads monitor their whole school, and District Supervisors compare across every school in the district.',
                 'It depends on who’s logged in: Teachers see their own uploads, School Heads see their staff, and District Supervisors see the district-wide picture with Analytics and Admin access on top.'
             ],
             tl: [
-                'Iba-iba ang view depende sa role: Teachers para sa sariling DLLs, Master Teachers para sa review at endorsement, School Heads para sa buong paaralan, at District Supervisors para sa buong distrito.',
+                'Iba-iba ang view depende sa role: Teachers para sa sariling Daily Lesson Plans, Master Teachers para sa review at endorsement, School Heads para sa buong paaralan, at District Supervisors para sa buong distrito.',
                 'Depende sa naka-login: nakikita ng Teacher ang sariling upload, nakikita ng School Head ang staff niya, at nakikita ng District Supervisor ang buong distrito kasama ang Analytics at Admin.'
             ]
         }
@@ -295,12 +295,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['supplementary', 'extra dll', 'another dll', 'duplicate submission'],
         answers: {
             en: [
-                'A "Supplementary" submission is an extra DLL for a week/subject that already has one on file: it’s kept for reference but never counts toward your compliance rate, upload totals, or a "missing" mark.',
-                'Nag-upload kayo ba ng pangalawang DLL sa parehong linggo at subject? That extra one gets tagged "Supplementary": it’s just extra documentation, it won’t hurt or help your compliance number.'
+                'A "Supplementary" submission is an extra Daily Lesson Plan for a week/subject that already has one on file: it’s kept for reference but never counts toward your compliance rate, upload totals, or a "missing" mark.',
+                'Nag-upload kayo ba ng pangalawang Daily Lesson Plan sa parehong linggo at subject? That extra one gets tagged "Supplementary": it’s just extra documentation, it won’t hurt or help your compliance number.'
             ],
             tl: [
-                'Ang "Supplementary" ay dagdag na DLL para sa linggo/subject na may na-submit na: itinatago ito bilang reference pero hindi ito nabibilang sa compliance rate, total uploads, o "missing" mark.',
-                'Nag-upload kayo ba ng pangalawang DLL sa parehong linggo at subject? Ito ay tatawaging "Supplementary": extra documentation lang ito, hindi nakakaapekto sa compliance number ninyo.'
+                'Ang "Supplementary" ay dagdag na Daily Lesson Plan para sa linggo/subject na may na-submit na: itinatago ito bilang reference pero hindi ito nabibilang sa compliance rate, total uploads, o "missing" mark.',
+                'Nag-upload kayo ba ng pangalawang Daily Lesson Plan sa parehong linggo at subject? Ito ay tatawaging "Supplementary": extra documentation lang ito, hindi nakakaapekto sa compliance number ninyo.'
             ]
         }
     },
@@ -321,7 +321,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['greeting', 'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'kamusta', 'kumusta'],
         answers: {
             en: [
-                'Hello. I’m Gabay, your CEDIMS assistant. I can check your compliance, find DLLs, look up deadlines, compare schools, and show teacher stats. What would you like to know?',
+                'Hello. I’m Gabay, your CEDIMS assistant. I can check your compliance, find Daily Lesson Plans, look up deadlines, compare schools, and show teacher stats. What would you like to know?',
                 'Hello. You may ask about your submissions, deadlines, or how the system works.'
             ],
             tl: [
@@ -352,7 +352,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
                 'I am Gabay, the CEDIMS assistant. I can help with submissions, compliance, deadlines, and the records available to your role.'
             ],
             tl: [
-                'Ako po si Gabay, ang CEDIMS assistant. Makakatulong ako sa pagsusuri ng compliance, paghahanap ng DLL, at pagtukoy ng deadlines.',
+                'Ako po si Gabay, ang CEDIMS assistant. Makakatulong ako sa pagsusuri ng compliance, paghahanap ng Daily Lesson Plan, at pagtukoy ng deadlines.',
                 'Ako po si Gabay, ang CEDIMS assistant. Maaari ninyo akong tanungin tungkol sa mga feature at tala na saklaw ng inyong account.'
             ]
         }
@@ -374,12 +374,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['cedims', 'smarte vision', 'smart e vision', 'what does this app do', 'what is this app', 'what is this platform', 'purpose of this app'],
         answers: {
             en: [
-                'CEDIMS stands for Calapan East District Instructional Monitoring System: it’s where teachers submit DLLs and supervisors track compliance across schools. SmartE Vision is the broader platform name behind it.',
-                'This is CEDIMS: basically a digital home for DLL submissions, deadline tracking, and compliance monitoring, so nobody has to chase paperwork around anymore.'
+                'CEDIMS stands for Calapan East District Instructional Monitoring System: it’s where teachers submit Daily Lesson Plans and supervisors track compliance across schools. SmartE Vision is the broader platform name behind it.',
+                'This is CEDIMS: basically a digital home for Daily Lesson Plan submissions, deadline tracking, and compliance monitoring, so nobody has to chase paperwork around anymore.'
             ],
             tl: [
-                'Ang CEDIMS ay Calapan East District Instructional Monitoring System: dito nagsusumite ng DLL ang mga guro at sinusubaybayan ng mga supervisor ang compliance sa buong paaralan.',
-                'Ang CEDIMS ay isang sistema para sa DLL submissions, pagsubaybay sa deadlines, at compliance monitoring ng paaralan at distrito.'
+                'Ang CEDIMS ay Calapan East District Instructional Monitoring System: dito nagsusumite ng Daily Lesson Plan ang mga guro at sinusubaybayan ng mga supervisor ang compliance sa buong paaralan.',
+                'Ang CEDIMS ay isang sistema para sa Daily Lesson Plan submissions, pagsubaybay sa deadlines, at compliance monitoring ng paaralan at distrito.'
             ]
         }
     },
@@ -492,11 +492,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         answers: {
             en: [
                 'Your teaching loads are the subject + grade-level combinations assigned to you: they’re what "expected submissions" is calculated from, so make sure yours are accurate and marked active.',
-                'Each active teaching load is one more expected DLL per week. If your compliance math looks off, it’s worth double-checking your teaching loads are set up correctly.'
+                'Each active teaching load is one more expected Daily Lesson Plan per week. If your compliance math looks off, it’s worth double-checking your teaching loads are set up correctly.'
             ],
             tl: [
                 'Ang teaching loads ninyo ay ang kombinasyon ng subject at grade level na naka-assign sa inyo: dito hinahango ang "expected submissions", kaya siguraduhing tama at active ang mga ito.',
-                'Bawat active na teaching load ay isa pang inaasahang DLL kada linggo. Kung mukhang mali ang compliance ninyo, siguraduhing tama ang setup ng teaching loads ninyo.'
+                'Bawat active na teaching load ay isa pang inaasahang Daily Lesson Plan kada linggo. Kung mukhang mali ang compliance ninyo, siguraduhing tama ang setup ng teaching loads ninyo.'
             ]
         }
     },
@@ -523,7 +523,7 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['privacy', 'who can see my', 'confidential', 'visible to'],
         answers: {
             en: [
-                'Visibility follows your role and hierarchy: Teachers see only their own documents, School Heads see their school, and District Supervisors see the whole district. ISP/ISR have their own tighter rules on top of that.',
+                'Visibility follows your role and hierarchy: Teachers see only their own documents, School Heads see their school, and District Supervisors see the whole district. ISP — Instructional Supervisory Plan / ISR — Instructional Supervisory Report have their own tighter rules on top of that.',
                 'Nobody outside your school/district chain can see your submissions. Access is scoped strictly by role.'
             ],
             tl: [
@@ -566,10 +566,10 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         ],
         answers: {
             en: [
-                'The requirement to prepare a Daily Lesson Log (or a more detailed Lesson Plan) comes from DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," issued under RA 10533 (the Enhanced Basic Education Act of 2013). It sets out what a lesson plan needs to cover (objectives, content, learning resources, procedure, and reflection) and affirms the teacher\'s role as a facilitator of learning. Specific submission deadlines and monitoring (like what this system tracks) are set locally by your school/division, not by this order itself. Full text: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
+                'The requirement to prepare a Daily Lesson Plan (or a more detailed Lesson Plan) comes from DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," issued under RA 10533 (the Enhanced Basic Education Act of 2013). It sets out what a lesson plan needs to cover (objectives, content, learning resources, procedure, and reflection) and affirms the teacher\'s role as a facilitator of learning. Specific submission deadlines and monitoring (like what this system tracks) are set locally by your school/division, not by this order itself. Full text: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
             ],
             tl: [
-                'Ang requirement na maghanda ng Daily Lesson Log (o mas detalyadong Lesson Plan) ay galing sa DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," base sa RA 10533 (Enhanced Basic Education Act of 2013). Nakasaad dito ang mga dapat nasa lesson plan: layunin, nilalaman, learning resources, proseso, at reflection. Ang mga specific na deadline at monitoring (tulad ng tina-track ng system na ito) ay itinatakda ng inyong paaralan/dibisyon, hindi ng order mismo. Buong teksto: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
+                'Ang requirement na maghanda ng Daily Lesson Plan (o mas detalyadong Lesson Plan) ay galing sa DepEd Order No. 42, s. 2016, "Policy Guidelines on Daily Lesson Preparation for the K to 12 Basic Education Program," base sa RA 10533 (Enhanced Basic Education Act of 2013). Nakasaad dito ang mga dapat nasa lesson plan: layunin, nilalaman, learning resources, proseso, at reflection. Ang mga specific na deadline at monitoring (tulad ng tina-track ng system na ito) ay itinatakda ng inyong paaralan/dibisyon, hindi ng order mismo. Buong teksto: https://www.deped.gov.ph/2016/06/17/do-42-s-2016-policy-guidelines-on-daily-lesson-preparation-for-the-k-to-12-basic-education-program/',
             ]
         }
     },
@@ -813,7 +813,7 @@ function generateTemplateResponse(intent: Intent, slots: Record<string, string>,
             if (slots.subject) filters += ` for ${slots.subject}`;
             if (slots.grade) filters += `, Grade ${slots.grade}`;
             if (slots.week) filters += `, Week ${slots.week}`;
-            return pick([`Searching DLLs${filters}...`, `Looking for DLLs${filters}...`, `Let me find those DLLs${filters} for you.`]);
+            return pick([`Searching Daily Lesson Plans${filters}...`, `Looking for Daily Lesson Plans${filters}...`, `Let me find those Daily Lesson Plans${filters} for you.`]);
         },
         school_compare: () => {
             if (slots.school) return pick([`Let me pull up the compliance data for ${slots.school}.`, `Checking how ${slots.school} is doing.`]);
@@ -824,9 +824,9 @@ function generateTemplateResponse(intent: Intent, slots: Record<string, string>,
             return pick(["Let me gather the teacher submission statistics.", "Pulling up teacher stats.", "Fetching teacher performance data."]);
         },
         calendar_info: () => pick(["Let me check the academic calendar for you.", "Looking at the school calendar now.", "Let me pull up the academic calendar."]),
-        how_to_upload: () => "Uploading a DLL is simple. Please open the Upload page, then drag and drop your .docx or .pdf file. The system will automatically detect the subject, grade level, and week from the document. You will have a chance to review the extracted information before finalizing the upload. If you are offline, the document will be saved locally and will sync automatically once you are back online.",
+        how_to_upload: () => "Uploading a Daily Lesson Plan is simple. Please open the Upload page, then drag and drop your .docx or .pdf file. The system will automatically detect the subject, grade level, and week from the document. You will have a chance to review the extracted information before finalizing the upload. If you are offline, the document will be saved locally and will sync automatically once you are back online.",
         create_report: () => "Generating a report needs a live connection so I can pull current compliance data. Please try again once you're back online.",
-        general_help: () => "I can assist with CEDIMS-related questions. I can check your compliance rate, look up deadlines, find DLLs, compare schools, show teacher stats, or generate a compliance report. Try asking something like, “What is my compliance rate?” or “When is the next deadline?”"
+        general_help: () => "I can assist with CEDIMS-related questions. I can check your compliance rate, look up deadlines, find Daily Lesson Plans, compare schools, show teacher stats, or generate a compliance report. Try asking something like, “What is my compliance rate?” or “When is the next deadline?”"
     };
 
     const templatesTl: Record<Intent, () => string> = {
@@ -837,7 +837,7 @@ function generateTemplateResponse(intent: Intent, slots: Record<string, string>,
             if (slots.subject) filters += ` para sa ${slots.subject}`;
             if (slots.grade) filters += `, Grade ${slots.grade}`;
             if (slots.week) filters += `, Week ${slots.week}`;
-            return pick([`Hinahanap ko ang mga DLL${filters}...`, `Naghahanap ng DLL${filters}...`, `Hanapin ko ang mga DLL${filters} para sa'yo.`]);
+            return pick([`Hinahanap ko ang mga Daily Lesson Plan${filters}...`, `Naghahanap ng Daily Lesson Plan${filters}...`, `Hanapin ko ang mga Daily Lesson Plan${filters} para sa'yo.`]);
         },
         school_compare: () => {
             if (slots.school) return pick([`Kinukuha ko ang compliance data para sa ${slots.school}.`, `Chineck ko kung kumusta ang ${slots.school}.`]);
@@ -848,9 +848,9 @@ function generateTemplateResponse(intent: Intent, slots: Record<string, string>,
             return pick(["Kinukuha ko ang teacher submission statistics.", "Kinukuha ko ang teacher stats.", "Kinukuha ko ang performance data ng mga guro."]);
         },
         calendar_info: () => pick(["Titignan ko ang academic calendar para sa'yo.", "Tinitignan ko na ang school calendar.", "Kinukuha ko ang academic calendar."]),
-        how_to_upload: () => "Upang mag-upload ng DLL, buksan po ang Upload page at piliin ang inyong .docx o .pdf file. Susuriin ng system ang subject, grade level, at linggo sa dokumento. Pakisuri ang nakuhang impormasyon bago kumpirmahin ang submission. Kung offline, ise-save muna ang dokumento sa inyong device at magsi-sync kapag bumalik ang koneksyon.",
+        how_to_upload: () => "Upang mag-upload ng Daily Lesson Plan, buksan po ang Upload page at piliin ang inyong .docx o .pdf file. Susuriin ng system ang subject, grade level, at linggo sa dokumento. Pakisuri ang nakuhang impormasyon bago kumpirmahin ang submission. Kung offline, ise-save muna ang dokumento sa inyong device at magsi-sync kapag bumalik ang koneksyon.",
         create_report: () => "Kailangan po ng koneksyon upang makuha ang kasalukuyang compliance data para sa report. Mangyaring subukan muli kapag online na.",
-        general_help: () => "Nandito ako para tumulong sa maraming bagay. Puwede kong i-check ang compliance rate ninyo, hanapin ang mga deadline, maghanap ng DLL, ikumpara ang mga paaralan, ipakita ang teacher stats, o gumawa ng compliance report. Subukan ninyong itanong, “Ano ang compliance rate ko?” o “Kailan ang susunod na deadline?”"
+        general_help: () => "Nandito ako para tumulong sa maraming bagay. Puwede kong i-check ang compliance rate ninyo, hanapin ang mga deadline, maghanap ng Daily Lesson Plan, ikumpara ang mga paaralan, ipakita ang teacher stats, o gumawa ng compliance report. Subukan ninyong itanong, “Ano ang compliance rate ko?” o “Kailan ang susunod na deadline?”"
     };
 
     const templates = lang === 'tl' ? templatesTl : templatesEn;
@@ -1030,8 +1030,8 @@ async function queryCompliance(
             if (pendingReview > 0 && compliantExplicit < compliant) {
                 response += ` ${pendingReview} submission ang na-upload pero hinihintay pa ang official review.`;
             }
-            if (nonCompliant > 0) response += ' Mangyaring suriin ang mga kulang na DLL at ang mga itinakdang deadline.';
-            else response += ' Naisumite na ang lahat ng inaasahang DLL para sa saklaw na ito.';
+            if (nonCompliant > 0) response += ' Mangyaring suriin ang mga kulang na Daily Lesson Plan at ang mga itinakdang deadline.';
+            else response += ' Naisumite na ang lahat ng inaasahang Daily Lesson Plan para sa saklaw na ito.';
         }
         return response;
     }
@@ -1049,8 +1049,8 @@ async function queryCompliance(
         if (pendingReview > 0 && compliantExplicit < compliant) {
             response += ` ${pendingReview} submission${pendingReview > 1 ? 's are' : ' is'} uploaded but awaiting official review.`;
         }
-        if (nonCompliant > 0) response += ' Please review the missing DLLs and their submission deadlines.';
-        else response += ' All expected DLLs for this scope have been submitted.';
+        if (nonCompliant > 0) response += ' Please review the missing Daily Lesson Plans and their submission deadlines.';
+        else response += ' All expected Daily Lesson Plans for this scope have been submitted.';
     }
 
     return response;
@@ -1119,8 +1119,8 @@ async function queryDlls(
                     return `${i + 1}. ${d.subject}${grade}${week}, ${d.teacher}`;
                 });
                 let summary = lang === 'tl'
-                    ? `May nahanap akong ${semantic.length} DLL na tugma sa "${queryText.trim()}":\n${lines.join('\n')}`
-                    : `Found ${semantic.length} DLL${semantic.length > 1 ? 's' : ''} matching "${queryText.trim()}":\n${lines.join('\n')}`;
+                    ? `May nahanap akong ${semantic.length} Daily Lesson Plan na tugma sa "${queryText.trim()}":\n${lines.join('\n')}`
+                    : `Found ${semantic.length} Daily Lesson Plan${semantic.length > 1 ? 's' : ''} matching "${queryText.trim()}":\n${lines.join('\n')}`;
                 if (semantic.length === 5) summary += lang === 'tl' ? '\n\nPara sa mas eksaktong resulta, subukan ang mas specific na paghahanap.' : '\n\nFor more precise results, try a more specific search.';
                 return summary;
             }
@@ -1152,25 +1152,25 @@ async function queryDlls(
         if (tlData && tlData.length > 0) {
             query = query.in('teaching_load_id', tlData.map((t: any) => t.id));
         } else {
-            return lang === 'tl' ? `Walang nahanap na DLL para sa ${gradeLabel}.` : `I couldn't find any DLLs for ${gradeLabel}.`;
+            return lang === 'tl' ? `Walang nahanap na Daily Lesson Plan para sa ${gradeLabel}.` : `I couldn't find any Daily Lesson Plans for ${gradeLabel}.`;
         }
     }
 
     query = query.limit(5);
     const { data, error } = await query;
 
-    if (error) return lang === 'tl' ? 'Paumanhin po, hindi mahanap ngayon ang mga DLL.' : "Sorry, I couldn't search DLLs right now.";
+    if (error) return lang === 'tl' ? 'Paumanhin po, hindi mahanap ngayon ang mga Daily Lesson Plan.' : "Sorry, I couldn't search Daily Lesson Plans right now.";
     if (!data || data.length === 0) {
         const parts: string[] = [];
         if (slots.subject) parts.push(slots.subject);
         if (slots.grade) parts.push(`Grade ${slots.grade}`);
         if (slots.week) parts.push(`Week ${slots.week}`);
         if (lang === 'tl') {
-            let msg = 'Walang nahanap na DLL';
+            let msg = 'Walang nahanap na Daily Lesson Plan';
             if (parts.length > 0) msg += ` na tugma sa ${parts.join(' ')}`;
             return msg + '.';
         }
-        let msg = "I couldn't find any DLLs";
+        let msg = "I couldn't find any Daily Lesson Plans";
         if (parts.length > 0) msg += ` matching ${parts.join(' ')}`;
         return msg + '.';
     }
@@ -1189,8 +1189,8 @@ async function queryDlls(
     if (slots.week) parts.push(`Week ${slots.week}`);
 
     let summary = lang === 'tl'
-        ? `May nahanap akong ${data.length} DLL`
-        : `Found ${data.length} DLL${data.length > 1 ? 's' : ''}`;
+        ? `May nahanap akong ${data.length} Daily Lesson Plan`
+        : `Found ${data.length} Daily Lesson Plan${data.length > 1 ? 's' : ''}`;
     if (parts.length > 0) summary += lang === 'tl' ? ` para sa ${parts.join(' ')}` : ` for ${parts.join(' ')}`;
     summary += `:\n${lines.join('\n')}`;
     if (data.length === 5) summary += lang === 'tl' ? '\n\nPara sa mas eksaktong resulta, subukan ang mas specific na paghahanap.' : '\n\nFor more precise results, try a more specific search.';
@@ -1839,8 +1839,8 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
     }
     if (outOfScope) {
         answer = lang === 'tl'
-            ? 'Paumanhin po, ang tanong na ito ay wala sa saklaw ng aking tulong sa CEDIMS. Ako si Gabay, ang CEDIMS assistant, at makakatulong ako sa compliance status, deadlines, paghahanap ng DLL, school comparisons, teacher statistics, academic calendar, uploads, at compliance reports.'
-            : 'I am sorry, but that question is outside my CEDIMS support scope. I’m Gabay, the CEDIMS assistant, and I can help with compliance status, submission deadlines, DLL searches, school comparisons, teacher statistics, the academic calendar, uploads, and compliance reports.';
+            ? 'Paumanhin po, ang tanong na ito ay wala sa saklaw ng aking tulong sa CEDIMS. Ako si Gabay, ang CEDIMS assistant, at makakatulong ako sa compliance status, deadlines, paghahanap ng Daily Lesson Plan, school comparisons, teacher statistics, academic calendar, uploads, at compliance reports.'
+            : 'I am sorry, but that question is outside my CEDIMS support scope. I’m Gabay, the CEDIMS assistant, and I can help with compliance status, submission deadlines, Daily Lesson Plan searches, school comparisons, teacher statistics, the academic calendar, uploads, and compliance reports.';
     } else if (kbHit && (intent === 'general_help' || confidence < 40)) {
         answer = kbHit;
     } else if (ctx?.supabase) {
@@ -1868,8 +1868,8 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
     } else if (confidence < 60 && !kbHit && !outOfScope) {
         if (intent === 'general_help') {
             const topics = lang === 'tl'
-                ? ['compliance status ninyo', 'paghahanap ng DLL', 'mga paparating na deadline', 'paghahambing ng paaralan', 'istatistika ng guro', 'kung paano mag-upload ng dokumento']
-                : ['your compliance status', 'finding a DLL', 'upcoming deadlines', 'school comparisons', 'teacher statistics', 'how to upload a document'];
+                ? ['compliance status ninyo', 'paghahanap ng Daily Lesson Plan', 'mga paparating na deadline', 'paghahambing ng paaralan', 'istatistika ng guro', 'kung paano mag-upload ng dokumento']
+                : ['your compliance status', 'finding a Daily Lesson Plan', 'upcoming deadlines', 'school comparisons', 'teacher statistics', 'how to upload a document'];
             answer = `${pick(LOW_CONFIDENCE_PREFIXES[lang])} ${pick(topics)}. ${pick(LOW_CONFIDENCE_SUFFIXES[lang])}`;
         } else {
             const closer = lang === 'tl' ? 'narito ang nahanap na impormasyon' : 'here’s what I found';

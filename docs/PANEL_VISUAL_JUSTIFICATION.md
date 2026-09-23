@@ -213,7 +213,7 @@ Dice matching does not train on samples and therefore has no training accuracy, 
 | Asigntura | Asignatura | 82.4% | Accepted |
 | Engliish | English | 92.3% | Accepted |
 | Filipino0 | Filipino | 93.3% | Accepted |
-| Daly Lson Log | Daily Lesson Log | 74.1% | Accepted |
+| Daly Lson Log | Daily Lesson Plan | 74.1% | Accepted |
 | Grde 4 | Grade 4 | 72.7% | Accepted |
 | Baitng | Baitang | 72.7% | Accepted |
 | Sciense | Science | 66.7% | Accepted |

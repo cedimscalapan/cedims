@@ -21,7 +21,7 @@ connectivity and modest hardware.
 
 OCR is the conversion of scanned or photographed text into machine-readable text. In Smart
 E-VISION, OCR is the gateway of the entire document workflow: it reads the metadata out of uploaded
-Daily Lesson Logs (DLLs), Instructional Supervisory Plans (ISPs), and Instructional Supervisory
+Daily Lesson Plans (DLLs), Instructional Supervisory Plans (ISPs), and Instructional Supervisory
 Reports (ISRs) so that the system can classify, route, and monitor each document without manual data
 entry [Khensous et al., 2023; Shete et al., 2025].
 

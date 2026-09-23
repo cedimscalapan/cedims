@@ -52,8 +52,8 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
             },
             {
                 title: "Upload",
-                content: "Upload your DLL (with teaching load), or an ISP/ISR for your school.",
-                tip: "ISP and ISR don't need a teaching load.",
+                content: "Upload your Daily Lesson Plan (with teaching load), or an ISP — Instructional Supervisory Plan / ISR — Instructional Supervisory Report for your school.",
+                tip: "ISP — Instructional Supervisory Plan and ISR — Instructional Supervisory Report do not need a teaching load.",
                 target: "upload",
             },
             {
@@ -76,13 +76,13 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
         navSteps: [
             {
                 title: "Home",
-                content: "School compliance rate, compliant/late DLLs, top teachers, and trends: your performance center.",
+                content: "School compliance rate, compliant/late Daily Lesson Plans, top teachers, and trends: your performance center.",
                 tip: "Great to reference in staff meetings.",
                 target: "dashboard",
             },
             {
                 title: "Upload",
-                content: "Submit your ISP (School Plan) or ISR (School Report). No teaching load needed.",
+                content: "Submit your ISP — Instructional Supervisory Plan or ISR — Instructional Supervisory Report. No teaching load needed.",
                 tip: "Your District Supervisor reviews these.",
                 target: "upload",
             },
@@ -94,7 +94,7 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
             },
             {
                 title: "Archives",
-                content: "All school DLLs plus Master Teacher ISP/ISR. Filter, sort, add remarks, and approve.",
+                content: "All school Daily Lesson Plans plus Master Teacher ISP — Instructional Supervisory Plan / ISR — Instructional Supervisory Report. Filter, sort, add remarks, and approve.",
                 tip: "Guide improvement with clear remarks.",
                 target: "submissions",
             },
@@ -124,7 +124,7 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
             },
             {
                 title: "Archives",
-                content: "All ISP/ISR from School Heads and Master Teachers. Filter, sort, add remarks, and approve.",
+                content: "All ISP — Instructional Supervisory Plan / ISR — Instructional Supervisory Report from School Heads and Master Teachers. Filter, sort, add remarks, and approve.",
                 tip: "Your remarks drive real improvement.",
                 target: "submissions",
             },

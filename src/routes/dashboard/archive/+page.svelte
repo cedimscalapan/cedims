@@ -35,6 +35,7 @@
     import EmptyState from "$lib/components/EmptyState.svelte";
     import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import { focusTrap } from "$lib/actions/focusTrap";
+    import { getDocumentLabel } from "$lib/utils/documentLabels";
 
     // â"€â"€ Types â"€â"€
     interface Submission {
@@ -503,7 +504,7 @@
             } else if (seg.type === "teacher") {
                 filtered = filtered.filter((s) => s.user_id === seg.id);
             } else if (seg.type === "subject") {
-                filtered = filtered.filter((s) => (s.subject || (s.doc_type === "DLL" ? "Unassigned" : s.doc_type)) === seg.id);
+                filtered = filtered.filter((s) => (s.subject || (s.doc_type === "DLL" ? "Unassigned" : getDocumentLabel(s.doc_type))) === seg.id);
             } else if (seg.type === "week") {
                 filtered = filtered.filter(
                     (s) => String(s.week_number) === seg.id,
@@ -517,6 +518,7 @@
                 (s) =>
                     s.file_name.toLowerCase().includes(q) ||
                     s.doc_type?.toLowerCase().includes(q) ||
+                    getDocumentLabel(s.doc_type).toLowerCase().includes(q) ||
                     s.uploader?.full_name?.toLowerCase().includes(q) ||
                     s.file_hash?.toLowerCase().includes(q),
             );
@@ -599,7 +601,7 @@
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([dt, count]) => ({
                 id: dt,
-                label: dt,
+                label: getDocumentLabel(dt),
                 count,
                 type: "docType" as const,
             }));
@@ -657,7 +659,7 @@
     function getSubjectFolders(subs: Submission[]): FolderItem[] {
         const grouped = new Map<string, number>();
         for (const s of subs) {
-            const sub = s.subject || (s.doc_type === "DLL" ? "Unassigned" : s.doc_type);
+            const sub = s.subject || (s.doc_type === "DLL" ? "Unassigned" : getDocumentLabel(s.doc_type));
             grouped.set(sub, (grouped.get(sub) || 0) + 1);
         }
         return Array.from(grouped.entries())
@@ -815,7 +817,7 @@
             const teacher = s.uploader?.full_name || 'Unknown';
             const school = s.school_name || (s.uploader?.school_id ? schoolsMap[s.uploader.school_id]?.label || 'Unknown' : '');
             const date = new Date(s.created_at).toISOString().split('T')[0];
-            rows.push(`"${s.file_name}","${s.doc_type}","${s.subject || ''}","${s.week_number ?? ''}","${teacher}","${school}","${s.compliance_status}","${date}"`);
+            rows.push(`"${s.file_name}","${getDocumentLabel(s.doc_type)}","${s.subject || ''}","${s.week_number ?? ''}","${teacher}","${school}","${s.compliance_status}","${date}"`);
         }
         const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -1125,7 +1127,7 @@
                             <span
                                 class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-xs font-bold rounded uppercase tracking-wider"
                             >
-                                {sub.doc_type}
+                                {getDocumentLabel(sub.doc_type)}
                             </span>
                             {#if sub.week_number != null}
                                 <span
@@ -1260,9 +1262,9 @@
                 <div>
                     <h3 class="text-lg font-bold text-text-primary">
                         {#if existingRemark}
-                            Remark for {remarkTarget?.doc_type}
+                            Remark for {getDocumentLabel(remarkTarget?.doc_type)}
                         {:else if canAddRemarkToSubmission(remarkTarget)}
-                            Add Remark to {remarkTarget?.doc_type}
+                            Add Remark to {getDocumentLabel(remarkTarget?.doc_type)}
                         {:else}
                             View Remarks
                         {/if}
@@ -1300,7 +1302,7 @@
                         <!-- Add new remark (School Head for Master Teacher ISP/ISR, District Supervisor for any ISP/ISR, anyone for DLL) -->
                         <textarea
                             bind:value={remarkText}
-                            placeholder="Enter your remarks for this {remarkTarget?.doc_type || 'document'}..."
+                            placeholder="Enter your remarks for this {getDocumentLabel(remarkTarget?.doc_type)}..."
                             rows="4"
                             class="w-full p-3 border border-border-subtle rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gov-blue/30"
                         ></textarea>

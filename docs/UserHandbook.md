@@ -104,9 +104,9 @@ Smart E-VISION (CEDIMS: Calapan East District Instructional Monitoring System) i
 | Admin Panel | ✗ | ✗ | ✗ | Limited |
 
 ### 3.1 Document Type Definitions
-- **DLL (Daily Lesson Log)**: Daily instructional plan submitted weekly by Teachers
-- **ISP (Individual School Plan/Program)**: School-level instructional plans submitted by Master Teachers and School Heads
-- **ISR (Individual School Report)**: School performance reports submitted by Master Teachers and School Heads
+- **DLL (Daily Lesson Plan)**: Daily instructional plan submitted weekly by Teachers
+- **ISP (Instructional Supervisory Plan/Program)**: School-level instructional plans submitted by Master Teachers and School Heads
+- **ISR (Instructional Supervisory Report)**: School performance reports submitted by Master Teachers and School Heads
 
 ### 3.2 Academic Calendar Structure
 - **3 Terms** per school year
@@ -326,7 +326,7 @@ Your dashboard provides **district-wide visibility**:
 1. Navigate to **Analytics** → **Reports**
 2. Select report type:
    - **District Compliance Report**: All schools summary
-   - **Per-School Report**: Detailed report for one school
+   - **Per-Instructional Supervisory Report**: Detailed report for one school
    - **Comparative Report**: Side-by-side school comparison
 3. Configure:
    - Time period (Term, specific weeks, or custom range)
@@ -978,9 +978,9 @@ A: The upload pipeline runs in the current browser tab. If closed:
 | Term | Definition |
 |------|------------|
 | **CEDIMS** | Calapan East District Instructional Monitoring System |
-| **DLL** | Daily Lesson Log |
-| **ISP** | Individual School Plan/Program |
-| **ISR** | Individual School Report |
+| **DLL** | Daily Lesson Plan |
+| **ISP** | Instructional Supervisory Plan/Program |
+| **ISR** | Instructional Supervisory Report |
 | **DepEd** | Department of Education (Philippines) |
 | **PWA** | Progressive Web App |
 | **OCR** | Optical Character Recognition |

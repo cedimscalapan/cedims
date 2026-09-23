@@ -4,17 +4,17 @@
     import { profile } from '$lib/utils/auth';
     let menuOpen = $state(false);
     const roles = [
-        { name: 'Teacher', uploads: 'DLL', scope: 'Personal submissions', details: 'Submit DLLs against a teaching load, check weekly compliance, and read reviewer remarks in Archives.' },
-        { name: 'Master Teacher', uploads: 'DLL, ISP, ISR', scope: 'Own submissions and school DLLs', details: 'Submit teaching and supervisory documents. Monitor school submissions and leave remarks on DLLs from your school.' },
-        { name: 'School Head', uploads: 'ISP, ISR', scope: 'School monitoring', details: 'Monitor your staff’s submissions, review school DLLs and Master Teacher ISP/ISR documents, and submit your own plans and reports.' },
+        { name: 'Teacher', uploads: 'Daily Lesson Plan', scope: 'Personal submissions', details: 'Submit Daily Lesson Plans against a teaching load, check weekly compliance, and read reviewer remarks in Archives.' },
+        { name: 'Master Teacher', uploads: 'Daily Lesson Plan, ISP, ISR', scope: 'Own submissions and school Daily Lesson Plans', details: 'Submit teaching and supervisory documents. Monitor school submissions and leave remarks on Daily Lesson Plans from your school.' },
+        { name: 'School Head', uploads: 'ISP, ISR', scope: 'School monitoring', details: 'Monitor your staff’s submissions, review school Daily Lesson Plans and Master Teacher ISP/ISR documents, and submit your own plans and reports.' },
         { name: 'District Supervisor', uploads: 'Review only', scope: 'District monitoring and administration', details: 'Compare schools, review district submissions and ISP/ISR documents, view analytics, and administer accounts and system settings.' }
     ];
     const schools = ['Bulusan', 'Guinobatan', 'Ibaba', 'Salong', 'Suqui'];
     const steps = [
-        ['Prepare your submission', 'Teachers and Master Teachers select a teaching load for DLLs. School Heads and Master Teachers may also submit ISP/ISR documents.'],
+        ['Prepare your submission', 'Teachers and Master Teachers select a teaching load for Daily Lesson Plans. School Heads and Master Teachers may also submit ISP/ISR documents.'],
         ['Upload and confirm', 'Upload a supported file, review the extracted document information, and confirm the submission. Offline uploads wait on the device until they can sync.'],
         ['Review in Archives', 'Authorized reviewers add remarks to documents in their school or district. The archive distinguishes documents awaiting checking from those with remarks.'],
-        ['Follow up on compliance', 'Check on-time, late, and missing DLL submissions against calendar weeks and teaching loads. School and district views help supervisors identify where follow-up is needed.']
+        ['Follow up on compliance', 'Check on-time, late, and missing Daily Lesson Plan submissions against calendar weeks and teaching loads. School and district views help supervisors identify where follow-up is needed.']
     ];
     onMount(() => profile.subscribe(value => { if (value) void goto('/dashboard'); }));
 </script>
@@ -49,7 +49,7 @@
                 <div class="document-heading"><img src="/deped-calapan-east-district.jpg" alt="Calapan East District seal" width="64" height="64" /><span>Calapan East District<br /><small>Instructional records</small></span></div>
                 <p class="document-label">Documents in this workspace</p>
                 <dl>
-                    <div><dt>01 / DLL</dt><dd>Daily Lesson Log</dd></div>
+                    <div><dt>01</dt><dd>Daily Lesson Plan</dd></div>
                     <div><dt>02 / ISP</dt><dd>Instructional Supervisory Plan</dd></div>
                     <div><dt>03 / ISR</dt><dd>Instructional Supervisory Report</dd></div>
                 </dl>

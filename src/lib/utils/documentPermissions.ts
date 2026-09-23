@@ -83,13 +83,13 @@ export function canAddReviewRemarks(role: string): boolean {
 export function getUploadGuidance(role: string): string {
   switch (role) {
     case 'Teacher':
-      return 'Teachers may upload Daily Lesson Logs (DLL) only.';
+      return 'Teachers may upload Daily Lesson Plan documents only.';
     case 'Master Teacher':
-      return 'Master Teachers may upload Daily Lesson Logs (DLL), Individual School Plans (ISP), and Individual School Reports (ISR).';
+      return 'Master Teachers may upload Daily Lesson Plan, ISP — Instructional Supervisory Plan, and ISR — Instructional Supervisory Report documents.';
     case 'School Head':
-      return 'School Heads may upload Individual School Plans (ISP) and Individual School Reports (ISR) only.';
+      return 'School Heads may upload ISP — Instructional Supervisory Plan and ISR — Instructional Supervisory Report documents only.';
     case 'District Supervisor':
-      return 'District Supervisors can view and manage ISP/ISR documents, but do not upload. Use the Archives tab to review submissions.';
+      return 'District Supervisors can view and manage ISP — Instructional Supervisory Plan / ISR — Instructional Supervisory Report documents, but do not upload. Use the Archives tab to review submissions.';
     default:
       return 'Please sign in to continue.';
   }

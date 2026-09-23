@@ -38,6 +38,7 @@
     } from "$lib/utils/documentPermissions";
     import { focusTrap } from "$lib/actions/focusTrap";
     import UploadSuccessModal from "$lib/components/UploadSuccessModal.svelte";
+    import { formatDocumentList, getDocumentLabel } from "$lib/utils/documentLabels";
 
     import type { PageData } from "./$types";
 
@@ -92,18 +93,10 @@
     let showWeekPicker = $state(false);
     let academicWeeks = $state<number[]>([]);
 
-    // Header subtitle reflects only the document types this role can actually
-    // submit (e.g. Teachers see "DLL", School Heads see "ISP or ISR") instead
-    // of always listing all three regardless of who's logged in.
-    function formatDocTypeList(types: string[]): string {
-        if (types.length === 0) return "";
-        if (types.length === 1) return types[0];
-        if (types.length === 2) return types.join(" or ");
-        return `${types.slice(0, -1).join(", ")}, or ${types[types.length - 1]}`;
-    }
+    // Header subtitle reflects only the document types this role can actually submit.
     const uploadSubtitle = $derived(
         allowedDocTypes.length > 0
-            ? `Submit your ${formatDocTypeList(allowedDocTypes)} for archival`
+            ? `Submit your ${formatDocumentList(allowedDocTypes)} for archival`
             : "View and manage submitted documents",
     );
 
@@ -128,7 +121,7 @@
             const localMatch = await hasHash(fileHash);
             if (localMatch) {
                 submissionAlreadyExists = true;
-                submissionBlockReason = `Duplicate content: This file was already archived as "${localMatch.fileName}" (${localMatch.docType}, Week ${localMatch.weekNumber})`;
+                submissionBlockReason = `Duplicate content: This file was already archived as "${localMatch.fileName}" (${getDocumentLabel(localMatch.docType)}, Week ${localMatch.weekNumber})`;
                 return;
             }
 
@@ -159,11 +152,11 @@
                         .maybeSingle();
 
                     if (review?.status === "approved") {
-                        submissionBlockReason = `Already approved (Checked): This file was approved as "${serverHashMatch.file_name}" (${serverHashMatch.doc_type}, Week ${serverHashMatch.week_number}). It has already been checked and approved, so it should not be re-uploaded.`;
+                        submissionBlockReason = `Already approved (Checked): This file was approved as "${serverHashMatch.file_name}" (${getDocumentLabel(serverHashMatch.doc_type)}, Week ${serverHashMatch.week_number}). It has already been checked and approved, so it should not be re-uploaded.`;
                     } else if (review?.status === "returned") {
-                        submissionBlockReason = `Duplicate content: This file was already archived and returned as "${serverHashMatch.file_name}" (${serverHashMatch.doc_type}, Week ${serverHashMatch.week_number}).`;
+                        submissionBlockReason = `Duplicate content: This file was already archived and returned as "${serverHashMatch.file_name}" (${getDocumentLabel(serverHashMatch.doc_type)}, Week ${serverHashMatch.week_number}).`;
                     } else {
-                        submissionBlockReason = `Duplicate content: Already archived on server as "${serverHashMatch.file_name}" (${serverHashMatch.doc_type}, Week ${serverHashMatch.week_number}).`;
+                        submissionBlockReason = `Duplicate content: Already archived on server as "${serverHashMatch.file_name}" (${getDocumentLabel(serverHashMatch.doc_type)}, Week ${serverHashMatch.week_number}).`;
                     }
                     return;
                 }
@@ -398,7 +391,7 @@
             // Only show error if uploading DLL (which requires teaching load)
             // School Head and Master Teacher uploading ISP/ISR don't need teaching loads
             if (navigator.onLine && docType === 'DLL') {
-                addToast("error", "No teaching loads found. Please configure at least one teaching load before uploading DLL documents.");
+                addToast("error", "No teaching loads found. Please configure at least one teaching load before uploading Daily Lesson Plan documents.");
             }
         }
 
@@ -984,8 +977,8 @@
                                         {item.fileName}
                                     </p>
                                     <p class="text-text-muted">
-                                        {item.docType} Â· Week {item.weekNumber ||
-                                            "?"} Â· {new Date(
+                                        {getDocumentLabel(item.docType)} · Week {item.weekNumber ||
+                                            "?"} · {new Date(
                                             item.timestamp,
                                         ).toLocaleTimeString([], {
                                             hour: "2-digit",
@@ -1048,9 +1041,9 @@
                                 {docType === 'DLL'
                                     ? 'Review the detected load and week before submission'
                                     : docType === 'ISP'
-                                        ? 'Upload your Individual School Plan for review'
+                                        ? 'Upload your ISP — Instructional Supervisory Plan for review'
                                         : docType === 'ISR'
-                                            ? 'Upload your Individual School Report for review'
+                                            ? 'Upload your ISR — Instructional Supervisory Report for review'
                                             : 'Review your document details before submission'}
                             </p>
                         </div>
@@ -1204,7 +1197,7 @@
                                                     ? 'bg-surface-white text-gov-blue shadow-sm'
                                                     : 'text-text-muted hover:text-text-primary'}"
                                             >
-                                                {type}
+                                                {getDocumentLabel(type)}
                                             </button>
                                         {/each}
                                         {#if allowedDocTypes.length === 0}
@@ -1217,8 +1210,8 @@
 
                                 {#if docType === "DLL" && teachingLoads.length === 0 && ($profile?.role === "Teacher" || $profile?.role === "Master Teacher")}
                                     <div class="rounded-lg border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm text-gov-gold-dark" role="status">
-                                        <p class="font-bold">DLL uploads need a teaching load first.</p>
-                                        <p class="mt-1 text-xs font-medium">{#if $profile?.role === "Teacher"}Open Teaching Load to add your subjects and schedule.{:else}You can still upload ISP or ISR. Configure a teaching load before submitting a DLL.{/if}</p>
+                                        <p class="font-bold">Daily Lesson Plan uploads need a teaching load first.</p>
+                                        <p class="mt-1 text-xs font-medium">{#if $profile?.role === "Teacher"}Open Teaching Load to add your subjects and schedule.{:else}You can still upload ISP — Instructional Supervisory Plan or ISR — Instructional Supervisory Report. Configure a teaching load before submitting a Daily Lesson Plan.{/if}</p>
                                         {#if $profile?.role === "Teacher"}
                                             <button type="button" class="mt-2 text-xs font-bold underline" onclick={() => goto("/dashboard/load")}>Open Teaching Load</button>
                                         {/if}
@@ -1418,7 +1411,7 @@
         <div class="space-y-6">
             <div class="gov-card-static p-6">
                 <h3 class="text-lg font-bold text-text-primary mb-4">
-                    {docType === 'DLL' ? 'Before Uploading DLL' : `Uploading ${docType}`}
+                    {docType === 'DLL' ? 'Before Uploading Daily Lesson Plan' : `Uploading ${getDocumentLabel(docType)}`}
                 </h3>
                 <ul class="space-y-3 text-sm text-text-secondary">
                     {#if docType === 'DLL'}
@@ -1437,7 +1430,7 @@
                     {:else if docType === 'ISP'}
                         <li class="flex items-start gap-3">
                             <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-                            <span>Ensure your Individual School Plan is in PDF format.</span>
+                            <span>Ensure your ISP — Instructional Supervisory Plan is in PDF format.</span>
                         </li>
                         <li class="flex items-start gap-3">
                             <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
@@ -1450,7 +1443,7 @@
                     {:else if docType === 'ISR'}
                         <li class="flex items-start gap-3">
                             <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-                            <span>Ensure your Individual School Report is in PDF format.</span>
+                            <span>Ensure your ISR — Instructional Supervisory Report is in PDF format.</span>
                         </li>
                         <li class="flex items-start gap-3">
                             <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>

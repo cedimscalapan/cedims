@@ -212,7 +212,7 @@
             <p
                 class="text-xs font-bold text-text-muted mt-2 uppercase tracking-normal"
             >
-                Add a grade level and subject before submitting a Daily Lesson Log.
+                Add a grade level and subject before submitting a Daily Lesson Plan.
             </p>
             <button
                 onclick={openAdd}

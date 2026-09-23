@@ -1,6 +1,7 @@
 <script lang="ts">
     import StatusBadge from "./StatusBadge.svelte";
     import { ChevronLeft, ChevronRight } from "lucide-svelte";
+    import { getDocumentLabel } from "$lib/utils/documentLabels";
 
     // Deliberately narrow and caller-normalized (no teaching_loads join
     // shape, etc.) so this stays reusable across different Submission
@@ -75,7 +76,7 @@
                                     <span
                                         class="px-2 py-0.5 bg-gov-blue/5 text-gov-blue text-xs font-bold rounded uppercase tracking-wider whitespace-nowrap"
                                     >
-                                        {item.docType}
+                                        {getDocumentLabel(item.docType)}
                                     </span>
                                 {/if}
                                 {#if item.weekNumber != null}
