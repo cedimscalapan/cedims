@@ -21,8 +21,8 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
         intro: "Let's explore the main tabs and features you'll use every day.",
         navSteps: [
             {
-                title: "Home",
-                content: "Your home base. Shows your compliance rate, upcoming deadlines, and recent feedback.",
+                title: "Tracker",
+                content: "Your submission tracker. Shows what is submitted, missing, late, or waiting for review.",
                 tip: "Check here every morning.",
                 target: "dashboard",
             },
@@ -45,8 +45,8 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
         intro: "You manage your own teaching load AND oversee school compliance. Let's explore your key tabs.",
         navSteps: [
             {
-                title: "Home",
-                content: "Your compliance, school compliance, top teachers, and at-risk teachers: your command center.",
+                title: "Tracker",
+                content: "Your own submission tracker plus documents waiting for your review.",
                 tip: "Identify who needs support at a glance.",
                 target: "dashboard",
             },
@@ -57,10 +57,10 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
                 target: "upload",
             },
             {
-                title: "School",
-                content: "See all teachers ranked by compliance. Open a teacher to view their DLLs and add remarks.",
-                tip: "Support and recognize excellence here.",
-                target: "school",
+                title: "Compliance",
+                content: "See who is compliant, missing, late, or waiting for review in one focused list.",
+                tip: "Use this for fast follow-up.",
+                target: "compliance",
             },
             {
                 title: "Archives",
@@ -75,8 +75,8 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
         intro: "You oversee school compliance and document management. Let's master the key tabs.",
         navSteps: [
             {
-                title: "Home",
-                content: "School compliance rate, compliant/late Daily Lesson Plans, top teachers, and trends: your performance center.",
+                title: "Tracker",
+                content: "Your review tracker for documents that still need checking.",
                 tip: "Great to reference in staff meetings.",
                 target: "dashboard",
             },
@@ -87,22 +87,16 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
                 target: "upload",
             },
             {
-                title: "Staff",
-                content: "All teachers ranked by compliance. Open any teacher to view submissions and add remarks.",
-                tip: "Your main tool for staff development.",
-                target: "staff",
+                title: "Compliance",
+                content: "See who is compliant, missing, late, or waiting for review in one focused list.",
+                tip: "Your main tool for staff follow-up.",
+                target: "compliance",
             },
             {
                 title: "Archives",
                 content: "All school Daily Lesson Plans plus Master Teacher ISP — Instructional Supervisory Plan / ISR — Instructional Supervisory Report. Filter, sort, add remarks, and approve.",
                 tip: "Guide improvement with clear remarks.",
                 target: "submissions",
-            },
-            {
-                title: "Analytics",
-                content: "Review compliance trends and identify staff who need follow-up support.",
-                tip: "Use the trend view before planning your next staff check-in.",
-                target: "analytics",
             },
         ],
     },
@@ -111,7 +105,7 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
         intro: "You oversee every school in the district. Let's explore your district-wide tools.",
         navSteps: [
             {
-                title: "Home",
+                title: "Tracker",
                 content: "District compliance rate, totals, and school rankings: your executive summary.",
                 tip: "Handy when preparing reports.",
                 target: "dashboard",
@@ -127,12 +121,6 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
                 content: "All ISP — Instructional Supervisory Plan / ISR — Instructional Supervisory Report from School Heads and Master Teachers. Filter, sort, add remarks, and approve.",
                 tip: "Your remarks drive real improvement.",
                 target: "submissions",
-            },
-            {
-                title: "Analytics",
-                content: "Compliance trends, forecasts, performance clusters, and at-risk schools: investigate and act fast.",
-                tip: "Stay ahead of compliance problems.",
-                target: "alerts",
             },
             {
                 title: "Admin",

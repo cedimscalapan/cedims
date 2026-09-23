@@ -270,11 +270,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         answers: {
             en: [
                 'Each role gets its own view: Teachers manage their own Daily Lesson Plans, Master Teachers review and endorse, School Heads monitor their whole school, and District Supervisors compare across every school in the district.',
-                'It depends on who’s logged in: Teachers see their own uploads, School Heads see their staff, and District Supervisors see the district-wide picture with Analytics and Admin access on top.'
+                'It depends on who’s logged in: Teachers see their own tracker, Master Teachers and School Heads use Compliance Monitoring, and District Supervisors see the district-wide picture with Admin access on top.'
             ],
             tl: [
                 'Iba-iba ang view depende sa role: Teachers para sa sariling Daily Lesson Plans, Master Teachers para sa review at endorsement, School Heads para sa buong paaralan, at District Supervisors para sa buong distrito.',
-                'Depende sa naka-login: nakikita ng Teacher ang sariling upload, nakikita ng School Head ang staff niya, at nakikita ng District Supervisor ang buong distrito kasama ang Analytics at Admin.'
+                'Depende sa naka-login: nakikita ng Teacher ang sariling tracker, ginagamit ng Master Teacher at School Head ang Compliance Monitoring, at nakikita ng District Supervisor ang buong distrito kasama ang Admin.'
             ]
         }
     },
@@ -387,12 +387,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['dashboard', 'main page', 'home page', 'tabs', 'navigation'],
         answers: {
             en: [
-                'Your Dashboard is the home screen: it shows your (or your school’s/district’s) compliance rate, recent activity, and quick stats. The tabs around it change depending on your role.',
-                'The bottom (or side) nav is your main way around: Dashboard for the overview, Archive/Submissions for documents, Analytics for trends and clusters if you’re a supervisor, and Settings for your account.'
+                'Tracker is your main screen: Teachers see their submission checklist, reviewers see pending reviews, and supervisors see the right summary for their role.',
+                'The bottom (or side) nav is your main way around: Tracker for day-to-day status, Compliance for school follow-up, Archives for documents, and Settings for your account.'
             ],
             tl: [
-                'Ang Dashboard ay ang home screen: dito makikita ang compliance rate ninyo (o ng paaralan/distrito), recent activity, at mabilisang stats. Nagbabago ang mga tab depende sa role ninyo.',
-                'Ang nav sa ibaba (o gilid) ang pangunahing daan ninyo: Dashboard para sa overview, Archive/Submissions para sa dokumento, Analytics para sa trends kung supervisor kayo, at Settings para sa account ninyo.'
+                'Ang Tracker ang pangunahing screen: nakikita ng Teacher ang submission checklist, nakikita ng reviewers ang kailangang i-check, at nakikita ng supervisors ang summary para sa role nila.',
+                'Ang nav sa ibaba (o gilid) ang pangunahing daan ninyo: Tracker para sa status, Compliance para sa school follow-up, Archives para sa dokumento, at Settings para sa account ninyo.'
             ]
         }
     },
@@ -410,15 +410,15 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         }
     },
     {
-        keywords: ['analytics', 'trend', 'forecast', 'k-means', 'kmeans', 'clustering', 'high performer', 'at-risk', 'at risk entities'],
+        keywords: ['compliance monitoring', 'analytics', 'trend', 'forecast', 'k-means', 'kmeans', 'clustering', 'high performer', 'at-risk', 'at risk entities'],
         answers: {
             en: [
-                'The Analytics page (School Head and District Supervisor only) shows compliance trends over time, a short forecast, a document-type breakdown, and submission pattern groups that organize teachers or schools by similar submission behavior.',
-                'Analytics groups people/schools automatically by looking at compliance rate and submission frequency, then showing which groups are doing well and which may need support.'
+                'Compliance Monitoring keeps the supervisor view simple: compliant, missing, late, for checking, and checked, with a teacher list and a short needs-attention queue.',
+                'Instead of a separate analytics page, use Compliance Monitoring to see who needs follow-up and what action to take next.'
             ],
             tl: [
-                'Ang Analytics page (para lang sa School Head at District Supervisor) ay nagpapakita ng compliance trends, maikling forecast, breakdown ng doc types, at submission pattern groups para sa mga guro o paaralan.',
-                'Awtomatikong ginugrupo ng Analytics ang mga tao/paaralan batay sa compliance rate at dalas ng submission para mas madaling makita kung sino ang maayos ang takbo at sino ang maaaring kailangan ng tulong.'
+                'Pinapasimple ng Compliance Monitoring ang supervisor view: compliant, missing, late, for checking, at checked, kasama ang teacher list at needs-attention queue.',
+                'Sa halip na hiwalay na analytics page, gamitin ang Compliance Monitoring para makita kung sino ang kailangang i-follow up at ano ang susunod na action.'
             ]
         }
     },

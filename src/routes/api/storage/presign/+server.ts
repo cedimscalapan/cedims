@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { getPresignedUploadUrl, getPresignedDownloadUrl } from '$lib/utils/b2.server';
 import { supabase } from '$lib/utils/supabase';
+import { env } from '$env/dynamic/private';
 
 export async function POST({ request }) {
     // 1. Authenticate with Supabase
@@ -27,10 +28,13 @@ export async function POST({ request }) {
         } else {
             if (!contentType) throw error(400, 'Missing contentType for upload');
             
-            // Server-side validation check for Vercel/Production
-            if (!process.env.B2_APPLICATION_KEY && !process.env.B2_APPLICATION_KEY_ID) {
-                console.error('[presign] Missing B2 credentials in environment.');
-                throw error(500, 'Cloud storage credentials not configured on the server. Please add B2 environment variables to Vercel.');
+            // Use SvelteKit's server environment source so local Vite and
+            // production adapters validate the same credentials.
+            const missing = ['B2_ENDPOINT', 'B2_BUCKET_NAME', 'B2_APPLICATION_KEY_ID', 'B2_APPLICATION_KEY']
+                .filter((name) => !env[name as keyof typeof env]);
+            if (missing.length > 0) {
+                console.error('[presign] Missing B2 environment variables:', missing.join(', '));
+                throw error(500, `Cloud storage is not configured: missing ${missing.join(', ')}`);
             }
 
             url = await getPresignedUploadUrl(key, contentType);
@@ -39,7 +43,9 @@ export async function POST({ request }) {
         console.log(`[presign] Generated URL for ${key}: ${url.split('?')[0]}...`);
         return json({ url });
     } catch (err: any) {
-        console.error('[presign] Generation error:', err);
-        throw error(500, `Failed to generate pre-signed URL: ${err.message}`);
+        const detail = err?.body?.message || err?.message || err?.name || 'Unknown storage signing error';
+        console.error('[presign] Generation error:', detail, err);
+        if (err?.status && err?.body) throw err;
+        throw error(500, `Failed to generate pre-signed URL: ${detail}`);
     }
 }

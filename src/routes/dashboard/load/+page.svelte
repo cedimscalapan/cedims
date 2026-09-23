@@ -25,6 +25,8 @@
     let subjectOpen = $state(false);
     let subjects = $state<string[]>([]);
     let availableSubjects = $state<string[]>([]);
+    let currentPage = $state(1);
+    const pageSize = 8;
 
     const gradeLevels = [
         "Kinder",
@@ -151,28 +153,41 @@
         addToast("success", "Teaching load removed");
         await loadTeachingLoads();
     }
+
+    const sortedLoads = $derived(
+        [...loads].sort((a, b) =>
+            a.grade_level.localeCompare(b.grade_level) ||
+            a.subject.localeCompare(b.subject),
+        ),
+    );
+    const totalPages = $derived(Math.ceil(sortedLoads.length / pageSize) || 1);
+    const paginatedLoads = $derived(sortedLoads.slice((currentPage - 1) * pageSize, currentPage * pageSize));
+
+    $effect(() => {
+        if (currentPage > totalPages) currentPage = totalPages;
+    });
 </script>
 
 <svelte:head>
     <title>Teaching Load â€” CEDIMS</title>
 </svelte:head>
 
-<div class="space-y-8">
+<div class="space-y-5">
     <!-- Header -->
     <div
         class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
     >
         <div>
-            <h1 class="text-3xl font-bold text-text-primary tracking-tight">
-                Teaching Load
+            <h1 class="text-2xl font-bold text-text-primary tracking-tight">
+                Teaching Loads
             </h1>
-            <p class="text-base text-text-secondary mt-1 font-medium">
-                Manage your academic assignments and grade levels
+            <p class="text-sm text-text-secondary mt-1 font-medium">
+                Manage subjects used for Daily Lesson Plan tracking.
             </p>
         </div>
         <button
             onclick={openAdd}
-            class="px-6 py-3 bg-gov-blue text-white text-xs font-bold uppercase tracking-normal rounded-xl shadow-lg hover:shadow-gov-blue/20 transition-colors flex items-center gap-2 group"
+            class="px-4 py-2.5 bg-gov-blue text-white text-xs font-bold uppercase tracking-normal rounded-lg shadow-sm hover:shadow-gov-blue/20 transition-colors flex items-center gap-2 group"
         >
             <Plus
                 size={16}
@@ -223,31 +238,31 @@
         </div>
     {:else}
         <div
-            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-h-[70vh] overflow-y-auto pr-1"
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
         >
-            {#each loads as load}
+            {#each paginatedLoads as load}
                 <div
-                    class="bg-surface-white border border-border-subtle rounded-2xl p-6 shadow-sm hover:border-border-strong hover:border-gov-blue/20 transition-colors group relative flex flex-col h-full"
+                    class="bg-surface-white border border-border-subtle rounded-xl p-6 shadow-sm hover:border-border-strong hover:border-gov-blue/20 transition-colors group relative flex flex-col h-full min-h-[220px]"
                 >
                     <!-- Status Badge -->
-                    <div class="absolute top-6 right-6">
+                    <div class="absolute top-4 right-4">
                         <button
                             onclick={() => toggleActive(load)}
-                            class="w-10 h-5.5 rounded-full relative transition-colors shadow-inner {load.is_active
+                            class="w-11 h-6 rounded-full relative transition-colors shadow-inner overflow-hidden {load.is_active
                                 ? 'bg-gov-green'
                                 : 'bg-surface-muted'}"
                             aria-label="Toggle active status"
                             title={load.is_active ? "Active" : "Inactive"}
                         >
                             <span
-                                class="absolute top-0.5 transition-colors w-4.5 h-4.5 rounded-full bg-surface-white shadow-sm {load.is_active
+                                class="absolute left-0.5 top-0.5 transition-transform w-5 h-5 rounded-full bg-surface-white shadow-sm {load.is_active
                                     ? 'translate-x-5'
                                     : 'translate-x-0.5'}"
                             ></span>
                         </button>
                     </div>
 
-                    <div class="mb-6">
+                    <div class="mb-4 pr-12">
                         <div class="flex items-center gap-2 mb-3">
                             <Layers size={14} class="text-gov-blue" />
                             <span
@@ -257,14 +272,15 @@
                             </span>
                         </div>
                         <h4
-                            class="text-lg font-bold text-text-primary leading-tight group-hover:text-gov-blue transition-colors"
+                            class="text-base font-bold text-text-primary leading-tight group-hover:text-gov-blue transition-colors line-clamp-2"
+                            title={load.subject}
                         >
                             {load.subject}
                         </h4>
                     </div>
 
                     <div
-                        class="mt-auto pt-6 border-t border-gray-100 flex items-center justify-between"
+                        class="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between"
                     >
                         <div class="flex items-center gap-2">
                             <span
@@ -293,6 +309,28 @@
                     </div>
                 </div>
             {/each}
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-white px-4 py-3 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-normal text-text-muted">
+                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedLoads.length)} of {sortedLoads.length}
+            </p>
+            <div class="flex items-center gap-2">
+                <button
+                    onclick={() => currentPage = Math.max(1, currentPage - 1)}
+                    disabled={currentPage <= 1}
+                    class="px-3 py-2 text-xs font-bold rounded-lg {currentPage <= 1 ? 'bg-surface-muted text-text-muted/50 cursor-not-allowed' : 'bg-surface-muted text-text-primary hover:bg-gov-blue/10'}"
+                >
+                    Previous
+                </button>
+                <span class="text-xs font-bold text-gov-blue bg-gov-blue/5 rounded-lg px-3 py-2">{currentPage} / {totalPages}</span>
+                <button
+                    onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                    class="px-3 py-2 text-xs font-bold rounded-lg {currentPage >= totalPages ? 'bg-surface-muted text-text-muted/50 cursor-not-allowed' : 'bg-surface-muted text-text-primary hover:bg-gov-blue/10'}"
+                >
+                    Next
+                </button>
+            </div>
         </div>
     {/if}
 </div>

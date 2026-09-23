@@ -8,6 +8,7 @@
     import PaginatedRosterCards from "$lib/components/PaginatedRosterCards.svelte";
     import ComplianceTrendChart from "$lib/components/ComplianceTrendChart.svelte";
     import AlertBanner from "$lib/components/AlertBanner.svelte";
+    import ReviewTracker from "$lib/components/ReviewTracker.svelte";
     import { onMount, onDestroy } from "svelte";
     import { fly, fade } from "svelte/transition";
     import { goto } from "$app/navigation";
@@ -223,11 +224,10 @@
             supabase
                 .from("submissions")
                 .select(
-                    "id, file_name, doc_type, compliance_status, created_at, week_number, teaching_loads(subject, grade_level)",
+                    "id, file_name, file_path, doc_type, compliance_status, created_at, week_number, teaching_loads(subject, grade_level)",
                 )
                 .eq("user_id", userProfile.id)
-                .order("created_at", { ascending: false })
-                .limit(50),
+                .order("created_at", { ascending: false }),
             supabase
                 .from("teaching_loads")
                 .select("*", { count: "exact" })
@@ -244,7 +244,33 @@
         const loadsResult = results[1].status === 'fulfilled' ? results[1].value : { data: [], count: 0 };
         const calendarResult = results[2].status === 'fulfilled' ? results[2].value : { data: [] };
 
-        submissions = subsResult.data || [];
+        const rawSubmissions = subsResult.data || [];
+        const submissionIds = rawSubmissions.map((submission: any) => submission.id);
+        const reviewResult = submissionIds.length > 0
+            ? await supabase
+                .from("dll_reviews")
+                .select("submission_id, reviewer_id, reviewer_comment")
+                .in("submission_id", submissionIds)
+            : { data: [] };
+        const reviews = reviewResult.data || [];
+        const reviewerIds = [...new Set(reviews.map((review: any) => review.reviewer_id).filter(Boolean))];
+        const reviewerResult = reviewerIds.length > 0
+            ? await supabase.from("profiles").select("id, full_name, email").in("id", reviewerIds)
+            : { data: [] };
+        const reviewerNames = new Map(
+            (reviewerResult.data || []).map((reviewer: any) => [reviewer.id, reviewer.full_name || reviewer.email || "Checker"]),
+        );
+        const reviewBySubmission = new Map(reviews.map((review: any) => [review.submission_id, review]));
+        submissions = rawSubmissions.map((submission: any) => {
+            const load = Array.isArray(submission.teaching_loads) ? submission.teaching_loads[0] : submission.teaching_loads;
+            const review = reviewBySubmission.get(submission.id);
+            return {
+                ...submission,
+                subject: load?.subject || "Unassigned",
+                reviewer_comment: review?.reviewer_comment || "",
+                reviewer_name: review ? reviewerNames.get(review.reviewer_id) || "Checker" : "",
+            };
+        });
         activeTeachingLoads = loadsResult.data || [];
         teachingLoadsCount = loadsResult.count || 0;
         academicCalendar = calendarResult.data || [];
@@ -414,7 +440,7 @@
 
         const { data: loadsData } = await supabase
             .from("teaching_loads")
-            .select("id, user_id, subject")
+            .select("id, user_id, subject, grade_level")
             .in(
                 "user_id",
                 teachersWithNames.map((t) => t.id),
@@ -446,6 +472,9 @@
         for (const l of loads) {
             (loadsByTeacher[l.user_id] ||= []).push(l);
         }
+        activeTeachingLoads = loadsByTeacher[userProfile.id] || [];
+        academicCalendar = calendarArr;
+        submissions = complianceSubs.filter((s: any) => s.user_id === userProfile.id);
         teacherCompliance = teachersWithNames.map((t) => {
             const myLoads = loadsByTeacher[t.id] || [];
             const expected = myLoads.length * definedWeeks;
@@ -497,26 +526,39 @@
         // different number. These are derived from the same already-fetched
         // rows rather than re-querying.
 
-        if (role === "Master Teacher") {
-            // A Master Teacher's job here is reviewing. "Awaiting review" is
-            // the school's submissions that carry no reviewer remark yet —
-            // the actual size of their queue, not a compliance percentage.
+        if (role === "Master Teacher" || role === "School Head" || role === "District Supervisor") {
             const subIds = allSubs.map((s: any) => s.id).filter(Boolean);
             if (subIds.length > 0) {
                 const { data: reviews } = await supabase
                     .from("dll_reviews")
-                    .select("submission_id, reviewer_comment")
+                    .select("submission_id, reviewer_id, reviewer_comment")
                     .in("submission_id", subIds);
-                const reviewed = new Set(
-                    (reviews || [])
-                        .filter((r: any) => r.reviewer_comment)
-                        .map((r: any) => r.submission_id),
-                );
+                const reviewById: Record<string, string> = {};
+                const reviewerById: Record<string, string> = {};
+                const reviewReviewerBySubmission: Record<string, string> = {};
+                const reviewerIds = [...new Set((reviews || []).map((r: any) => r.reviewer_id).filter(Boolean))];
+                if (reviewerIds.length > 0) {
+                    const { data: reviewerProfiles } = await supabase
+                        .from("profiles")
+                        .select("id, full_name, email")
+                        .in("id", reviewerIds);
+                    for (const p of reviewerProfiles || []) {
+                        reviewerById[(p as any).id] = (p as any).full_name || (p as any).email || "Checker";
+                    }
+                }
+                for (const r of reviews || []) {
+                    if ((r as any).reviewer_comment) reviewById[(r as any).submission_id] = (r as any).reviewer_comment;
+                    if ((r as any).reviewer_id) reviewReviewerBySubmission[(r as any).submission_id] = (r as any).reviewer_id;
+                }
                 const nameById: Record<string, string> = {};
                 for (const t of teachersWithNames) nameById[t.id] = t.full_name;
                 awaitingReview = allSubs
-                    .filter((s: any) => !reviewed.has(s.id))
-                    .map((s: any) => ({ ...s, teacher_name: nameById[s.user_id] || "Unknown teacher" }));
+                    .map((s: any) => ({
+                        ...s,
+                        teacher_name: nameById[s.user_id] || "Unknown teacher",
+                        reviewer_comment: reviewById[s.id] || null,
+                        reviewer_name: reviewerById[reviewReviewerBySubmission[s.id]] || null,
+                    }));
             } else {
                 awaitingReview = [];
             }
@@ -603,29 +645,40 @@
         if (cs === "late") return "late";
         return "missing";
     }
+
+    const reviewForCheckingCount = $derived(awaitingReview.filter((item) => !item.reviewer_comment).length);
+    const reviewCheckedCount = $derived(awaitingReview.filter((item) => item.reviewer_comment).length);
+    const archiveTypeMetrics = $derived.by(() => {
+        const grouped: Record<string, number> = {};
+        for (const item of recentActivity) {
+            const label = getDocumentLabel(item.doc_type || "DLL");
+            grouped[label] = (grouped[label] || 0) + 1;
+        }
+        return Object.entries(grouped).map(([label, count]) => ({ label, count }));
+    });
 </script>
 
 <svelte:head>
-    <title>Home: CEDIMS</title>
+    <title>{$profile?.role === "Teacher" ? "Submission Tracker" : "Dashboard"}: CEDIMS</title>
 </svelte:head>
 
 <div>
     <!-- Header -->
     <PageHeader
         title={$profile?.role === 'Teacher'
-            ? 'My Weekly Submissions'
+            ? 'Submission Tracker'
             : $profile?.role === 'Master Teacher'
-                ? 'Review and Coaching Queue'
-                : $profile?.role === 'School Head'
-                    ? 'Staff Compliance'
-                    : 'District Oversight'}
+                ? 'Tracker'
+            : $profile?.role === 'School Head'
+                    ? 'Tracker'
+                    : 'Tracker'}
         description={$profile?.role === 'Teacher'
-            ? 'Track this week’s uploads, deadlines, and reviewer feedback.'
+            ? 'Track every expected upload by week, subject, and status.'
             : $profile?.role === 'Master Teacher'
-                ? 'Prioritize reviews and support teachers who need follow-up.'
-                : $profile?.role === 'School Head'
-                    ? 'Monitor staff submissions and decide where support is needed.'
-                    : 'Compare schools, follow district trends, and act on gaps.'}
+                ? 'Track your own submissions and documents waiting for review.'
+            : $profile?.role === 'School Head'
+                    ? 'Review documents still marked for checking.'
+                    : 'Monitor archive volume, document types, and review status.'}
     />
 
     <!-- This page has no cache-then-network fallback the way archive/
@@ -647,154 +700,6 @@
     {#if $profile?.role === "Teacher"}
         <!-- ========== TEACHER DASHBOARD ========== -->
 
-        <!-- Stats Row -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <div>
-                <StatCard
-                    icon="CloudUpload"
-                    value={stats.totalUploads}
-                    label="Total Uploads"
-                />
-            </div>
-            <div>
-                <StatCard
-                    icon="ShieldCheck"
-                    value="{complianceStats.rate}%"
-                    label="Compliance Rate"
-                    color="from-gov-green to-gov-green-dark"
-                />
-            </div>
-            <div>
-                <StatCard
-                    icon="Clock"
-                    value={complianceStats.Late}
-                    label="Late Submissions"
-                    color="from-gov-gold to-gov-gold-dark"
-                />
-            </div>
-            <div>
-                <StatCard
-                    icon="ShieldAlert"
-                    value={complianceStats.NonCompliant}
-                    label="Missing"
-                    color="from-gov-red to-red-700"
-                />
-            </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="mb-10">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="p-2 rounded-md bg-gov-blue/10 text-gov-blue">
-                    <Zap size={20} fill="currentColor" strokeWidth={1.5} />
-                </div>
-                <h2
-                    class="text-xl font-semibold text-text-primary tracking-tight"
-                >
-                    Quick Actions
-                </h2>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-5">
-                <a
-                    href="/dashboard/upload"
-                    class="gov-card p-5 flex flex-col gap-4 no-underline group"
-                >
-                    <div
-                        class="w-10 h-10 rounded-md bg-gov-blue/5 text-gov-blue flex items-center justify-center group-hover:bg-gov-blue group-hover:text-white transition-colors duration-300"
-                    >
-                        <CloudUpload size={20} strokeWidth={1.5} />
-                    </div>
-                    <div>
-                        <p
-                            class="font-bold text-sm text-text-primary group-hover:text-gov-blue transition-colors"
-                        >
-                            Upload
-                        </p>
-                        <p
-                            class="text-xs text-text-muted mt-1 leading-relaxed"
-                        >
-                            Submit Daily Lesson Plan, ISP — Instructional Supervisory Plan, or ISR — Instructional Supervisory Report.
-                        </p>
-                    </div>
-                </a>
-                <a
-                    href="/dashboard/archive"
-                    class="gov-card p-5 flex flex-col gap-4 no-underline group"
-                >
-                    <div
-                        class="w-10 h-10 rounded-md bg-gov-blue/5 text-gov-blue flex items-center justify-center group-hover:bg-gov-blue group-hover:text-white transition-colors duration-300"
-                    >
-                        <Archive size={20} strokeWidth={1.5} />
-                    </div>
-                    <div>
-                        <p
-                            class="font-bold text-sm text-text-primary group-hover:text-gov-blue transition-colors"
-                        >
-                            Archive
-                        </p>
-                        <p
-                            class="text-xs text-text-muted mt-1 leading-relaxed"
-                        >
-                            Retrieve submitted documents.
-                        </p>
-                    </div>
-                </a>
-                <a
-                    href="/dashboard/load"
-                    class="gov-card p-5 flex flex-col gap-4 no-underline group"
-                >
-                    <div
-                        class="w-10 h-10 rounded-md bg-gov-blue/5 text-gov-blue flex items-center justify-center group-hover:bg-gov-blue group-hover:text-white transition-colors duration-300"
-                    >
-                        <Briefcase size={20} strokeWidth={1.5} />
-                    </div>
-                    <div>
-                        <p
-                            class="font-bold text-sm text-text-primary group-hover:text-gov-blue transition-colors"
-                        >
-                            Load
-                        </p>
-                        <p
-                            class="text-xs text-text-muted mt-1 leading-relaxed"
-                        >
-                            Manage subjects and schedules.
-                        </p>
-                    </div>
-                </a>
-                <button
-                    onclick={() => showQRScanner.set(true)}
-                    class="gov-card p-5 flex flex-col gap-4 no-underline group text-left w-full cursor-pointer"
-                >
-                    <div
-                        class="w-10 h-10 rounded-md bg-gov-blue/5 text-gov-blue flex items-center justify-center group-hover:bg-gov-blue group-hover:text-white transition-colors duration-300"
-                    >
-                        <QrCode size={20} strokeWidth={1.5} />
-                    </div>
-                    <div>
-                        <p
-                            class="font-bold text-sm text-text-primary group-hover:text-gov-blue transition-colors"
-                        >
-                            Scan
-                        </p>
-                        <p
-                            class="text-xs text-text-muted mt-1 leading-relaxed"
-                        >
-                            Verify document authenticity.
-                        </p>
-                    </div>
-                </button>
-            </div>
-        </div>
-
-        <div class="mb-6 rounded-2xl border border-border-subtle bg-surface-white p-5 shadow-sm">
-            <h3 class="text-sm font-semibold uppercase tracking-wide text-text-primary mb-3">
-                Current Focus
-            </h3>
-            <p class="text-sm text-text-secondary">
-                Keep your submissions up to date and review your archive regularly so monitoring remains simple and current.
-            </p>
-        </div>
-
         <!-- Teacher Checklist: Interactive checkpoint hub for all active teaching loads -->
         <div class="mb-6">
             <TeacherChecklist
@@ -803,6 +708,12 @@
                 calendarWeeks={academicCalendar}
             />
         </div>
+        <ReviewTracker
+            title="Submission Reviews"
+            items={submissions}
+            readOnlyRemarks={true}
+            {formatDate}
+        />
     {:else}
         <!-- ========== SUPERVISOR DASHBOARD ========== -->
 
@@ -817,8 +728,8 @@
                 onReview={() =>
                     goto(
                         $profile?.role === "District Supervisor"
-                            ? "/dashboard/monitoring/district"
-                            : "/dashboard/monitoring/school",
+                            ? "/dashboard/compliance"
+                            : "/dashboard/compliance",
                     )}
             />
         {/if}
@@ -833,144 +744,99 @@
              fetched above. -->
 
         {#if $profile?.role === "Master Teacher"}
-            <!-- Reviewing is the Master Teacher's job here, so the queue is
-                 the headline, not a compliance percentage. -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <div>
-                    <StatCard icon="ClipboardList" value={awaitingReview.length} label="Awaiting My Review" color="gov-gold" />
-                </div>
-                <div>
-                    <StatCard icon="Users" value={teachersAtRisk.length} label="Teachers Needing Support" color="gov-red" />
-                </div>
-                <div>
-                    <StatCard icon="ShieldCheck" value="{stats.compliantRate}%" label="School Rate" color="gov-green" />
-                </div>
-                <div>
-                    <StatCard icon="Clock" value={stats.lateCount} label="Late Submissions" color="gov-blue" />
-                </div>
-            </div>
-
-            <div class="mb-6">
-                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <h2 class="text-sm font-bold text-text-muted uppercase tracking-normal flex items-center gap-2">
-                        <div class="h-1 w-4 bg-gov-gold"></div>
-                        Awaiting My Review
-                        <span class="text-xs font-semibold text-text-muted/70">({awaitingReview.length})</span>
-                    </h2>
-                    <button onclick={() => goto("/dashboard/archive")} class="text-xs font-bold text-gov-blue hover:underline">
-                        Open Archives →
-                    </button>
-                </div>
-
-                <div class="gov-card-static rounded-2xl p-4">
-                    <PaginatedSubmissionCards
-                        items={awaitingReview.map((doc) => ({
-                            key: doc.id,
-                            fileName: doc.file_name,
-                            docType: doc.doc_type || "DLL",
-                            weekNumber: doc.week_number,
-                            complianceStatus: doc.compliance_status,
-                            createdAt: doc.created_at,
-                            subtitle: doc.teacher_name,
-                        }))}
-                        {formatDate}
-                        emptyMessage="Nothing waiting: every document has a remark"
-                    />
-                </div>
+            <div class="space-y-6">
+                <TeacherChecklist
+                    title="My Submission Tracker"
+                    {submissions}
+                    teachingLoads={activeTeachingLoads}
+                    calendarWeeks={academicCalendar}
+                />
+                <ReviewTracker
+                    title="Review Tracker"
+                    items={awaitingReview}
+                    pendingOnly={true}
+                    {formatDate}
+                />
             </div>
 
         {:else if $profile?.role === "School Head"}
-            <!-- The School Head is accountable for staff. The full sortable
-                 roster lives on the Staff tab; Home shows only who needs
-                 acting on today. -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <div>
-                    <StatCard icon="Users" value={stats.totalTeachers} label="Teachers" />
-                </div>
-                <div>
-                    <StatCard icon="ShieldCheck" value="{stats.compliantRate}%" label="School Rate" color="gov-green" />
-                </div>
-                <div>
-                    <StatCard icon="ShieldAlert" value={teachersAtRisk.length} label="Teachers At Risk" color="gov-red" />
-                </div>
-                <div>
-                    <StatCard icon="ShieldX" value={stats.nonCompliantCount} label="Missing" color="gov-red" />
-                </div>
-            </div>
-
-            <div class="mb-6">
-                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <h2 class="text-sm font-bold text-text-muted uppercase tracking-normal flex items-center gap-2">
-                        <div class="h-1 w-4 bg-gov-red"></div>
-                        Needs Attention
-                    </h2>
-                    <button onclick={() => goto("/dashboard/monitoring/school")} class="text-xs font-bold text-gov-blue hover:underline">
-                        Open Staff →
-                    </button>
-                </div>
-
-                <PaginatedRosterCards
-                    items={needsAttention.map((t) => ({
-                        key: t.id,
-                        name: t.name,
-                        missing: t.missing,
-                        late: t.late,
-                        expected: t.expected,
-                        rate: t.rate,
-                    }))}
-                    rateClass={getComplianceClass}
-                    emptyMessage="No teacher records yet"
-                />
-            </div>
+            <ReviewTracker
+                title="Review Tracker"
+                items={awaitingReview}
+                pendingOnly={true}
+                {formatDate}
+            />
 
         {:else}
-            <!-- District Supervisor: school altitude. Per-teacher detail is
-                 the Schools tab's job, so this rolls the same rows up. -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <div>
-                    <StatCard icon="Building2" value={schoolStandings.length} label="Schools" />
+            <div class="space-y-6">
+                <div class="gov-card-static overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-subtle bg-surface-white flex items-center justify-between flex-wrap gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-1.5 h-5 bg-gov-blue rounded-full"></div>
+                            <h3 class="text-sm font-bold text-text-primary uppercase tracking-normal">Submission Metrics</h3>
+                        </div>
+                        <p class="text-xs font-bold text-text-muted uppercase tracking-normal">{recentActivity.length} recent archives</p>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4 bg-surface-muted">
+                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
+                            <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Archives</p>
+                            <p class="text-xl font-bold text-text-primary">{recentActivity.length}</p>
+                        </div>
+                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
+                            <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Schools</p>
+                            <p class="text-xl font-bold text-text-primary">{schoolStandings.length}</p>
+                        </div>
+                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
+                            <p class="text-xs font-bold text-gov-green uppercase tracking-tight">District Rate</p>
+                            <p class="text-xl font-bold text-gov-green">{stats.compliantRate}%</p>
+                        </div>
+                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
+                            <p class="text-xs font-bold text-gov-red uppercase tracking-tight">Missing</p>
+                            <p class="text-xl font-bold text-gov-red">{stats.nonCompliantCount}</p>
+                        </div>
+                    </div>
+                    <div class="divide-y divide-border-subtle">
+                        {#each archiveTypeMetrics as metric}
+                            <div class="flex items-center justify-between px-4 py-3">
+                                <span class="text-sm font-bold text-text-primary">{metric.label}</span>
+                                <span class="rounded-lg bg-gov-blue/10 px-3 py-1 text-xs font-bold text-gov-blue">{metric.count}</span>
+                            </div>
+                        {:else}
+                            <div class="p-6 text-center text-sm text-text-muted">No archive metrics yet.</div>
+                        {/each}
+                    </div>
                 </div>
-                <div>
-                    <StatCard icon="ShieldCheck" value="{stats.compliantRate}%" label="District Rate" color="gov-green" />
-                </div>
-                <div>
-                    <StatCard icon="ShieldAlert" value={schoolsBelowTarget.length} label="Schools Below Target" color="gov-red" />
-                </div>
-                <div>
-                    <StatCard icon="ShieldX" value={stats.nonCompliantCount} label="Missing" color="gov-red" />
-                </div>
-            </div>
 
-            <div class="mb-6">
-                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <h2 class="text-sm font-bold text-text-muted uppercase tracking-normal flex items-center gap-2">
-                        <div class="h-1 w-4 bg-gov-blue"></div>
-                        School Standings
-                        <span class="text-xs font-semibold text-text-muted/70">(lowest first)</span>
-                    </h2>
-                    <button onclick={() => goto("/dashboard/monitoring/district")} class="text-xs font-bold text-gov-blue hover:underline">
-                        Open Schools →
-                    </button>
+                <div class="gov-card-static overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-subtle bg-surface-white flex items-center justify-between flex-wrap gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-1.5 h-5 bg-gov-gold rounded-full"></div>
+                            <h3 class="text-sm font-bold text-text-primary uppercase tracking-normal">Review Metrics</h3>
+                        </div>
+                        <p class="text-xs font-bold text-text-muted uppercase tracking-normal">{awaitingReview.length} visible archives</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 p-4 bg-surface-muted">
+                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
+                            <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Total</p>
+                            <p class="text-xl font-bold text-text-primary">{awaitingReview.length}</p>
+                        </div>
+                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
+                            <p class="text-xs font-bold text-gov-gold uppercase tracking-tight">For Checking</p>
+                            <p class="text-xl font-bold text-gov-gold">{reviewForCheckingCount}</p>
+                        </div>
+                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
+                            <p class="text-xs font-bold text-gov-green uppercase tracking-tight">Checked</p>
+                            <p class="text-xl font-bold text-gov-green">{reviewCheckedCount}</p>
+                        </div>
+                    </div>
                 </div>
-
-                <PaginatedRosterCards
-                    items={schoolStandings.map((s) => ({
-                        key: s.name,
-                        name: s.name,
-                        missing: s.missing,
-                        late: s.late,
-                        expected: s.expected,
-                        rate: s.rate,
-                    }))}
-                    rateClass={getComplianceClass}
-                    emptyMessage="No school records yet"
-                />
             </div>
         {/if}
 
 
 
         <!-- Recent Activity as Cards -->
+        {#if false}
         <div>
             <h2
                 class="text-sm font-bold text-text-muted uppercase tracking-normal mb-6 flex items-center gap-2"
@@ -1072,5 +938,6 @@
                 </div>
             {/if}
         </div>
+        {/if}
     {/if}
 </div>

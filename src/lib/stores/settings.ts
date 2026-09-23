@@ -17,10 +17,19 @@ const DEFAULT_SETTINGS: SystemSettings = {
 
 function createSettingsStore() {
     const { subscribe, set, update } = writable<SystemSettings>(DEFAULT_SETTINGS);
+    let initialized = false;
+    let initPromise: Promise<void> | null = null;
 
     return {
         subscribe,
         async init() {
+            // The dashboard layout can remount while navigating between upload
+            // views. Share one initialization promise so realtime callbacks
+            // are registered exactly once for the lifetime of the app.
+            if (initPromise) return initPromise;
+            if (initialized) return;
+            initialized = true;
+            initPromise = (async () => {
             const CACHE_KEY = 'system_settings_cache';
 
             // Load from cache first so the UI has something to show offline.
@@ -81,6 +90,8 @@ function createSettingsStore() {
                     })
                     .subscribe();
             }
+            })();
+            return initPromise;
         }
     };
 }

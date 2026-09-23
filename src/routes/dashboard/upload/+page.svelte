@@ -33,7 +33,6 @@
     import {
         canUploadDocument,
         getAllowedUploadDocTypes,
-        getUploadGuidance,
         requiresTeachingLoadSelection,
     } from "$lib/utils/documentPermissions";
     import { focusTrap } from "$lib/actions/focusTrap";
@@ -998,9 +997,9 @@
         {/if}
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.75fr)] gap-4 items-start">
         <!-- Upload Area -->
-        <div class="lg:col-span-2 space-y-6">
+        <div class="space-y-4">
             <!-- File Drop Zone -->
             <FileDropZone
                 onfileselected={onFileSelected}
@@ -1031,10 +1030,10 @@
 
             <!-- Metadata Inputs -->
             {#if selectedFile && !processing}
-                <div class="gov-card-static p-6 animate-fade-in">
-                    <div class="flex items-center justify-between mb-4">
+                <div class="gov-card-static p-4 animate-fade-in">
+                    <div class="flex items-center justify-between mb-3">
                         <div class="flex flex-col">
-                            <h3 class="text-lg font-bold text-text-primary">
+                            <h3 class="text-base font-bold text-text-primary">
                                 {docType === 'DLL' ? 'Document Review' : 'Document Details'}
                             </h3>
                             <p class="text-xs text-text-muted font-medium">
@@ -1074,7 +1073,7 @@
                             <p class="mt-2 text-xs text-text-muted">Reading the document and detecting its type, week, and teaching load.</p>
                         </div>
                     {:else}
-                        <div class="space-y-6 animate-fade-in">
+                        <div class="space-y-4 animate-fade-in">
                             <!-- Mismatch Alert -->
                             {#if mismatchAlert}
                                 <div
@@ -1118,7 +1117,7 @@
                                 >
                                 <button
                                     onclick={() => (showLoadPicker = true)}
-                                    class="w-full p-5 rounded-md transition-colors border-2 text-left flex items-center justify-between group {teachingLoadId
+                                    class="w-full p-3 rounded-md transition-colors border-2 text-left flex items-center justify-between group {teachingLoadId
                                         ? 'bg-gov-blue/5 border-gov-blue/20 hover:border-gov-blue/40'
                                         : 'bg-gov-red/5 border-gov-red/20 border-dashed '}"
                                 >
@@ -1130,7 +1129,7 @@
                                                 Detected Load
                                             </p>
                                             <p
-                                                class="text-xl font-semibold text-text-primary leading-tight"
+                                                class="text-base font-semibold text-text-primary leading-tight"
                                             >
                                                 {teachingLoads.find(
                                                     (l) =>
@@ -1147,7 +1146,7 @@
                                             </p>
                                         {:else}
                                             <p
-                                                class="text-lg font-semibold text-gov-red"
+                                                class="text-base font-semibold text-gov-red"
                                             >
                                                 Tap to Select Load
                                             </p>
@@ -1179,7 +1178,7 @@
                             </div>
                             {/if}
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <!-- Doc Type -->
                                 <div class="space-y-2">
                                     <span
@@ -1192,7 +1191,7 @@
                                         {#each allowedDocTypes as type}
                                             <button
                                                 onclick={() => (docType = type)}
-                                                class="flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition-colors {docType ===
+                                                class="flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors {docType ===
                                                 type
                                                     ? 'bg-surface-white text-gov-blue shadow-sm'
                                                     : 'text-text-muted hover:text-text-primary'}"
@@ -1231,14 +1230,14 @@
                                             (showWeekPicker = true)
                                         }
                                         disabled={requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0}
-                                        class="w-full p-4 rounded-md bg-surface-muted border border-border-subtle transition-colors text-left flex items-center justify-between group {requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0
+                                        class="w-full p-3 rounded-md bg-surface-muted border border-border-subtle transition-colors text-left flex items-center justify-between group {requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0
                                             ? 'opacity-60 cursor-not-allowed'
                                             : 'hover:border-gov-blue/30'}"
                                     >
                                         <div>
                                             {#if requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0}
                                                 <p
-                                                    class="text-lg font-semibold text-text-muted"
+                                                    class="text-base font-semibold text-text-muted"
                                                 >
                                                     No teaching loads
                                                 </p>
@@ -1254,13 +1253,13 @@
                                                     Selected
                                                 </p>
                                                 <p
-                                                    class="text-lg font-semibold text-text-primary"
+                                                    class="text-base font-semibold text-text-primary"
                                                 >
                                                     Week {weekNumber}
                                                 </p>
                                             {:else}
                                                 <p
-                                                    class="text-lg font-semibold text-text-muted"
+                                                    class="text-base font-semibold text-text-muted"
                                                 >
                                                     Select Week
                                                 </p>
@@ -1282,7 +1281,7 @@
 
                     {#if ocrConfidence !== null && !detectingMetadata}
                         <div
-                            class="mt-6 p-4 rounded-md bg-surface-white border border-border-subtle flex items-center justify-between shadow-sm"
+                            class="mt-4 p-3 rounded-md bg-surface-white border border-border-subtle flex items-center justify-between shadow-sm"
                         >
                             <div class="flex items-center gap-3">
                                 <div
@@ -1323,7 +1322,7 @@
                     {#if !detectingMetadata}
                         {#if submissionAlreadyExists}
                             <div
-                                class="mt-6 p-4 bg-gov-red/10 border border-gov-red/30 rounded-xl text-gov-red text-sm font-semibold flex flex-col items-center justify-center gap-2"
+                                class="mt-4 p-3 bg-gov-red/10 border border-gov-red/30 rounded-xl text-gov-red text-sm font-semibold flex flex-col items-center justify-center gap-2"
                             >
                                 <div class="flex items-center gap-2">
                                     <svg
@@ -1354,7 +1353,7 @@
                                     (requiresTeachingLoadSelection($profile?.role || '', docType) && !teachingLoadId) ||
                                     (docType === "DLL" && !weekNumber) ||
                                     processing}
-                                class="gov-btn-primary mt-6 w-full"
+                                class="gov-btn-primary mt-4 w-full"
                             >
                                 {#if processing}
                                     <svg
@@ -1408,93 +1407,56 @@
 
         </div>
 
-        <div class="space-y-6">
-            <div class="gov-card-static p-6">
-                <h3 class="text-lg font-bold text-text-primary mb-4">
-                    {docType === 'DLL' ? 'Before Uploading Daily Lesson Plan' : `Uploading ${getDocumentLabel(docType)}`}
+        <div class="space-y-4">
+            <div class="gov-card-static p-4">
+                <h3 class="text-base font-bold text-text-primary mb-3">
+                    How Upload Works
                 </h3>
-                <ul class="space-y-3 text-sm text-text-secondary">
+                <ul class="space-y-2.5 text-sm text-text-secondary">
                     {#if docType === 'DLL'}
                         <li class="flex items-start gap-3">
-                            <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-                            <span>Confirm the detected teaching load and document type.</span>
+                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
+                            <span>Choose your Daily Lesson Plan file.</span>
                         </li>
                         <li class="flex items-start gap-3">
-                            <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-                            <span>Review the selected week before the file is archived.</span>
+                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
+                            <span>The system reads the file and suggests the teaching load, document type, and week.</span>
                         </li>
                         <li class="flex items-start gap-3">
-                            <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
-                            <span>Wait for metadata detection to finish before uploading.</span>
+                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
+                            <span>Review the details, then confirm the archive.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">4</span>
+                            <span>If the same file already exists, upload is blocked. If offline, it is saved and synced later.</span>
                         </li>
                     {:else if docType === 'ISP'}
                         <li class="flex items-start gap-3">
-                            <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-                            <span>Ensure your ISP — Instructional Supervisory Plan is in PDF format.</span>
+                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
+                            <span>Choose your Instructional Supervisory Plan file.</span>
                         </li>
                         <li class="flex items-start gap-3">
-                            <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-                            <span>Verify that all required information is complete.</span>
+                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
+                            <span>The system checks the file and prepares it for archiving.</span>
                         </li>
                         <li class="flex items-start gap-3">
-                            <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
-                            <span>Wait for metadata detection to finish before uploading.</span>
+                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
+                            <span>Confirm the archive. Duplicate files are blocked; offline files sync later.</span>
                         </li>
                     {:else if docType === 'ISR'}
                         <li class="flex items-start gap-3">
-                            <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-                            <span>Ensure your ISR — Instructional Supervisory Report is in PDF format.</span>
+                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
+                            <span>Choose your Instructional Supervisory Report file.</span>
                         </li>
                         <li class="flex items-start gap-3">
-                            <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-                            <span>Verify that all required information is included.</span>
+                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
+                            <span>The system checks the file and prepares it for archiving.</span>
                         </li>
                         <li class="flex items-start gap-3">
-                            <span class="w-7 h-7 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
-                            <span>Wait for metadata detection to finish before uploading.</span>
+                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
+                            <span>Confirm the archive. Duplicate files are blocked; offline files sync later.</span>
                         </li>
                     {/if}
-                </ul>
-            </div>
-
-            {#if $profile}
-                <div class="gov-card-static p-6 {$profile.role === 'Teacher' ? 'bg-gov-blue/5' : $profile.role === 'Master Teacher' ? 'bg-gov-green/5' : 'bg-gov-purple/5'}">
-                    <h3 class="text-lg font-bold text-text-primary mb-3">
-                        Your Role: {$profile.role}
-                    </h3>
-                    <p class="text-sm text-text-secondary">
-                        {getUploadGuidance($profile.role)}
-                    </p>
-                </div>
-            {/if}
-
-            <div class="gov-card-static bg-gov-gold/5 p-6">
-                <h3 class="text-lg font-bold text-text-primary mb-3">
-                    Document Security
-                </h3>
-                <p class="text-sm text-text-secondary mb-3">
-                    Your documents are secured with <strong>SHA-256</strong> digital
-                    fingerprinting.
-                </p>
-                <ul class="space-y-2 text-xs text-text-muted">
-                    <li class="flex gap-2">
-                        <span
-                            ><strong>Anti-Tampering:</strong> Any change to the file
-                            content will alter its hash, making it invalid.</span
-                        >
-                    </li>
-                    <li class="flex gap-2">
-                        <span
-                            ><strong>No Duplicates:</strong> The system automatically
-                            rejects files that have already been archived.</span
-                        >
-                    </li>
-                    <li class="flex gap-2">
-                        <span
-                            ><strong>Verifiable:</strong> Each document gets a unique
-                            QR code for instant authenticity checks.</span
-                        >
-                    </li>
                 </ul>
             </div>
 

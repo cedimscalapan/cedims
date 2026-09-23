@@ -234,9 +234,9 @@ export async function updatePassword(newPassword: string): Promise<{ error: stri
 export function getRoleDashboardPath(role: string): string {
     switch (role) {
         case 'District Supervisor':
-            return '/dashboard/monitoring/district';
+            return '/dashboard/compliance';
         case 'School Head':
-            return '/dashboard/monitoring/school';
+            return '/dashboard/compliance';
         case 'Master Teacher':
             return '/dashboard';
         default:

@@ -1,15 +1,17 @@
 <script lang="ts">
-    import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-svelte";
-    import StatusBadge from "$lib/components/StatusBadge.svelte";
-    import { getWeekNumber } from "$lib/utils/useDashboardData";
+    import { CheckCircle, XCircle, Clock, ArrowUpDown, Upload } from "lucide-svelte";
+    import { goto } from "$app/navigation";
     
     // Props
     export let submissions: any[] = [];
     export let teachingLoads: any[] = [];
     export let calendarWeeks: any[] = []; // { week_number, start_date, end_date }
+    export let title = "Submission Tracker";
     
     // Status type definition
     type ExpectationStatus = 'missing' | 'compliant' | 'late';
+    type SortField = 'week' | 'subject' | 'status';
+    type FilterStatus = 'all' | 'missing';
     
     interface Expectation {
         week: number;
@@ -17,7 +19,14 @@
         status: ExpectationStatus;
         submission?: any;
         isExpected: boolean;
+        dateLabel: string;
     }
+
+    let sortField: SortField = 'week';
+    let sortDir: 'asc' | 'desc' = 'asc';
+    let filterStatus: FilterStatus = 'all';
+    let currentPage = 1;
+    const pageSize = 5;
     
     // Pre-process submissions for quick lookup
     let submissionMap = new Map<string, any>();
@@ -26,7 +35,7 @@
         submissions.forEach(sub => {
             const week = sub.week_number;
             const tl = Array.isArray(sub.teaching_loads) ? sub.teaching_loads[0] : sub.teaching_loads;
-            const subject = tl?.subject || "Unknown";
+            const subject = tl?.subject || sub.subject || "Unknown";
             
             const key = `${week}_${subject}`;
             if (!submissionMap.has(key)) {
@@ -63,10 +72,35 @@
                 subject,
                 status,
                 submission,
-                isExpected: true
+                isExpected: true,
+                dateLabel: week.start_date && week.end_date
+                    ? `${new Date(week.start_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} - ${new Date(week.end_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}`
+                    : ''
             } as Expectation;
         })
     );
+
+    const statusOrder: Record<ExpectationStatus, number> = {
+        missing: 0,
+        late: 1,
+        compliant: 2,
+    };
+
+    $: filteredExpectations = expectations.filter((item) =>
+        filterStatus === 'missing' ? item.status === 'missing' : true,
+    );
+
+    $: sortedExpectations = [...filteredExpectations].sort((a, b) => {
+        let cmp = 0;
+        if (sortField === 'week') cmp = a.week - b.week || a.subject.localeCompare(b.subject);
+        if (sortField === 'subject') cmp = a.subject.localeCompare(b.subject) || a.week - b.week;
+        if (sortField === 'status') cmp = statusOrder[a.status] - statusOrder[b.status] || a.week - b.week;
+        return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    $: totalPages = Math.max(1, Math.ceil(sortedExpectations.length / pageSize));
+    $: if (currentPage > totalPages) currentPage = totalPages;
+    $: paginatedExpectations = sortedExpectations.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     
     // Calculate summary statistics
     $: statistics = {
@@ -80,9 +114,19 @@
         ? Math.round((statistics.compliant / statistics.total) * 100)
         : 0;
     
-    function getExpectationStatus(week: number, subject: string): ExpectationStatus {
-        const expectation = expectations.find(e => e.week === week && e.subject === subject);
-        return expectation?.status || 'missing';
+    function setSort(field: SortField) {
+        if (sortField === field) {
+            sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortField = field;
+            sortDir = field === 'status' ? 'asc' : 'asc';
+        }
+        currentPage = 1;
+    }
+
+    function setFilter(status: FilterStatus) {
+        filterStatus = status;
+        currentPage = 1;
     }
     
     function getStatusColor(status: ExpectationStatus): string {
@@ -123,14 +167,14 @@
 </script>
 <div class="gov-card-static overflow-hidden">
     <!-- Header -->
-    <div class="px-6 py-5 border-b border-border-subtle bg-surface-white flex items-center justify-between flex-wrap gap-4">
+    <div class="px-4 py-3 border-b border-border-subtle bg-surface-white flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-3">
-            <div class="w-1.5 h-6 bg-gov-blue rounded-full"></div>
-            <h3 class="text-sm font-bold text-text-primary uppercase tracking-wide">
-                Requirements Checklist
+            <div class="w-1.5 h-5 bg-gov-blue rounded-full"></div>
+            <h3 class="text-sm font-bold text-text-primary uppercase tracking-normal">
+                {title}
             </h3>
         </div>
-        <div class="flex gap-4 text-xs font-medium text-text-muted flex-wrap">
+        <div class="flex gap-3 text-xs font-medium text-text-muted flex-wrap">
             <div class="flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-gov-green"></span> Compliant
             </div>
@@ -145,96 +189,125 @@
 
     <!-- Summary Statistics -->
     {#if statistics.total > 0}
-        <div class="px-6 py-5 bg-surface-muted border-b border-border-subtle">
-            <div class="grid grid-cols-5 gap-4">
-                <div>
+        <div class="px-4 py-3 bg-surface-muted border-b border-border-subtle">
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                     <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Total Expected</p>
-                    <p class="text-2xl font-bold text-text-primary mt-1">{statistics.total}</p>
+                    <p class="text-xl font-bold text-text-primary">{statistics.total}</p>
                 </div>
-                <div>
+                <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                     <p class="text-xs font-bold text-gov-green uppercase tracking-tight">Compliant</p>
-                    <p class="text-2xl font-bold text-gov-green mt-1">{statistics.compliant}</p>
+                    <p class="text-xl font-bold text-gov-green">{statistics.compliant}</p>
                 </div>
-                <div>
+                <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                     <p class="text-xs font-bold text-gov-gold uppercase tracking-tight">Late</p>
-                    <p class="text-2xl font-bold text-gov-gold mt-1">{statistics.late}</p>
+                    <p class="text-xl font-bold text-gov-gold">{statistics.late}</p>
                 </div>
-                <div>
+                <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                     <p class="text-xs font-bold text-gov-red uppercase tracking-tight">Missing</p>
-                    <p class="text-2xl font-bold text-gov-red mt-1">{statistics.missing}</p>
+                    <p class="text-xl font-bold text-gov-red">{statistics.missing}</p>
                 </div>
-                <div>
+                <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                     <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Compliance Rate</p>
-                    <p class="text-2xl font-bold {complianceRate >= 80 ? 'text-gov-green' : complianceRate >= 50 ? 'text-gov-gold' : 'text-gov-red'} mt-1">{complianceRate}%</p>
+                    <p class="text-xl font-bold {complianceRate >= 80 ? 'text-gov-green' : complianceRate >= 50 ? 'text-gov-gold' : 'text-gov-red'}">{complianceRate}%</p>
                 </div>
             </div>
         </div>
     {/if}
 
-    <!-- Table -->
-    <div class="max-h-[65vh] overflow-y-auto overflow-x-auto custom-scrollbar">
-        {#if calendarWeeks.length === 0 || uniqueSubjects.length === 0}
-            <div class="p-8 text-center text-text-muted">
-                <p>No active schedule or teaching loads found.</p>
+    {#if calendarWeeks.length === 0 || uniqueSubjects.length === 0}
+        <div class="p-8 text-center text-text-muted">
+            <p>No active schedule or teaching loads found.</p>
+        </div>
+    {:else}
+        <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle">
+            <div class="flex items-center gap-2 flex-wrap">
+                <button
+                    type="button"
+                    onclick={() => setFilter('all')}
+                    class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal transition-colors {filterStatus === 'all' ? 'border-gov-blue bg-gov-blue text-white' : 'border-border-subtle bg-surface-muted text-text-muted hover:text-text-primary'}"
+                >
+                    All
+                </button>
+                <button
+                    type="button"
+                    onclick={() => setFilter('missing')}
+                    class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal transition-colors {filterStatus === 'missing' ? 'border-gov-red bg-gov-red text-white' : 'border-border-subtle bg-surface-muted text-text-muted hover:text-gov-red'}"
+                >
+                    Missing
+                </button>
+                {#each [
+                    { field: 'week', label: 'Week' },
+                    { field: 'subject', label: 'Subject' },
+                    { field: 'status', label: 'Status' }
+                ] as option}
+                    <button
+                        type="button"
+                        onclick={() => setSort(option.field as SortField)}
+                        class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal transition-colors {sortField === option.field ? 'border-gov-blue bg-gov-blue/10 text-gov-blue' : 'border-border-subtle bg-surface-muted text-text-muted hover:text-text-primary'}"
+                    >
+                        {option.label}
+                        <ArrowUpDown size={12} class={sortField === option.field && sortDir === 'desc' ? 'scale-y-[-1]' : ''} />
+                    </button>
+                {/each}
             </div>
-        {:else}
-            <!-- The only one of the app's 7 tables missing this wrapper — a
-                 sticky-left timeline column plus one min-w-[110px] column per
-                 subject has no ceiling on total width, and had no scroll
-                 mechanism at all below that width. -->
-            <div class="overflow-x-auto cedims-scroll">
-            <table class="w-full text-left border-collapse text-sm">
-                <thead>
-                    <tr class="bg-surface-muted border-b border-border-subtle">
-                        <th class="py-2 px-3 text-xs font-bold text-text-muted uppercase tracking-normal sticky left-0 bg-surface-muted  z-20 min-w-[120px] border-r border-border-subtle">
-                            Timeline
-                        </th>
-                        {#each uniqueSubjects as subject}
-                            <th class="py-2 px-3 text-xs font-bold text-text-muted uppercase tracking-normal text-center min-w-[110px]">
-                                <div class="truncate max-w-[160px] mx-auto" title={subject}>
-                                    {subject}
-                                </div>
-                            </th>
-                        {/each}
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-border-subtle">
-                    {#each calendarWeeks as week}
-                        <tr class="hover:bg-gov-blue/5 transition-colors group">
-                            <td class="py-2 px-3 sticky left-0 bg-surface-white border-r border-border-subtle z-10 group-hover:bg-gov-blue/5 transition-colors">
-                                <div class="flex flex-col">
-                                    <span class="font-bold text-xs text-text-primary">Week {week.week_number}</span>
-                                    {#if week.start_date && week.end_date}
-                                        <span class="text-xs text-text-muted font-medium mt-0.5 whitespace-nowrap">
-                                            {new Date(week.start_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} - {new Date(week.end_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}
-                                        </span>
-                                    {/if}
-                                </div>
-                            </td>
-                            {#each uniqueSubjects as subject}
-                                {@const status = getExpectationStatus(week.week_number, subject)}
-                                {@const Icon = getStatusIcon(status)}
-                                <td class="p-2 text-center border-l border-border-subtle/30 first:border-l-0 align-middle">
-                                    <div class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full border {getStatusColor(status)} shadow-[0_1px_2px_rgba(0,0,0,0.02)] whitespace-nowrap transition-transform hover:scale-105 cursor-default">
-                                        <Icon size={12} strokeWidth={2.5} />
-                                        <span class="text-xs font-bold uppercase tracking-normal">
-                                            {getStatusLabel(status)}
-                                        </span>
-                                    </div>
-                                </td>
-                            {/each}
-                        </tr>
-                    {/each}
-                </tbody>
-            </table>
-            </div>
-        {/if}
-    </div>
+            <p class="text-xs font-semibold text-text-muted">
+                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedExpectations.length)} of {sortedExpectations.length}
+            </p>
+        </div>
 
-    <!-- Legend & Notes -->
-    <div class="px-6 py-4 bg-surface-muted border-t border-border-subtle text-xs text-text-muted space-y-2">
-        <p><strong>Compliant:</strong> Submitted on time</p>
-        <p><strong>Late:</strong> Submitted after the deadline</p>
-        <p><strong>Missing:</strong> No submission recorded for this week and subject</p>
-    </div>
+        <div class="divide-y divide-border-subtle">
+            {#each paginatedExpectations as item}
+                {@const Icon = getStatusIcon(item.status)}
+                <div class="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 hover:bg-gov-blue/5 transition-colors">
+                    <div class="w-12 text-center rounded-lg bg-surface-muted border border-border-subtle px-2 py-1">
+                        <p class="text-xs font-bold text-text-muted uppercase">Week</p>
+                        <p class="text-sm font-bold text-text-primary">{item.week}</p>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-text-primary truncate" title={item.subject}>{item.subject}</p>
+                        {#if item.dateLabel}
+                            <p class="text-xs text-text-muted font-medium">{item.dateLabel}</p>
+                        {/if}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full border {getStatusColor(item.status)} whitespace-nowrap">
+                            <Icon size={12} strokeWidth={2.5} />
+                            <span class="text-xs font-bold uppercase tracking-normal">{getStatusLabel(item.status)}</span>
+                        </div>
+                        {#if item.status === 'missing'}
+                            <button
+                                type="button"
+                                onclick={() => goto('/dashboard/upload')}
+                                class="inline-flex items-center gap-1 rounded-lg bg-gov-blue px-2.5 py-1.5 text-xs font-bold text-white hover:bg-gov-blue-dark transition-colors"
+                            >
+                                <Upload size={12} />
+                                Upload
+                            </button>
+                        {/if}
+                    </div>
+                </div>
+            {/each}
+        </div>
+
+        <div class="px-4 py-3 flex items-center justify-between border-t border-border-subtle bg-surface-muted">
+                <button
+                    type="button"
+                    onclick={() => currentPage = Math.max(1, currentPage - 1)}
+                    disabled={currentPage <= 1}
+                    class="px-3 py-2 text-xs font-bold rounded-lg {currentPage <= 1 ? 'text-text-muted/50' : 'text-gov-blue hover:bg-gov-blue/10'}"
+                >
+                    Previous
+                </button>
+                <span class="text-xs font-bold text-text-muted">Page {currentPage} of {totalPages}</span>
+                <button
+                    type="button"
+                    onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                    class="px-3 py-2 text-xs font-bold rounded-lg {currentPage >= totalPages ? 'text-text-muted/50' : 'text-gov-blue hover:bg-gov-blue/10'}"
+                >
+                    Next
+                </button>
+        </div>
+    {/if}
 </div>

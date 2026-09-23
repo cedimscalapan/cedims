@@ -561,6 +561,9 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                         const errJson = await presignResponse.json();
                         errStr = errJson.message || errStr;
                     } catch { /* ignore */ }
+                    if (presignResponse.status === 401 || presignResponse.status === 403) {
+                        throw new Error('Not authenticated for background sync. Please sign in again.');
+                    }
                     throw new Error(`Pre-signed URL failed (${presignResponse.status}): ${errStr}`);
                 }
 

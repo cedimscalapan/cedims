@@ -375,53 +375,14 @@ async function* runOnlinePipelineResilient(
     if (!token) throw new Error('You have been signed out. Please sign in again and retry.');
 
     const contentType = 'application/pdf';
-    const MAX_SERVER_UPLOAD = 4.4 * 1024 * 1024; // 4.4MB limit for Vercel (4.5MB - safety margin)
-    // `stampedBytes` is a Uint8Array; `as Blob` is only a compile-time type
-    // assertion and does NOT convert it at runtime. That left fileBlob.size
-    // as undefined, so the size check below always evaluated to false and
-    // EVERY upload — regardless of actual size — was misrouted to the
-    // CORS-sensitive direct-to-B2 path instead of the safe server route.
     const fileBlob = new Blob([stampedBytes as BlobPart], { type: contentType });
-
-    // Strategy 1: Try server-side upload first (avoids CORS entirely)
-    let uploadSuccess = false;
-    let uploadError: Error | null = null;
-
-    console.log(`[pipeline] File size: ${(fileBlob.size / 1024 / 1024).toFixed(2)}MB, Max server: ${(MAX_SERVER_UPLOAD / 1024 / 1024).toFixed(2)}MB`);
-
-    if (fileBlob.size <= MAX_SERVER_UPLOAD) {
-        yield { phase: 'uploading', progress: 45, message: 'Uploading...' };
-        try {
-            const formData = new FormData();
-            formData.append('file', fileBlob, 'document.pdf');
-            formData.append('key', filePath);
-
-            console.log('[pipeline] Starting server-side upload via /api/storage/upload');
-
-            const serverUploadResponse = await xhrUpload('/api/storage/upload', formData, {
-                headers: { 'Authorization': `Bearer ${token}` },
-                onProgress: options.onTransferProgress
-            });
-
-            if (serverUploadResponse.ok) {
-                uploadSuccess = true;
-                console.log('[pipeline] ✅ Server-side upload succeeded (CORS-safe, no B2 needed)');
-            } else {
-                uploadError = new Error(`Server upload HTTP ${serverUploadResponse.status}: ${serverUploadResponse.body || 'request failed'}`);
-                console.warn('[pipeline] Server upload failed, retrying with B2...', uploadError);
-            }
-        } catch (err: any) {
-            uploadError = err;
-            console.warn('[pipeline] Server upload error, falling back to B2...', err.message);
-        }
-    } else {
-        uploadError = new Error(`File size ${(fileBlob.size / 1024 / 1024).toFixed(2)}MB exceeds server limit`);
-        console.log(`[pipeline] ${uploadError.message}. Using B2 presigned URL...`);
-    }
-
-    // Strategy 2: Fallback to B2 presigned URL if server upload failed or file too large
-    if (!uploadSuccess) {
-        yield { phase: 'uploading', progress: 50, message: 'Uploading...' };
+    // Upload directly to B2 so burst uploads do not occupy Vercel memory or
+    // pass the document body through a serverless function. The presign route
+    // remains lightweight and each file retries with backoff independently.
+    yield { phase: 'uploading', progress: 50, message: 'Uploading...' };
+    let uploadResponse: { ok: boolean; status: number; body?: string } | null = null;
+    let lastUploadError: any = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
             const presignResponse = await withTimeout(
                 fetch('/api/storage/presign', {
@@ -437,50 +398,36 @@ async function* runOnlinePipelineResilient(
             );
 
             if (!presignResponse.ok) {
-                let errStr = presignResponse.statusText;
-                try {
-                    const errJson = await presignResponse.json();
-                    errStr = errJson.message || errStr;
-                } catch { /* ignore */ }
-                throw new Error(`Pre-signed URL failed (${presignResponse.status}): ${errStr}`);
+                if (presignResponse.status === 401 || presignResponse.status === 403) {
+                    throw new Error('You have been signed out. Please sign in again and retry.');
+                }
+                throw new Error(`Pre-signed URL failed (${presignResponse.status})`);
             }
 
             const { url: presignedUrl } = await presignResponse.json();
-            const uploadResponse = await xhrUpload(presignedUrl, fileBlob, {
+            uploadResponse = await xhrUpload(presignedUrl, fileBlob, {
                 method: 'PUT',
                 headers: { 'Content-Type': contentType },
                 onProgress: options.onTransferProgress
             });
 
-            if (!uploadResponse.ok) {
-                let errStr = `HTTP ${uploadResponse.status}`;
-                try {
-                    const errJson = JSON.parse(uploadResponse.body);
-                    errStr = errJson.message || errStr;
-                } catch { /* ignore */ }
-
-                if (errStr.includes('CORS') || errStr.includes('Access')) {
-                    console.error('[pipeline] B2 CORS not configured for this origin — see DEPLOYMENT_FIXES.md');
-                    throw new Error('Could not reach the storage service. Please try again.');
-                }
-                console.error(`[pipeline] Archive upload failed (${uploadResponse.status}): ${errStr}`);
-                throw new Error('Upload could not be completed. Please try again.');
-            }
-
-            uploadSuccess = true;
-            console.log('[pipeline] B2 presigned URL upload succeeded');
+            if (uploadResponse.ok) break;
+            throw new Error(`B2 upload failed (${uploadResponse.status})`);
         } catch (err: any) {
-            const msg = err.message || 'Upload failed';
-            if (msg.includes('CORS')) {
-                console.error('[pipeline] B2 bucket CORS configuration needed for this origin');
-                throw new Error('Could not reach the storage service. Please try again.');
+            lastUploadError = err;
+            if (attempt < 2) {
+                const delay = 750 * 2 ** attempt + Math.floor(Math.random() * 250);
+                await new Promise((resolve) => setTimeout(resolve, delay));
             }
-            throw err;
         }
     }
 
-    if (!uploadSuccess) {
-        throw new Error('Upload could not be completed. Please check your connection and try again.');
+    if (!uploadResponse?.ok) {
+        const message = lastUploadError?.message || 'Upload could not be completed.';
+        if (message.includes('CORS') || message.includes('Access')) {
+            throw new Error('Could not reach the storage service. Please try again.');
+        }
+        throw new Error('Upload could not be completed after 3 attempts. Please try again.');
     }
 
     yield { phase: 'uploading', progress: 80, message: 'Finishing up...' };

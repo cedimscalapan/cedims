@@ -20,6 +20,9 @@ const b2 = new S3Client({
 });
 
 export async function getPresignedUploadUrl(key: string, contentType: string, expiresIn = 3600) {
+    if (!env.B2_ENDPOINT || !env.B2_BUCKET_NAME || !env.B2_APPLICATION_KEY_ID || !env.B2_APPLICATION_KEY) {
+        throw new Error('Backblaze B2 server configuration is incomplete.');
+    }
     const command = new PutObjectCommand({
         Bucket: env.B2_BUCKET_NAME,
         Key: key,
@@ -30,6 +33,9 @@ export async function getPresignedUploadUrl(key: string, contentType: string, ex
 }
 
 export async function getPresignedDownloadUrl(key: string, expiresIn = 3600) {
+    if (!env.B2_ENDPOINT || !env.B2_BUCKET_NAME || !env.B2_APPLICATION_KEY_ID || !env.B2_APPLICATION_KEY) {
+        throw new Error('Backblaze B2 server configuration is incomplete.');
+    }
     const command = new GetObjectCommand({
         Bucket: env.B2_BUCKET_NAME,
         Key: key,
