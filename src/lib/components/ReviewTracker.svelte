@@ -108,7 +108,7 @@
             return;
         }
         remarkTarget.reviewer_comment = remarkText.trim();
-        remarkTarget.reviewer_name = $profile.full_name || $profile.email || "Checker";
+        remarkTarget.reviewer_name = $profile.full_name || "Checker";
         addToast("success", "Remark saved");
         remarkTarget = null;
         remarkText = "";

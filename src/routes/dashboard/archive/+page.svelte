@@ -172,7 +172,7 @@
                 status: "needs-check",
                 return_reason: null,
                 reviewer_id: $profile.id,
-                reviewer_name: $profile.full_name || $profile.email || "Checker",
+                reviewer_name: $profile.full_name || "Checker",
             };
             addToast("success", "Remark saved successfully");
             closeRemarkModal();

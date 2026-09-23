@@ -46,6 +46,10 @@ async function createTextFallbackPdf(file: File): Promise<Uint8Array> {
     return pdf.save({ useObjectStreams: true });
 }
 
+function pdfBody(bytes: Uint8Array): ArrayBuffer {
+    return new Uint8Array(bytes).buffer;
+}
+
 async function findLibreOffice(): Promise<string | null> {
     const candidates = ['soffice', 'libreoffice', 'soffice.exe', 'libreoffice.exe'];
     for (const cmd of candidates) {
@@ -90,7 +94,7 @@ export async function POST({ request }) {
                 timeout: 60000
             });
             const pdfBytes = readFileSync(outputPath);
-            return new Response(pdfBytes, {
+            return new Response(new Blob([pdfBytes], { type: 'application/pdf' }), {
                 headers: {
                     'Content-Type': 'application/pdf',
                     'Content-Disposition': `attachment; filename="${f.name.replace(/\.\w+$/, '.pdf')}"`
@@ -109,7 +113,7 @@ export async function POST({ request }) {
     if (!GAS_URL) {
         try {
             const pdfBytes = await createTextFallbackPdf(f);
-            return new Response(pdfBytes, {
+            return new Response(pdfBody(pdfBytes), {
                 headers: {
                     'Content-Type': 'application/pdf',
                     'X-CEDIMS-Conversion-Fallback': 'text-extraction'
@@ -131,7 +135,7 @@ export async function POST({ request }) {
         const result = await response.json();
         if (!result.success) throw new Error(result.error);
         const pdfBytes = Uint8Array.from(atob(result.pdfBase64), c => c.charCodeAt(0));
-        return new Response(pdfBytes, {
+        return new Response(pdfBody(pdfBytes), {
             headers: { 'Content-Type': 'application/pdf' }
         });
     } catch (err: any) {
@@ -141,7 +145,7 @@ export async function POST({ request }) {
         // the response so the client can surface the degraded conversion.
         try {
             const pdfBytes = await createTextFallbackPdf(f);
-            return new Response(pdfBytes, {
+            return new Response(pdfBody(pdfBytes), {
                 headers: {
                     'Content-Type': 'application/pdf',
                     'X-CEDIMS-Conversion-Fallback': 'text-extraction'

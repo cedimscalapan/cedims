@@ -33,6 +33,7 @@
     import {
         canUploadDocument,
         getAllowedUploadDocTypes,
+        getUploadGuidance,
         requiresTeachingLoadSelection,
     } from "$lib/utils/documentPermissions";
     import { focusTrap } from "$lib/actions/focusTrap";

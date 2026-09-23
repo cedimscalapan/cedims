@@ -428,7 +428,7 @@
 />
 
 {#if loading}
-    <SkeletonLoader type="dashboard" count={3} />
+    <SkeletonLoader variant="card-grid" count={3} />
 {:else if loadError}
     <div class="gov-card-static p-8 text-center">
         <p class="font-semibold text-text-primary">{loadError}</p>

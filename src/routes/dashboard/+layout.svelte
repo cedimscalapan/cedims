@@ -1,5 +1,4 @@
 <script lang="ts">
-    import MobileDrawer from "$lib/components/MobileDrawer.svelte";
     import AppHeader from "$lib/components/AppHeader.svelte";
     import InstallPrompt from "$lib/components/InstallPrompt.svelte";
     import UpdatePrompt from "$lib/components/UpdatePrompt.svelte";
@@ -17,7 +16,6 @@
     import { onMount } from "svelte";
 
     let { children } = $props();
-    let menuOpen = $state(false);
 
     // Auth guard — skip during password change to avoid redirect when supabase temporarily signs out
     $effect(() => {
@@ -73,15 +71,14 @@
 
 {#if $user}
     <div class="min-h-dvh bg-surface flex flex-col dashboard-shell">
-        <MobileDrawer bind:open={menuOpen} />
-        <AppHeader onMenu={() => menuOpen = true} />
+        <AppHeader />
 
         <main
             id="main-content"
             class="flex-1 min-w-0 flex flex-col bg-surface"
             aria-label="Dashboard content"
         >
-            <div class="workspace-content w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
+            <div class="workspace-content w-full max-w-[96rem] mx-auto px-5 sm:px-8 lg:px-10 py-7 flex-1">
                 {@render children()}
             </div>
         </main>
