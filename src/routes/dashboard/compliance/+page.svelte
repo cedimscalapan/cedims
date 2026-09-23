@@ -504,7 +504,7 @@
                                 <span class="rounded-lg bg-gov-blue/10 px-3 py-1 text-sm font-bold text-gov-blue">{school.rate}%</span>
                             </div>
                             <div class="mt-4 grid grid-cols-5 gap-2 text-center">
-                                <div><p class="text-lg font-bold text-gov-green">{school.compliant}</p><p class="text-[10px] font-bold uppercase text-text-muted">Comp.</p></div>
+                                <div title="Includes on-time and late fulfilled submissions"><p class="text-lg font-bold text-gov-green">{school.compliant}</p><p class="text-[10px] font-bold uppercase text-text-muted">Fulfilled</p></div>
                                 <div><p class="text-lg font-bold text-gov-red">{school.missing}</p><p class="text-[10px] font-bold uppercase text-text-muted">Miss</p></div>
                                 <div><p class="text-lg font-bold text-gov-gold">{school.late}</p><p class="text-[10px] font-bold uppercase text-text-muted">Late</p></div>
                                 <div><p class="text-lg font-bold text-gov-blue">{school.forChecking}</p><p class="text-[10px] font-bold uppercase text-text-muted">Check</p></div>

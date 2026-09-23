@@ -93,7 +93,11 @@ export function extractFeatures(
 
         // Completeness: how many distinct weeks have at least one submission
         const distinctWeeks = new Set(subs.map(s => s.week_number).filter(Boolean));
-        const completeness = Math.round((distinctWeeks.size / Math.max(1, totalWeeks)) * 100);
+        // A submission from a future/out-of-scope week must never make this
+        // percentage exceed 100. Keep the feature bounded for both the chart
+        // and K-Means distance calculation.
+        const coveredWeeks = Math.min(distinctWeeks.size, Math.max(1, totalWeeks));
+        const completeness = Math.min(100, Math.round((coveredWeeks / Math.max(1, totalWeeks)) * 100));
 
         // Consistency: measure how regular the submission day pattern is
         // Lower std dev in day-of-week = more consistent
