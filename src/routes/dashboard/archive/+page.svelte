@@ -120,7 +120,19 @@
         return canReview;
     }
 
+    function canViewRemarkForSubmission(sub: Submission): boolean {
+        if (!$profile) return false;
+        if (!reviewsMap[sub.id]?.reviewer_comment) return canAddRemarkToSubmission(sub);
+
+        if ($profile.role === "Teacher") {
+            return sub.user_id === $profile.id;
+        }
+
+        return canAddRemarkToSubmission(sub);
+    }
+
     function openRemarkModal(sub: Submission) {
+        if (!canViewRemarkForSubmission(sub)) return;
         remarkTarget = sub;
         remarkText = "";
         existingRemark = reviewsMap[sub.id]?.reviewer_comment || null;
@@ -216,7 +228,7 @@
                 .eq("user_id", userProfile.id)
                 .eq("doc_type", "DLL")
                 .order("created_at", { ascending: false });
-            allSubmissions = getRows<Submission>(data);
+            allSubmissions = getRows<Submission>(data).filter((s) => s.user_id === userProfile.id);
         } else if (role === "Master Teacher") {
             if (!userProfile.school_id) return;
 
@@ -470,6 +482,10 @@
         const role = $profile?.role || '';
         const userId = $profile?.id || '';
         let filtered = allSubmissions.filter((s) => {
+            if (role === "Teacher" && s.user_id !== userId) {
+                return false;
+            }
+
             const canView = canViewUploadedISPISR(
                 role,
                 userId,
@@ -1169,14 +1185,15 @@
                             >
                                 <Eye size={16} />
                             </button>
-                            {#if canAddRemarkToSubmission(sub)}
+                            {#if canViewRemarkForSubmission(sub)}
                                 <button
                                     onclick={(e) => {
                                         e.stopPropagation();
                                         openRemarkModal(sub);
                                     }}
                                     class="min-w-[44px] min-h-[44px] flex items-center justify-center text-text-muted hover:text-gov-gold-dark hover:bg-gov-gold/10 rounded-lg transition-colors"
-                                    title="Add Remarks"
+                                    title={canAddRemarkToSubmission(sub) ? "Add Remarks" : "View Remarks"}
+                                    aria-label={canAddRemarkToSubmission(sub) ? `Add remarks to ${sub.file_name}` : `View remarks for ${sub.file_name}`}
                                 >
                                     <MessageSquare size={16} />
                                 </button>
