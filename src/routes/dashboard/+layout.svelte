@@ -1,6 +1,4 @@
 <script lang="ts">
-    import MobileDrawer from "$lib/components/MobileDrawer.svelte";
-    import AppHeader from "$lib/components/AppHeader.svelte";
     import AppSidebar from "$lib/components/AppSidebar.svelte";
     import InstallPrompt from "$lib/components/InstallPrompt.svelte";
     import UpdatePrompt from "$lib/components/UpdatePrompt.svelte";
@@ -19,7 +17,6 @@
 
     let { children } = $props();
     let sidebarCollapsed = $state(false);
-    let menuOpen = $state(false);
 
     // Auth guard — skip during password change to avoid redirect when supabase temporarily signs out
     $effect(() => {
@@ -74,31 +71,15 @@
 </a>
 
 {#if $user}
-    <!-- MobileTabBar and the PWA/walkthrough overlays are position:fixed, so
-         they don't participate in this flex layout at all — flex-col only
-         governs AppHeader vs <main>. AppHeader is the top bar at every width
-         now (it carries the section nav itself at lg+), so <main> is
-         full-width: there is no sidebar left to offset past. -->
     <AppSidebar bind:collapsed={sidebarCollapsed} />
     <div class="min-h-dvh bg-surface flex flex-col dashboard-shell" class:compact-nav={sidebarCollapsed}>
-        <!-- Bottom tab bar — the nav surface below lg -->
-        <MobileDrawer bind:open={menuOpen} />
-
-        <!-- Top bar at every width: logo, connectivity, theme, notifications
-             and profile, plus the section nav itself at lg+. -->
-        <AppHeader onMenu={() => menuOpen = true} />
-
-        <!-- Main content area — full-width; the nav is entirely in the top bar -->
+        <!-- Main content area — the sidebar owns navigation and global controls. -->
         <main
             id="main-content"
             class="flex-1 min-w-0 flex flex-col bg-surface"
             aria-label="Dashboard content"
         >
-            <!-- Content with proper spacing. Bottom padding clears the fixed
-                 bottom tab bar below lg; at lg+ that bar is hidden (the top
-                 bar's own nav takes over), so the clearance drops to the
-                 ordinary section padding instead of wasting space. -->
-            <div class="workspace-content w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 flex-1">
+            <div class="workspace-content w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
                 {@render children()}
             </div>
         </main>
@@ -113,6 +94,8 @@
 {/if}
 
 <style>
+    .dashboard-shell { margin-left: 72px; }
+
     @media (min-width: 1024px) {
         .dashboard-shell { margin-left: 232px; }
         .dashboard-shell.compact-nav { margin-left: 72px; }

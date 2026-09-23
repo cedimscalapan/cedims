@@ -25,8 +25,7 @@ export interface NavItem {
 }
 
 // Single source of truth for role-based navigation.
-// Consumed by both the mobile bottom nav (MobileTabBar.svelte) and the
-// desktop top nav (AppHeader.svelte) so the two never drift apart.
+// Consumed by the sidebar and mobile bottom nav so the two never drift apart.
 export const navItems: NavItem[] = [
     {
         href: "/dashboard",
