@@ -5,6 +5,7 @@
         ClusterResult,
         ClusterSummary,
     } from "$lib/utils/clusterAnalytics";
+    import { Maximize2, Minimize2 } from "lucide-svelte";
 
     interface Props {
         results: ClusterResult[];
@@ -22,6 +23,7 @@
     let selectedClusterId = $state<number | null>(null);
     let showDrillDown = $state(false);
     let expandedMemberId = $state<string | null>(null);
+    let isMaximized = $state(false);
 
     function toggleMemberDetail(teacherId: string) {
         expandedMemberId = expandedMemberId === teacherId ? null : teacherId;
@@ -56,6 +58,19 @@
             tick().then(() => renderCharts());
         }
     });
+
+    $effect(() => {
+        isMaximized;
+        if (ChartClass && results.length > 0) {
+            tick().then(() => renderCharts());
+        }
+    });
+
+    function handleWindowKeydown(e: KeyboardEvent) {
+        if (e.key === "Escape" && isMaximized) {
+            isMaximized = false;
+        }
+    }
 
     function renderCharts() {
         if (!ChartClass) return;
@@ -226,9 +241,12 @@
     }
 </script>
 
-<div class="space-y-6" in:fade={{ duration: 400 }}>
+<div
+    class="cluster-panel space-y-6 {isMaximized ? 'maximized' : ''}"
+    in:fade={{ duration: 400 }}
+>
     <!-- Header with tab toggle -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-3">
             <div
                 class="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600"
@@ -258,26 +276,41 @@
                 </p>
             </div>
         </div>
-        <div
-            class="flex p-1 bg-surface-muted border border-border-subtle rounded-xl"
-        >
-            <button
-                onclick={() => (activeTab = "scatter")}
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-colors {activeTab ===
-                'scatter'
-                    ? 'bg-surface-white text-gov-blue shadow-sm'
-                    : 'text-text-muted hover:text-text-primary'}"
+
+        <div class="flex items-center gap-2">
+            <div
+                class="flex p-1 bg-surface-muted border border-border-subtle rounded-xl"
             >
-                Scatter
-            </button>
+                <button
+                    onclick={() => (activeTab = "scatter")}
+                    class="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-colors {activeTab ===
+                    'scatter'
+                        ? 'bg-surface-white text-gov-blue shadow-sm'
+                        : 'text-text-muted hover:text-text-primary'}"
+                >
+                    Scatter
+                </button>
+                <button
+                    onclick={() => (activeTab = "radar")}
+                    class="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-colors {activeTab ===
+                    'radar'
+                        ? 'bg-surface-white text-gov-blue shadow-sm'
+                        : 'text-text-muted hover:text-text-primary'}"
+                >
+                    Radar
+                </button>
+            </div>
             <button
-                onclick={() => (activeTab = "radar")}
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wide transition-colors {activeTab ===
-                'radar'
-                    ? 'bg-surface-white text-gov-blue shadow-sm'
-                    : 'text-text-muted hover:text-text-primary'}"
+                onclick={() => (isMaximized = !isMaximized)}
+                class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border-subtle text-text-muted transition-colors hover:bg-surface-muted hover:text-text-primary"
+                aria-label={isMaximized ? "Minimize cluster details" : "Maximize cluster details"}
+                title={isMaximized ? "Minimize" : "Maximize"}
             >
-                Radar
+                {#if isMaximized}
+                    <Minimize2 size={18} aria-hidden="true" />
+                {:else}
+                    <Maximize2 size={18} aria-hidden="true" />
+                {/if}
             </button>
         </div>
     </div>
@@ -301,7 +334,7 @@
     </div>
 
     <!-- Charts -->
-    <div class="relative h-72 transition-opacity duration-300">
+    <div class="relative h-72 transition-opacity duration-300 {isMaximized ? 'sm:h-[46vh]' : ''}">
         <div
             class="absolute inset-0 {activeTab === 'scatter'
                 ? 'opacity-100 pointer-events-auto'
@@ -348,7 +381,7 @@
                     <span
                         class="text-text-muted opacity-0 group-hover/card:opacity-100 transition-opacity text-xs"
                     >
-                        Review â†’
+                        Review →
                     </span>
                 </div>
                 <p
@@ -392,6 +425,8 @@
         {/each}
     </div>
 </div>
+
+<svelte:window onkeydown={handleWindowKeydown} />
 
 <!-- Teacher Drill-down Modal -->
 {#if showDrillDown && selectedCluster}
@@ -566,3 +601,24 @@
         </div>
     </div>
 {/if}
+
+<style>
+    .cluster-panel.maximized {
+        position: fixed;
+        inset: 1rem;
+        z-index: var(--z-modal);
+        overflow-y: auto;
+        border: 1px solid var(--color-border-subtle);
+        border-radius: 1rem;
+        background: var(--color-surface-white);
+        box-shadow: 0 24px 80px rgb(15 23 42 / 0.24);
+        padding: 1rem;
+    }
+
+    @media (min-width: 640px) {
+        .cluster-panel.maximized {
+            inset: 2rem;
+            padding: 1.5rem;
+        }
+    }
+</style>
