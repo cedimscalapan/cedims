@@ -1021,6 +1021,129 @@ TRAINING_DATA = [
     {"text": "Gawan mo ako ng opisyal na compliance report", "intent": "create_report"},
 ]
 
+CEDIMS_DOMAIN_DATA = [
+    # Upload pipeline, OCR, conversion, hashing, duplicate handling, offline queue
+    {"text": "Explain the full upload pipeline", "intent": "how_to_upload"},
+    {"text": "What happens during upload scanning?", "intent": "how_to_upload"},
+    {"text": "How does OCR read my DLL?", "intent": "how_to_upload"},
+    {"text": "Why does CEDIMS convert Word to PDF?", "intent": "how_to_upload"},
+    {"text": "Does DOCX conversion happen before uploading?", "intent": "how_to_upload"},
+    {"text": "What is the SHA-256 step during upload?", "intent": "how_to_upload"},
+    {"text": "Why does the system create a file hash?", "intent": "how_to_upload"},
+    {"text": "How does duplicate detection work?", "intent": "how_to_upload"},
+    {"text": "Why was my duplicate document rejected?", "intent": "how_to_upload"},
+    {"text": "What does metadata detection mean during upload?", "intent": "how_to_upload"},
+    {"text": "How does the system match my teaching load?", "intent": "how_to_upload"},
+    {"text": "Why did I get a subject mismatch warning?", "intent": "how_to_upload"},
+    {"text": "What should I do if OCR detected the wrong subject?", "intent": "how_to_upload"},
+    {"text": "Can I still upload if the scanner is unsure?", "intent": "how_to_upload"},
+    {"text": "What happens if my internet disconnects while uploading?", "intent": "how_to_upload"},
+    {"text": "How does pending sync work?", "intent": "how_to_upload"},
+    {"text": "What does queued upload mean?", "intent": "how_to_upload"},
+    {"text": "Why is my upload waiting to sync?", "intent": "how_to_upload"},
+    {"text": "How does Backblaze storage receive my file?", "intent": "how_to_upload"},
+    {"text": "What happens after the file reaches cloud storage?", "intent": "how_to_upload"},
+    {"text": "Paliwanag ng buong upload pipeline", "intent": "how_to_upload"},
+    {"text": "Paano binabasa ng OCR ang DLL ko?", "intent": "how_to_upload"},
+    {"text": "Bakit kino-convert ang Word file sa PDF?", "intent": "how_to_upload"},
+    {"text": "Ano ang SHA-256 habang nag-u-upload?", "intent": "how_to_upload"},
+    {"text": "Bakit duplicate ang sabi ng system?", "intent": "how_to_upload"},
+    {"text": "Paano tinutugma ang teaching load ko?", "intent": "how_to_upload"},
+    {"text": "Bakit may subject mismatch warning?", "intent": "how_to_upload"},
+    {"text": "Ano ang gagawin kapag mali ang OCR subject?", "intent": "how_to_upload"},
+    {"text": "Paano gumagana ang offline upload queue?", "intent": "how_to_upload"},
+    {"text": "Bakit pending sync ang upload ko?", "intent": "how_to_upload"},
+
+    # Role workflows and document rules
+    {"text": "What can a Teacher do in CEDIMS?", "intent": "general_help"},
+    {"text": "What can a Master Teacher review?", "intent": "general_help"},
+    {"text": "What can a School Head do in compliance?", "intent": "general_help"},
+    {"text": "What can a District Supervisor monitor?", "intent": "general_help"},
+    {"text": "What does the Admin role manage?", "intent": "general_help"},
+    {"text": "Who is allowed to upload DLL?", "intent": "general_help"},
+    {"text": "Who is allowed to upload ISP?", "intent": "general_help"},
+    {"text": "Who is allowed to upload ISR?", "intent": "general_help"},
+    {"text": "What is the difference between DLL ISP and ISR?", "intent": "general_help"},
+    {"text": "Can teachers upload ISP documents?", "intent": "general_help"},
+    {"text": "Can district supervisors upload files?", "intent": "general_help"},
+    {"text": "What documents can my role submit?", "intent": "general_help"},
+    {"text": "Ano ang puwedeng gawin ng Teacher sa CEDIMS?", "intent": "general_help"},
+    {"text": "Ano ang trabaho ng Master Teacher sa review?", "intent": "general_help"},
+    {"text": "Ano ang puwedeng makita ng School Head?", "intent": "general_help"},
+    {"text": "Ano ang minomonitor ng District Supervisor?", "intent": "general_help"},
+    {"text": "Sino ang puwedeng mag-upload ng DLL?", "intent": "general_help"},
+    {"text": "Ano ang pagkakaiba ng DLL ISP at ISR?", "intent": "general_help"},
+
+    # Archive, review, remarks, verification
+    {"text": "How do I view remarks on my submission?", "intent": "general_help"},
+    {"text": "Where can I see checker remarks?", "intent": "general_help"},
+    {"text": "What does the message icon in review tracker mean?", "intent": "general_help"},
+    {"text": "How does a reviewer add remarks?", "intent": "general_help"},
+    {"text": "What does For Checking mean in review tracker?", "intent": "general_help"},
+    {"text": "What does Checked mean in review tracker?", "intent": "general_help"},
+    {"text": "How do I view a document inside archives?", "intent": "general_help"},
+    {"text": "How do I share a verification link?", "intent": "general_help"},
+    {"text": "How does QR verification prove authenticity?", "intent": "general_help"},
+    {"text": "What happens when someone scans the verification QR?", "intent": "general_help"},
+    {"text": "Why is the checker name shown on remarks?", "intent": "general_help"},
+    {"text": "Can I download an archived document?", "intent": "general_help"},
+    {"text": "Paano ko makikita ang remarks sa submission ko?", "intent": "general_help"},
+    {"text": "Saan makikita ang comment ng checker?", "intent": "general_help"},
+    {"text": "Ano ang ibig sabihin ng For Checking sa review tracker?", "intent": "general_help"},
+    {"text": "Ano ang ibig sabihin ng Checked sa review tracker?", "intent": "general_help"},
+    {"text": "Paano mag-share ng verification link?", "intent": "general_help"},
+    {"text": "Paano gumagana ang QR verification?", "intent": "general_help"},
+
+    # Troubleshooting and common errors
+    {"text": "Upload failed what should I do?", "intent": "general_help"},
+    {"text": "Presigned URL failed during upload", "intent": "general_help"},
+    {"text": "My session expired while uploading", "intent": "general_help"},
+    {"text": "The converter failed for my Word file", "intent": "general_help"},
+    {"text": "The scanner cannot read my file", "intent": "general_help"},
+    {"text": "My document is not appearing in archives", "intent": "general_help"},
+    {"text": "Why is my submission still pending?", "intent": "general_help"},
+    {"text": "Why is my upload stuck?", "intent": "general_help"},
+    {"text": "I cannot open the document preview", "intent": "general_help"},
+    {"text": "Download failed in archives", "intent": "general_help"},
+    {"text": "Hindi nag-upload ang file ko", "intent": "general_help"},
+    {"text": "Nag-expire ang session ko habang nag-upload", "intent": "general_help"},
+    {"text": "Hindi ma-convert ang Word file ko", "intent": "general_help"},
+    {"text": "Hindi mabasa ng scanner ang document ko", "intent": "general_help"},
+    {"text": "Hindi lumalabas sa archives ang submission ko", "intent": "general_help"},
+    {"text": "Bakit stuck ang upload ko?", "intent": "general_help"},
+
+    # Compliance, K-Means, supervisor analytics
+    {"text": "Show K-Means compliance groups", "intent": "ask_compliance"},
+    {"text": "What group am I in based on compliance?", "intent": "ask_compliance"},
+    {"text": "Am I in a missing risk group?", "intent": "ask_compliance"},
+    {"text": "Show teachers grouped by compliance behavior", "intent": "teacher_stats"},
+    {"text": "Which teachers are grouped as needing support?", "intent": "teacher_stats"},
+    {"text": "Show teacher compliance clusters", "intent": "teacher_stats"},
+    {"text": "Which teachers have similar submission patterns?", "intent": "teacher_stats"},
+    {"text": "Show schools grouped by compliance pattern", "intent": "school_compare"},
+    {"text": "Which schools are late risk?", "intent": "school_compare"},
+    {"text": "Compare schools by K-Means group", "intent": "school_compare"},
+    {"text": "Show district-wide compliance clusters", "intent": "school_compare"},
+    {"text": "Ipakita ang K-Means compliance groups", "intent": "ask_compliance"},
+    {"text": "Anong compliance group ko?", "intent": "ask_compliance"},
+    {"text": "Ipakita ang teachers na magkakapareho ng submission pattern", "intent": "teacher_stats"},
+    {"text": "Aling teachers ang kailangan ng support?", "intent": "teacher_stats"},
+    {"text": "Ipakita ang school compliance clusters", "intent": "school_compare"},
+    {"text": "Aling schools ang late risk?", "intent": "school_compare"},
+
+    # Reports and documentation outputs
+    {"text": "Generate documentation metrics for chatbot training", "intent": "create_report"},
+    {"text": "Create AI training results report", "intent": "create_report"},
+    {"text": "Make a report showing model accuracy", "intent": "create_report"},
+    {"text": "Export chatbot training metrics", "intent": "create_report"},
+    {"text": "Create a report about intent classifier results", "intent": "create_report"},
+    {"text": "Gumawa ng report ng chatbot training metrics", "intent": "create_report"},
+    {"text": "I-export ang AI training results", "intent": "create_report"},
+    {"text": "Gumawa ng report tungkol sa model accuracy", "intent": "create_report"},
+]
+
+TRAINING_DATA.extend(CEDIMS_DOMAIN_DATA)
+
 # The ~950 examples above are hand-written for phrasing diversity, but they
 # don't cover the combinatorial space of real inputs — a teacher can ask about
 # any of a dozen subjects, six grade levels, ten weeks, a dozen colleagues, a
@@ -1053,16 +1176,19 @@ TRAINING_DATA[:] = _deduped_seed
 
 SUBJECTS = [
     "Math", "Science", "English", "Filipino", "MAPEH", "AP", "ESP", "Reading",
-    "Values Education", "TLE", "Araling Panlipunan", "Music and Arts"
+    "Values Education", "TLE", "Araling Panlipunan", "Music and Arts",
+    "GMRC", "EPP", "Makabansa", "Numeracy", "Reading and Literacy",
+    "Language Literacy and Communication", "Physical Development", "Arts and Music"
 ]
 GRADES = [f"Grade {i}" for i in range(1, 7)]
-WEEKS = [f"Week {i}" for i in range(1, 11)]
-TERMS_EN = ["this week", "this term", "this quarter", "this month", "this grading period", "this school year"]
-TERMS_TL = ["ngayong linggo", "ngayong term", "ngayong quarter", "ngayong buwan", "ngayong grading period", "ngayong school year"]
+WEEKS = [f"Week {i}" for i in range(1, 13)]
+TERMS_EN = ["this week", "this term", "this quarter", "this month", "this grading period", "this school year", "current week", "current term"]
+TERMS_TL = ["ngayong linggo", "ngayong term", "ngayong quarter", "ngayong buwan", "ngayong grading period", "ngayong school year", "kasalukuyang linggo", "kasalukuyang term"]
 TEACHERS = [
     "Teacher Santos", "Teacher Cruz", "Teacher Reyes", "Teacher Garcia",
     "Teacher Dela Cruz", "Teacher Mendoza", "Teacher Bautista", "Teacher Aquino",
-    "Teacher Ramos", "Teacher Torres", "Teacher Villanueva", "Teacher Fernandez"
+    "Teacher Ramos", "Teacher Torres", "Teacher Villanueva", "Teacher Fernandez",
+    "Teacher Mercado", "Teacher Lim", "Teacher Acha", "Teacher Manalo"
 ]
 SCHOOLS = [
     "Bulusan Elementary School", "Bulusan ES", "Matnog Central School",
@@ -1072,6 +1198,17 @@ SCHOOLS = [
     "Irosin Elementary School", "Prieto Diaz Elementary School",
     "Magallanes Central School"
 ]
+DOC_TYPES = ["DLL", "Daily Lesson Plan", "ISP", "Instructional Supervisory Plan", "ISR", "Instructional Supervisory Report"]
+STATUSES_EN = ["Compliant", "Missing", "Late", "For Checking", "Checked"]
+STATUSES_TL = ["Compliant", "Missing", "Late", "For Checking", "Checked"]
+ROLES_EN = ["Teacher", "Master Teacher", "School Head", "District Supervisor", "Admin"]
+ROLES_TL = ["Teacher", "Master Teacher", "School Head", "District Supervisor", "Admin"]
+UPLOAD_ISSUES_EN = ["duplicate file", "subject mismatch", "wrong grade level", "expired session", "conversion failure", "scanner issue", "offline upload", "pending sync", "large file"]
+UPLOAD_ISSUES_TL = ["duplicate file", "subject mismatch", "maling grade level", "expired session", "conversion failure", "scanner issue", "offline upload", "pending sync", "malaking file"]
+ARCHIVE_ACTIONS_EN = ["view document", "view remark", "download file", "share verification link", "open folder", "search archive", "sort records"]
+ARCHIVE_ACTIONS_TL = ["view document", "view remark", "download file", "share verification link", "open folder", "search archive", "sort records"]
+FEATURES_EN = ["OCR scanning", "SHA-256 verification", "QR verification", "K-Means grouping", "fuzzy classifier", "intent classifier", "offline sync", "cloud storage", "teaching load matching"]
+FEATURES_TL = ["OCR scanning", "SHA-256 verification", "QR verification", "K-Means grouping", "fuzzy classifier", "intent classifier", "offline sync", "cloud storage", "teaching load matching"]
 
 # Slot-filled templates, per intent, per language. Only intents whose real
 # questions naturally carry a subject/grade/week/term/teacher/school slot are
@@ -1083,6 +1220,10 @@ SLOT_TEMPLATES = {
             "Am I compliant in {subject} for {grade}?",
             "How many {subject} DLLs am I missing?",
             "Show my compliance status for {term}",
+            "Show my {status} submissions for {term}",
+            "How many {doc} documents are {status}?",
+            "Do I have any {status} {doc} records?",
+            "What is my {doc} compliance status?",
             "What is my {subject} compliance {term}?",
             "Am I on track with my {subject} submissions?",
             "How many {subject} DLLs have I submitted so far?",
@@ -1097,6 +1238,10 @@ SLOT_TEMPLATES = {
             "Compliant ba ako sa {subject} para sa {grade}?",
             "Ilan ang kulang kong DLL sa {subject}?",
             "Ipakita ang compliance status ko {term}",
+            "Ipakita ang {status} submissions ko {term}",
+            "Ilang {doc} ang {status}?",
+            "May {status} ba akong {doc} records?",
+            "Ano ang compliance status ng {doc} ko?",
             "Ano ang {subject} compliance ko {term}?",
             "Nasa tamang landas ba ako sa {subject}?",
             "Ilang {subject} DLL na ang na-submit ko?",
@@ -1112,6 +1257,9 @@ SLOT_TEMPLATES = {
             "When is the deadline for {week}?",
             "What is the deadline for {subject}?",
             "Is there a deadline {term}?",
+            "When is the deadline for {doc}?",
+            "When is the {doc} due for {week}?",
+            "Is {doc} due {term}?",
             "How many days until the {week} deadline?",
             "When do I need to submit my {subject} DLL?",
             "What is the deadline for {grade} {subject}?",
@@ -1124,6 +1272,9 @@ SLOT_TEMPLATES = {
             "Kailan ang deadline para sa {week}?",
             "Ano ang deadline para sa {subject}?",
             "May deadline ba {term}?",
+            "Kailan ang deadline para sa {doc}?",
+            "Kailan due ang {doc} para sa {week}?",
+            "Due ba ang {doc} {term}?",
             "Ilang araw na lang bago ang deadline ng {week}?",
             "Kailan ko kailangang i-submit ang {subject} DLL ko?",
             "Ano ang deadline para sa {grade} {subject}?",
@@ -1138,6 +1289,9 @@ SLOT_TEMPLATES = {
             "Find DLLs about {subject}",
             "Search for {subject} DLLs in {grade}",
             "Show DLLs for {week} {subject}",
+            "Find {doc} records about {subject}",
+            "Search the archive for {doc}",
+            "Where can I find my {doc} for {week}?",
             "Find DLLs uploaded by {teacher}",
             "Look for {subject} lesson plans for {grade}",
             "Where is the {subject} DLL for {week}?",
@@ -1150,6 +1304,9 @@ SLOT_TEMPLATES = {
             "Maghanap ng DLL tungkol sa {subject}",
             "Hanapin ang {subject} DLL para sa {grade}",
             "Ipakita ang DLL para sa {week} {subject}",
+            "Hanapin ang {doc} records tungkol sa {subject}",
+            "Mag-search sa archive ng {doc}",
+            "Saan ko mahahanap ang {doc} ko para sa {week}?",
             "Maghanap ng DLL na na-upload ni {teacher}",
             "Maghanap ng lesson plan sa {subject} para sa {grade}",
             "Saan ang {subject} DLL para sa {week}?",
@@ -1164,6 +1321,9 @@ SLOT_TEMPLATES = {
             "How does {school} compare to others?",
             "What is the compliance rate of {school}?",
             "Compare {school} to other schools",
+            "Show {status} counts for {school}",
+            "How many {doc} submissions does {school} have?",
+            "Which compliance group is {school} in?",
             "Is {school} the top performer?",
             "How is {school} doing {term}?",
             "Rank {school} against other schools",
@@ -1176,6 +1336,9 @@ SLOT_TEMPLATES = {
             "Kumusta ang {school} kumpara sa iba?",
             "Ano ang compliance rate ng {school}?",
             "Ikumpara ang {school} sa ibang paaralan",
+            "Ipakita ang {status} counts ng {school}",
+            "Ilang {doc} submissions ang meron ang {school}?",
+            "Anong compliance group ang {school}?",
             "Pinakamataas ba ang {school}?",
             "Kumusta ang {school} {term}?",
             "I-rank ang {school} laban sa ibang paaralan",
@@ -1190,6 +1353,9 @@ SLOT_TEMPLATES = {
             "Show statistics for {teacher}",
             "What is the compliance of {teacher}?",
             "Is {teacher} compliant {term}?",
+            "How many {status} submissions does {teacher} have?",
+            "Show {teacher}'s {doc} compliance",
+            "Which K-Means group is {teacher} in?",
             "How is {teacher} performing in {subject}?",
             "Rank {teacher} against other teachers",
             "Show {teacher}'s submission history",
@@ -1202,6 +1368,9 @@ SLOT_TEMPLATES = {
             "Ipakita ang statistics para kay {teacher}",
             "Ano ang compliance ni {teacher}?",
             "Compliant ba si {teacher} {term}?",
+            "Ilang {status} submissions meron si {teacher}?",
+            "Ipakita ang {doc} compliance ni {teacher}",
+            "Anong K-Means group si {teacher}?",
             "Kumusta ang performance ni {teacher} sa {subject}?",
             "I-rank si {teacher} laban sa ibang teacher",
             "Ipakita ang submission history ni {teacher}",
@@ -1238,6 +1407,11 @@ SLOT_TEMPLATES = {
             "How do I upload my {subject} DLL?",
             "Steps to submit {subject} for {grade}",
             "How to upload a DLL for {week}?",
+            "How do I upload a {doc}?",
+            "What should I do when upload shows {issue}?",
+            "How do I fix {issue} during upload?",
+            "Does {feature} happen during upload?",
+            "Explain {feature} in the upload pipeline",
             "Can I upload my {subject} DLL from my phone?",
             "How do I fix an upload error for {subject}?",
             "What format should my {subject} DLL be in?",
@@ -1248,6 +1422,11 @@ SLOT_TEMPLATES = {
             "Paano mag-upload ng {subject} DLL ko?",
             "Mga hakbang para i-submit ang {subject} para sa {grade}",
             "Paano mag-upload ng DLL para sa {week}?",
+            "Paano mag-upload ng {doc}?",
+            "Ano ang gagawin kapag may {issue} sa upload?",
+            "Paano ayusin ang {issue} habang nag-u-upload?",
+            "Nangyayari ba ang {feature} habang nag-u-upload?",
+            "Ipaliwanag ang {feature} sa upload pipeline",
             "Puwede ba akong mag-upload ng {subject} DLL gamit ang phone?",
             "Paano ayusin ang upload error sa {subject}?",
             "Anong format dapat ang {subject} DLL ko?",
@@ -1260,6 +1439,9 @@ SLOT_TEMPLATES = {
             "Generate a compliance report for {term}",
             "Create a report for {school}",
             "Make me a compliance report for {term}",
+            "Create a report for {status} submissions",
+            "Generate a {doc} report for {term}",
+            "Make a report about {feature}",
             "Generate a report of {school}'s compliance",
             "Can you build a report for {term}?",
             "I need a compliance report covering {term}",
@@ -1270,6 +1452,9 @@ SLOT_TEMPLATES = {
             "Gumawa ng compliance report para {term}",
             "Gumawa ng report para sa {school}",
             "Gawan mo ako ng compliance report para {term}",
+            "Gumawa ng report para sa {status} submissions",
+            "Gumawa ng {doc} report para {term}",
+            "Gumawa ng report tungkol sa {feature}",
             "Gumawa ng report ng compliance ng {school}",
             "Puwede ka bang gumawa ng report para {term}?",
             "Kailangan ko ng compliance report na saklaw ang {term}",
@@ -1296,6 +1481,18 @@ def _slot_lists_for(template, lang):
         slots["teacher"] = TEACHERS
     if "{school}" in template:
         slots["school"] = SCHOOLS
+    if "{doc}" in template:
+        slots["doc"] = DOC_TYPES
+    if "{status}" in template:
+        slots["status"] = STATUSES_TL if lang == "tl" else STATUSES_EN
+    if "{role}" in template:
+        slots["role"] = ROLES_TL if lang == "tl" else ROLES_EN
+    if "{issue}" in template:
+        slots["issue"] = UPLOAD_ISSUES_TL if lang == "tl" else UPLOAD_ISSUES_EN
+    if "{archive_action}" in template:
+        slots["archive_action"] = ARCHIVE_ACTIONS_TL if lang == "tl" else ARCHIVE_ACTIONS_EN
+    if "{feature}" in template:
+        slots["feature"] = FEATURES_TL if lang == "tl" else FEATURES_EN
     return slots
 
 
@@ -1338,6 +1535,21 @@ GENERAL_HELP_TOPICS_EN = [
     "an ISR", "compliance calculation", "K-Means clustering",
     "the compliance trend chart", "the compliance forecast", "user roles",
     "the district supervisor role", "the school head role", "exporting reports",
+    "the upload pipeline", "OCR scanning", "Word to PDF conversion",
+    "SHA-256 hashing", "duplicate detection", "cloud storage", "Backblaze B2",
+    "Supabase realtime updates", "offline sync", "pending sync", "teaching load matching",
+    "metadata extraction", "subject mismatch warnings", "grade level detection",
+    "week number detection", "review remarks", "checker names", "review tracker",
+    "submission tracker", "compliance monitoring", "school compliance cards",
+    "district-wide compliance", "teacher list pagination", "archive folders",
+    "document verification", "verification links", "document preview",
+    "file download", "role-based access", "Master Teacher workflow",
+    "School Head workflow", "Teacher workflow", "District Supervisor workflow",
+    "Admin workflow", "intent classifier", "fuzzy classifier", "AI assistant",
+    "Gabay chatbot", "model confidence", "out of scope questions",
+    "upload troubleshooting", "conversion errors", "presigned URL errors",
+    "expired session errors", "large file warnings", "wrong document type",
+    "missing status", "late status", "compliant status", "checked status"
 ]
 GENERAL_HELP_TOPICS_TL = [
     "ang dashboard", "ang archive", "ang Analytics tab", "ang academic calendar",
@@ -1347,6 +1559,21 @@ GENERAL_HELP_TOPICS_TL = [
     "DLL", "ISP", "ISR", "pagkalkula ng compliance", "K-Means clustering",
     "compliance trend chart", "compliance forecast", "user roles",
     "role ng district supervisor", "role ng school head", "pag-export ng reports",
+    "upload pipeline", "OCR scanning", "Word to PDF conversion",
+    "SHA-256 hashing", "duplicate detection", "cloud storage", "Backblaze B2",
+    "Supabase realtime updates", "offline sync", "pending sync", "teaching load matching",
+    "metadata extraction", "subject mismatch warnings", "grade level detection",
+    "week number detection", "review remarks", "checker names", "review tracker",
+    "submission tracker", "compliance monitoring", "school compliance cards",
+    "district-wide compliance", "teacher list pagination", "archive folders",
+    "document verification", "verification links", "document preview",
+    "file download", "role-based access", "Master Teacher workflow",
+    "School Head workflow", "Teacher workflow", "District Supervisor workflow",
+    "Admin workflow", "intent classifier", "fuzzy classifier", "AI assistant",
+    "Gabay chatbot", "model confidence", "out of scope questions",
+    "upload troubleshooting", "conversion errors", "presigned URL errors",
+    "expired session errors", "large file warnings", "wrong document type",
+    "missing status", "late status", "compliant status", "checked status"
 ]
 GENERAL_HELP_TEMPLATES_EN = [
     "What is {topic}?",
@@ -1354,6 +1581,11 @@ GENERAL_HELP_TEMPLATES_EN = [
     "Can you explain {topic}?",
     "Tell me about {topic}",
     "What does {topic} mean?",
+    "Where can I find {topic}?",
+    "Why does CEDIMS use {topic}?",
+    "What should I know about {topic}?",
+    "Give me a simple explanation of {topic}",
+    "Help me understand {topic}",
 ]
 GENERAL_HELP_TEMPLATES_TL = [
     "Ano ang {topic}?",
@@ -1361,6 +1593,11 @@ GENERAL_HELP_TEMPLATES_TL = [
     "Ipaliwanag mo ang {topic}",
     "Sabihin mo sa akin ang tungkol sa {topic}",
     "Ano ang ibig sabihin ng {topic}?",
+    "Saan ko makikita ang {topic}?",
+    "Bakit ginagamit ng CEDIMS ang {topic}?",
+    "Ano ang dapat kong malaman tungkol sa {topic}?",
+    "Bigyan mo ako ng simpleng paliwanag ng {topic}",
+    "Tulungan mo akong maintindihan ang {topic}",
 ]
 
 for topic in GENERAL_HELP_TOPICS_EN:
@@ -1421,7 +1658,7 @@ print(f"\nVocabulary size: {len(vocab)}")
 # — rather than fixing it — trades a little training accuracy for a model
 # that actually generalizes better to phrasing it hasn't seen.
 
-C_GRID = [0.25, 0.5, 1.0, 2.0, 4.0]
+C_GRID = [0.25, 0.5, 1.0]
 best_C, best_cv_acc = None, -1.0
 cv_search = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 for candidate_C in C_GRID:
@@ -1432,7 +1669,7 @@ for candidate_C in C_GRID:
         fold_vec = CountVectorizer(analyzer='char', ngram_range=(2, 5), min_df=2, max_features=11000, lowercase=True)
         X_tr_vec = fold_vec.fit_transform(X_tr)
         X_va_vec = fold_vec.transform(X_va)
-        fold_clf = LogisticRegression(C=candidate_C, solver='saga', max_iter=3000, random_state=42, class_weight='balanced')
+        fold_clf = LogisticRegression(C=candidate_C, solver='lbfgs', max_iter=1500, random_state=42, class_weight='balanced')
         fold_clf.fit(X_tr_vec, y_tr)
         fold_scores.append(fold_clf.score(X_va_vec, y_va))
     mean_score = float(np.mean(fold_scores))
@@ -1445,8 +1682,8 @@ print(f"\nSelected C={best_C} (inner CV accuracy {best_cv_acc:.2%})")
 
 clf = LogisticRegression(
     C=best_C,
-    solver='saga',
-    max_iter=3000,
+    solver='lbfgs',
+    max_iter=1500,
     random_state=42,
     class_weight='balanced'
 )
@@ -1481,7 +1718,7 @@ for train_idx, val_idx in skf.split(X, y):
     cv_vec = CountVectorizer(analyzer='char', ngram_range=(2, 5), min_df=1)
     X_cv_train_vec = cv_vec.fit_transform(X_cv_train)
     X_cv_val_vec = cv_vec.transform(X_cv_val)
-    cv_clf = LogisticRegression(C=best_C, solver='saga', max_iter=3000, class_weight='balanced')
+    cv_clf = LogisticRegression(C=best_C, solver='lbfgs', max_iter=1500, class_weight='balanced')
     cv_clf.fit(X_cv_train_vec, y_cv_train)
     cv_scores.append(cv_clf.score(X_cv_val_vec, y_cv_val))
 

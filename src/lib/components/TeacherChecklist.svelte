@@ -290,21 +290,23 @@
             {/each}
         </div>
 
-        <div class="px-4 py-3 flex items-center justify-between border-t border-border-subtle bg-surface-muted">
+        <div class="px-4 py-3 cedims-pagination-shell border-t border-border-subtle bg-surface-muted">
                 <button
                     type="button"
                     onclick={() => currentPage = Math.max(1, currentPage - 1)}
                     disabled={currentPage <= 1}
-                    class="px-3 py-2 text-xs font-bold rounded-lg {currentPage <= 1 ? 'text-text-muted/50' : 'text-gov-blue hover:bg-gov-blue/10'}"
+                    class="cedims-page-button"
                 >
                     Previous
                 </button>
-                <span class="text-xs font-bold text-text-muted">Page {currentPage} of {totalPages}</span>
+                <div class="cedims-pagination">
+                    <span class="cedims-page-indicator">{currentPage} / {totalPages}</span>
+                </div>
                 <button
                     type="button"
                     onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
                     disabled={currentPage >= totalPages}
-                    class="px-3 py-2 text-xs font-bold rounded-lg {currentPage >= totalPages ? 'text-text-muted/50' : 'text-gov-blue hover:bg-gov-blue/10'}"
+                    class="cedims-page-button is-next"
                 >
                     Next
                 </button>

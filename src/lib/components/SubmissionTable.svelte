@@ -229,25 +229,25 @@
     {/if}
 
     {#if totalPages > 1}
-        <div class="flex flex-wrap items-center justify-between gap-3 mt-6">
+        <div class="cedims-pagination-shell mt-6">
             <p class="text-sm text-text-muted">
                 Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredSubmissions.length)} of {filteredSubmissions.length}
             </p>
-            <div class="flex items-center gap-2">
+            <div class="cedims-pagination">
                 <button
                     onclick={() => currentPage = Math.max(1, currentPage - 1)}
                     disabled={currentPage === 1}
-                    class="px-3 py-2 text-sm font-semibold rounded-lg border border-border-subtle hover:bg-surface-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    class="cedims-page-button"
                 >
                     Previous
                 </button>
-                <span class="px-3 py-2 text-sm font-semibold text-gov-blue bg-gov-blue/5 rounded-lg">
+                <span class="cedims-page-indicator">
                     {currentPage} / {totalPages}
                 </span>
                 <button
                     onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    class="px-3 py-2 text-sm font-semibold rounded-lg border border-border-subtle hover:bg-surface-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    class="cedims-page-button is-next"
                 >
                     Next
                 </button>

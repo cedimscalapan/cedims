@@ -287,8 +287,10 @@ export function runKMeansClustering(
 }
 
 /**
- * Quick pre-flight check: returns true if there's enough data for meaningful clustering.
+ * Quick pre-flight check: returns true if there's enough teacher data for
+ * meaningful grouping. Teachers with no submissions still matter because they
+ * become zero-score vectors, which helps supervisors spot missing-risk groups.
  */
 export function canCluster(teacherCount: number, submissionCount: number): boolean {
-    return teacherCount >= 3 && submissionCount >= 5;
+    return teacherCount >= 2;
 }

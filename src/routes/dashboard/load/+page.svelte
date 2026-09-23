@@ -310,23 +310,23 @@
                 </div>
             {/each}
         </div>
-        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface-white px-4 py-3 shadow-sm">
+        <div class="cedims-pagination-shell rounded-xl border border-border-subtle bg-surface-white px-4 py-3 shadow-sm">
             <p class="text-xs font-bold uppercase tracking-normal text-text-muted">
                 Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedLoads.length)} of {sortedLoads.length}
             </p>
-            <div class="flex items-center gap-2">
+            <div class="cedims-pagination">
                 <button
                     onclick={() => currentPage = Math.max(1, currentPage - 1)}
                     disabled={currentPage <= 1}
-                    class="px-3 py-2 text-xs font-bold rounded-lg {currentPage <= 1 ? 'bg-surface-muted text-text-muted/50 cursor-not-allowed' : 'bg-surface-muted text-text-primary hover:bg-gov-blue/10'}"
+                    class="cedims-page-button"
                 >
                     Previous
                 </button>
-                <span class="text-xs font-bold text-gov-blue bg-gov-blue/5 rounded-lg px-3 py-2">{currentPage} / {totalPages}</span>
+                <span class="cedims-page-indicator">{currentPage} / {totalPages}</span>
                 <button
                     onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
                     disabled={currentPage >= totalPages}
-                    class="px-3 py-2 text-xs font-bold rounded-lg {currentPage >= totalPages ? 'bg-surface-muted text-text-muted/50 cursor-not-allowed' : 'bg-surface-muted text-text-primary hover:bg-gov-blue/10'}"
+                    class="cedims-page-button is-next"
                 >
                     Next
                 </button>

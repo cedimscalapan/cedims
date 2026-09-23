@@ -400,12 +400,77 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['archive', 'my files', 'search files', 'sort files', 'filter documents', 'export excel', 'export csv', 'download report'],
         answers: {
             en: [
-                'The Archive is where every submitted document lives: you can search by name or teacher, filter by "For Checking"/"Checked", sort by date, name, or size, and export the whole list to Excel or CSV.',
-                'In Archive/My Files, use the search bar and status filter to narrow things down, the sort dropdown to reorder (Date, Name, or Size), and the green buttons to export a report.'
+                'The Archive is where submitted documents are organized. You can search by file name, open folders, filter by "For Checking" or "Checked", sort by date, name, or size, then view, download, share, or read remarks for a document.',
+                'In Archives, use the search bar, status filter, and sort controls to find records quickly. Each file keeps simple actions for viewing the document, viewing remarks, downloading, and sharing verification.'
             ],
             tl: [
-                'Ang Archive ay kung saan naka-imbak ang lahat ng na-submit na dokumento: puwede kang maghanap gamit ang pangalan o guro, i-filter ayon sa "For Checking"/"Checked", i-sort ayon sa petsa, pangalan, o laki, at i-export sa Excel o CSV.',
-                'Sa Archive/My Files, gamitin ang search bar at status filter para mas mapaikli ang listahan, ang sort dropdown para ayusin (Petsa, Pangalan, o Laki), at ang berdeng buttons para mag-export ng report.'
+                'Ang Archives ay kung saan nakaayos ang mga submitted documents. Puwede kang mag-search, magbukas ng folders, mag-filter ng "For Checking" o "Checked", mag-sort, at gumamit ng view, remarks, download, at share verification actions.',
+                'Sa Archives, gamitin ang search bar, status filter, at sort controls para mabilis mahanap ang records. Bawat file ay may simpleng actions para tingnan ang document, remarks, download, at share verification.'
+            ]
+        }
+    },
+    {
+        keywords: ['upload pipeline', 'ocr', 'conversion', 'word to pdf', 'metadata extraction', 'teaching load matching', 'sha-256', 'hash', 'duplicate detection', 'pending sync'],
+        answers: {
+            en: [
+                'The upload pipeline checks your role and file type, converts Word files to PDF when needed, scans the document with OCR, detects metadata such as document type/subject/grade/week, compares it with your teaching load, creates a SHA-256 fingerprint, checks duplicates, uploads the file to cloud storage, and saves the record for tracking and archives.',
+                'During upload, CEDIMS does more than store a file: it validates permissions, reads the document, detects useful fields, warns about mismatches, protects the file with a SHA-256 hash, prevents duplicates, and syncs the record to the archive and compliance tracker.'
+            ],
+            tl: [
+                'Sa upload pipeline, chinecheck muna ng system ang role at file type, kino-convert ang Word file to PDF kung kailangan, binabasa gamit ang OCR, kinukuha ang document type/subject/grade/week, kinukumpara sa teaching load, gumagawa ng SHA-256 fingerprint, chinecheck ang duplicate, ina-upload sa cloud storage, at sine-save sa archive at tracker.',
+                'Hindi lang file storage ang upload sa CEDIMS: may permission check, OCR scanning, metadata detection, mismatch warning, SHA-256 hash, duplicate prevention, cloud upload, at compliance tracking.'
+            ]
+        }
+    },
+    {
+        keywords: ['fuzzy classifier', 'dice coefficient', 'ocr typo', 'subject detection', 'grade detection', 'document type detection'],
+        answers: {
+            en: [
+                'CEDIMS uses a fuzzy classifier during OCR metadata detection. It compares noisy OCR text against known subjects, grade levels, and document types using character bigram similarity, so it can still recognize text with small scanning errors.',
+                'The fuzzy classifier helps the upload scanner understand imperfect text. For example, if OCR slightly misspells a subject or document label, the classifier can still map it to the closest known value.'
+            ],
+            tl: [
+                'Gumagamit ang CEDIMS ng fuzzy classifier sa OCR metadata detection. Kinukumpara nito ang noisy OCR text sa known subjects, grade levels, at document types gamit ang character similarity kaya kaya nitong mag-handle ng scanning errors.',
+                'Tinutulungan ng fuzzy classifier ang scanner na maintindihan ang text kahit may OCR typo. Kapag medyo mali ang basa sa subject o document label, hinahanap nito ang pinakamalapit na tamang value.'
+            ]
+        }
+    },
+    {
+        keywords: ['intent classifier', 'intent ai', 'chatbot model', 'model confidence', 'training data', 'gabay ai'],
+        answers: {
+            en: [
+                'Gabay uses an intent classifier trained on CEDIMS questions. It reads the user message, predicts the intent such as upload help, compliance, deadlines, DLL search, teacher stats, school comparison, reports, or general help, then routes the answer to the right system logic.',
+                'The chatbot AI is a lightweight intent model. It is trained offline, exported as a JSON model, and runs inside the app so Gabay can classify CEDIMS questions even without a cloud AI service.'
+            ],
+            tl: [
+                'Si Gabay ay gumagamit ng intent classifier na trained sa CEDIMS questions. Binabasa nito ang tanong, hinuhulaan ang intent tulad ng upload help, compliance, deadlines, DLL search, teacher stats, school comparison, reports, o general help, tapos dinadala sa tamang sagot.',
+                'Ang chatbot AI ay lightweight intent model. Trained ito offline, naka-export bilang JSON model, at tumatakbo sa app para ma-classify ni Gabay ang CEDIMS questions kahit walang cloud AI service.'
+            ]
+        }
+    },
+    {
+        keywords: ['k-means', 'kmeans', 'compliance group', 'cluster', 'clustering', 'submission pattern', 'teacher grouping', 'school grouping'],
+        answers: {
+            en: [
+                'K-Means groups teachers or schools with similar compliance behavior. It looks at patterns such as punctuality, consistency, completeness, and upload volume, then summarizes groups so supervisors can quickly see who is doing well and who may need support.',
+                'K-Means does not punish or decide for users. It only groups similar submission patterns to help Master Teachers, School Heads, and District Supervisors monitor compliance more easily.'
+            ],
+            tl: [
+                'Ang K-Means ay naggu-group ng teachers o schools na magkakapareho ang compliance behavior. Tinitingnan nito ang punctuality, consistency, completeness, at upload volume para makita agad kung sino ang maayos at sino ang kailangan ng support.',
+                'Hindi nagpaparusa o gumagawa ng final decision ang K-Means. Ginagamit lang ito para i-group ang similar submission patterns at makatulong sa monitoring ng Master Teacher, School Head, at District Supervisor.'
+            ]
+        }
+    },
+    {
+        keywords: ['upload failed', 'presigned url', 'session expired', 'converter failed', 'scanner cannot read', 'stuck upload', 'large file', 'wrong document type'],
+        answers: {
+            en: [
+                'If upload fails, check your internet connection, make sure the file type and size are allowed, sign in again if your session expired, and retry. If Word conversion fails, try saving the document as PDF first and upload the PDF.',
+                'For upload issues: refresh your session, confirm the document type matches your role, avoid very large files, and wait for pending sync if you were offline. If the scanner reads the wrong subject, review the selected teaching load before submitting.'
+            ],
+            tl: [
+                'Kung failed ang upload, i-check ang internet connection, siguraduhing allowed ang file type at size, mag-sign in ulit kung expired ang session, tapos i-retry. Kung failed ang Word conversion, i-save muna bilang PDF at i-upload ang PDF.',
+                'Para sa upload issues: i-refresh ang session, siguraduhing tugma ang document type sa role ninyo, iwasan ang sobrang laki na file, at hintayin ang pending sync kung galing offline. Kung mali ang subject na nabasa ng scanner, i-check muna ang selected teaching load bago mag-submit.'
             ]
         }
     },

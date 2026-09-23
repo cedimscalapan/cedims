@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { ChevronLeft, ChevronRight } from "lucide-svelte";
     import { fly } from "svelte/transition";
 
     // The teacher roster (monitoring/school) and school roster
@@ -116,25 +115,25 @@
     </div>
 
     {#if totalPages > 1}
-        <div class="flex items-center justify-between pt-1 border-t border-border-subtle">
+        <div class="cedims-pagination-shell pt-1">
             <button
                 type="button"
                 onclick={() => (page = Math.max(1, page - 1))}
                 disabled={page === 1}
-                class="flex items-center gap-1 px-3 py-2 min-h-11 rounded-lg text-xs font-bold uppercase tracking-wide text-gov-blue disabled:text-text-muted disabled:opacity-40 hover:bg-gov-blue/5 disabled:hover:bg-transparent transition-colors"
+                class="cedims-page-button"
             >
-                <ChevronLeft size={14} /> Previous
+                Previous
             </button>
-            <span class="text-xs font-bold text-text-muted uppercase tracking-normal">
-                Page {page} of {totalPages} · {items.length} total
-            </span>
+            <div class="cedims-pagination">
+                <span class="cedims-page-indicator">{page} / {totalPages}</span>
+            </div>
             <button
                 type="button"
                 onclick={() => (page = Math.min(totalPages, page + 1))}
                 disabled={page === totalPages}
-                class="flex items-center gap-1 px-3 py-2 min-h-11 rounded-lg text-xs font-bold uppercase tracking-wide text-gov-blue disabled:text-text-muted disabled:opacity-40 hover:bg-gov-blue/5 disabled:hover:bg-transparent transition-colors"
+                class="cedims-page-button is-next"
             >
-                Next <ChevronRight size={14} />
+                Next
             </button>
         </div>
     {/if}

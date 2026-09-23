@@ -305,12 +305,8 @@
                 rate: expected > 0 ? Math.round((actual / expected) * 100) : 0,
             };
         });
-        if (selectedSchoolId) {
-            buildClustersForSchool(selectedSchoolId);
-        } else {
-            clusterSummaries = [];
-            canShowClusters = false;
-        }
+        if (selectedSchoolId) buildClustersForSchool(selectedSchoolId);
+        else buildClusters(teachers, submissions, activeWeeks);
     }
 
     function buildTeacherRows(teachers: any[], loads: any[], submissions: any[], reviewBySubmission: Map<any, any>, activeWeeks: number): TeacherRow[] {
@@ -411,8 +407,7 @@
         statusFilter = "all";
         weekFilter = "all";
         currentPage = 1;
-        clusterSummaries = [];
-        canShowClusters = false;
+        buildClusters(clusterTeachers, clusterSubmissions, clusterWeeks);
     }
 </script>
 
@@ -439,9 +434,8 @@
 {:else}
     <div class="space-y-5">
         {#if mode === "district" && selectedSchoolId}
-            <button class="inline-flex items-center gap-2 rounded-lg bg-surface-white px-4 py-2 text-sm font-bold text-text-primary shadow-sm ring-1 ring-border-subtle hover:bg-surface-muted" onclick={closeSchool}>
+            <button class="cedims-back-button" onclick={closeSchool} aria-label="Back to schools" title="Back to Schools">
                 <ArrowLeft size={16} />
-                Back to Schools
             </button>
         {/if}
 
@@ -460,12 +454,17 @@
             {/each}
         </section>
 
-        {#if canShowClusters && (mode !== "district" || selectedSchoolId)}
-            <section class="gov-card-static overflow-hidden">
-                <div class="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
+        <section class="gov-card-static overflow-hidden">
+            <div class="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
+                <div class="flex items-center gap-2">
                     <Sparkles size={18} class="text-gov-blue" />
                     <h2 class="text-sm font-bold uppercase tracking-normal text-text-primary">K-Means Compliance Groups</h2>
                 </div>
+                <p class="text-xs font-bold uppercase tracking-normal text-text-muted">
+                    {mode === "district" && !selectedSchoolId ? "District-wide" : "School view"}
+                </p>
+            </div>
+            {#if canShowClusters}
                 <div class="grid gap-3 p-4 md:grid-cols-3">
                     {#each clusterSummaries as cluster}
                         <div class="rounded-lg border border-border-subtle bg-surface-muted p-3">
@@ -478,8 +477,12 @@
                         </div>
                     {/each}
                 </div>
-            </section>
-        {/if}
+            {:else}
+                <div class="p-4 text-sm font-semibold text-text-muted">
+                    K-Means groups will appear after at least two teachers are available in this compliance view.
+                </div>
+            {/if}
+        </section>
 
         {#if mode === "district" && !selectedSchoolId}
             <section class="gov-card-static overflow-hidden">
@@ -605,14 +608,19 @@
                     </table>
                 </div>
 
-                <div class="flex items-center justify-end gap-3 border-t border-border-subtle bg-surface-muted px-4 py-3">
-                    <button class="rounded-lg bg-surface-white px-4 py-2 text-sm font-bold text-text-muted disabled:opacity-50" disabled={currentPage <= 1} onclick={() => (currentPage = Math.max(1, currentPage - 1))}>
+                <div class="cedims-pagination-shell border-t border-border-subtle bg-surface-muted px-4 py-3">
+                    <span class="text-xs font-bold uppercase tracking-normal text-text-muted">
+                        Showing {filteredRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredRows.length)} of {filteredRows.length}
+                    </span>
+                    <div class="cedims-pagination">
+                    <button class="cedims-page-button" disabled={currentPage <= 1} onclick={() => (currentPage = Math.max(1, currentPage - 1))}>
                         Previous
                     </button>
-                    <span class="rounded-lg bg-surface-white px-4 py-2 text-sm font-bold text-gov-blue">{currentPage} / {totalPages}</span>
-                    <button class="rounded-lg bg-surface-white px-4 py-2 text-sm font-bold text-text-muted disabled:opacity-50" disabled={currentPage >= totalPages} onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}>
+                    <span class="cedims-page-indicator">{currentPage} / {totalPages}</span>
+                    <button class="cedims-page-button is-next" disabled={currentPage >= totalPages} onclick={() => (currentPage = Math.min(totalPages, currentPage + 1))}>
                         Next
                     </button>
+                    </div>
                 </div>
             </section>
         {/if}
