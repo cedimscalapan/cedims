@@ -23,56 +23,9 @@
         <img src="/deped-calapan-east-district.jpg" alt="Calapan East District seal" width="36" height="36" />
         {#if !collapsed}<div><strong>CEDIMS</strong><p>Calapan East District</p></div>{/if}
     </div>
-    {#if !collapsed}
-        <p class="section-label">
-            {items.find((item) => !item.onClick && active(item.href))?.label || 'Dashboard'}
-        </p>
-    {/if}
     <button class="nav-control" onclick={() => collapsed = !collapsed} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} aria-expanded={!collapsed}>
         {#if collapsed}<PanelLeftOpen size={20} />{:else}<PanelLeftClose size={20} /><span>Collapse navigation</span>{/if}
     </button>
-    <div class="utility-controls" aria-label="System controls">
-        {#if !$onlineStatus || ($pendingCount > 0 && !isMobile)}
-            <button
-                class="nav-control status-control"
-                class:offline={!$onlineStatus}
-                onclick={() => goto('/dashboard/upload')}
-                aria-label={$onlineStatus
-                    ? `${$pendingCount} file(s) waiting to sync`
-                    : 'You are offline. Changes will sync once reconnected'}
-                title={$onlineStatus
-                    ? `${$pendingCount} file(s) waiting to sync`
-                    : 'You are offline. Changes will sync once reconnected'}
-            >
-                {#if $onlineStatus}
-                    <RefreshCw size={20} aria-hidden="true" />
-                    {#if !collapsed}<span>{$pendingCount} pending</span>{/if}
-                {:else}
-                    <WifiOff size={20} aria-hidden="true" />
-                    {#if !collapsed}<span>Offline</span>{/if}
-                {/if}
-            </button>
-        {/if}
-        <button
-            data-tour="theme-toggle"
-            class="nav-control"
-            onclick={() => theme.toggle()}
-            aria-label={$theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={$theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-            {#if $theme === 'dark'}
-                <Sun size={20} aria-hidden="true" />
-                {#if !collapsed}<span>Light mode</span>{/if}
-            {:else}
-                <Moon size={20} aria-hidden="true" />
-                {#if !collapsed}<span>Dark mode</span>{/if}
-            {/if}
-        </button>
-        <div class="notification-slot" class:collapsed-notification={collapsed} data-tour="notifications">
-            <NotificationCenter />
-            {#if !collapsed}<span>Notifications</span>{/if}
-        </div>
-    </div>
     <nav aria-label="Main navigation">
         {#each items as item}
             {@const Icon = item.icon}
@@ -99,47 +52,83 @@
                 </div>
             {/if}
         </div>
-        <a class="nav-control" href="/dashboard/settings" aria-label="Settings" title="Settings"><Settings size={20} aria-hidden="true" />{#if !collapsed}<span>Settings</span>{/if}</a>
-        <button class="nav-control" onclick={() => signOut()} aria-label="Sign out" title="Sign out"><LogOut size={20} aria-hidden="true" />{#if !collapsed}<span>Sign out</span>{/if}</button>
+        <div class="quick-actions" aria-label="System controls">
+            {#if !$onlineStatus || ($pendingCount > 0 && !isMobile)}
+                <button
+                    class="quick-action status-control"
+                    class:offline={!$onlineStatus}
+                    onclick={() => goto('/dashboard/upload')}
+                    aria-label={$onlineStatus
+                        ? `${$pendingCount} file(s) waiting to sync`
+                        : 'You are offline. Changes will sync once reconnected'}
+                    title={$onlineStatus
+                        ? `${$pendingCount} file(s) waiting to sync`
+                        : 'You are offline. Changes will sync once reconnected'}
+                >
+                    {#if $onlineStatus}
+                        <RefreshCw size={18} aria-hidden="true" />
+                    {:else}
+                        <WifiOff size={18} aria-hidden="true" />
+                    {/if}
+                </button>
+            {/if}
+            <button
+                data-tour="theme-toggle"
+                class="quick-action"
+                onclick={() => theme.toggle()}
+                aria-label={$theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={$theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+                {#if $theme === 'dark'}
+                    <Sun size={18} aria-hidden="true" />
+                {:else}
+                    <Moon size={18} aria-hidden="true" />
+                {/if}
+            </button>
+            <div class="notification-slot" data-tour="notifications">
+                <NotificationCenter />
+            </div>
+            <a class="quick-action" href="/dashboard/settings" aria-label="Settings" title="Settings"><Settings size={18} aria-hidden="true" /></a>
+            <button class="quick-action" onclick={() => signOut()} aria-label="Sign out" title="Sign out"><LogOut size={18} aria-hidden="true" /></button>
+        </div>
     </div>
 </aside>
 
 <style>
-    .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 35; display: flex; flex-direction: column; width: 72px; padding: 12px 8px; background: var(--color-surface-white); border-right: 1px solid var(--color-border-subtle); overflow-y: auto; }
-    .identity { display: flex; align-items: center; justify-content: center; min-height: 52px; margin-bottom: 12px; }
+    .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 35; display: flex; flex-direction: column; width: 72px; padding: 10px 8px; background: var(--color-surface-white); border-right: 1px solid var(--color-border-subtle); overflow: hidden; }
+    .identity { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-bottom: 8px; }
     .identity img { flex-shrink: 0; object-fit: contain; }
-    .identity div, .section-label, .nav-control span, .notification-slot span, .profile-summary div { display: none; }
-    nav, .utility-controls { display: grid; gap: 4px; margin-top: 12px; }
-    .nav-control { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 44px; padding: 10px; border-radius: 6px; font-size: .875rem; text-align: left; color: var(--color-text-secondary); cursor: pointer; }
+    .identity div, .nav-control span, .profile-summary div { display: none; }
+    nav { display: grid; gap: 2px; margin-top: 8px; }
+    .nav-control { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 40px; padding: 8px; border-radius: 6px; font-size: .875rem; text-align: left; color: var(--color-text-secondary); cursor: pointer; }
     .nav-control:hover { background: var(--color-surface-muted); color: var(--color-text-primary); }
     .status-control { color: var(--color-gov-gold-dark); }
     .status-control.offline { color: var(--color-gov-red); }
-    .notification-slot { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; padding: 0; border-radius: 6px; font-size: .875rem; color: var(--color-text-secondary); }
-    .notification-slot:hover { background: var(--color-surface-muted); color: var(--color-text-primary); }
-    .notification-slot :global(.notification-container > button) { border: 0; background: transparent; }
+    .quick-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+    .quick-action, .notification-slot { display: flex; align-items: center; justify-content: center; min-height: 34px; border-radius: 6px; color: var(--color-text-secondary); }
+    .quick-action:hover, .notification-slot:hover { background: var(--color-surface-muted); color: var(--color-text-primary); }
+    .notification-slot :global(.notification-container > button) { width: 34px; height: 34px; border: 0; background: transparent; }
     .active { background: var(--color-gov-blue); color: white; font-weight: 600; }
     .active:hover { background: var(--color-gov-blue-dark); color: white; }
-    .account { margin-top: auto; padding-top: 16px; }
-    .profile-summary { display: flex; align-items: center; justify-content: center; min-height: 48px; margin-bottom: 8px; padding: 6px 0; border-top: 1px solid var(--color-border-subtle); }
-    .profile-summary img, .avatar-fallback { flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; }
+    .account { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--color-border-subtle); }
+    .profile-summary { display: flex; align-items: center; justify-content: center; min-height: 38px; margin-bottom: 6px; padding: 0; }
+    .profile-summary img, .avatar-fallback { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; }
     .profile-summary img { object-fit: cover; border: 2px solid color-mix(in srgb, var(--color-gov-blue) 20%, transparent); }
     .avatar-fallback { display: flex; align-items: center; justify-content: center; background: var(--color-gov-blue); color: white; font-size: .75rem; font-weight: 700; }
 
     @media (min-width: 1024px) {
-        .sidebar { width: 232px; padding: 16px 12px; }
+        .sidebar { width: 232px; padding: 12px; }
         .collapsed { width: 72px; }
-        .identity { justify-content: flex-start; gap: 10px; margin-bottom: 16px; }
-        .identity div, .nav-control span, .notification-slot span, .profile-summary div { display: block; }
-        .collapsed .identity div, .collapsed .section-label, .collapsed .nav-control span, .collapsed .notification-slot span, .collapsed .profile-summary div { display: none; }
-        .identity p, .account p, .section-label { font-size: .75rem; color: var(--color-text-secondary); }
-        .section-label { display: block; padding: 0 12px 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-        nav, .utility-controls { display: grid; gap: 4px; margin-top: 16px; }
-        .nav-control { justify-content: flex-start; padding: 10px 12px; }
-        .notification-slot { justify-content: flex-start; gap: 12px; padding: 0 12px 0 0; }
-        .collapsed-notification { justify-content: center; padding: 0; }
-        .account { margin-top: auto; padding-top: 24px; }
-        .profile-summary { justify-content: flex-start; gap: 10px; padding: 6px 12px; }
+        .identity { justify-content: flex-start; gap: 10px; margin-bottom: 10px; }
+        .identity div, .nav-control span, .profile-summary div { display: block; }
+        .collapsed .identity div, .collapsed .nav-control span, .collapsed .profile-summary div { display: none; }
+        .identity p, .account p { font-size: .75rem; color: var(--color-text-secondary); }
+        nav { gap: 2px; margin-top: 8px; }
+        .nav-control { justify-content: flex-start; min-height: 38px; padding: 8px 10px; }
+        .account { margin-top: auto; padding-top: 10px; }
+        .profile-summary { justify-content: flex-start; gap: 10px; min-height: 40px; padding: 0 8px; }
         .profile-summary strong { display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .875rem; color: var(--color-text-primary); }
         .profile-summary p { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .quick-actions { grid-template-columns: repeat(5, minmax(0, 1fr)); }
     }
 </style>
