@@ -54,9 +54,18 @@
             <Menu size={22} aria-hidden="true" />
         </button>
 
-        <a href="/dashboard" class="flex shrink-0 flex-col items-start" aria-label="CEDIMS Dashboard">
-            <span class="text-lg font-extrabold leading-none tracking-tight text-text-primary">CEDIMS</span>
-            <span class="mt-1 h-[3px] w-5 rounded-full bg-gov-blue-vibrant" aria-hidden="true"></span>
+        <a href="/dashboard" class="flex shrink-0 items-center gap-2.5" aria-label="CEDIMS Dashboard">
+            <img
+                src="/app_icon.png"
+                alt=""
+                class="h-9 w-9 rounded-lg object-contain"
+                loading="eager"
+                aria-hidden="true"
+            />
+            <span class="flex flex-col items-start">
+                <span class="text-lg font-extrabold leading-none tracking-tight text-text-primary">CEDIMS</span>
+                <span class="mt-1 h-[3px] w-5 rounded-full bg-gov-blue-vibrant" aria-hidden="true"></span>
+            </span>
         </a>
 
         <nav class="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto lg:flex" aria-label="Main navigation">
