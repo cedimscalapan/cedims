@@ -25,7 +25,7 @@ export interface NavItem {
 }
 
 // Single source of truth for role-based navigation.
-// Consumed by the sidebar and mobile bottom nav so the two never drift apart.
+// Consumed by the top bar and mobile bottom nav so the two never drift apart.
 export const navItems: NavItem[] = [
     {
         href: "/dashboard",

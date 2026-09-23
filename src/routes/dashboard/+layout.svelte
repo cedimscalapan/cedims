@@ -1,5 +1,6 @@
 <script lang="ts">
-    import AppSidebar from "$lib/components/AppSidebar.svelte";
+    import MobileDrawer from "$lib/components/MobileDrawer.svelte";
+    import AppHeader from "$lib/components/AppHeader.svelte";
     import InstallPrompt from "$lib/components/InstallPrompt.svelte";
     import UpdatePrompt from "$lib/components/UpdatePrompt.svelte";
     import SystemWalkthrough from "$lib/components/SystemWalkthrough.svelte";
@@ -16,7 +17,7 @@
     import { onMount } from "svelte";
 
     let { children } = $props();
-    let sidebarCollapsed = $state(false);
+    let menuOpen = $state(false);
 
     // Auth guard — skip during password change to avoid redirect when supabase temporarily signs out
     $effect(() => {
@@ -71,9 +72,10 @@
 </a>
 
 {#if $user}
-    <AppSidebar bind:collapsed={sidebarCollapsed} />
-    <div class="min-h-dvh bg-surface flex flex-col dashboard-shell" class:compact-nav={sidebarCollapsed}>
-        <!-- Main content area — the sidebar owns navigation and global controls. -->
+    <div class="min-h-dvh bg-surface flex flex-col dashboard-shell">
+        <MobileDrawer bind:open={menuOpen} />
+        <AppHeader onMenu={() => menuOpen = true} />
+
         <main
             id="main-content"
             class="flex-1 min-w-0 flex flex-col bg-surface"
@@ -93,11 +95,3 @@
     </div>
 {/if}
 
-<style>
-    .dashboard-shell { margin-left: 72px; }
-
-    @media (min-width: 1024px) {
-        .dashboard-shell { margin-left: 232px; }
-        .dashboard-shell.compact-nav { margin-left: 72px; }
-    }
-</style>

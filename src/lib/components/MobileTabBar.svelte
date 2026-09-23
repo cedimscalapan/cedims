@@ -4,11 +4,11 @@
 	import { getNavItemsForRole } from "$lib/config/navigation";
 
 	// Filter items by current role (shared source of truth with
-	// AppSidebar.svelte, via config/navigation.ts).
+	// AppHeader.svelte, via config/navigation.ts).
 	const filteredItems = $derived(getNavItemsForRole($profile?.role));
 
 	// Only the items marked for the tab bar — it holds fewer than the
-	// sidebar's nav at lg+, which lists every item the role can reach.
+	// top bar's nav at lg+, which lists every item the role can reach.
 	const mobileNavItems = $derived(filteredItems.filter((item) => item.mobileNav));
 
 	function isActive(href: string): boolean {
@@ -25,7 +25,7 @@
      version on load order. .cedims-scroll wasn't even used in this
      component's template. -->
 
-<!-- Bottom Tab Bar — the nav surface below lg. At lg+ the sidebar carries
+<!-- Bottom Tab Bar — the nav surface below lg. At lg+ the top bar carries
      the section nav itself, so this hides rather than wasting the desktop
      viewport's horizontal space on a phone-width tab bar. -->
 <nav
