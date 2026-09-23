@@ -6,7 +6,6 @@
     import FolderCard from "$lib/components/FolderCard.svelte";
     import { normalizeComplianceStatus } from "$lib/utils/useDashboardData";
     import {
-        canViewArchivedDocument,
         canAddReviewRemarks,
         canAddRemarkToISPISR,
         canViewUploadedISPISR,
@@ -471,12 +470,6 @@
         const role = $profile?.role || '';
         const userId = $profile?.id || '';
         let filtered = allSubmissions.filter((s) => {
-            // Check if user can view this document type in general
-            if (!canViewArchivedDocument(role, s.doc_type)) {
-                console.log('[archive] Filtered out', s.id, s.doc_type, '- canViewArchivedDocument returned false');
-                return false;
-            }
-            // Additional check for ISP/ISR visibility
             const canView = canViewUploadedISPISR(
                 role,
                 userId,
@@ -489,7 +482,7 @@
                 s.uploader?.district_id || null
             );
             if (!canView) {
-                console.log('[archive] Filtered out', s.id, s.doc_type, '- canViewUploadedISPISR returned false (userId:', s.user_id, 'currentUserId:', userId, ')');
+                console.log('[archive] Filtered out', s.id, s.doc_type, '- document visibility rules returned false (userId:', s.user_id, 'currentUserId:', userId, ')');
             }
             return canView;
         });
@@ -597,15 +590,19 @@
             const dt = s.doc_type || "Other";
             grouped.set(dt, (grouped.get(dt) || 0) + 1);
         }
-        const result = Array.from(grouped.entries())
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([dt, count]) => ({
-                id: dt,
-                label: getDocumentLabel(dt),
-                count,
-                type: "docType" as const,
-            }));
-        console.log('[archive] getDocTypeFolders created', result.length, 'folders:', result.map(f => f.label).join(', '));
+
+        const fixedTypes = ["DLL", "ISP", "ISR"];
+        const dynamicTypes = Array.from(grouped.keys())
+            .filter((dt) => !fixedTypes.includes(dt))
+            .sort((a, b) => getDocumentLabel(a).localeCompare(getDocumentLabel(b)));
+
+        const result = [...fixedTypes, ...dynamicTypes].map((dt) => ({
+            id: dt,
+            label: getDocumentLabel(dt),
+            count: grouped.get(dt) || 0,
+            type: "docType" as const,
+        }));
+        console.log('[archive] getDocTypeFolders created', result.length, 'folders:', result.map(f => `${f.label} (${f.count})`).join(', '));
         return result;
     }
 
