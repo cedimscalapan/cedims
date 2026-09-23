@@ -4,6 +4,7 @@
     import LineChart from "$lib/components/charts/LineChart.svelte";
     import DonutChart from "$lib/components/charts/DonutChart.svelte";
     import ComplianceHeatmap from "$lib/components/ComplianceHeatmap.svelte";
+    import ClusterVisualization from "$lib/components/ClusterVisualization.svelte";
     import StatCard from "$lib/components/StatCard.svelte";
     import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import { onMount, onDestroy } from "svelte";
@@ -14,6 +15,11 @@
         getPerformanceDistribution,
         forecastCompliance,
     } from "$lib/utils/analyticsQueries";
+    import {
+        canCluster,
+        extractFeatures,
+        runKMeansClustering,
+    } from "$lib/utils/clusterAnalytics";
     import {
         calculateCompliance,
         getDefinedWeeksCount,
@@ -35,6 +41,11 @@
         weeks: { week: number; label: string }[];
         cells: any[];
     }>({ rows: [], weeks: [], cells: [] });
+    let patternGroups = $state<{
+        ready: boolean;
+        results: any[];
+        summaries: any[];
+    }>({ ready: false, results: [], summaries: [] });
     let lastUpdated = $state<Date | null>(null);
     let now = $state(Date.now());
     // Expected slots (active teaching loads × opened calendar weeks) for this
@@ -103,6 +114,24 @@
                     };
 
                     heatmap = buildComplianceHeatmap(teacherData, analyticsData.roster || []);
+
+                    const featureTeachers = (analyticsData.roster || []).map((r: any) => ({
+                        id: r.id,
+                        full_name: r.name,
+                        school_name: r.schoolName || "",
+                    }));
+                    const featureData = extractFeatures(featureTeachers, teacherData, Math.max(1, definedWeeks));
+                    const ready = canCluster(featureData.length, teacherData.length);
+                    if (ready) {
+                        const output = runKMeansClustering(featureData, 3);
+                        patternGroups = {
+                            ready: true,
+                            results: output.results,
+                            summaries: output.summaries,
+                        };
+                    } else {
+                        patternGroups = { ready: false, results: [], summaries: [] };
+                    }
                 }
 
                 lastUpdated = new Date();
@@ -300,11 +329,16 @@
                 <StatCard label="Teachers" value={distributions?.byTeacher?.length || 0} icon="Users" color="from-gov-blue to-gov-blue-dark" />
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-1">
-                    <LineChart data={trends?.forecast || []} title="Compliance Trend & Forecast" series={['rate']} />
-                </div>
+            <div>
+                <LineChart
+                    data={trends?.forecast || []}
+                    title="Compliance Trend & Forecast"
+                    series={['rate']}
+                    height={430}
+                />
+            </div>
 
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <DonutChart data={overallStats.total > 0 ? submissionComposition : []} title="Submission Composition" />
 
                 <div class="gov-card-static p-6">
@@ -328,15 +362,39 @@
                 </div>
             </div>
 
+            <div class="gov-card-static p-6">
+                <div class="mb-5">
+                    <h3 class="text-lg font-bold text-text-primary">Submission Pattern Groups</h3>
+                    <p class="text-sm text-text-secondary mt-1">
+                        This is the K-Means section, renamed in the interface so users understand it as teacher groups with similar submission habits.
+                    </p>
+                </div>
+                {#if patternGroups.ready}
+                    <ClusterVisualization
+                        results={patternGroups.results}
+                        summaries={patternGroups.summaries}
+                    />
+                {:else}
+                    <div class="rounded-xl border border-dashed border-border-subtle bg-surface-muted px-4 py-6 text-sm text-text-secondary">
+                        Pattern groups need at least 3 teachers and 5 tracked submissions before they can be shown.
+                    </div>
+                {/if}
+            </div>
+
             {#if heatmap.rows.length > 0}
                 <div class="gov-card-static p-6">
-                    <div class="mb-4">
+                    <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
                         <h3 class="text-lg font-bold text-text-primary">Weekly Compliance Heatmap</h3>
                         <p class="text-xs text-text-muted mt-1">
                             Submission pattern across the last {heatmap.weeks.length} weeks
                         </p>
+                        </div>
+                        <p class="text-xs font-semibold text-text-secondary">
+                            Showing {heatmap.rows.length} users · scroll inside the table to compare large rosters
+                        </p>
                     </div>
-                    <div class="overflow-auto max-h-[70vh] touch-pan-x cedims-scroll">
+                    <div class="overflow-auto max-h-[72vh] touch-pan-x cedims-scroll rounded-xl border border-border-subtle bg-surface-white p-3">
                         <ComplianceHeatmap rows={heatmap.rows} weeks={heatmap.weeks} cells={heatmap.cells} />
                     </div>
                 </div>

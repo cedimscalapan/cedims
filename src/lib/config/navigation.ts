@@ -62,7 +62,7 @@ export const navItems: NavItem[] = [
         mobileNav: true,
         priority: 4,
         navKey: "load",
-        roles: ["Teacher"],
+        roles: ["Teacher", "Master Teacher"],
     },
     {
         href: "/dashboard/settings",

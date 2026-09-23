@@ -37,13 +37,13 @@
   }
 </script>
 
-<div class="overflow-x-auto cedims-scroll">
-  <table class="border-separate" style="border-spacing: 3px;">
+<div class="min-w-max">
+  <table class="border-separate heatmap-table" style="border-spacing: 2px;">
     <thead>
       <tr>
-        <th class="sticky left-0 z-10 bg-surface-white px-2 py-1 min-w-[140px]"></th>
+        <th class="sticky left-0 top-0 z-20 bg-surface-white px-2 py-1 min-w-[180px]"></th>
         {#each weeks as w}
-          <th class="px-0 py-1 text-center text-xs text-text-muted font-semibold min-w-[24px]">
+          <th class="sticky top-0 z-10 bg-surface-white px-0 py-1 text-center text-xs text-text-muted font-semibold min-w-[22px]">
             {w.label}
           </th>
         {/each}
@@ -53,7 +53,7 @@
       {#each rows as row}
         <tr>
           <td
-            class="sticky left-0 z-10 bg-surface-white pr-3 text-xs font-semibold text-text-primary text-left truncate max-w-[160px] align-middle"
+            class="sticky left-0 z-10 bg-surface-white pr-3 text-xs font-semibold text-text-primary text-left truncate max-w-[190px] align-middle"
             title={row}
           >
             {row}
@@ -63,7 +63,7 @@
             <td class="p-0 text-center align-middle">
               <button
                 type="button"
-                class="block w-5 h-5 sm:w-6 sm:h-6 rounded-[4px] transition-transform hover:scale-110 focus-visible:scale-110 {getCellFill(cell)}"
+                class="block h-4 w-4 sm:h-5 sm:w-5 rounded-[4px] transition-transform hover:scale-125 focus-visible:scale-125 {getCellFill(cell)}"
                 title={cell?.tooltip || `${row}, ${w.label}: no data recorded`}
                 aria-label={cell?.tooltip || `${row}, ${w.label}: no data recorded`}
                 onclick={() => onCellClick?.(row, w.week)}
@@ -83,7 +83,7 @@
 {:else}
   <!-- Legend: a dedicated "no data" swatch plus a Less→More sequential ramp,
        matching the ramp used for the cells above. -->
-  <div class="flex flex-wrap items-center gap-4 mt-4 px-2 text-xs font-semibold text-text-muted">
+  <div class="sticky left-0 flex flex-wrap items-center gap-4 mt-4 px-2 text-xs font-semibold text-text-muted">
     <span class="flex items-center gap-1.5">
       <span class="w-3 h-3 rounded-[3px] bg-surface-muted border border-dashed border-border-subtle"></span>
       No data
@@ -99,3 +99,9 @@
     </span>
   </div>
 {/if}
+
+<style>
+  .heatmap-table tbody tr:hover td {
+    background: var(--color-surface-muted);
+  }
+</style>
