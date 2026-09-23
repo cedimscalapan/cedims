@@ -52,22 +52,22 @@
 </script>
 
 <header class="sticky top-0 z-30 w-full border-b border-border-subtle bg-surface-white">
-    <div class="mx-auto flex min-h-20 max-w-[96rem] flex-wrap items-center gap-4 px-5 py-3 sm:px-8 lg:flex-nowrap lg:px-10">
-        <a href="/dashboard" class="flex shrink-0 items-center gap-3" aria-label="CEDIMS Dashboard">
+    <div class="app-header-inner">
+        <a href="/dashboard" class="app-brand" aria-label="CEDIMS Dashboard">
             <img
                 src="/app_icon.png"
                 alt=""
-                class="h-12 w-12 rounded-lg object-contain"
+                class="h-10 w-10 rounded-lg object-contain lg:h-11 lg:w-11"
                 loading="eager"
                 aria-hidden="true"
             />
             <span class="flex flex-col items-start">
-                <span class="text-2xl font-extrabold leading-none text-text-primary">CEDIMS</span>
-                <span class="mt-1.5 h-1 w-8 rounded-full bg-gov-blue-vibrant" aria-hidden="true"></span>
+                <span class="brand-title">CEDIMS</span>
+                <span class="mt-1 h-1 w-7 rounded-full bg-gov-blue-vibrant" aria-hidden="true"></span>
             </span>
         </a>
 
-        <nav class="order-3 flex min-w-full flex-1 items-center gap-2 overflow-x-auto lg:order-none lg:min-w-0" aria-label="Main navigation">
+        <nav class="app-nav" aria-label="Main navigation">
             {#each navItems as item}
                 {@const Icon = item.icon}
                 {#if item.onClick}
@@ -95,11 +95,11 @@
             {/each}
         </nav>
 
-        <div class="ml-auto flex flex-shrink-0 items-center gap-2 sm:gap-3">
+        <div class="app-actions">
             {#if !$onlineStatus || ($pendingCount > 0 && !isMobile)}
                 <button
                     onclick={() => goto("/dashboard/upload")}
-                    class="flex min-h-12 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold transition-colors {$onlineStatus
+                    class="flex min-h-10 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm font-bold transition-colors {$onlineStatus
                         ? 'border-gov-gold/30 bg-gov-gold/10 text-gov-gold-dark hover:bg-gov-gold/20'
                         : 'border-gov-red/30 bg-gov-red/10 text-gov-red hover:bg-gov-red/20'}"
                     aria-label={$onlineStatus
@@ -121,7 +121,7 @@
 
             <button
                 onclick={() => showQRScanner.set(true)}
-                class="hidden h-12 w-12 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue lg:flex"
+                class="hidden h-10 w-10 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue xl:flex"
                 aria-label="Scan QR code"
             >
                 <QrCode size={24} strokeWidth={1.8} aria-hidden="true" />
@@ -130,7 +130,7 @@
             <button
                 data-tour="theme-toggle"
                 onclick={() => theme.toggle()}
-                class="flex h-12 w-12 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue"
+                class="flex h-10 w-10 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue"
                 aria-label={$theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             >
                 {#if $theme === "dark"}
@@ -149,7 +149,7 @@
             <div class="relative" data-tour="profile-menu" bind:this={profileMenuRef}>
                 <button
                     onclick={() => profileMenuOpen = !profileMenuOpen}
-                    class="relative z-20 flex min-h-12 items-center gap-3 rounded-lg px-2.5 py-2 transition-colors duration-200 hover:bg-gov-blue/10"
+                    class="relative z-20 flex min-h-10 items-center gap-2 rounded-lg px-1.5 py-1 transition-colors duration-200 hover:bg-gov-blue/10"
                     aria-expanded={profileMenuOpen}
                     aria-haspopup="true"
                     aria-label="Profile menu"
@@ -158,15 +158,15 @@
                         <img
                             src={$profile.avatar_url}
                             alt={$profile.full_name}
-                            class="h-11 w-11 flex-shrink-0 rounded-lg border-2 border-gov-blue/20 object-cover"
+                            class="h-9 w-9 flex-shrink-0 rounded-lg border-2 border-gov-blue/20 object-cover"
                             loading="lazy"
                         />
                     {:else}
-                        <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-gov-blue text-lg font-bold text-white">
+                        <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gov-blue text-base font-bold text-white">
                             {$profile?.full_name?.charAt(0) || "U"}
                         </div>
                     {/if}
-                    <span class="hidden max-w-[180px] truncate text-lg font-bold text-text-primary sm:block xl:block">
+                    <span class="hidden max-w-[150px] truncate text-base font-bold text-text-primary xl:block">
                         {$profile?.full_name}
                     </span>
                 </button>
@@ -220,17 +220,66 @@
 />
 
 <style>
+    .app-header-inner {
+        width: 100%;
+        max-width: 96rem;
+        min-height: 4.5rem;
+        margin: 0 auto;
+        padding: 0.6rem 1.25rem;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .app-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+        min-width: max-content;
+    }
+
+    .brand-title {
+        font-size: clamp(1.25rem, 1.6vw, 1.55rem);
+        line-height: 1;
+        font-weight: 850;
+        color: var(--color-text-primary);
+    }
+
+    .app-nav {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .app-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .app-actions {
+        min-width: max-content;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        justify-content: flex-end;
+    }
+
     .top-nav-link {
         display: inline-flex;
         align-items: center;
-        gap: 0.55rem;
-        min-height: 3.25rem;
-        padding: 0.75rem 1rem;
+        gap: 0.42rem;
+        min-height: 2.9rem;
+        padding: 0.6rem 0.8rem;
         border-radius: 0.5rem;
         color: var(--color-text-secondary);
-        font-size: 1.0625rem;
+        font-size: clamp(0.95rem, 0.95vw, 1.05rem);
         font-weight: 700;
         white-space: nowrap;
+        flex: 0 0 auto;
         transition: background-color 160ms ease, color 160ms ease;
     }
 
@@ -242,5 +291,21 @@
     .top-nav-link.active {
         background: var(--color-gov-blue);
         color: white;
+    }
+
+    @media (max-width: 760px) {
+        .app-header-inner {
+            gap: 0.6rem;
+            padding-inline: 0.8rem;
+        }
+
+        .brand-title {
+            font-size: 1.1rem;
+        }
+
+        .top-nav-link {
+            min-height: 2.65rem;
+            padding-inline: 0.65rem;
+        }
     }
 </style>
