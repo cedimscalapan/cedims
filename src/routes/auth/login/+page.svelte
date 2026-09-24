@@ -159,12 +159,6 @@
 </svelte:head>
 
 <div class="login-page relative min-h-dvh overflow-hidden bg-surface-muted">
-    <div class="background-logos" aria-hidden="true">
-        <img src="/deped-official.png" alt="" class="bg-logo bg-logo-deped" />
-        <img src="/deped-calapan-east-district.jpg" alt="" class="bg-logo bg-logo-district" />
-        <img src="/deped-calapan.jpg" alt="" class="bg-logo bg-logo-division" />
-    </div>
-
     <main class="relative z-10 mx-auto grid min-h-dvh w-full max-w-6xl items-center gap-5 px-4 py-3 lg:grid-cols-[0.9fr_1fr] lg:px-8">
         <section class="login-identity hidden lg:flex">
             <div class="space-y-5">
@@ -199,16 +193,6 @@
         </section>
 
         <section class="mx-auto flex w-full max-w-[390px] flex-col">
-            <a href="/" class="mb-2 flex items-center justify-center gap-2.5 lg:hidden">
-                <img src="/app_icon.png" alt="" class="h-8 w-8 rounded-lg" />
-                <span>
-                    <span class="block text-sm font-semibold leading-tight text-text-primary">CEDIMS</span>
-                    <span class="block text-xs font-semibold uppercase leading-tight tracking-[0.18em] text-gov-blue">
-                        Instructional Monitoring
-                    </span>
-                </span>
-            </a>
-
             <div class="login-card overflow-hidden rounded-2xl border border-border-subtle bg-surface-white">
                 <div class="login-card-banner">
                     <img src="/deped-official.png" alt="Department of Education logo" />
@@ -376,36 +360,6 @@
             radial-gradient(circle at 18% 18%, rgba(30, 64, 175, .08), transparent 30rem),
             linear-gradient(135deg, #f7f9fc 0%, #eef2f7 48%, #f8fafc 100%);
     }
-    .background-logos {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 0;
-    }
-    .bg-logo {
-        position: absolute;
-        width: clamp(8rem, 18vw, 15rem);
-        height: clamp(8rem, 18vw, 15rem);
-        object-fit: contain;
-        opacity: .11;
-        filter: saturate(.95);
-    }
-    .bg-logo-deped {
-        left: max(1rem, 4vw);
-        top: max(.75rem, 4vh);
-    }
-    .bg-logo-district {
-        left: 50%;
-        top: 50%;
-        width: clamp(12rem, 26vw, 21rem);
-        height: clamp(12rem, 26vw, 21rem);
-        opacity: .09;
-        transform: translate(-50%, -50%);
-    }
-    .bg-logo-division {
-        right: max(1rem, 4vw);
-        bottom: max(.75rem, 4vh);
-    }
     .login-identity {
         min-height: 29rem;
         align-items: center;
@@ -480,15 +434,6 @@
     @media (max-width: 640px) {
         .login-page {
             overflow-y: auto;
-        }
-        .bg-logo {
-            width: 7.5rem;
-            height: 7.5rem;
-            opacity: .08;
-        }
-        .bg-logo-district {
-            width: 12rem;
-            height: 12rem;
         }
         .login-card-banner {
             gap: .45rem;
