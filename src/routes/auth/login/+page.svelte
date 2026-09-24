@@ -158,10 +158,16 @@
     <title>Sign In: CEDIMS · Powered by Smart E-VISION</title>
 </svelte:head>
 
-<div class="login-page min-h-dvh bg-surface-muted">
-    <main class="mx-auto grid min-h-dvh w-full max-w-6xl items-center gap-6 px-4 py-5 lg:grid-cols-[0.95fr_1fr] lg:px-8">
+<div class="login-page relative min-h-dvh overflow-hidden bg-surface-muted">
+    <div class="background-logos" aria-hidden="true">
+        <img src="/deped-official.png" alt="" class="bg-logo bg-logo-deped" />
+        <img src="/deped-calapan-east-district.jpg" alt="" class="bg-logo bg-logo-district" />
+        <img src="/deped-calapan.jpg" alt="" class="bg-logo bg-logo-division" />
+    </div>
+
+    <main class="relative z-10 mx-auto grid min-h-dvh w-full max-w-6xl items-center gap-5 px-4 py-3 lg:grid-cols-[0.9fr_1fr] lg:px-8">
         <section class="login-identity hidden lg:flex">
-            <div class="space-y-7">
+            <div class="space-y-5">
                 <div class="login-seals" aria-label="Institutional logos">
                     <div class="seal-card">
                         <img src="/deped-official.png" alt="Department of Education logo" />
@@ -176,10 +182,10 @@
 
                 <div>
                     <p class="text-xs font-bold uppercase tracking-[0.22em] text-gov-gold-dark">Calapan East District</p>
-                    <h1 class="mt-3 max-w-[13ch] text-4xl font-extrabold leading-tight text-text-primary">
+                    <h1 class="mt-2 max-w-[13ch] text-4xl font-extrabold leading-tight text-text-primary">
                         CEDIMS
                     </h1>
-                    <p class="mt-3 max-w-md text-base leading-7 text-text-secondary">
+                    <p class="mt-2 max-w-md text-sm leading-6 text-text-secondary">
                         A secure instructional monitoring system for Daily Lesson Plan submission, review, archive, and compliance tracking.
                     </p>
                 </div>
@@ -192,8 +198,8 @@
             </div>
         </section>
 
-        <section class="mx-auto flex w-full max-w-[440px] flex-col">
-            <a href="/" class="mb-4 flex items-center justify-center gap-2.5 lg:hidden">
+        <section class="mx-auto flex w-full max-w-[390px] flex-col">
+            <a href="/" class="mb-2 flex items-center justify-center gap-2.5 lg:hidden">
                 <img src="/app_icon.png" alt="" class="h-8 w-8 rounded-lg" />
                 <span>
                     <span class="block text-sm font-semibold leading-tight text-text-primary">CEDIMS</span>
@@ -210,18 +216,18 @@
                     <img src="/deped-calapan.jpg" alt="Schools Division of Calapan City logo" />
                 </div>
 
-                <div class="p-4 sm:p-5">
-                <div class="mb-4 text-center">
-                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-gov-blue">Calapan East District</p>
-                    <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-text-primary">Sign in to CEDIMS</h1>
-                    <p class="mt-1 text-sm text-text-secondary">
+                <div class="p-3.5 sm:p-4">
+                <div class="mb-3 text-center">
+                    <p class="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-gov-blue">Calapan East District</p>
+                    <h1 class="mt-1 text-xl font-extrabold tracking-tight text-text-primary">Sign in to CEDIMS</h1>
+                    <p class="mt-0.5 text-xs text-text-secondary">
                         Use the DepEd account issued to you by the District Office.
                     </p>
                 </div>
 
-                <form onsubmit={handleSubmit} class="space-y-2.5" novalidate aria-busy={loading}>
+                <form onsubmit={handleSubmit} class="space-y-2" novalidate aria-busy={loading}>
                     <div>
-                        <label for="email" class="mb-1.5 block text-sm font-semibold text-text-primary">
+                        <label for="email" class="mb-1 block text-xs font-semibold text-text-primary">
                             Email address
                         </label>
                         <input
@@ -242,8 +248,8 @@
                     </div>
 
                     <div>
-                        <div class="mb-1.5 flex items-center justify-between gap-3">
-                            <label for="password" class="block text-sm font-semibold text-text-primary">Password</label>
+                        <div class="mb-1 flex items-center justify-between gap-3">
+                            <label for="password" class="block text-xs font-semibold text-text-primary">Password</label>
                             <a
                                 href="/auth/forgot-password"
                                 class="text-xs font-semibold text-gov-blue transition-colors hover:text-gov-blue-dark hover:underline"
@@ -290,7 +296,7 @@
                     {/if}
 
                     <!-- Terms & Privacy agreement -->
-                    <div class="flex items-start gap-2.5 rounded-xl bg-surface-muted p-2.5">
+                    <div class="flex items-start gap-2 rounded-lg bg-surface-muted p-2">
                         <input
                             id="agree"
                             type="checkbox"
@@ -300,7 +306,7 @@
                             aria-invalid={errorField === "terms"}
                             aria-describedby={errorField === "terms" ? "login-error" : undefined}
                         />
-                        <label for="agree" class="text-[0.7rem] leading-4 text-text-secondary">
+                        <label for="agree" class="text-[0.64rem] leading-3.5 text-text-secondary">
                             I have read and agree to the
                             <a
                                 href="/terms"
@@ -332,7 +338,7 @@
                         {/if}
                     </div>
 
-                    <button type="submit" disabled={loading} class="gov-btn-primary w-full justify-center py-2.5 text-sm">
+                    <button type="submit" disabled={loading} class="gov-btn-primary w-full justify-center py-2 text-sm">
                         {#if loading}
                             <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
                             <span>Signing in…</span>
@@ -343,10 +349,10 @@
                     </button>
                 </form>
 
-                <div class="mt-3 border-t border-border-subtle pt-3 text-center">
+                <div class="mt-2 border-t border-border-subtle pt-2 text-center">
                     <a
                         href="/"
-                        class="inline-flex items-center gap-1.5 text-sm font-medium text-text-muted transition-colors hover:text-gov-blue"
+                        class="inline-flex items-center gap-1.5 text-xs font-medium text-text-muted transition-colors hover:text-gov-blue"
                     >
                         <ArrowLeft size={16} strokeWidth={2} />
                         Back to home
@@ -355,7 +361,7 @@
                 </div>
             </div>
 
-            <p class="mt-3 flex items-center justify-center gap-2 text-xs text-text-muted">
+            <p class="mt-2 flex items-center justify-center gap-2 text-[0.68rem] text-text-muted">
                 <ShieldCheck size={14} strokeWidth={2} class="shrink-0 text-gov-blue" />
                 Accounts are issued by the Calapan East District Office.
             </p>
@@ -370,13 +376,43 @@
             radial-gradient(circle at 18% 18%, rgba(30, 64, 175, .08), transparent 30rem),
             linear-gradient(135deg, #f7f9fc 0%, #eef2f7 48%, #f8fafc 100%);
     }
+    .background-logos {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .bg-logo {
+        position: absolute;
+        width: clamp(8rem, 18vw, 15rem);
+        height: clamp(8rem, 18vw, 15rem);
+        object-fit: contain;
+        opacity: .11;
+        filter: saturate(.95);
+    }
+    .bg-logo-deped {
+        left: max(1rem, 4vw);
+        top: max(.75rem, 4vh);
+    }
+    .bg-logo-district {
+        left: 50%;
+        top: 50%;
+        width: clamp(12rem, 26vw, 21rem);
+        height: clamp(12rem, 26vw, 21rem);
+        opacity: .09;
+        transform: translate(-50%, -50%);
+    }
+    .bg-logo-division {
+        right: max(1rem, 4vw);
+        bottom: max(.75rem, 4vh);
+    }
     .login-identity {
-        min-height: 34rem;
+        min-height: 29rem;
         align-items: center;
         border: 1px solid var(--color-border-subtle);
         border-radius: 1rem;
-        background: var(--color-surface-white);
-        padding: 2.25rem;
+        background: rgba(255, 255, 255, .86);
+        padding: 1.65rem;
     }
     .login-seals {
         display: flex;
@@ -385,8 +421,8 @@
     }
     .seal-card {
         display: flex;
-        height: 4.35rem;
-        width: 4.35rem;
+        height: 3.85rem;
+        width: 3.85rem;
         align-items: center;
         justify-content: center;
         border: 1px solid var(--color-border-subtle);
@@ -395,8 +431,8 @@
         padding: .45rem;
     }
     .seal-card.is-primary {
-        height: 5rem;
-        width: 5rem;
+        height: 4.35rem;
+        width: 4.35rem;
         border-color: rgba(30, 64, 175, .28);
     }
     .seal-card img,
@@ -424,26 +460,42 @@
     .login-card-banner {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: .75rem;
+        gap: .55rem;
         border-bottom: 1px solid var(--color-border-subtle);
         background: linear-gradient(180deg, #ffffff, #f4f7fb);
-        padding: 1rem 1.25rem .85rem;
+        padding: .65rem 1rem .55rem;
     }
     .login-card-banner img {
-        max-height: 3.75rem;
+        max-height: 2.75rem;
         justify-self: center;
     }
     :global(.login-page .gov-input) {
-        min-height: 44px;
-        padding-block: .55rem;
+        min-height: 39px;
+        padding-block: .42rem;
+        font-size: .95rem;
+    }
+    :global(.login-page .gov-btn-primary) {
+        min-height: 42px;
     }
     @media (max-width: 640px) {
+        .login-page {
+            overflow-y: auto;
+        }
+        .bg-logo {
+            width: 7.5rem;
+            height: 7.5rem;
+            opacity: .08;
+        }
+        .bg-logo-district {
+            width: 12rem;
+            height: 12rem;
+        }
         .login-card-banner {
             gap: .45rem;
-            padding-inline: .85rem;
+            padding: .55rem .85rem .45rem;
         }
         .login-card-banner img {
-            max-height: 3.1rem;
+            max-height: 2.5rem;
         }
     }
 </style>
