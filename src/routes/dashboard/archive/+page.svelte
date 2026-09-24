@@ -13,6 +13,7 @@
     import { shareVerification } from "$lib/utils/shareIntegration";
     import { addToast } from "$lib/stores/toast";
     import { fly, fade } from "svelte/transition";
+    import { onMount } from "svelte";
     import {
         FolderOpen,
         FileText,
@@ -183,20 +184,35 @@
     // re-fetches scoped to whichever account is actually current instead of
     // being locked to whatever was true at the moment this page first mounted.
     let loadedForProfileId: string | null = null;
+    let loadRun = 0;
     $effect(() => {
         const currentId = $profile?.id ?? null;
         if (currentId && currentId !== loadedForProfileId) {
             loadedForProfileId = currentId;
+            const runId = ++loadRun;
             loading = true;
             allSubmissions = [];
             loadData().then(() => {
-                loading = false;
+                if (runId === loadRun) loading = false;
             });
         }
     });
 
+    onMount(() => {
+        const onRefresh = () => {
+            if (!$profile || document.hidden) return;
+            const runId = ++loadRun;
+            loadData().finally(() => {
+                if (runId === loadRun) loading = false;
+            });
+        };
+        window.addEventListener("cedims:refresh-visible-route", onRefresh);
+        return () => window.removeEventListener("cedims:refresh-visible-route", onRefresh);
+    });
+
     // â"€â"€ Data Fetching â"€â"€
     async function loadData() {
+        const runId = loadRun;
         loadError = null;
         const userProfile = $profile;
         if (!userProfile) return;
@@ -208,6 +224,7 @@
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
             const cached = await getCachedMetadata(`archive_state_${role}_${userProfile.id}`);
             if (cached?.data) {
+                if (runId !== loadRun) return;
                 allSubmissions = cached.data.submissions || [];
                 schoolsMap = cached.data.schoolsMap || {};
                 teachersMap = cached.data.teachersMap || {};
@@ -229,6 +246,7 @@
                 .eq("user_id", userProfile.id)
                 .eq("doc_type", "DLL")
                 .order("created_at", { ascending: false });
+            if (runId !== loadRun) return;
             allSubmissions = getRows<Submission>(data).filter((s) => s.user_id === userProfile.id);
         } else if (role === "Master Teacher") {
             if (!userProfile.school_id) return;
@@ -241,6 +259,7 @@
                 .eq("profiles.school_id", userProfile.school_id)
                 .in("doc_type", ["DLL", "ISP", "ISR"])
                 .order("created_at", { ascending: false });
+            if (runId !== loadRun) return;
 
             allSubmissions = getRows<Submission>(data)
                 .filter(s => canViewUploadedISPISR(
@@ -267,6 +286,7 @@
                 .eq("profiles.school_id", userProfile.school_id)
                 .in("doc_type", ["DLL", "ISP", "ISR"])
                 .order("created_at", { ascending: false });
+            if (runId !== loadRun) return;
 
             allSubmissions = getRows<Submission>(data)
                 .filter(s => canViewUploadedISPISR(
@@ -291,6 +311,7 @@
                 .from("schools")
                 .select("id, name, avatar_url")
                 .eq("district_id", userProfile.district_id);
+            if (runId !== loadRun) return;
 
             const schools = schoolsData || [];
             const sMap: Record<string, { label: string; avatar_url: string | null }> = {};
@@ -314,6 +335,7 @@
                 .in("profiles.school_id", schoolIds)
                 .in("doc_type", ["DLL", "ISP", "ISR"])
                 .order("created_at", { ascending: false });
+            if (runId !== loadRun) return;
 
             allSubmissions = getRows<Submission>(data).map((s) => {
                 const schoolInfo = sMap[s.uploader?.school_id || ""];

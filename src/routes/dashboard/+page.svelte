@@ -40,6 +40,11 @@
     } from "lucide-svelte";
     import { showQRScanner } from "$lib/stores/ui";
     import { connectivity } from "$lib/stores/connectivity";
+    import {
+        makeScopedCacheKey,
+        readLocalData,
+        writeLocalData,
+    } from "$lib/utils/localDataCache";
     import { getDocumentLabel } from "$lib/utils/documentLabels";
     const { isOnline: onlineStatus } = connectivity;
 
@@ -82,6 +87,8 @@
     // skip reloading while we are the ones applying a fix.
     let applyingFix = $state(false);
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    let loadRun = 0;
+    let loadedFromCache = $state(false);
 
     let sortField = $state<string>("created_at");
     let sortDir = $state<"asc" | "desc">("desc");
@@ -122,14 +129,18 @@
         return activityStatusClasses[status] || activityStatusClasses.pending;
     }
 
-    onMount(async () => {
-        try {
-            await loadDashboard();
-            setupRealtime();
-        } catch (err) {
-            console.error("[dashboard] Failed to load dashboard:", err);
-        }
-        loading = false;
+    onMount(() => {
+        void loadDashboard({ useCache: true });
+        setupRealtime();
+
+        const onRefresh = () => {
+            if (!document.hidden) scheduleReload();
+        };
+        window.addEventListener("cedims:refresh-visible-route", onRefresh);
+
+        return () => {
+            window.removeEventListener("cedims:refresh-visible-route", onRefresh);
+        };
     });
 
     onDestroy(() => {
@@ -142,7 +153,7 @@
     function scheduleReload() {
         if (reloadTimer) clearTimeout(reloadTimer);
         reloadTimer = setTimeout(() => {
-            loadDashboard().catch((err) => console.error("[dashboard] Realtime refresh failed:", err));
+            loadDashboard({ background: true }).catch((err) => console.error("[dashboard] Realtime refresh failed:", err));
         }, 500);
     }
 
@@ -191,15 +202,96 @@
             .subscribe();
     }
 
-    async function loadDashboard() {
+    type DashboardSnapshot = {
+        submissions: any[];
+        weeklyData: any[];
+        complianceStats: typeof complianceStats;
+        teachingLoadsCount: number;
+        activeTeachingLoads: any[];
+        academicCalendar: any[];
+        recentActivity: any[];
+        stats: typeof stats;
+        alerts: any[];
+        teacherCompliance: any[];
+        awaitingReview: any[];
+        schoolStandings: typeof schoolStandings;
+    };
+
+    function dashboardCacheKey(userProfile: any) {
+        return makeScopedCacheKey("dashboard_state", userProfile.role, userProfile.id);
+    }
+
+    function snapshotDashboard(): DashboardSnapshot {
+        return {
+            submissions,
+            weeklyData,
+            complianceStats,
+            teachingLoadsCount,
+            activeTeachingLoads,
+            academicCalendar,
+            recentActivity,
+            stats,
+            alerts,
+            teacherCompliance,
+            awaitingReview,
+            schoolStandings,
+        };
+    }
+
+    function applyDashboardSnapshot(snapshot: DashboardSnapshot) {
+        submissions = snapshot.submissions || [];
+        weeklyData = snapshot.weeklyData || [];
+        complianceStats = snapshot.complianceStats || complianceStats;
+        teachingLoadsCount = snapshot.teachingLoadsCount || 0;
+        activeTeachingLoads = snapshot.activeTeachingLoads || [];
+        academicCalendar = snapshot.academicCalendar || [];
+        recentActivity = snapshot.recentActivity || [];
+        stats = snapshot.stats || stats;
+        alerts = snapshot.alerts || [];
+        teacherCompliance = snapshot.teacherCompliance || [];
+        awaitingReview = snapshot.awaitingReview || [];
+        schoolStandings = snapshot.schoolStandings || [];
+    }
+
+    async function loadDashboard(options: { useCache?: boolean; background?: boolean } = {}) {
         const userProfile = $profile;
         if (!userProfile) return;
         const role = userProfile.role;
+        const runId = ++loadRun;
+        const cacheKey = dashboardCacheKey(userProfile);
 
-        if (role === "Teacher") {
-            await loadTeacherDashboard(userProfile);
-        } else {
-            await loadSupervisorDashboard(userProfile, role);
+        if (!options.background) loading = true;
+
+        if (options.useCache || !navigator.onLine) {
+            const cached = await readLocalData<DashboardSnapshot>(cacheKey);
+            if (cached?.data && runId === loadRun) {
+                applyDashboardSnapshot(cached.data);
+                loadedFromCache = true;
+                loading = false;
+                if (!navigator.onLine) return;
+            }
+        }
+
+        try {
+            if (role === "Teacher") {
+                await loadTeacherDashboard(userProfile);
+            } else {
+                await loadSupervisorDashboard(userProfile, role);
+            }
+            if (runId !== loadRun) return;
+            loadedFromCache = false;
+            await writeLocalData(cacheKey, snapshotDashboard());
+        } catch (err) {
+            console.error("[dashboard] Failed to load dashboard:", err);
+            if (runId === loadRun && submissions.length === 0) {
+                const cached = await readLocalData<DashboardSnapshot>(cacheKey, Number.POSITIVE_INFINITY);
+                if (cached?.data) {
+                    applyDashboardSnapshot(cached.data);
+                    loadedFromCache = true;
+                }
+            }
+        } finally {
+            if (runId === loadRun) loading = false;
         }
     }
 
@@ -687,13 +779,15 @@
          the existing silent failure honest. Without this, a fetch that
          fails offline leaves every stat at zero with no explanation,
          while the header's connectivity pill can be easy to miss. -->
-    {#if !loading && !$onlineStatus}
+    {#if !loading && (!$onlineStatus || loadedFromCache)}
         <div
             class="mb-6 flex items-center gap-2 rounded-lg border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm font-medium text-gov-gold-dark"
             role="status"
         >
             <WifiOff size={16} strokeWidth={2} class="flex-shrink-0" aria-hidden="true" />
-            You're offline, the figures below may be incomplete or out of date.
+            {loadedFromCache
+                ? "Showing locally saved dashboard data while the latest data loads."
+                : "You're offline, the figures below may be incomplete or out of date."}
         </div>
     {/if}
 

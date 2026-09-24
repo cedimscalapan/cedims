@@ -88,6 +88,7 @@
     const isMobile = isMobileDevice();
     let pendingItems = $state<any[]>([]);
     let showPendingPanel = $state(false);
+    let initialDataRun = 0;
 
     let showLoadPicker = $state(false);
     let showWeekPicker = $state(false);
@@ -257,6 +258,12 @@
         };
         window.addEventListener("online", onOnline);
         window.addEventListener("offline", onOffline);
+        const onRefresh = () => {
+            if ($profile && !processing) {
+                fetchInitialData($profile);
+            }
+        };
+        window.addEventListener("cedims:refresh-visible-route", onRefresh);
 
         // Handle files launched from OS (PWA File Handling API)
         if (
@@ -276,6 +283,7 @@
         return () => {
             window.removeEventListener("online", onOnline);
             window.removeEventListener("offline", onOffline);
+            window.removeEventListener("cedims:refresh-visible-route", onRefresh);
         };
     });
 
@@ -347,6 +355,7 @@
     });
 
     async function fetchInitialData(userProfile: Profile) {
+        const runId = ++initialDataRun;
         loadingTeachingLoads = true;
 
         let loads: TeachingLoad[] = [];
@@ -359,6 +368,7 @@
                 .order("subject, grade_level");
 
             if (!error && data) {
+                if (runId !== initialDataRun) return;
                 loads = data;
                 cacheMetadata(`teaching_loads_${userProfile.id}`, data);
             } else if (error) {
@@ -374,6 +384,7 @@
                 `teaching_loads_${userProfile.id}`,
             );
             if (cached?.data) {
+                if (runId !== initialDataRun) return;
                 loads = cached.data;
                 console.log("[upload] Using cached teaching loads");
             }
@@ -402,6 +413,7 @@
             const cacheKey = `calendar_open_${userProfile.district_id}`;
             const cachedCal = await getCachedMetadata(cacheKey);
             if (cachedCal?.data) {
+                if (runId !== initialDataRun) return;
                 calendarEntries = (cachedCal.data as any[]).filter(
                     (w) => w.is_active === true,
                 );
@@ -419,6 +431,7 @@
                     .order("week_number", { ascending: true });
 
                 if (!error && data) {
+                    if (runId !== initialDataRun) return;
                     calendarEntries = data;
                     academicWeeks = data.map((w) => w.week_number);
                     cacheMetadata(cacheKey, data);
@@ -470,7 +483,7 @@
             }
         }
 
-        loadingTeachingLoads = false;
+        if (runId === initialDataRun) loadingTeachingLoads = false;
     }
 
     function mapTeachingLoad(metadata: Partial<DocMetadata>): string {

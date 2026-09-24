@@ -13,6 +13,7 @@
     import { theme } from "$lib/stores/theme";
     import { connectivity } from "$lib/stores/connectivity";
     import { goto } from "$app/navigation";
+    import { afterNavigate, beforeNavigate } from "$app/navigation";
     import { onMount } from "svelte";
 
     let { children } = $props();
@@ -26,11 +27,49 @@
 
     // WBS 20.3 & 20.4 — Proactive caching for full offline functionality
     let prefetchDone = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function requestVisibleRouteRefresh(reason: "focus" | "visible" | "navigate") {
+        if (typeof window === "undefined") return;
+        if (!navigator.onLine && reason !== "navigate") return;
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(() => {
+            window.dispatchEvent(
+                new CustomEvent("cedims:refresh-visible-route", {
+                    detail: { reason, requestedAt: Date.now() },
+                }),
+            );
+        }, 180);
+    }
 
     onMount(() => {
         theme.init(); // Apply saved theme
         settings.init(); // Initialize real-time settings
         connectivity.init(); // Track online/offline + pending sync queue globally
+
+        const onFocus = () => requestVisibleRouteRefresh("focus");
+        const onVisibility = () => {
+            if (document.visibilityState === "visible") {
+                requestVisibleRouteRefresh("visible");
+            }
+        };
+
+        window.addEventListener("focus", onFocus);
+        document.addEventListener("visibilitychange", onVisibility);
+
+        return () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            window.removeEventListener("focus", onFocus);
+            document.removeEventListener("visibilitychange", onVisibility);
+        };
+    });
+
+    beforeNavigate(() => {
+        if (refreshTimer) clearTimeout(refreshTimer);
+    });
+
+    afterNavigate(() => {
+        requestVisibleRouteRefresh("navigate");
     });
 
     // Reactive prefetch: triggers as soon as profile is available
