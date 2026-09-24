@@ -159,24 +159,62 @@
 </svelte:head>
 
 <div class="login-page min-h-dvh bg-surface-muted">
-    <!-- Form panel -->
-    <main class="mx-auto flex w-full max-w-[410px] flex-col px-4 py-3 sm:py-4">
-        <!-- Compact brand row shared by desktop and mobile. -->
-        <a href="/" class="mb-3 flex items-center gap-2.5">
-            <img src="/app_icon.png" alt="" class="h-8 w-8 rounded-lg" />
-            <span>
-                <span class="block text-sm font-semibold leading-tight text-text-primary">CEDIMS</span>
-                <span class="block text-xs font-semibold uppercase leading-tight tracking-[0.22em] text-gov-blue">
-                    Instructional Monitoring
-                </span>
-            </span>
-        </a>
+    <main class="mx-auto grid min-h-dvh w-full max-w-6xl items-center gap-6 px-4 py-5 lg:grid-cols-[0.95fr_1fr] lg:px-8">
+        <section class="login-identity hidden lg:flex">
+            <div class="space-y-7">
+                <div class="login-seals" aria-label="Institutional logos">
+                    <div class="seal-card">
+                        <img src="/deped-official.png" alt="Department of Education logo" />
+                    </div>
+                    <div class="seal-card is-primary">
+                        <img src="/deped-calapan-east-district.jpg" alt="Calapan East District logo" />
+                    </div>
+                    <div class="seal-card">
+                        <img src="/deped-calapan.jpg" alt="Schools Division of Calapan City logo" />
+                    </div>
+                </div>
 
-        <div class="mx-auto w-full max-w-md">
-            <div class="login-card rounded-2xl border border-border-subtle bg-surface-white p-4 sm:p-5">
-                <div class="mb-3">
-                    <h1 class="text-xl font-bold tracking-tight text-text-primary">Sign in to CEDIMS</h1>
-                    <p class="mt-1 text-xs text-text-secondary">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.22em] text-gov-gold-dark">Calapan East District</p>
+                    <h1 class="mt-3 max-w-[13ch] text-4xl font-extrabold leading-tight text-text-primary">
+                        CEDIMS
+                    </h1>
+                    <p class="mt-3 max-w-md text-base leading-7 text-text-secondary">
+                        A secure instructional monitoring system for Daily Lesson Plan submission, review, archive, and compliance tracking.
+                    </p>
+                </div>
+
+                <div class="identity-strip">
+                    <span>DepEd</span>
+                    <span>Schools Division of Calapan City</span>
+                    <span>Calapan East District</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="mx-auto flex w-full max-w-[440px] flex-col">
+            <a href="/" class="mb-4 flex items-center justify-center gap-2.5 lg:hidden">
+                <img src="/app_icon.png" alt="" class="h-8 w-8 rounded-lg" />
+                <span>
+                    <span class="block text-sm font-semibold leading-tight text-text-primary">CEDIMS</span>
+                    <span class="block text-xs font-semibold uppercase leading-tight tracking-[0.18em] text-gov-blue">
+                        Instructional Monitoring
+                    </span>
+                </span>
+            </a>
+
+            <div class="login-card overflow-hidden rounded-2xl border border-border-subtle bg-surface-white">
+                <div class="login-card-banner">
+                    <img src="/deped-official.png" alt="Department of Education logo" />
+                    <img src="/deped-calapan-east-district.jpg" alt="Calapan East District logo" />
+                    <img src="/deped-calapan.jpg" alt="Schools Division of Calapan City logo" />
+                </div>
+
+                <div class="p-4 sm:p-5">
+                <div class="mb-4 text-center">
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-gov-blue">Calapan East District</p>
+                    <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-text-primary">Sign in to CEDIMS</h1>
+                    <p class="mt-1 text-sm text-text-secondary">
                         Use the DepEd account issued to you by the District Office.
                     </p>
                 </div>
@@ -314,21 +352,98 @@
                         Back to home
                     </a>
                 </div>
+                </div>
             </div>
 
             <p class="mt-3 flex items-center justify-center gap-2 text-xs text-text-muted">
                 <ShieldCheck size={14} strokeWidth={2} class="shrink-0 text-gov-blue" />
                 Accounts are issued by the Calapan East District Office.
             </p>
-        </div>
+        </section>
     </main>
 </div>
 
 <style>
     .login-page { font-family: var(--font-family-sans, "Segoe UI", sans-serif); }
-    .login-card { border-top: 3px solid var(--color-gov-blue); }
+    .login-page {
+        background:
+            radial-gradient(circle at 18% 18%, rgba(30, 64, 175, .08), transparent 30rem),
+            linear-gradient(135deg, #f7f9fc 0%, #eef2f7 48%, #f8fafc 100%);
+    }
+    .login-identity {
+        min-height: 34rem;
+        align-items: center;
+        border: 1px solid var(--color-border-subtle);
+        border-radius: 1rem;
+        background: var(--color-surface-white);
+        padding: 2.25rem;
+    }
+    .login-seals {
+        display: flex;
+        align-items: center;
+        gap: .85rem;
+    }
+    .seal-card {
+        display: flex;
+        height: 4.35rem;
+        width: 4.35rem;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--color-border-subtle);
+        border-radius: .75rem;
+        background: #fff;
+        padding: .45rem;
+    }
+    .seal-card.is-primary {
+        height: 5rem;
+        width: 5rem;
+        border-color: rgba(30, 64, 175, .28);
+    }
+    .seal-card img,
+    .login-card-banner img {
+        height: 100%;
+        width: 100%;
+        object-fit: contain;
+        border-radius: .35rem;
+    }
+    .identity-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+    }
+    .identity-strip span {
+        border: 1px solid var(--color-border-subtle);
+        border-radius: .5rem;
+        background: var(--color-surface-muted);
+        padding: .5rem .65rem;
+        font-size: .75rem;
+        font-weight: 750;
+        color: var(--color-text-secondary);
+    }
+    .login-card { box-shadow: 0 18px 42px rgba(15, 23, 42, .08); }
+    .login-card-banner {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: .75rem;
+        border-bottom: 1px solid var(--color-border-subtle);
+        background: linear-gradient(180deg, #ffffff, #f4f7fb);
+        padding: 1rem 1.25rem .85rem;
+    }
+    .login-card-banner img {
+        max-height: 3.75rem;
+        justify-self: center;
+    }
     :global(.login-page .gov-input) {
         min-height: 44px;
         padding-block: .55rem;
+    }
+    @media (max-width: 640px) {
+        .login-card-banner {
+            gap: .45rem;
+            padding-inline: .85rem;
+        }
+        .login-card-banner img {
+            max-height: 3.1rem;
+        }
     }
 </style>
