@@ -228,52 +228,52 @@
         data-tour="chatbot"
         onclick={() => (isOpen = true)}
         transition:scale={{ duration: 150, start: 0.85 }}
-        class="fixed right-6 z-50 w-14 h-14 bg-surface-white rounded-full shadow-md border border-border-subtle flex items-center justify-center transition-[color,background-color,border-color,transform] duration-200 ease-out hover:scale-105 hover:border-border-strong active:scale-95 {inDashboard
+        class="fixed right-5 z-50 w-12 h-12 bg-surface-white rounded-full shadow-md border border-border-subtle flex items-center justify-center transition-[color,background-color,border-color,transform] duration-200 ease-out hover:scale-105 hover:border-border-strong active:scale-95 {inDashboard
             ? 'bottom-24'
-            : 'bottom-6'}"
+            : 'bottom-5'}"
         aria-label="Open Gabay, the CEDIMS chat assistant"
     >
-        <GabayMascot size={56} />
+        <GabayMascot size={48} />
     </button>
 {:else}
     <!-- Chat window. Not aria-modal: the page behind it stays usable, and
          claiming otherwise hides the rest of the app from screen readers. -->
     <div
         transition:fly={{ y: 24, duration: 200, opacity: 0 }}
-        class="fixed z-50 flex flex-col overflow-hidden rounded-[1.1rem] border border-border-subtle bg-surface-white shadow-xl transition-colors duration-200 inset-x-4 sm:inset-x-auto sm:right-6 sm:w-[22.5rem] h-[min(28rem,calc(100dvh-6rem))] {inDashboard
+        class="fixed z-50 flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-white shadow-xl transition-colors duration-200 inset-x-3 sm:inset-x-auto sm:right-5 sm:w-[19.5rem] h-[min(24rem,calc(100dvh-6rem))] {inDashboard
             ? 'bottom-24'
-            : 'bottom-6'}"
+            : 'bottom-5'}"
         role="dialog"
         aria-label="Gabay chat assistant"
     >
         <!-- Header -->
-        <div class="bg-gov-blue text-white px-3.5 py-2.5 flex items-center justify-between gap-2 shrink-0">
-            <div class="flex items-center gap-3 min-w-0">
-                <div class="relative w-9 h-9 rounded-full flex items-center justify-center shrink-0 overflow-hidden bg-white/12 ring-1 ring-white/20">
-                    <GabayMascot size={36} wave={false} />
-                    <span class="absolute -bottom-0 -right-0 w-2.5 h-2.5 rounded-full bg-gov-green border-2 border-gov-blue" aria-hidden="true"></span>
+        <div class="bg-gov-blue text-white px-3 py-2 flex items-center justify-between gap-2 shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
+                <div class="relative w-8 h-8 rounded-full flex items-center justify-center shrink-0 overflow-hidden bg-white/12 ring-1 ring-white/20">
+                    <GabayMascot size={32} wave={false} />
+                    <span class="absolute -bottom-0 -right-0 w-2 h-2 rounded-full bg-gov-green border-2 border-gov-blue" aria-hidden="true"></span>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-sm font-extrabold leading-tight">Gabay</p>
-                    <p class="text-xs leading-tight text-white/85">CEDIMS assistant · live data</p>
+                    <p class="text-[0.82rem] font-extrabold leading-tight">Gabay</p>
+                    <p class="text-[0.68rem] leading-tight text-white/85">CEDIMS assistant</p>
                 </div>
             </div>
             <div class="flex items-center gap-0.5 shrink-0">
                 <button
                     onclick={resetChat}
                     disabled={messages.length <= 1}
-                    class="hover:bg-surface-white/20 rounded-full p-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    class="hover:bg-surface-white/20 rounded-full p-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     aria-label="Start a new conversation"
                     title="Start a new conversation"
                 >
-                    <RefreshCw size={16} />
+                    <RefreshCw size={14} />
                 </button>
                 <button
                     onclick={closePanel}
-                    class="hover:bg-surface-white/20 rounded-full p-2 transition-colors"
+                    class="hover:bg-surface-white/20 rounded-full p-1.5 transition-colors"
                     aria-label="Close chat"
                 >
-                    <X size={18} />
+                    <X size={16} />
                 </button>
             </div>
         </div>
@@ -285,7 +285,7 @@
             role="log"
             aria-live="polite"
             aria-label="Conversation"
-            class="cedims-scroll flex-1 overflow-y-auto p-3 space-y-2.5 bg-[#eef1f5] scroll-smooth"
+            class="cedims-scroll flex-1 overflow-y-auto p-2.5 space-y-2 bg-[#eef1f5] scroll-smooth"
         >
             {#each messages as msg, i (i)}
                 <div
@@ -293,12 +293,12 @@
                     class="flex {msg.role === 'user' ? 'justify-end' : 'justify-start'}"
                 >
                     {#if msg.role === 'bot'}
-                        <div class="flex items-start gap-2 max-w-[88%] min-w-0">
-                            <div class="w-7 h-7 border border-border-subtle rounded-full bg-surface-white flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
-                                <GabayMascot size={28} wave={false} />
+                        <div class="flex items-start gap-1.5 max-w-[90%] min-w-0">
+                            <div class="w-6 h-6 border border-border-subtle rounded-full bg-surface-white flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
+                                <GabayMascot size={24} wave={false} />
                             </div>
-                            <div class="min-w-0 flex flex-col gap-2">
-                                <div class="bg-surface-white border border-border-subtle rounded-2xl rounded-tl-md px-3.5 py-2.5 text-sm text-text-primary leading-relaxed shadow-sm whitespace-pre-line">
+                            <div class="min-w-0 flex flex-col gap-1.5">
+                                <div class="bg-surface-white border border-border-subtle rounded-xl rounded-tl-md px-3 py-2 text-[0.82rem] text-text-primary leading-relaxed shadow-sm whitespace-pre-line">
                                     <span class="sr-only">Gabay said: </span>{msg.text}
                                 </div>
                                 {#if msg.attachments?.length}
@@ -307,15 +307,15 @@
                                             <button
                                                 type="button"
                                                 onclick={() => downloadAttachment(att)}
-                                                class="flex items-center gap-2 bg-surface-white border border-border-subtle rounded-xl px-3 py-2 text-xs font-semibold text-text-primary hover:border-gov-blue/40 hover:bg-gov-blue/5 transition-colors text-left shadow-sm"
+                                                class="flex items-center gap-2 bg-surface-white border border-border-subtle rounded-lg px-2.5 py-1.5 text-[0.72rem] font-semibold text-text-primary hover:border-gov-blue/40 hover:bg-gov-blue/5 transition-colors text-left shadow-sm"
                                             >
                                                 {#if att.fileName.endsWith('.xlsx')}
-                                                    <FileSpreadsheet size={16} class="text-gov-green shrink-0" />
+                            <FileSpreadsheet size={14} class="text-gov-green shrink-0" />
                                                 {:else}
-                                                    <FileText size={16} class="text-gov-blue shrink-0" />
+                                                    <FileText size={14} class="text-gov-blue shrink-0" />
                                                 {/if}
                                                 <span class="truncate flex-1 min-w-0">{att.fileName}</span>
-                                                <Download size={14} class="shrink-0 text-text-muted" />
+                                                <Download size={13} class="shrink-0 text-text-muted" />
                                             </button>
                                         {/each}
                                     </div>
@@ -323,7 +323,7 @@
                             </div>
                         </div>
                     {:else}
-                        <div class="bg-gov-blue text-white rounded-2xl rounded-tr-md px-3.5 py-2.5 text-sm leading-relaxed max-w-[82%] shadow-sm">
+                        <div class="bg-gov-blue text-white rounded-xl rounded-tr-md px-3 py-2 text-[0.82rem] leading-relaxed max-w-[84%] shadow-sm">
                             <span class="sr-only">You said: </span>{msg.text}
                         </div>
                     {/if}
@@ -333,10 +333,10 @@
             {#if isLoading}
                 <div class="flex justify-start">
                     <div class="flex items-start gap-2 max-w-[85%]">
-                        <div class="w-7 h-7 border border-border-subtle rounded-full bg-surface-white flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
-                            <GabayMascot size={28} wave={false} />
+                        <div class="w-6 h-6 border border-border-subtle rounded-full bg-surface-white flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
+                            <GabayMascot size={24} wave={false} />
                         </div>
-                        <div class="bg-surface-white border border-border-subtle rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+                        <div class="bg-surface-white border border-border-subtle rounded-xl rounded-tl-sm px-3 py-2.5 shadow-sm">
                             <span class="sr-only">Gabay is typing…</span>
                             <div class="flex gap-1" aria-hidden="true">
                                 <span class="w-1.5 h-1.5 bg-gov-blue/60 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
@@ -351,14 +351,14 @@
             <!-- Suggestions on first message -->
             {#if messages.length === 1 || messages.at(-1)?.outOfScope}
                 <div class="mt-3">
-                    <p class="text-xs text-text-muted font-bold uppercase tracking-normal mb-2">
+                    <p class="text-[0.68rem] text-text-muted font-bold uppercase tracking-normal mb-1.5">
                         {messages.at(-1)?.outOfScope ? 'Try one of these CEDIMS questions:' : 'Try asking:'}
                     </p>
                     <div class="flex flex-wrap gap-1.5">
                         {#each suggestionsForRole() as s}
                             <button
                                 onclick={() => applySuggestion(s)}
-                                class="text-xs bg-surface-white border border-border-subtle rounded-full px-3 py-2 font-semibold text-text-secondary hover:bg-gov-blue/5 hover:border-gov-blue/30 hover:text-gov-blue transition-colors shadow-sm"
+                                class="text-[0.72rem] bg-surface-white border border-border-subtle rounded-full px-2.5 py-1.5 font-semibold text-text-secondary hover:bg-gov-blue/5 hover:border-gov-blue/30 hover:text-gov-blue transition-colors shadow-sm"
                             >
                                 {s}
                             </button>
@@ -369,8 +369,8 @@
         </div>
 
         <!-- Input -->
-        <div class="px-3 py-2.5 border-t border-border-subtle bg-surface-white shrink-0">
-            <div class="flex items-center gap-2 bg-surface-muted rounded-2xl border border-border-subtle px-3 py-1.5 focus-within:border-gov-blue/50 focus-within:bg-surface-white transition-colors">
+        <div class="px-2.5 py-2 border-t border-border-subtle bg-surface-white shrink-0">
+            <div class="flex items-center gap-1.5 bg-surface-muted rounded-xl border border-border-subtle px-2.5 py-1 focus-within:border-gov-blue/50 focus-within:bg-surface-white transition-colors">
                 <label for="gabay-input" class="sr-only">Ask Gabay a question</label>
                 <input
                     id="gabay-input"
@@ -381,15 +381,15 @@
                     placeholder="Ask a question…"
                     enterkeyhint="send"
                     autocomplete="off"
-                    class="flex-1 rounded-md bg-transparent text-[0.95rem] text-text-primary outline-none placeholder:text-text-muted focus-visible:ring-2 focus-visible:ring-gov-blue/30"
+                    class="flex-1 rounded-md bg-transparent text-[0.86rem] text-text-primary outline-none placeholder:text-text-muted focus-visible:ring-2 focus-visible:ring-gov-blue/30"
                 />
                 <button
                     onclick={handleSend}
                     disabled={!inputText.trim() || isLoading}
-                    class="p-2 rounded-full text-gov-blue hover:bg-gov-blue/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    class="p-1.5 rounded-full text-gov-blue hover:bg-gov-blue/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     aria-label="Send message"
                 >
-                    <Send size={16} />
+                    <Send size={15} />
                 </button>
             </div>
         </div>
