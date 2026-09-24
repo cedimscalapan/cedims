@@ -7,6 +7,7 @@ export interface CachedPayload<T> {
 }
 
 const DEFAULT_MAX_AGE = 5 * 60 * 1000;
+const CACHE_VERSION = "v2";
 
 export async function readLocalData<T>(
     key: string,
@@ -32,5 +33,5 @@ export function makeScopedCacheKey(
     role: string | null | undefined,
     userId: string | null | undefined,
 ): string {
-    return `${scope}_${role || "unknown"}_${userId || "anonymous"}`;
+    return `${CACHE_VERSION}_${scope}_${role || "unknown"}_${userId || "anonymous"}`;
 }

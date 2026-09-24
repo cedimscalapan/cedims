@@ -558,20 +558,27 @@ a {
 
 .cedims-back-button {
   align-items: center;
-  background: linear-gradient(180deg, #f8fbff, #e9eef4);
-  border: 1px solid rgba(148, 163, 184, .35);
-  border-radius: 999px;
+  background: var(--color-surface-white);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
   box-shadow: none;
-  color: #343a40;
+  color: var(--color-text-primary);
   display: inline-flex;
-  height: 3.25rem;
+  gap: .45rem;
+  font-size: .875rem;
+  font-weight: 750;
   justify-content: center;
-  min-height: 3.25rem;
-  width: 3.25rem;
+  min-height: 2.75rem;
+  padding: .625rem .9rem;
+  transition: background-color var(--duration-popover) var(--ease-out),
+    border-color var(--duration-popover) var(--ease-out),
+    color var(--duration-popover) var(--ease-out);
+  width: auto;
 }
 
 .cedims-back-button:hover {
-  background: linear-gradient(180deg, #ffffff, #eef2f7);
+  background: var(--color-surface-muted);
+  border-color: var(--color-border-strong);
   color: var(--color-gov-blue);
 }
 

@@ -5,6 +5,11 @@
     import { profile } from "$lib/utils/auth";
     import { supabase } from "$lib/utils/supabase";
     import {
+        makeScopedCacheKey,
+        readLocalData,
+        writeLocalData,
+    } from "$lib/utils/localDataCache";
+    import {
         calculateCompliance,
         getCurrentWeekFromCalendar,
         getDefinedWeeksCount,
@@ -75,17 +80,21 @@
     let clusterTeachers = $state<any[]>([]);
     let clusterSubmissions = $state<any[]>([]);
     let clusterWeeks = $state(1);
+    let loadedFromCache = $state(false);
     let search = $state("");
     let statusFilter = $state("all");
     let weekFilter = $state("all");
     let sortField = $state<keyof TeacherRow>("name");
     let sortDir = $state<"asc" | "desc">("asc");
     let currentPage = $state(1);
+    let schoolPage = $state(1);
     let currentWeek = $state(1);
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let loadRun = 0;
 
     const pageSize = 8;
+    const schoolPageSize = 9;
 
     const visibleTeacherRows = $derived.by(() => {
         if (mode !== "district" || !selectedSchoolId) return teacherRows;
@@ -127,10 +136,13 @@
     });
 
     const totalPages = $derived(Math.max(1, Math.ceil(filteredRows.length / pageSize)));
+    const totalSchoolPages = $derived(Math.max(1, Math.ceil(schoolRows.length / schoolPageSize)));
     $effect(() => {
         if (currentPage > totalPages) currentPage = totalPages;
+        if (schoolPage > totalSchoolPages) schoolPage = totalSchoolPages;
     });
     const pageRows = $derived(filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize));
+    const pageSchoolRows = $derived(schoolRows.slice((schoolPage - 1) * schoolPageSize, schoolPage * schoolPageSize));
 
     const statCards = $derived([
         { label: "Compliant", value: (mode === "district" && !selectedSchoolId ? districtSummary : summary).compliant, icon: CheckCircle2, tone: "text-gov-green", bg: "bg-gov-green/10" },
@@ -140,8 +152,8 @@
         { label: "Checked", value: (mode === "district" && !selectedSchoolId ? districtSummary : summary).checked, icon: FileCheck2, tone: "text-gov-green", bg: "bg-gov-green/10" },
     ]);
 
-    onMount(async () => {
-        await loadCompliance();
+    onMount(() => {
+        void loadCompliance({ useCache: true });
         realtimeChannel = supabase
             .channel("compliance-monitoring-live")
             .on("postgres_changes", { event: "*", schema: "public", table: "submissions" }, queueRefresh)
@@ -149,6 +161,15 @@
             .on("postgres_changes", { event: "*", schema: "public", table: "teaching_loads" }, queueRefresh)
             .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, queueRefresh)
             .subscribe();
+
+        const onRefresh = () => {
+            if (!document.hidden) queueRefresh();
+        };
+        window.addEventListener("cedims:refresh-visible-route", onRefresh);
+
+        return () => {
+            window.removeEventListener("cedims:refresh-visible-route", onRefresh);
+        };
     });
 
     onDestroy(() => {
@@ -159,32 +180,111 @@
     function queueRefresh() {
         if (refreshTimer) clearTimeout(refreshTimer);
         refreshTimer = setTimeout(() => {
-            loadCompliance();
+            loadCompliance({ background: true });
             refreshTimer = null;
         }, 350);
     }
 
-    async function loadCompliance() {
+    type ComplianceSnapshot = {
+        mode: ScopeMode;
+        teacherRows: TeacherRow[];
+        schoolRows: SchoolRow[];
+        selectedSchoolId: string | null;
+        selectedSchoolName: string | null;
+        clusterSummaries: ClusterSummary[];
+        canShowClusters: boolean;
+        clusterTeachers: any[];
+        clusterSubmissions: any[];
+        clusterWeeks: number;
+        currentWeek: number;
+    };
+
+    function complianceCacheKey(userProfile: any) {
+        const scopeId = userProfile.role === "District Supervisor"
+            ? userProfile.district_id
+            : userProfile.school_id;
+        return makeScopedCacheKey(
+            `compliance_state_${scopeId || "unscoped"}_${getDynamicSchoolYear()}`,
+            userProfile.role,
+            userProfile.id,
+        );
+    }
+
+    function snapshotCompliance(): ComplianceSnapshot {
+        return {
+            mode,
+            teacherRows,
+            schoolRows,
+            selectedSchoolId,
+            selectedSchoolName,
+            clusterSummaries,
+            canShowClusters,
+            clusterTeachers,
+            clusterSubmissions,
+            clusterWeeks,
+            currentWeek,
+        };
+    }
+
+    function applyComplianceSnapshot(snapshot: ComplianceSnapshot) {
+        mode = snapshot.mode;
+        teacherRows = snapshot.teacherRows || [];
+        schoolRows = snapshot.schoolRows || [];
+        selectedSchoolId = snapshot.selectedSchoolId || null;
+        selectedSchoolName = snapshot.selectedSchoolName || null;
+        clusterSummaries = snapshot.clusterSummaries || [];
+        canShowClusters = Boolean(snapshot.canShowClusters);
+        clusterTeachers = snapshot.clusterTeachers || [];
+        clusterSubmissions = snapshot.clusterSubmissions || [];
+        clusterWeeks = snapshot.clusterWeeks || 1;
+        currentWeek = snapshot.currentWeek || 1;
+    }
+
+    async function loadCompliance(options: { useCache?: boolean; background?: boolean } = {}) {
         const userProfile = $profile;
         if (!userProfile || !["Master Teacher", "School Head", "District Supervisor"].includes(userProfile.role || "")) {
             loadError = "Compliance Monitoring is available to supervisors.";
             loading = false;
             return;
         }
+        const runId = ++loadRun;
+        const cacheKey = complianceCacheKey(userProfile);
 
-        loading = true;
+        if (!options.background) loading = true;
         loadError = null;
+
+        if (options.useCache || !navigator.onLine) {
+            const cached = await readLocalData<ComplianceSnapshot>(cacheKey);
+            if (cached?.data && runId === loadRun) {
+                applyComplianceSnapshot(cached.data);
+                loadedFromCache = true;
+                loading = false;
+                if (!navigator.onLine) return;
+            }
+        }
 
         try {
             mode = userProfile.role === "District Supervisor" ? "district" : "school";
             if (mode === "district") await loadDistrictCompliance(userProfile);
             else await loadSchoolCompliance(userProfile);
+            if (runId !== loadRun) return;
+            loadedFromCache = false;
+            await writeLocalData(cacheKey, snapshotCompliance());
         } catch (err) {
             console.error("[compliance-monitoring] load failed", err);
-            loadError = "Failed to load compliance monitoring data. Please try again.";
-            addToast("error", loadError);
+            if (runId === loadRun) {
+                const cached = await readLocalData<ComplianceSnapshot>(cacheKey, Number.POSITIVE_INFINITY);
+                if (cached?.data) {
+                    applyComplianceSnapshot(cached.data);
+                    loadedFromCache = true;
+                    loadError = null;
+                } else {
+                    loadError = "Failed to load compliance monitoring data. Please try again.";
+                    addToast("error", loadError);
+                }
+            }
         } finally {
-            loading = false;
+            if (runId === loadRun) loading = false;
         }
     }
 
@@ -397,6 +497,7 @@
         statusFilter = "all";
         weekFilter = "all";
         currentPage = 1;
+        schoolPage = 1;
         buildClustersForSchool(school.id);
     }
 
@@ -407,6 +508,7 @@
         statusFilter = "all";
         weekFilter = "all";
         currentPage = 1;
+        schoolPage = 1;
         buildClusters(clusterTeachers, clusterSubmissions, clusterWeeks);
     }
 </script>
@@ -427,15 +529,25 @@
 {:else if loadError}
     <div class="gov-card-static p-8 text-center">
         <p class="font-semibold text-text-primary">{loadError}</p>
-        <button class="mt-4 rounded-lg bg-gov-blue px-4 py-2 text-sm font-bold text-white" onclick={loadCompliance}>
+        <button class="mt-4 rounded-lg bg-gov-blue px-4 py-2 text-sm font-bold text-white" onclick={() => loadCompliance({ useCache: true })}>
             Try Again
         </button>
     </div>
 {:else}
     <div class="space-y-5">
+        {#if loadedFromCache}
+            <div
+                class="flex items-center gap-2 rounded-lg border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm font-medium text-gov-gold-dark"
+                role="status"
+            >
+                Showing locally saved compliance data while the latest data loads.
+            </div>
+        {/if}
+
         {#if mode === "district" && selectedSchoolId}
             <button class="cedims-back-button" onclick={closeSchool} aria-label="Back to schools" title="Back to Schools">
                 <ArrowLeft size={16} />
+                Schools
             </button>
         {/if}
 
@@ -491,10 +603,12 @@
                         <Users size={18} class="text-gov-blue" />
                         <h2 class="text-sm font-bold uppercase tracking-normal text-text-primary">School Compliance</h2>
                     </div>
-                    <p class="text-xs font-bold uppercase tracking-normal text-text-muted">{schoolRows.length} schools</p>
+                    <p class="text-xs font-bold uppercase tracking-normal text-text-muted">
+                        Showing {schoolRows.length === 0 ? 0 : (schoolPage - 1) * schoolPageSize + 1}-{Math.min(schoolPage * schoolPageSize, schoolRows.length)} of {schoolRows.length} schools
+                    </p>
                 </div>
                 <div class="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-                    {#each schoolRows as school}
+                    {#each pageSchoolRows as school}
                         <button class="rounded-lg border border-border-subtle bg-surface-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-gov-blue/40 hover:shadow-md" onclick={() => openSchool(school)}>
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
@@ -516,6 +630,22 @@
                         <div class="col-span-full p-8 text-center text-sm text-text-muted">No schools available.</div>
                     {/each}
                 </div>
+                {#if totalSchoolPages > 1}
+                    <div class="cedims-pagination-shell border-t border-border-subtle bg-surface-muted px-4 py-3">
+                        <p class="text-sm text-text-muted">
+                            Showing {(schoolPage - 1) * schoolPageSize + 1}&ndash;{Math.min(schoolPage * schoolPageSize, schoolRows.length)} of {schoolRows.length} schools
+                        </p>
+                        <div class="cedims-pagination">
+                            <button class="cedims-page-button" disabled={schoolPage <= 1} onclick={() => (schoolPage = Math.max(1, schoolPage - 1))}>
+                                Previous
+                            </button>
+                            <span class="cedims-page-indicator">{schoolPage} / {totalSchoolPages}</span>
+                            <button class="cedims-page-button is-next" disabled={schoolPage >= totalSchoolPages} onclick={() => (schoolPage = Math.min(totalSchoolPages, schoolPage + 1))}>
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                {/if}
             </section>
         {:else}
             <section class="gov-card-static overflow-hidden">

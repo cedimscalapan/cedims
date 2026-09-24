@@ -115,7 +115,11 @@
     </div>
 
     {#if totalPages > 1}
-        <div class="cedims-pagination-shell pt-1">
+        <div class="cedims-pagination-shell mt-1 rounded-xl border border-border-subtle bg-surface-white px-4 py-3 shadow-sm">
+            <p class="text-sm text-text-muted">
+                Showing {(page - 1) * pageSize + 1}&ndash;{Math.min(page * pageSize, items.length)} of {items.length} records
+            </p>
+            <div class="cedims-pagination">
             <button
                 type="button"
                 onclick={() => (page = Math.max(1, page - 1))}
@@ -124,9 +128,7 @@
             >
                 Previous
             </button>
-            <div class="cedims-pagination">
-                <span class="cedims-page-indicator">{page} / {totalPages}</span>
-            </div>
+            <span class="cedims-page-indicator">{page} / {totalPages}</span>
             <button
                 type="button"
                 onclick={() => (page = Math.min(totalPages, page + 1))}
@@ -135,6 +137,7 @@
             >
                 Next
             </button>
+            </div>
         </div>
     {/if}
 </div>

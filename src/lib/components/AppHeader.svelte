@@ -1,11 +1,12 @@
 <script lang="ts">
     import NotificationCenter from "./NotificationCenter.svelte";
+    import MobileDrawer from "./MobileDrawer.svelte";
     import { profile, signOut } from "$lib/utils/auth";
     import { theme } from "$lib/stores/theme";
     import { connectivity } from "$lib/stores/connectivity";
     import { goto } from "$app/navigation";
     import { page } from "$app/stores";
-    import { Sun, Moon, LogOut, WifiOff, RefreshCw, QrCode, Settings } from "lucide-svelte";
+    import { Sun, Moon, LogOut, WifiOff, RefreshCw, QrCode, Settings, Menu } from "lucide-svelte";
     import { focusTrap } from "$lib/actions/focusTrap";
     import { getNavItemsForRole } from "$lib/config/navigation";
     import { showQRScanner } from "$lib/stores/ui";
@@ -27,6 +28,7 @@
     }
 
     let profileMenuOpen = $state(false);
+    let mobileDrawerOpen = $state(false);
     let profileMenuRef: HTMLDivElement | undefined = $state();
     let profileMenuDropdown: HTMLDivElement | undefined = $state();
 
@@ -53,6 +55,15 @@
 
 <header class="sticky top-0 z-30 w-full border-b border-border-subtle bg-surface-white">
     <div class="app-header-inner">
+        <button
+            class="mobile-menu-button"
+            onclick={() => mobileDrawerOpen = true}
+            aria-label="Open navigation menu"
+            aria-expanded={mobileDrawerOpen}
+        >
+            <Menu size={22} strokeWidth={2} aria-hidden="true" />
+        </button>
+
         <a href="/dashboard" class="app-brand" aria-label="CEDIMS Dashboard">
             <img
                 src="/app_icon.png"
@@ -121,7 +132,7 @@
 
             <button
                 onclick={() => showQRScanner.set(true)}
-                class="hidden h-9 w-9 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue xl:flex"
+                class="flex h-9 w-9 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue"
                 aria-label="Scan QR code"
             >
                 <QrCode size={21} strokeWidth={1.8} aria-hidden="true" />
@@ -205,6 +216,8 @@
     </div>
 </header>
 
+<MobileDrawer bind:open={mobileDrawerOpen} />
+
 <svelte:window
     onkeydown={(e) => {
         if (e.key === "Escape" && profileMenuOpen) {
@@ -230,6 +243,22 @@
         grid-template-columns: auto minmax(0, 1fr) auto;
         align-items: center;
         gap: 0.875rem;
+    }
+
+    .mobile-menu-button {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        height: 2.5rem;
+        width: 2.5rem;
+        border-radius: 0.5rem;
+        color: var(--color-text-muted);
+        transition: background-color 160ms ease, color 160ms ease;
+    }
+
+    .mobile-menu-button:hover {
+        background: var(--color-surface-muted);
+        color: var(--color-gov-blue);
     }
 
     .app-brand {
@@ -295,8 +324,17 @@
 
     @media (max-width: 760px) {
         .app-header-inner {
+            grid-template-columns: auto minmax(0, 1fr) auto;
             gap: 0.6rem;
             padding-inline: 0.8rem;
+        }
+
+        .mobile-menu-button {
+            display: inline-flex;
+        }
+
+        .app-nav {
+            display: none;
         }
 
         .brand-title {

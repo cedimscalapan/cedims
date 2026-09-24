@@ -901,6 +901,7 @@
                     aria-label="Go back"
                 >
                     <ArrowLeft size={18} />
+                    Back
                 </button>
             {/if}
             {#each currentPath as seg, i}
