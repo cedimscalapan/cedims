@@ -18,6 +18,7 @@ export interface PipelineResult {
 
 export interface PipelineOptions {
     userId: string;
+    userRole?: string;
     docType?: string;
     weekNumber?: number;
     schoolYear?: string;

@@ -769,6 +769,7 @@
         // Select the appropriate pipeline based on connectivity
         const pipelineOptions = {
             userId: $profile!.id,
+            userRole: $profile!.role,
             docType,
             subject: subject || undefined,
             weekNumber,

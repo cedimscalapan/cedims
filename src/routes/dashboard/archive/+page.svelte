@@ -60,7 +60,7 @@
     }
 
     interface PathSegment {
-        type: "root" | "docType" | "school" | "teacher" | "subject" | "week";
+        type: "root" | "docType" | "school" | "teacher" | "subject" | "term" | "week";
         id: string;
         label: string;
     }
@@ -69,7 +69,7 @@
         id: string;
         label: string;
         count: number;
-        type: "docType" | "school" | "teacher" | "subject" | "week";
+        type: "docType" | "school" | "teacher" | "subject" | "term" | "week";
         icon?: string;
         avatar_url?: string | null;
     }
@@ -550,6 +550,8 @@
                 filtered = filtered.filter((s) => s.user_id === seg.id);
             } else if (seg.type === "subject") {
                 filtered = filtered.filter((s) => (s.subject || (s.doc_type === "DLL" ? "Unassigned" : getDocumentLabel(s.doc_type))) === seg.id);
+            } else if (seg.type === "term") {
+                filtered = filtered.filter((s) => getTermFolderId(s.week_number) === seg.id);
             } else if (seg.type === "week") {
                 filtered = filtered.filter(
                     (s) => String(s.week_number) === seg.id,
@@ -598,7 +600,8 @@
 
         if (role === "Teacher") {
             if (depth === 1) return getSubjectFolders(filteredByPath);
-            if (depth === 2) return getWeekFolders(filteredByPath);
+            if (depth === 2) return getTermFolders(filteredByPath);
+            if (depth === 3) return getWeekFolders(filteredByPath);
             return [];
         }
 
@@ -611,7 +614,8 @@
                 if (currentDocType?.id === "DLL") return getSubjectFolders(filteredByPath);
                 return [];
             }
-            if (depth === 5) return getWeekFolders(filteredByPath);
+            if (depth === 5) return getTermFolders(filteredByPath);
+            if (depth === 6) return getWeekFolders(filteredByPath);
             return [];
         }
 
@@ -729,6 +733,32 @@
                 label: sub,
                 count,
                 type: "subject" as const,
+            }));
+    }
+
+    function getTermFolderId(weekNumber: number | null | undefined): string {
+        if (!weekNumber || !Number.isFinite(weekNumber)) return "unassigned";
+        return String(Math.min(3, Math.max(1, Math.ceil(weekNumber / 13))));
+    }
+
+    function getTermFolders(subs: Submission[]): FolderItem[] {
+        const grouped = new Map<string, number>();
+        for (const s of subs) {
+            if (s.doc_type !== "DLL") continue;
+            const term = getTermFolderId(s.week_number);
+            grouped.set(term, (grouped.get(term) || 0) + 1);
+        }
+        return Array.from(grouped.entries())
+            .sort(([a], [b]) => {
+                if (a === "unassigned") return 1;
+                if (b === "unassigned") return -1;
+                return Number(a) - Number(b);
+            })
+            .map(([term, count]) => ({
+                id: term,
+                label: term === "unassigned" ? "Unassigned Term" : `Term ${term}`,
+                count,
+                type: "term" as const,
             }));
     }
 

@@ -33,6 +33,13 @@ interface CoreResult {
     rawText: string;
 }
 
+function getTermPathSegment(docType: string, weekNumber: number | undefined, userRole?: string): string | null {
+    const roleCanUploadDll = userRole === 'Teacher' || userRole === 'Master Teacher';
+    if (docType !== 'DLL' || !roleCanUploadDll || !weekNumber || !Number.isFinite(weekNumber)) return null;
+    const term = Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
+    return `Term_${term}`;
+}
+
 function runWorkerTask(worker: Worker, type: string, payload: any, transfer: Transferable[] = []): Promise<any> {
     return new Promise((resolve, reject) => {
         const id = Math.random().toString(36).substring(7);
@@ -237,7 +244,14 @@ async function* runPipelineCore(
     const rawText = options.rawText || detectedMetadata?.rawText || '';
     const fileName = file.name.replace(/\.\w+$/, '.pdf');
     const sanitizedFileName = (fileName || 'document').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-    const filePath = `submissions/${options.userId}/${activeDocType}/${Date.now()}_${sanitizedFileName}`;
+    const termPathSegment = getTermPathSegment(activeDocType, activeWeekNumber, options.userRole);
+    const filePath = [
+        'submissions',
+        options.userId,
+        activeDocType,
+        termPathSegment,
+        `${Date.now()}_${sanitizedFileName}`
+    ].filter(Boolean).join('/');
 
     yield {
         phase: 'uploading',
