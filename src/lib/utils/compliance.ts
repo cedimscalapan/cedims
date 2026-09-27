@@ -10,10 +10,13 @@ export interface ComplianceSubmission {
     term_number?: number | null; week_number?: number | null; calendar_id?: string | null;
     file_path?: string | null; doc_type?: string | null; compliance_status?: string; created_at?: string;
 }
+export interface ComplianceReview {
+    submission_id: string; status?: string | null; reviewer_comment?: string | null;
+}
 export interface Requirement {
     key: string; teacherId: string; load: ComplianceLoad; calendar: CalendarSlot;
     submission?: ComplianceSubmission; status: 'on-time' | 'late' | 'missing' | 'upcoming';
-    review: 'approved' | 'returned' | 'needs-check' | 'none';
+    review: 'checked' | 'for-checking' | 'none';
 }
 
 export function currentCompliancePeriod(calendar: CalendarSlot[], now = Date.now()) {
@@ -51,11 +54,15 @@ export function scopedCalendar(calendar: CalendarSlot[], districtId?: string | n
     return [...slots.values()].sort((a, b) => a.term - b.term || a.week_number - b.week_number);
 }
 
+export function hasRemarks(comment?: string | null) {
+    return !!comment?.trim();
+}
+
 export function buildRequirements(
     loads: ComplianceLoad[], calendar: CalendarSlot[], submissions: ComplianceSubmission[],
-    reviews: { submission_id: string; status: string }[] = [], now = Date.now(),
+    reviews: ComplianceReview[] = [], now = Date.now(),
 ): Requirement[] {
-    const reviewMap = new Map(reviews.map(r => [r.submission_id, r.status]));
+    const reviewMap = new Map(reviews.map(r => [r.submission_id, r]));
     const candidates = new Map<string, ComplianceSubmission[]>();
     for (const s of submissions) {
         if (s.doc_type !== 'DLL' || !['compliant', 'on-time', 'late'].includes(s.compliance_status || '')) continue;
@@ -79,7 +86,7 @@ export function buildRequirements(
             key: `${load.id}|${c.school_year}|${c.term}|${c.week_number}`, teacherId: load.user_id, load, calendar: c, submission,
             status: submission ? (submission.compliance_status === 'late' ? 'late' : 'on-time')
                 : (Date.parse(c.deadline_date) <= now ? 'missing' : 'upcoming'),
-            review: !submission ? 'none' : review === 'approved' || review === 'returned' ? review : 'needs-check',
+            review: !submission ? 'none' : hasRemarks(review?.reviewer_comment) ? 'checked' : 'for-checking',
         } as Requirement;
     }));
 }
@@ -95,12 +102,27 @@ export function summarizeRequirements(rows: Requirement[], now = Date.now()) {
         expected, submitted, missing, upcoming,
         onTime: rows.filter(r => r.status === 'on-time').length,
         late: rows.filter(r => r.status === 'late').length,
-        approved: rows.filter(r => r.review === 'approved').length,
-        returned: rows.filter(r => r.review === 'returned').length,
-        pending: rows.filter(r => r.review === 'needs-check').length,
+        forChecking: rows.filter(r => r.review === 'for-checking').length,
+        checked: rows.filter(r => r.review === 'checked').length,
         rate: expected ? Math.round(submitted / expected * 100) : null,
         dueRate: due ? Math.round(dueSubmitted / due * 100) : null,
     };
+}
+
+export function weekMix(rows: Requirement[]) {
+    const summary = summarizeRequirements(rows);
+    return { onTime: summary.onTime, late: summary.late, missing: summary.missing, upcoming: summary.upcoming };
+}
+
+export function overdueByWeek(rows: Requirement[]) {
+    const groups = new Map<string, { term: number; week: number; missing: number }>();
+    for (const r of rows) {
+        const key = `${r.calendar.term}|${r.calendar.week_number}`;
+        const group = groups.get(key) || { term: r.calendar.term, week: r.calendar.week_number, missing: 0 };
+        if (r.status === 'missing') group.missing += 1;
+        groups.set(key, group);
+    }
+    return [...groups.values()].sort((a, b) => a.term - b.term || a.week - b.week);
 }
 
 export function riskReason(rows: Requirement[]): string {
@@ -108,7 +130,10 @@ export function riskReason(rows: Requirement[]): string {
     const weeks = new Set(overdue.map(r => `${r.calendar.term}|${r.calendar.week_number}`));
     if (weeks.size >= 2) return `Overdue in ${weeks.size} weeks`;
     if (overdue.length) return `${overdue.length} overdue requirement${overdue.length === 1 ? '' : 's'}`;
-    if (rows.some(r => r.review === 'returned')) return 'Returned work needs attention';
+    if (rows.some(r => r.review === 'for-checking')) {
+        const count = rows.filter(r => r.review === 'for-checking').length;
+        return `${count} file${count === 1 ? '' : 's'} waiting for remarks`;
+    }
     return '';
 }
 

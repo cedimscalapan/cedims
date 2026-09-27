@@ -29,12 +29,12 @@ test('duplicate, supplementary and missing records cannot inflate fulfillment', 
     const rows = buildRequirements([load], calendar, [sub, { ...sub, id: 'duplicate' }, { ...sub, id: 'extra', term_number: 1, compliance_status: 'supplementary' }, { ...sub, id: 'missing', term_number: 3, compliance_status: 'missing' }], [], now);
     assert.equal(summarizeRequirements(rows, now).submitted, 1);
 });
-test('review status uses approved/returned, independently of lateness', () => {
-    for (const status of ['approved', 'returned', 'needs-check']) {
-        const rows = buildRequirements([load], calendar, [sub], [{ submission_id: 's', status }], now);
-        assert.equal(rows[1].review, status); assert.equal(rows[1].status, 'late');
-    }
-});
+test('review status uses remarks, independently of lateness', () => {
+        for (const remark of ['', 'review comment', '  ']) {
+            const rows = buildRequirements([load], calendar, [sub], [{ submission_id: 's', reviewer_comment: remark }], now);
+            assert.equal(rows[1].review, remark.trim() ? 'checked' : 'for-checking'); assert.equal(rows[1].status, 'late');
+        }
+    });
 test('ambiguous legacy week is not credited to multiple terms', () => {
     const legacy = { ...sub, term_number: null };
     assert.equal(summarizeRequirements(buildRequirements([load], calendar, [legacy], [], now), now).submitted, 0);

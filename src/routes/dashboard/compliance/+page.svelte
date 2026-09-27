@@ -52,7 +52,7 @@
             ]);
             const reviews: Snapshot['reviews'] = [];
             for (let i = 0; i < submissions.length; i += 100) {
-                reviews.push(...await fetchAllRows<Snapshot['reviews'][number]>(() => supabase.from('dll_reviews').select('submission_id, status').in('submission_id', submissions.slice(i, i + 100).map(s => s.id)).order('id')));
+                reviews.push(...await fetchAllRows<Snapshot['reviews'][number]>(() => supabase.from('dll_reviews').select('submission_id, status, reviewer_comment').in('submission_id', submissions.slice(i, i + 100).map(s => s.id)).order('id')));
             }
             if (request !== run) return;
             data = { schools, teachers, loads, submissions, calendar, reviews, savedAt: new Date().toISOString() };

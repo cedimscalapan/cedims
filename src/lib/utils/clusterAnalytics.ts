@@ -45,10 +45,53 @@ export interface ClusterSummary {
     avgVolume: number;
 }
 
-export interface ClusterOutput {
-    results: ClusterResult[];
-    summaries: ClusterSummary[];
-    iterations: number;
+export interface SchoolFeatureVector {
+    schoolId: string;
+    schoolName: string;
+    /** 0-100: average punctuality of teachers in this school */
+    punctuality: number;
+    /** 0-100: average consistency of teachers in this school */
+    consistency: number;
+    /** 0-100: average completeness of teachers in this school */
+    completeness: number;
+    /** average volume across teachers in this school */
+    volume: number;
+}
+
+/**
+ * Aggregate teacher feature vectors into a single school-level vector.
+ * 
+ * Takes an array of teacher vectors for the same school and computes the
+ * average for each feature dimension. Used for district overview clustering.
+ * 
+ * @param teachers - Array of teacher feature vectors from the same school
+ * @returns A single school-level feature vector
+ */
+export function aggregateSchoolFeatures(teachers: TeacherFeatureVector[]): SchoolFeatureVector {
+    if (teachers.length === 0) {
+        return {
+            schoolId: '',
+            schoolName: '',
+            punctuality: 0,
+            consistency: 0,
+            completeness: 0,
+            volume: 0
+        };
+    }
+
+    const sumPunctuality = teachers.reduce((sum, t) => sum + t.punctuality, 0);
+    const sumConsistency = teachers.reduce((sum, t) => sum + t.consistency, 0);
+    const sumCompleteness = teachers.reduce((sum, t) => sum + t.completeness, 0);
+    const sumVolume = teachers.reduce((sum, t) => sum + t.volume, 0);
+
+    return {
+        schoolId: teachers[0].teacherId ? teachers[0].teacherId.split('_')[0] : '',
+        schoolName: teachers[0].schoolName || '',
+        punctuality: Math.round(sumPunctuality / teachers.length),
+        consistency: Math.round(sumConsistency / teachers.length),
+        completeness: Math.round(sumCompleteness / teachers.length),
+        volume: Math.round(sumVolume / teachers.length)
+    };
 }
 
 /**
@@ -292,11 +335,6 @@ export function runKMeansClustering(
     return { results, summaries, iterations };
 }
 
-/**
- * Quick pre-flight check: returns true if there's enough teacher data for
- * meaningful grouping. Teachers with no submissions still matter because they
- * become zero-score vectors, which helps supervisors spot missing-risk groups.
- */
 export function canCluster(teacherCount: number, submissionCount: number): boolean {
     return teacherCount >= 2;
 }
