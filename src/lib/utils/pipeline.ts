@@ -283,7 +283,7 @@ async function* runOnlinePipelineResilient(
     core: CoreResult,
     options: PipelineOptions
 ): AsyncGenerator<PipelineEvent> {
-    const { stampedBytes, fileHash, fileName, filePath, activeWeekNumber, activeDocType, rawText } = core;
+    const { stampedBytes, fileHash, fileName, filePath, activeTermNumber, activeWeekNumber, activeDocType, rawText } = core;
 
     yield { phase: 'uploading', progress: 10, message: 'Checking your document...' };
 
@@ -302,13 +302,15 @@ async function* runOnlinePipelineResilient(
     let deadlineDate: Date | undefined;
     if (!calendarId && activeWeekNumber) {
         try {
+            let calendarQuery = supabase
+                .from('academic_calendar')
+                .select('id, deadline_date')
+                .eq('school_year', options.schoolYear || getCurrentSchoolYear())
+                .eq('week_number', activeWeekNumber);
+            if (activeTermNumber) calendarQuery = calendarQuery.eq('term', activeTermNumber);
+
             const { data: calEntry } = await withTimeout(
-                supabase
-                    .from('academic_calendar')
-                    .select('id, deadline_date')
-                    .eq('school_year', options.schoolYear || getCurrentSchoolYear())
-                    .eq('week_number', activeWeekNumber)
-                    .maybeSingle() as any,
+                calendarQuery.maybeSingle() as any,
                 10000,
                 'Calendar lookup timed out.'
             ) as { data: any };
@@ -324,13 +326,15 @@ async function* runOnlinePipelineResilient(
                     'Profile lookup timed out.'
                 ) as { data: any };
                 if (profileData?.district_id) {
+                    let districtCalendarQuery = supabase
+                        .from('academic_calendar')
+                        .select('id, deadline_date')
+                        .eq('district_id', profileData.district_id)
+                        .eq('week_number', activeWeekNumber);
+                    if (activeTermNumber) districtCalendarQuery = districtCalendarQuery.eq('term', activeTermNumber);
+
                     const { data: calByDistrict } = await withTimeout(
-                        supabase
-                            .from('academic_calendar')
-                            .select('id, deadline_date')
-                            .eq('district_id', profileData.district_id)
-                            .eq('week_number', activeWeekNumber)
-                            .maybeSingle() as any,
+                        districtCalendarQuery.maybeSingle() as any,
                         10000,
                         'Calendar lookup timed out.'
                     ) as { data: any };
@@ -543,7 +547,7 @@ async function* runOfflinePipelineResilient(
     core: CoreResult,
     options: PipelineOptions
 ): AsyncGenerator<PipelineEvent> {
-    const { stampedBytes, fileHash, fileName, filePath, activeWeekNumber, activeDocType, rawText } = core;
+    const { stampedBytes, fileHash, fileName, filePath, activeTermNumber, activeWeekNumber, activeDocType, rawText } = core;
 
     // Progress mirrors the direct-upload path's stages and percentages so the
     // two are indistinguishable to the teacher — the outcome is the same
@@ -585,6 +589,7 @@ async function* runOfflinePipelineResilient(
         options: {
             userId: options.userId,
             docType: activeDocType,
+            termNumber: activeTermNumber,
             weekNumber: activeWeekNumber,
             schoolYear: options.schoolYear || getCurrentSchoolYear(),
             subject: options.subject,

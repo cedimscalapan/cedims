@@ -551,7 +551,7 @@
             } else if (seg.type === "subject") {
                 filtered = filtered.filter((s) => (s.subject || (s.doc_type === "DLL" ? "Unassigned" : getDocumentLabel(s.doc_type))) === seg.id);
             } else if (seg.type === "term") {
-                filtered = filtered.filter((s) => getTermFolderId(s.week_number) === seg.id);
+                filtered = filtered.filter((s) => getTermFolderId(s) === seg.id);
             } else if (seg.type === "week") {
                 filtered = filtered.filter(
                     (s) => String(s.week_number) === seg.id,
@@ -736,16 +736,18 @@
             }));
     }
 
-    function getTermFolderId(weekNumber: number | null | undefined): string {
-        if (!weekNumber || !Number.isFinite(weekNumber)) return "unassigned";
-        return String(Math.min(3, Math.max(1, Math.ceil(weekNumber / 13))));
+    function getTermFolderId(submission: Submission): string {
+        const pathTerm = submission.file_path?.match(/(?:^|\/)Term_([1-3])(?:\/|$)/i)?.[1];
+        if (pathTerm) return pathTerm;
+        if (!submission.week_number || !Number.isFinite(submission.week_number)) return "unassigned";
+        return String(Math.min(3, Math.max(1, Math.ceil(submission.week_number / 13))));
     }
 
     function getTermFolders(subs: Submission[]): FolderItem[] {
         const grouped = new Map<string, number>();
         for (const s of subs) {
             if (s.doc_type !== "DLL") continue;
-            const term = getTermFolderId(s.week_number);
+            const term = getTermFolderId(s);
             grouped.set(term, (grouped.get(term) || 0) + 1);
         }
         return Array.from(grouped.entries())

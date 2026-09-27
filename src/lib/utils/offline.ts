@@ -280,6 +280,7 @@ export interface QueueItem {
     options: {
         userId: string;
         docType?: string;
+        termNumber?: number;
         weekNumber?: number;
         schoolYear?: string;
         subject?: string;
@@ -635,12 +636,14 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 } else if (item.options.weekNumber) {
                     const { data: profileData } = await supabase.from('profiles').select('district_id').eq('id', item.options.userId).single();
                     if (profileData?.district_id) {
-                        const { data: calData } = await supabase
+                        let calendarQuery = supabase
                             .from('academic_calendar')
                             .select('id, deadline_date')
                             .eq('district_id', profileData.district_id)
-                            .eq('week_number', item.options.weekNumber)
-                            .maybeSingle();
+                            .eq('week_number', item.options.weekNumber);
+                        if (item.options.termNumber) calendarQuery = calendarQuery.eq('term', item.options.termNumber);
+
+                        const { data: calData } = await calendarQuery.maybeSingle();
                         if (calData) {
                             calendarId = calData.id;
                             if (calData.deadline_date) deadlineDate = new Date(calData.deadline_date);
