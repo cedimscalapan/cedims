@@ -102,6 +102,16 @@
     let existingRemark = $state<string | null>(null);
     let savingRemark = $state(false);
     let openingSubmissionId = $state<string | null>(null);
+    let requestedReview = $state<string | null>(null);
+    let fromCompliance = $state(false);
+    $effect(() => {
+        if (loading || !requestedReview) return;
+        const id = requestedReview;
+        requestedReview = null;
+        const target = filteredByPath.find(s => s.id === id);
+        if (target && canAddRemarkToSubmission(target)) openRemarkModal(target);
+        else addToast('error', 'This document is unavailable or you do not have permission to review it.');
+    });
 
     const canReview = $derived(
         $profile ? canAddReviewRemarks($profile.role) : false,
@@ -200,6 +210,8 @@
     });
 
     onMount(() => {
+        requestedReview = new URLSearchParams(window.location.search).get('review');
+        fromCompliance = !!requestedReview;
         const onRefresh = () => {
             if (!$profile || document.hidden) return;
             const runId = ++loadRun;
@@ -921,6 +933,7 @@
 <div>
     <!-- Header -->
     <PageHeader title="Archives" description={getSubtitle()} />
+    {#if fromCompliance}<a href="/dashboard/compliance" class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-gov-blue"><ArrowLeft size={16} />Back to compliance</a>{/if}
 
     <!-- Breadcrumb + Search Bar -->
     <div
@@ -1295,6 +1308,7 @@
             </div>
 
             <div class="px-6 py-4">
+                {#if fromCompliance}<button class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-gov-blue" onclick={() => remarkTarget && handleView(remarkTarget)}><Eye size={16} />Open DLL document</button>{/if}
                 {#if existingRemark}
                     <!-- View existing remark (everyone, including Master Teacher) -->
                     <div class="p-4 bg-gov-green/10 border border-gov-green/30 rounded-xl mb-3">

@@ -3,11 +3,22 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 const code = ts.transpileModule(readFileSync(new URL('../src/lib/utils/compliance.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { buildRequirements, scopedCalendar, summarizeRequirements, riskReason, fetchAllRows } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { buildRequirements, scopedCalendar, summarizeRequirements, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const now = Date.parse('2026-09-27T12:00:00Z');
 const load = { id: 'load', user_id: 'teacher', subject: 'English', grade_level: 'Grade 5' };
 const calendar = [1, 2, 3].map(term => ({ id: `c${term}`, school_year: '2026-2027', term, week_number: 1, deadline_date: term === 3 ? '2026-12-01T12:00:00Z' : '2026-09-01T12:00:00Z', is_active: true }));
 const sub = { id: 's', user_id: 'teacher', teaching_load_id: 'load', school_year: '2026-2027', term_number: 2, week_number: 1, doc_type: 'DLL', compliance_status: 'late', created_at: '2026-09-02T12:00:00Z' };
+test('current period selects next deadline and falls back to final scheduled week', () => {
+    assert.deepEqual(currentCompliancePeriod(calendar, now), { term: '3', week: '1' });
+    assert.deepEqual(currentCompliancePeriod(calendar, Date.parse('2030-01-01')), { term: '3', week: '1' });
+    assert.deepEqual(currentCompliancePeriod([], now), { term: 'all', week: 'all' });
+});
+test('comparison crosses term boundaries and excludes aggregate/first periods', () => {
+    const rows = buildRequirements([load], calendar, [sub], [], now);
+    assert.equal(previousPeriodChange(rows, '2', '1'), 100);
+    assert.equal(previousPeriodChange(rows, '1', '1'), null);
+    assert.equal(previousPeriodChange(rows, 'all', 'all'), null);
+});
 test('Term 2 Week 1 never fulfills Term 1 Week 1', () => {
     const rows = buildRequirements([load], calendar, [sub], [], now);
     assert.deepEqual(rows.map(r => r.status), ['missing', 'late', 'upcoming']);

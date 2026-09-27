@@ -15,6 +15,7 @@
     let refreshing = $state(false);
     let error = $state('');
     let cachedAt = $state('');
+    let offline = $state(false);
     type Snapshot = {
         teachers: { id: string; full_name: string; school_id: string }[];
         schools: { id: string; name: string; district_id: string }[];
@@ -69,6 +70,14 @@
         }
     }
     onMount(() => {
+        try {
+            const savedYear = sessionStorage.getItem(`compliance-year:${$profile?.id}`);
+            if (savedYear && /^\d{4}-\d{4}$/.test(savedYear)) year = savedYear;
+        } catch { /* Storage is optional. */ }
+        offline = !navigator.onLine;
+        const updateConnection = () => { offline = !navigator.onLine; };
+        window.addEventListener('offline', updateConnection);
+        window.addEventListener('online', updateConnection);
         void load();
         let timer: ReturnType<typeof setTimeout>;
         const refresh = () => { clearTimeout(timer); timer = setTimeout(() => void load(), 400); };
@@ -79,7 +88,7 @@
         channel.subscribe();
         window.addEventListener('online', refresh);
         window.addEventListener('cedims:refresh-visible-route', refresh);
-        return () => { run++; clearTimeout(timer); void supabase.removeChannel(channel); window.removeEventListener('online', refresh); window.removeEventListener('cedims:refresh-visible-route', refresh); };
+        return () => { run++; clearTimeout(timer); void supabase.removeChannel(channel); window.removeEventListener('offline', updateConnection); window.removeEventListener('online', updateConnection); window.removeEventListener('online', refresh); window.removeEventListener('cedims:refresh-visible-route', refresh); };
     });
 </script>
 
@@ -90,7 +99,7 @@
 {:else}
     <div class="mb-4 flex flex-wrap items-end gap-3">
         <label class="text-sm font-semibold">School year
-            <select class="ml-2 rounded border border-border-subtle bg-surface-white p-2" bind:value={year} onchange={() => { data = null; loading = true; void load(); }}>
+            <select class="ml-2 min-h-11 rounded border border-border-subtle bg-surface-white p-2" bind:value={year} onchange={() => { try { sessionStorage.setItem(`compliance-year:${$profile?.id}`, year); } catch {} data = null; loading = true; void load(); }}>
                 {#each Array.from({ length: 6 }, (_, i) => Number(getCurrentSchoolYear().slice(0, 4)) + 1 - i) as start}
                     <option value={`${start}-${start + 1}`}>{start}-{start + 1}</option>
                 {/each}
@@ -98,7 +107,7 @@
         </label>
         <button class="gov-btn-secondary" disabled={refreshing} onclick={() => void load()}><RefreshCw size={16} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>
     </div>
-    {#if cachedAt}<p role="status" class="mb-4 text-sm text-gov-gold-dark">Offline snapshot from {new Date(cachedAt).toLocaleString()}. Changes may not be reflected.</p>{/if}
+    {#if data}<p role="status" class="mb-4 text-sm text-text-muted">{offline ? 'Offline. ' : cachedAt ? 'Saved data. Latest refresh unavailable. ' : ''}Updated at {new Date(data.savedAt).toLocaleString('en-PH')}{offline || cachedAt ? '. Recent changes may not be reflected.' : ''}</p>{/if}
     {#if loading}<SkeletonLoader variant="card-grid" count={3} />
     {:else if error}<p role="alert" class="text-gov-red">{error}</p>
     {:else if data}<ComplianceWorkspace {...data} role={$profile?.role || 'School Head'} {year} />{/if}

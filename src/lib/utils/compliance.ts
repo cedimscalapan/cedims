@@ -16,6 +16,24 @@ export interface Requirement {
     review: 'approved' | 'returned' | 'needs-check' | 'none';
 }
 
+export function currentCompliancePeriod(calendar: CalendarSlot[], now = Date.now()) {
+    const sorted = calendar.filter(c => c.is_active !== false && Number.isFinite(Date.parse(c.deadline_date)))
+        .sort((a, b) => Date.parse(a.deadline_date) - Date.parse(b.deadline_date));
+    const current = sorted.find(c => Date.parse(c.deadline_date) >= now) || sorted.at(-1);
+    return { term: current ? String(current.term) : 'all', week: current ? String(current.week_number) : 'all' };
+}
+
+export function previousPeriodChange(rows: Requirement[], term: string, week: string): number | null {
+    if (term === 'all' || week === 'all') return null;
+    const periods = [...new Set(rows.map(r => `${r.calendar.term}|${r.calendar.week_number}`))]
+        .sort((a, b) => Number(a.split('|')[0]) - Number(b.split('|')[0]) || Number(a.split('|')[1]) - Number(b.split('|')[1]));
+    const index = periods.indexOf(`${term}|${week}`);
+    if (index < 1) return null;
+    const current = summarizeRequirements(rows.filter(r => `${r.calendar.term}|${r.calendar.week_number}` === periods[index]));
+    const previous = summarizeRequirements(rows.filter(r => `${r.calendar.term}|${r.calendar.week_number}` === periods[index - 1]));
+    return current.rate === null || previous.rate === null ? null : current.rate - previous.rate;
+}
+
 export function submissionTerm(s: Pick<ComplianceSubmission, 'term_number' | 'file_path'>): number | null {
     if (s.term_number && [1, 2, 3].includes(s.term_number)) return s.term_number;
     const match = s.file_path?.match(/(?:^|\/)Term_([1-3])(?:\/|$)/i);

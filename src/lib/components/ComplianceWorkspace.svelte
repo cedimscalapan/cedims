@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+    import { currentCompliancePeriod, previousPeriodChange } from '$lib/utils/compliance';
     import { Download, Search, ArrowUpDown, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-svelte';
     import { buildRequirements, scopedCalendar, summarizeRequirements, riskReason, submissionTerm, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement } from '$lib/utils/compliance';
     let { teachers, schools, loads, calendar, submissions, reviews, year, role }: {
@@ -15,6 +17,29 @@
     let status = $state('all');
     let tab = $state('teachers');
     let selectedTeacher = $state<string | null>(null);
+    type NavigationState = { school: string; search: string; status: string; tab: string; selectedTeacher: string | null; page: number };
+    let history = $state<NavigationState[]>([]);
+    let initialized = $state(false);
+    const stateKey = $derived(`compliance-navigation:${role}:${year}:${schools.map(s => s.id).sort().join(',')}`);
+    onMount(() => {
+        const period = currentCompliancePeriod(requirements.map(r => r.calendar));
+        term = period.term; week = period.week;
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(stateKey) || 'null');
+            if (saved && saved.version === 1 && ['all', '1', '2', '3'].includes(saved.term) && (saved.week === 'all' || /^\d+$/.test(saved.week))) {
+                term = saved.term; week = saved.week;
+                if (saved.school === 'all' || schools.some(s => s.id === saved.school)) school = saved.school;
+                if (['teachers', 'missing', 'reviews', 'requirements'].includes(saved.tab)) tab = saved.tab;
+                if (teachers.some(t => t.id === saved.selectedTeacher)) selectedTeacher = saved.selectedTeacher;
+                history = Array.isArray(saved.history) ? saved.history : [];
+            }
+        } catch { /* Storage may be unavailable in private browsing. */ }
+        initialized = true;
+    });
+    $effect(() => {
+        if (!initialized) return;
+        try { sessionStorage.setItem(stateKey, JSON.stringify({ version: 1, term, week, school, tab, selectedTeacher, history })); } catch { /* Navigation still works without storage. */ }
+    });
     let page = $state(1);
     let descending = $state(true);
     let sort = $state('missing');
@@ -64,8 +89,13 @@
     const pages = $derived(Math.max(1, Math.ceil(rowCount / size)));
     $effect(() => { if (page > pages) page = pages; });
     function reset() { page = 1; }
-    function openSchool(id: string) { school = id; search = ''; status = 'all'; selectedTeacher = null; tab = 'teachers'; reset(); }
+    function remember() { history = [...history, { school, search, status, tab, selectedTeacher, page }]; }
+    function openSchool(id: string, missing = false) { remember(); school = id; search = ''; status = 'all'; selectedTeacher = null; tab = missing ? 'missing' : 'teachers'; reset(); }
+    function openTeacher(id: string, missing = false) { remember(); selectedTeacher = id; tab = missing ? 'missing' : 'requirements'; search = ''; status = 'all'; reset(); }
+    function openMissing() { if (districtOverview) { status = 'risk'; reset(); } else { selectedTeacher = null; search = ''; status = 'all'; tab = 'missing'; reset(); } }
     function goBack() {
+        const previous = history.at(-1);
+        if (previous) { history = history.slice(0, -1); ({ school, search, status, tab, selectedTeacher, page } = previous); return; }
         if (selectedTeacher) { selectedTeacher = null; tab = 'teachers'; }
         else { school = 'all'; tab = 'teachers'; }
         search = ''; status = 'all'; subject = 'all'; reset();
@@ -133,9 +163,9 @@
     {#if exportError}<p role="alert">{exportError}</p>{/if}
     <dl class="stats">
         <div><dt>Submitted</dt><dd>{summary.submitted}<small>of {summary.expected} expected DLLs</small></dd></div>
-        <div><dt>Overdue DLLs</dt><dd class:missing={summary.missing > 0}>{summary.missing}<small>{summary.upcoming} upcoming</small></dd></div>
+        <div><dt>Overdue DLLs</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={openMissing} aria-label="Show overdue DLLs" disabled={!summary.missing}>{summary.missing}</button><small>{summary.upcoming} upcoming</small></dd></div>
         {#if districtOverview}<div><dt>Schools with overdue work</dt><dd>{schoolRows.filter(s => s.missing > 0).length}<small>of {schoolRows.length} schools</small></dd></div>
-        {:else}<div><dt>Review follow-up</dt><dd>{summary.pending + summary.returned}<small>{summary.pending} for checking / {summary.returned} returned</small></dd></div>{/if}
+        {:else}<div><dt>Awaiting review</dt><dd><button class="count-link" onclick={() => { tab = 'reviews'; selectedTeacher = null; search = ''; status = 'all'; reset(); }}>{summary.pending}</button><small>{summary.returned} returned for revision</small></dd></div>{/if}
     </dl>
     <div class="completion">
         <strong>Completion: {summary.rate === null ? 'N/A' : summary.rate + '%'}</strong>
@@ -160,17 +190,18 @@
             {#if districtOverview}
                 <thead><tr><th>School</th><th>Submission progress</th><th>Overdue DLLs</th><th></th></tr></thead>
                 <tbody>{#each rankedSchools.slice((page - 1) * size, page * size) as s}
-                    <tr><th scope="row">{s.name}</th><td><strong>{s.rate === null ? 'N/A' : s.rate + '%'}</strong><progress max="100" value={s.rate || 0} aria-label={s.name + ' completion'}></progress><small>{s.submitted} of {s.expected} submitted</small></td><td class:missing={s.missing > 0}>{s.missing}</td><td><button class="row-action" onclick={() => openSchool(s.id)}>View school <ChevronRight size={16} /></button></td></tr>
+                    {@const change = previousPeriodChange(requirements.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === s.id), term, week)}
+                    <tr><th scope="row">{s.name}</th><td data-label="Submission progress"><strong>{s.rate === null ? 'N/A' : s.rate + '%'}</strong><progress max="100" value={s.rate || 0} aria-label={s.name + ' completion'}></progress><small>{s.submitted} of {s.expected} submitted</small>{#if change !== null}<small class="trend">{change > 0 ? "+" : ""}{change} percentage points vs previous week</small>{/if}</td><td data-label="Overdue DLLs" class:missing={s.missing > 0}><button class="count-link" disabled={!s.missing} aria-label={"Show overdue DLLs for " + s.name} onclick={() => openSchool(s.id, true)}>{s.missing}</button></td><td class="actions"><button class="row-action" onclick={() => openSchool(s.id)}>View school <ChevronRight size={16} /></button></td></tr>
                 {/each}</tbody>
             {:else if tab === 'teachers' && !selectedTeacher}
                 <thead><tr><th><button onclick={() => changeSort('name')}>Teacher <ArrowUpDown size={14} /></button></th><th>Submission progress</th><th><button onclick={() => changeSort('missing')}>Overdue <ArrowUpDown size={14} /></button></th><th>Follow-up</th><th></th></tr></thead>
                 <tbody>{#each sortedTeachers.slice((page - 1) * size, page * size) as t}
-                    <tr><th scope="row">{t.full_name}</th><td><strong>{t.rate === null ? 'N/A' : t.rate + '%'}</strong><progress max="100" value={t.rate || 0} aria-label={t.full_name + ' completion'}></progress><small>{t.submitted} of {t.expected} submitted</small></td><td class:missing={t.missing > 0}>{t.missing}</td><td>{t.risk || (t.pending ? t.pending + ' for checking' : t.expected ? 'No follow-up' : 'No requirements')}</td><td><button class="row-action" onclick={() => { selectedTeacher = t.id; tab = 'requirements'; reset(); }}>View DLLs <ChevronRight size={16} /></button></td></tr>
+                    <tr><th scope="row">{t.full_name}</th><td data-label="Submission progress"><strong>{t.rate === null ? 'N/A' : t.rate + '%'}</strong><progress max="100" value={t.rate || 0} aria-label={t.full_name + ' completion'}></progress><small>{t.submitted} of {t.expected} submitted</small></td><td data-label="Overdue DLLs" class:missing={t.missing > 0}><button class="count-link" disabled={!t.missing} aria-label={"Show overdue DLLs for " + t.full_name} onclick={() => openTeacher(t.id, true)}>{t.missing}</button></td><td data-label="Follow-up">{t.risk || (t.pending ? t.pending + ' for checking' : t.expected ? 'No follow-up' : 'No requirements')}</td><td class="actions"><button class="row-action" onclick={() => openTeacher(t.id)}>View DLLs <ChevronRight size={16} /></button></td></tr>
                 {/each}</tbody>
             {:else}
                 <thead><tr>{#if !selectedTeacher}<th>Teacher</th>{/if}<th>Subject / Grade</th><th>Term / Week</th><th>Deadline</th><th>Status</th>{#if tab !== 'missing'}<th>Review</th>{/if}</tr></thead>
                 <tbody>{#each detailRows.slice((page - 1) * size, page * size) as r}
-                    <tr>{#if !selectedTeacher}<th scope="row">{teacherName(r.teacherId)}</th>{/if}<td>{r.load.subject}<small>{r.load.grade_level || ''}</small></td><td>Term {r.calendar.term}<small>Week {r.calendar.week_number}</small></td><td>{new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</td><td class:missing={r.status === 'missing'}>{statusLabel(r)}</td>{#if tab !== 'missing'}<td>{reviewLabel(r)}</td>{/if}</tr>
+                    <tr>{#if !selectedTeacher}<th scope="row">{teacherName(r.teacherId)}</th>{/if}<td data-label="Subject / Grade">{r.load.subject}<small>{r.load.grade_level || ''}</small></td><td data-label="Term / Week">Term {r.calendar.term}<small>Week {r.calendar.week_number}</small></td><td data-label="Deadline">{new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</td><td data-label="Submission" class:missing={r.status === 'missing'}>{statusLabel(r)}</td>{#if tab !== 'missing'}<td data-label="Review">{reviewLabel(r)}{#if r.submission && (r.review === "needs-check" || r.review === "returned")}<a class="row-action" href={"/dashboard/archive?review=" + encodeURIComponent(r.submission.id)}>Review DLL <ChevronRight size={16} /></a>{/if}</td>{/if}</tr>
                 {/each}</tbody>
             {/if}
         </table>
@@ -209,8 +240,26 @@
     thead { background: var(--color-surface-muted); font-size: 12px; } th:first-child { min-width: 160px; }
     .row-action { color: var(--color-gov-blue); white-space: nowrap; font-size: 13px; }
     .missing { color: var(--color-gov-red); font-weight: 700; }
+    .count-link { color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 4px; min-width: 44px; min-height: 44px; }
+    .count-link:disabled { text-decoration: none; opacity: 1; cursor: default; }
+    a.row-action { display: flex; align-items: center; min-height: 44px; gap: 6px; }
+    .trend { margin-top: 8px; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-gov-blue); outline-offset: 3px; }
     footer, footer div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; font-size: 13px; }
     footer button { width: 40px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
     .empty { padding: 32px 12px; text-align: center; color: var(--color-text-muted); } .data-note { font-size: 13px; color: var(--color-text-muted); padding: 12px 0; }
     @media (max-width: 600px) { .stats { gap: 12px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search { width: 100%; } .completion span { width: 100%; } }
+    @media (max-width: 700px) {
+        .filters label { flex: 1 1 100px; } select { width: 100%; min-height: 44px; font-size: 16px; }
+        .search input { font-size: 16px; } .view-heading > div { min-width: 0; }
+        .stats { gap: 12px; } .stats small { overflow-wrap: anywhere; }
+        .table-scroll { overflow: visible; } table, tbody { display: block; }
+        thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+        tbody tr { display: grid; grid-template-columns: minmax(0, 1fr); padding: 16px 0; border-bottom: 1px solid var(--color-border-subtle); }
+        tbody th, tbody td { min-width: 0; border: 0; padding: 8px 4px; overflow-wrap: anywhere; }
+        tbody th { font-size: 16px; } tbody td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 400; color: var(--color-text-muted); margin-bottom: 5px; }
+        .actions button { width: 100%; justify-content: space-between; min-height: 44px; }
+        .tabs { gap: 14px; } .tabs button, footer button { min-height: 44px; }
+        progress { width: 100%; } footer { flex-wrap: wrap; }
+    }
 </style>
