@@ -2,11 +2,11 @@
     import { Download, Search, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-svelte';
     import { extractFeatures, runKMeansClustering } from '$lib/utils/clusterAnalytics';
     import { buildRequirements, scopedCalendar, summarizeRequirements, riskReason, submissionTerm, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement } from '$lib/utils/compliance';
-    let { teachers, schools, loads, calendar, submissions, reviews, year }: {
+    let { teachers, schools, loads, calendar, submissions, reviews, year, role }: {
         teachers: { id: string; full_name: string; school_id: string }[];
         schools: { id: string; name: string; district_id: string }[];
         loads: ComplianceLoad[]; calendar: CalendarSlot[]; submissions: ComplianceSubmission[];
-        reviews: { submission_id: string; status: string }[]; year: string;
+        reviews: { submission_id: string; status: string }[]; year: string; role: string;
     } = $props();
     let term = $state('all');
     let week = $state('all');
@@ -14,13 +14,14 @@
     let subject = $state('all');
     let search = $state('');
     let status = $state('all');
-    let tab = $state('teachers');
+    let tab = $state(role === 'District Supervisor' ? 'schools' : 'teachers');
     let page = $state(1);
     let descending = $state(false);
     let sort = $state('name');
     let exporting = $state(false);
     let exportError = $state('');
     const size = 15;
+    const isDistrict = $derived(role === 'District Supervisor');
     const requirements = $derived(teachers.flatMap(t => buildRequirements(
         loads.filter(l => l.user_id === t.id),
         scopedCalendar(calendar.filter(c => c.school_year === year), schools.find(s => s.id === t.school_id)?.district_id),
@@ -56,7 +57,7 @@
         });
         return vectors.length >= 2 ? runKMeansClustering(vectors, Math.min(3, vectors.length)).summaries : [];
     });
-    const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(visible.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === s.id)) })));
+    const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(requirements.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === s.id && (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week)) && (subject === 'all' || r.load.subject === subject))) })));
     const sortedTeachers = $derived([...teacherRows].sort((a, b) => {
         const value = sort === 'name' ? a.full_name.localeCompare(b.full_name) : sort === 'missing' ? a.missing - b.missing : (a.rate ?? -1) - (b.rate ?? -1);
         return descending ? -value : value;
@@ -122,7 +123,7 @@
     <div class="filters">
         <label>Term<select bind:value={term} onchange={() => { week = 'all'; reset(); }}><option value="all">All terms</option>{#each [1, 2, 3] as t}<option value={String(t)}>Term {t}</option>{/each}</select></label>
         <label>Week<select bind:value={week} onchange={reset}><option value="all">All weeks</option>{#each weeks as w}<option value={String(w)}>Week {w}</option>{/each}</select></label>
-        <label>School<select bind:value={school} onchange={reset}><option value="all">All schools</option>{#each schools as s}<option value={s.id}>{s.name}</option>{/each}</select></label>
+        {#if isDistrict}<label>School<select bind:value={school} onchange={reset}><option value="all">All schools</option>{#each schools as s}<option value={s.id}>{s.name}</option>{/each}</select></label>{/if}
         <label>Subject<select bind:value={subject} onchange={reset}><option value="all">All subjects</option>{#each subjects as s}<option>{s}</option>{/each}</select></label>
         <label>Teacher status<select bind:value={status} onchange={reset}><option value="all">All teachers</option><option value="risk">Needs attention</option><option value="complete">Complete</option><option value="missing">Missing</option><option value="late">Late submissions</option><option value="pending">For checking</option><option value="returned">Returned</option><option value="approved">Approved</option></select></label>
         <label class="search">Search<div><Search size={16} /><input aria-label="Search teachers or schools" placeholder="Teacher or school" bind:value={search} oninput={reset} /></div></label>
@@ -138,7 +139,7 @@
     <div class="completion"><strong>Completion: {summary.rate === null ? 'N/A' : `${summary.rate}%`}</strong><span>{summary.submitted} submitted / {summary.expected} expected &times; 100. Late submissions included.</span><span>Due requirements fulfilled: {summary.dueRate === null ? 'N/A' : `${summary.dueRate}%`}</span></div>
     <div class="review-summary"><span>For checking <strong>{summary.pending}</strong></span><span>Approved <strong>{summary.approved}</strong></span><span>Returned <strong>{summary.returned}</strong></span></div>
     {#if clusters.length}<details><summary>Compliance groups</summary><div class="review-summary">{#each clusters as cluster}<span>{cluster.label}: <strong>{cluster.count}</strong> teachers, {cluster.avgCompleteness}% completion</span>{/each}</div></details>{/if}
-    <nav class="tabs" aria-label="Compliance views">{#each [['teachers', 'Teachers'], ['schools', 'Schools'], ['subjects', 'Subjects'], ['missing', 'Missing matrix'], ['requirements', 'All requirements']] as option}<button aria-current={tab === option[0] ? 'page' : undefined} class:active={tab === option[0]} onclick={() => { tab = option[0]; reset(); }}>{option[1]}</button>{/each}</nav>
+    <nav class="tabs" aria-label="Compliance views">{#each (isDistrict ? [['schools', 'Schools'], ['teachers', 'Teachers'], ['subjects', 'Subjects'], ['missing', 'Missing matrix'], ['requirements', 'All requirements']] : [['teachers', 'Teachers'], ['subjects', 'Subjects'], ['missing', 'Missing matrix'], ['requirements', 'All requirements']]) as option}<button aria-current={tab === option[0] ? 'page' : undefined} class:active={tab === option[0]} onclick={() => { tab = option[0]; reset(); }}>{option[1]}</button>{/each}</nav>
     <div class="table-scroll" role="region" aria-label="Compliance results">
         <table>
             {#if tab === 'teachers'}

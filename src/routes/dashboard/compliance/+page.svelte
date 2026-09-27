@@ -84,7 +84,7 @@
 </script>
 
 <svelte:head><title>Compliance Monitoring: CEDIMS</title></svelte:head>
-<PageHeader title="Compliance Monitoring" />
+<PageHeader title={$profile?.role === 'District Supervisor' ? 'District Compliance' : 'School Compliance'} description={$profile?.role === 'District Supervisor' ? 'Compare schools, identify district-wide risks, and open a school for details.' : 'Track your school’s submissions, follow up missing DLLs, and manage review work.'} />
 {#if !allowed && !loading}
     <p role="alert">Compliance Monitoring is available to supervisors.</p>
 {:else}
@@ -101,5 +101,5 @@
     {#if cachedAt}<p role="status" class="mb-4 text-sm text-gov-gold-dark">Offline snapshot from {new Date(cachedAt).toLocaleString()}. Changes may not be reflected.</p>{/if}
     {#if loading}<SkeletonLoader variant="card-grid" count={3} />
     {:else if error}<p role="alert" class="text-gov-red">{error}</p>
-    {:else if data}<ComplianceWorkspace {...data} {year} />{/if}
+    {:else if data}<ComplianceWorkspace {...data} role={$profile?.role || 'School Head'} {year} />{/if}
 {/if}
