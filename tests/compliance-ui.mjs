@@ -1,0 +1,9 @@
+import { mount } from 'svelte';
+import Workspace from '../src/lib/components/ComplianceWorkspace.svelte';
+import '../src/app.css';
+const year = '2026-2027';
+const teachers = Array.from({ length: 18 }, (_, i) => ({ id: `t${i}`, full_name: `Teacher ${String(i + 1).padStart(2, '0')}`, school_id: 'school' }));
+const loads = teachers.map(t => ({ id: `l${t.id}`, user_id: t.id, subject: 'English', grade_level: 'Grade 5', is_active: true }));
+const calendar = [1, 2, 3].map(term => ({ id: `c${term}`, school_year: year, term, week_number: 1, deadline_date: term === 3 ? '2099-12-01T12:00:00Z' : '2020-09-01T12:00:00Z', is_active: true, district_id: 'district' }));
+const submissions = [{ id: 'submission', user_id: 't0', teaching_load_id: 'lt0', school_year: year, term_number: 2, week_number: 1, doc_type: 'DLL', compliance_status: 'late', created_at: '2026-09-02T12:00:00Z' }];
+mount(Workspace, { target: document.getElementById('app'), props: { year, teachers, loads, calendar, submissions, schools: [{ id: 'school', name: 'Sample Elementary School', district_id: 'district' }], reviews: [{ submission_id: 'submission', status: 'approved' }] } });

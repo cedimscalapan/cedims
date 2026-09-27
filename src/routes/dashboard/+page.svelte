@@ -316,9 +316,10 @@
             supabase
                 .from("submissions")
                 .select(
-                    "id, file_name, file_path, doc_type, compliance_status, created_at, week_number, teaching_loads(subject, grade_level)",
+                    "id, user_id, teaching_load_id, school_year, term_number, calendar_id, file_name, file_path, doc_type, compliance_status, created_at, week_number, teaching_loads(subject, grade_level)",
                 )
                 .eq("user_id", userProfile.id)
+                .eq("school_year", getDynamicSchoolYear())
                 .order("created_at", { ascending: false }),
             supabase
                 .from("teaching_loads")

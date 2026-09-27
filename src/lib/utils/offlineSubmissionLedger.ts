@@ -25,6 +25,7 @@ const HASH_PREFIX = 'ledger_hash_';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface LedgerEntry {
+    termNumber?: number | null;
     teachingLoadId: string;
     weekNumber: number;
     schoolYear: string;
@@ -38,8 +39,8 @@ export interface LedgerEntry {
 
 // ─── Key Builders ────────────────────────────────────────────────────────────
 
-function slotKey(teachingLoadId: string, weekNumber: number, schoolYear: string, docType: string): string {
-    return `${SLOT_PREFIX}${teachingLoadId}_w${weekNumber}_${schoolYear}_${docType}`;
+function slotKey(teachingLoadId: string, weekNumber: number, schoolYear: string, docType: string, termNumber?: number | null): string {
+    return `${SLOT_PREFIX}${teachingLoadId}_t${termNumber ?? 'unknown'}_w${weekNumber}_${schoolYear}_${docType}`;
 }
 
 function hashKey(fileHash: string): string {
@@ -53,7 +54,7 @@ function hashKey(fileHash: string): string {
  * Called after both online upload success and offline queue enqueue.
  */
 export async function recordSubmission(entry: LedgerEntry): Promise<void> {
-    const slot = slotKey(entry.teachingLoadId, entry.weekNumber, entry.schoolYear, entry.docType);
+    const slot = slotKey(entry.teachingLoadId, entry.weekNumber, entry.schoolYear, entry.docType, entry.termNumber);
     const hash = hashKey(entry.fileHash);
 
     await Promise.all([
@@ -74,9 +75,10 @@ export async function hasSubmission(
     teachingLoadId: string,
     weekNumber: number,
     schoolYear: string,
-    docType: string
+    docType: string,
+    termNumber?: number | null
 ): Promise<LedgerEntry | null> {
-    const slot = slotKey(teachingLoadId, weekNumber, schoolYear, docType);
+    const slot = slotKey(teachingLoadId, weekNumber, schoolYear, docType, termNumber);
     const entry = await get<LedgerEntry>(slot);
     return entry || null;
 }
@@ -111,7 +113,7 @@ export async function markSynced(fileHash: string): Promise<void> {
 export async function removeLedgerEntry(fileHash: string): Promise<void> {
     const entry = await get<LedgerEntry>(hashKey(fileHash));
     if (entry) {
-        const slot = slotKey(entry.teachingLoadId, entry.weekNumber, entry.schoolYear, entry.docType);
+        const slot = slotKey(entry.teachingLoadId, entry.weekNumber, entry.schoolYear, entry.docType, entry.termNumber);
         await Promise.all([
             del(slot),
             del(hashKey(fileHash))
@@ -153,7 +155,7 @@ export async function syncLedgerFromServer(userId: string): Promise<number> {
 
         const { data, error } = await supabase
             .from('submissions')
-            .select('teaching_load_id, week_number, school_year, doc_type, file_hash, file_name, created_at')
+            .select('teaching_load_id, term_number, week_number, school_year, doc_type, file_hash, file_name, created_at')
             .eq('user_id', userId)
             .eq('school_year', getCurrentSchoolYear())
             .order('created_at', { ascending: false })
@@ -170,6 +172,7 @@ export async function syncLedgerFromServer(userId: string): Promise<number> {
 
             await recordSubmission({
                 teachingLoadId: row.teaching_load_id,
+                termNumber: row.term_number,
                 weekNumber: row.week_number,
                 schoolYear: row.school_year || getCurrentSchoolYear(),
                 docType: row.doc_type || 'DLL',
@@ -219,7 +222,8 @@ export async function validateUploadIntegrity(
     weekNumber: number,
     schoolYear: string,
     docType: string,
-    fileHash: string
+    fileHash: string,
+    termNumber?: number | null
 ): Promise<{
     allowed: boolean;
     reason?: string;
@@ -227,7 +231,7 @@ export async function validateUploadIntegrity(
     blockType?: 'slot_taken' | 'duplicate_content';
 }> {
     // Check 1: Slot uniqueness (one per teaching load per week per doc type)
-    const slotEntry = await hasSubmission(teachingLoadId, weekNumber, schoolYear, docType);
+    const slotEntry = await hasSubmission(teachingLoadId, weekNumber, schoolYear, docType, termNumber);
     if (slotEntry) {
         return {
             allowed: false,

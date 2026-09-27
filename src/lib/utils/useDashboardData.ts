@@ -28,6 +28,9 @@ export interface WeeklyData {
 }
 
 export interface AcademicWeek {
+  id?: string;
+  term?: number;
+  district_id?: string | null;
   week_number: number;
   deadline_date?: string;
   school_year?: string;
@@ -56,7 +59,7 @@ export async function getActualWeeks(
 
   let query = supabase
     .from('academic_calendar')
-    .select('week_number, deadline_date, school_year, is_active')
+    .select('id, term, district_id, week_number, deadline_date, school_year, is_active')
     .eq('school_year', schoolYear)
     .eq('is_active', true)
     .order('week_number', { ascending: true });
@@ -66,7 +69,13 @@ export async function getActualWeeks(
   }
 
   const { data, error } = await query;
-  const weeks = (error || !data) ? [] : (data as AcademicWeek[]);
+  if (error) throw error;
+  const bySlot = new Map<string, AcademicWeek>();
+  for (const row of (data || []) as AcademicWeek[]) {
+    const key = `${row.district_id || districtId || 'global'}|${row.term}|${row.week_number}`;
+    if (!bySlot.has(key) || row.district_id) bySlot.set(key, row);
+  }
+  const weeks = [...bySlot.values()].sort((a, b) => (a.deadline_date || '').localeCompare(b.deadline_date || ''));
   calendarCache.set(cacheKey, weeks);
   return weeks;
 }
@@ -111,7 +120,7 @@ export async function getDefinedWeeksCount(
 
   // User requirement: weeks show up as expected loads as soon as they are set in calendar.
   // So we count all weeks defined for this year.
-  return weeks.length || 1; // Minimum 1 to avoid 0% issues if calendar is empty
+  return weeks.length;
 }
 
 /**
@@ -129,13 +138,14 @@ export function isComplianceTrackedDocType(docType: string | null | undefined): 
  * When a teacher uploads multiple documents for the same week/load, only the
  * most recent submission per slot is counted toward compliance.
  */
-export function deduplicateSubmissions<T extends { teaching_load_id?: string | null; week_number?: number | null; doc_type?: string | null; created_at?: string; compliance_status?: string }>(
+export function deduplicateSubmissions<T extends { id?: string; user_id?: string; school_year?: string | null; term_number?: number | null; file_path?: string | null; calendar_id?: string | null; teaching_load_id?: string | null; week_number?: number | null; doc_type?: string | null; created_at?: string; compliance_status?: string }>(
   submissions: T[]
 ): T[] {
   const latestBySlot = new Map<string, T>();
   const isSup = (r: T | undefined) => (r?.compliance_status || '').toLowerCase() === 'supplementary' || (r?.compliance_status || '').toLowerCase() === 'extra';
   for (const s of submissions) {
-    const key = `${s.teaching_load_id ?? ''}|${s.week_number ?? ''}|${s.doc_type ?? ''}`;
+    const term = submissionTerm(s) ?? s.calendar_id ?? 'unknown';
+    const key = `${s.user_id ?? ''}|${s.school_year ?? ''}|${term}|${s.teaching_load_id ?? s.id ?? ''}|${s.week_number ?? ''}|${s.doc_type ?? ''}`;
     const existing = latestBySlot.get(key);
     // Required (non-supplementary) submissions always win a slot over supplementary ones,
     // so a "another DLL" can never replace the counted DLL for that week+subject.
@@ -214,6 +224,7 @@ export function calculateCompliance(
  * Returns 'YYYY-YYYY' based on current date (Aug 1st transition).
  */
 import { getCurrentSchoolYear as getDynamicSchoolYear } from './schoolYear';
+import { submissionTerm } from './compliance';
 
 export { getDynamicSchoolYear };
 
@@ -277,7 +288,7 @@ export function normalizeComplianceStatus(status: string | null | undefined): st
 }
 
 export function groupSubmissionsByWeek(
-  submissions: { created_at: string; status?: string; compliance_status?: string; week_number?: number }[],
+  submissions: { created_at: string; status?: string; compliance_status?: string; week_number?: number; term_number?: number | null; calendar_id?: string | null; file_path?: string | null }[],
   teachingLoadsCount: number = 0,
   weekCount = 8,
   calendarDeadlines: any[] = []
@@ -287,13 +298,13 @@ export function groupSubmissionsByWeek(
   // If calendar deadlines are provided, use those as the "weeks"
   if (calendarDeadlines.length > 0) {
     // Sort by week number descending, take most recent weekCount
-    const sorted = [...calendarDeadlines].sort((a, b) => b.week_number - a.week_number).slice(0, weekCount);
+    const sorted = [...calendarDeadlines].sort((a, b) => (b.term || 0) - (a.term || 0) || b.week_number - a.week_number).slice(0, weekCount);
     for (const cal of sorted) {
-      const weekSubs = submissions.filter(s => s.week_number === cal.week_number);
+      const weekSubs = submissions.filter(s => s.week_number === cal.week_number && (!cal.term || submissionTerm(s) === cal.term || (!submissionTerm(s) && s.calendar_id === cal.id)));
       const stats = calculateCompliance(weekSubs, teachingLoadsCount);
       weeks.push({
         week: cal.week_number,
-        label: `W${cal.week_number}`,
+        label: cal.term ? `T${cal.term} W${cal.week_number}` : `W${cal.week_number}`,
         Compliant: stats.Compliant,
         Late: stats.Late,
         NonCompliant: stats.NonCompliant,
@@ -363,8 +374,10 @@ export async function markNonCompliantSubmissions(
     // Weeks from the academic calendar
     let calQuery = supabase
       .from('academic_calendar')
-      .select('id, week_number')
+      .select('id, term, week_number')
       .eq('school_year', schoolYear)
+      .eq('is_active', true)
+      .lt('deadline_date', new Date().toISOString())
       .order('week_number', { ascending: true });
 
     if (districtId) {
@@ -378,7 +391,7 @@ export async function markNonCompliantSubmissions(
     let teacherQuery = supabase
       .from('profiles')
       .select('id, full_name, school_id')
-      .eq('role', 'Teacher');
+      .in('role', ['Teacher', 'Master Teacher']);
 
     if (userId) {
       teacherQuery = teacherQuery.eq('id', userId);
@@ -400,18 +413,20 @@ export async function markNonCompliantSubmissions(
     const { data: teachingLoads } = await supabase
       .from('teaching_loads')
       .select('id, user_id, subject')
-      .in('user_id', teacherIds);
+      .in('user_id', teacherIds)
+      .eq('is_active', true);
 
     if (!teachingLoads || teachingLoads.length === 0) return 0;
 
     // Existing submissions
     const weekNumbers = pastWeeks.map((w: any) => w.week_number);
-    const { data: existingSubs } = await supabase
+    const { data: existingSubs, error: existingError } = await supabase
       .from('submissions')
-      .select('id, user_id, week_number, compliance_status, file_hash, teaching_load_id')
+      .select('id, user_id, term_number, calendar_id, file_path, week_number, compliance_status, file_hash, teaching_load_id')
       .in('user_id', teacherIds)
       .in('week_number', weekNumbers)
       .eq('school_year', schoolYear);
+    if (existingError) throw existingError;
 
     // Per-load rebalancing logic
     const ncRecords: any[] = [];
@@ -423,7 +438,7 @@ export async function markNonCompliantSubmissions(
 
       for (const week of pastWeeks) {
         const mySubsForWeek = (existingSubs || []).filter(
-          (s: any) => s.user_id === teacher.id && s.week_number === week.week_number
+          (s: any) => s.user_id === teacher.id && s.week_number === week.week_number && (submissionTerm(s) === week.term || (!submissionTerm(s) && s.calendar_id === week.id))
         );
 
         for (const load of myLoads) {
@@ -442,7 +457,7 @@ export async function markNonCompliantSubmissions(
             }
           } else {
             if (ncSubs.length === 0) {
-              const hash = `nc_${teacher.id}_${week.week_number}_${load.id}_${schoolYear}`;
+              const hash = `nc_${teacher.id}_${week.term}_${week.week_number}_${load.id}_${schoolYear}`;
               ncRecords.push({
                 user_id: teacher.id,
                 teaching_load_id: load.id,
@@ -452,6 +467,7 @@ export async function markNonCompliantSubmissions(
                 file_size: 0,
                 doc_type: 'Unknown',
                 week_number: week.week_number,
+                term_number: week.term,
                 school_year: schoolYear,
                 calendar_id: week.id,
                 compliance_status: 'missing'

@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     file_hash TEXT NOT NULL,
     file_size INTEGER,
     doc_type TEXT CHECK (doc_type IN ('DLL', 'ISP', 'ISR', 'Unknown')),
+    term_number INTEGER CHECK (term_number BETWEEN 1 AND 3),
     week_number INTEGER,
     subject TEXT,
     school_year TEXT,
@@ -258,6 +259,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_submissions_file_hash        ON submissions(file_hash);
 CREATE INDEX IF NOT EXISTS idx_submissions_user_week        ON submissions(user_id, week_number);
+CREATE INDEX IF NOT EXISTS idx_submissions_term_week        ON submissions(term_number, week_number);
 CREATE INDEX IF NOT EXISTS idx_submissions_compliance       ON submissions(compliance_status);
 CREATE INDEX IF NOT EXISTS idx_submissions_created_at       ON submissions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_submissions_teaching_load    ON submissions(teaching_load_id);

@@ -43,6 +43,7 @@
         file_size: number;
         doc_type: string;
         compliance_status: string;
+        term_number: number | null;
         week_number: number | null;
         subject: string | null;
         teaching_load_id: string | null;
@@ -737,10 +738,12 @@
     }
 
     function getTermFolderId(submission: Submission): string {
+        if (submission.term_number && Number.isFinite(submission.term_number)) {
+            return String(Math.min(3, Math.max(1, submission.term_number)));
+        }
         const pathTerm = submission.file_path?.match(/(?:^|\/)Term_([1-3])(?:\/|$)/i)?.[1];
         if (pathTerm) return pathTerm;
-        if (!submission.week_number || !Number.isFinite(submission.week_number)) return "unassigned";
-        return String(Math.min(3, Math.max(1, Math.ceil(submission.week_number / 13))));
+        return "unassigned";
     }
 
     function getTermFolders(subs: Submission[]): FolderItem[] {

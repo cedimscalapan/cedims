@@ -471,6 +471,9 @@ async function* runOnlinePipelineResilient(
             .select('id')
             .eq('teaching_load_id', options.teachingLoadId)
             .eq('week_number', activeWeekNumber)
+            .eq('term_number', activeTermNumber)
+            .eq('school_year', options.schoolYear || getCurrentSchoolYear())
+            .in('compliance_status', ['compliant', 'late'])
             .eq('doc_type', activeDocType)
             .limit(1) as any,
           30000,
@@ -491,6 +494,7 @@ async function* runOnlinePipelineResilient(
             file_hash: fileHash,
             file_size: stampedBytes.byteLength,
             doc_type: activeDocType,
+            term_number: activeTermNumber,
             week_number: activeWeekNumber,
             school_year: options.schoolYear || getCurrentSchoolYear(),
             subject: options.subject,
@@ -518,6 +522,7 @@ async function* runOnlinePipelineResilient(
     if (options.teachingLoadId && activeWeekNumber) {
         await recordSubmission({
             teachingLoadId: options.teachingLoadId,
+            termNumber: activeTermNumber,
             weekNumber: activeWeekNumber,
             schoolYear: options.schoolYear || getCurrentSchoolYear(),
             docType: activeDocType,
@@ -607,6 +612,7 @@ async function* runOfflinePipelineResilient(
     if (options.teachingLoadId && activeWeekNumber) {
         await recordSubmission({
             teachingLoadId: options.teachingLoadId,
+            termNumber: activeTermNumber,
             weekNumber: activeWeekNumber,
             schoolYear: options.schoolYear || getCurrentSchoolYear(),
             docType: activeDocType,

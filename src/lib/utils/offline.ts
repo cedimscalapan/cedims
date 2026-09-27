@@ -476,8 +476,11 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                         .select('id')
                         .eq('teaching_load_id', item.options.teachingLoadId)
                         .eq('week_number', item.options.weekNumber)
+                        .eq('term_number', item.options.termNumber ?? 0)
+                        .in('compliance_status', ['compliant', 'late'])
                         .eq('school_year', item.options.schoolYear || getCurrentSchoolYear())
                         .eq('doc_type', item.options.docType || 'DLL')
+                        .limit(1)
                         .maybeSingle();
 
                     const { data: metaMatch } = await withTimeout(
@@ -676,6 +679,9 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                                 .select('id')
                                 .eq('teaching_load_id', item.options.teachingLoadId)
                                 .eq('week_number', item.options.weekNumber)
+                                .eq('term_number', item.options.termNumber ?? 0)
+                                .eq('school_year', item.options.schoolYear || getCurrentSchoolYear())
+                                .in('compliance_status', ['compliant', 'late'])
                                 .eq('doc_type', item.options.docType || 'DLL')
                                 .limit(1) as any,
                             20000,
@@ -700,6 +706,7 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                     file_hash: item.fileHash,
                     file_size: item.fileSize,
                     doc_type: item.options.docType || 'Unknown',
+                    term_number: item.options.termNumber,
                     week_number: item.options.weekNumber,
                     school_year: item.options.schoolYear || getCurrentSchoolYear(),
                     subject: item.options.subject,

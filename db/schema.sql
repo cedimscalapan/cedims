@@ -91,6 +91,7 @@ CREATE TABLE submissions (
     file_hash TEXT NOT NULL,
     file_size INTEGER,
     doc_type TEXT CHECK (doc_type IN ('DLL', 'ISP', 'ISR', 'Unknown')),
+    term_number INTEGER CHECK (term_number BETWEEN 1 AND 3),
     week_number INTEGER,
     subject TEXT,
     school_year TEXT,
@@ -417,6 +418,7 @@ CREATE TRIGGER on_auth_user_created
 -- ═══════════════════════════════════════════════════════════════
 
 CREATE INDEX IF NOT EXISTS idx_submissions_user_week ON submissions(user_id, week_number);
+CREATE INDEX IF NOT EXISTS idx_submissions_term_week ON submissions(term_number, week_number);
 CREATE INDEX IF NOT EXISTS idx_submissions_compliance ON submissions(compliance_status);
 CREATE INDEX IF NOT EXISTS idx_submissions_created_at ON submissions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
