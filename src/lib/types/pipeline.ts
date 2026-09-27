@@ -20,6 +20,7 @@ export interface PipelineOptions {
     userId: string;
     userRole?: string;
     docType?: string;
+    termNumber?: number;
     weekNumber?: number;
     schoolYear?: string;
     subject?: string;

@@ -50,10 +50,19 @@
         grade_level: string;
     }
 
+    interface CalendarEntry {
+        term: number;
+        week_number: number;
+        deadline_date?: string | null;
+        description?: string | null;
+        is_active?: boolean;
+    }
+
     let selectedFile = $state<File | null>(null);
     let docType = $state("DLL");
     let allowedDocTypes = $state<string[]>([]);
     let subject = $state("");
+    let termNumber = $state<number | undefined>();
     let weekNumber = $state<number | undefined>();
     let teachingLoadId = $state<string>("");
     let teachingLoads = $state<TeachingLoad[]>([]);
@@ -91,8 +100,19 @@
     let initialDataRun = 0;
 
     let showLoadPicker = $state(false);
+    let showTermPicker = $state(false);
     let showWeekPicker = $state(false);
-    let academicWeeks = $state<number[]>([]);
+    let calendarEntries = $state<CalendarEntry[]>([]);
+    const academicTerms = [
+        { value: 1, label: "Term 1" },
+        { value: 2, label: "Term 2" },
+        { value: 3, label: "Term 3" },
+    ];
+    const visibleWeeks = $derived(
+        calendarEntries
+            .filter((w) => !termNumber || w.term === termNumber)
+            .map((w) => w.week_number),
+    );
 
     // Header subtitle reflects only the document types this role can actually submit.
     const uploadSubtitle = $derived(
@@ -171,6 +191,10 @@
 
     // Watch weekNumber and fetch deadline
     $effect(() => {
+        if (weekNumber) {
+            const entry = calendarEntries.find((w) => w.week_number === weekNumber);
+            termNumber = entry?.term || Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
+        }
         if (weekNumber && $profile?.district_id) {
             fetchCurrentDeadline(weekNumber, $profile.district_id);
         } else {
@@ -398,6 +422,7 @@
         } else {
             teachingLoads = [];
             teachingLoadId = "";
+            termNumber = undefined;
             weekNumber = undefined;
             // Only show error if uploading DLL (which requires teaching load)
             // School Head and Master Teacher uploading ISP/ISR don't need teaching loads
@@ -407,17 +432,17 @@
         }
 
         if (userProfile.district_id) {
-            let calendarEntries: any[] = [];
+            let loadedCalendarEntries: CalendarEntry[] = [];
 
             // Try cache first for immediate UI
             const cacheKey = `calendar_open_${userProfile.district_id}`;
             const cachedCal = await getCachedMetadata(cacheKey);
             if (cachedCal?.data) {
                 if (runId !== initialDataRun) return;
-                calendarEntries = (cachedCal.data as any[]).filter(
+                loadedCalendarEntries = (cachedCal.data as CalendarEntry[]).filter(
                     (w) => w.is_active === true,
                 );
-                academicWeeks = calendarEntries.map((w) => w.week_number);
+                calendarEntries = loadedCalendarEntries;
                 console.log("[upload] Loaded calendar from cache");
             }
 
@@ -425,15 +450,15 @@
             if (navigator.onLine) {
                 const { data, error } = await supabase
                     .from("academic_calendar")
-                    .select("week_number, deadline_date, description, is_active")
+                    .select("term, week_number, deadline_date, description, is_active")
                     .eq("district_id", userProfile.district_id)
                     .eq("is_active", true)
                     .order("week_number", { ascending: true });
 
                 if (!error && data) {
                     if (runId !== initialDataRun) return;
-                    calendarEntries = data;
-                    academicWeeks = data.map((w) => w.week_number);
+                    loadedCalendarEntries = data;
+                    calendarEntries = loadedCalendarEntries;
                     cacheMetadata(cacheKey, data);
                 } else if (error) {
                     console.error(
@@ -446,14 +471,14 @@
             // Auto-detect current week only when teaching loads are available
             if (
                 teachingLoads.length > 0 &&
-                calendarEntries.length > 0 &&
+                loadedCalendarEntries.length > 0 &&
                 !weekNumber
             ) {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
 
-                const sorted = [...calendarEntries]
-                    .filter((e) => e.deadline_date)
+                const sorted = loadedCalendarEntries
+                    .filter((e): e is CalendarEntry & { deadline_date: string } => typeof e.deadline_date === "string" && e.deadline_date.length > 0)
                     .sort(
                         (a, b) =>
                             new Date(a.deadline_date).getTime() -
@@ -467,8 +492,10 @@
                 });
 
                 if (currentEntry) {
+                    termNumber = currentEntry.term;
                     weekNumber = currentEntry.week_number;
                 } else if (sorted.length > 0) {
+                    termNumber = sorted[sorted.length - 1].term;
                     weekNumber = sorted[sorted.length - 1].week_number;
                 }
             }
@@ -638,8 +665,12 @@
 
             // Only auto-fill week number and teaching load for DLL documents
             if (docType === "DLL") {
+                if (metadata.termNumber) {
+                    termNumber = metadata.termNumber;
+                }
                 if (metadata.weekNumber) {
                     weekNumber = metadata.weekNumber;
+                    termNumber = metadata.termNumber || Math.min(3, Math.max(1, Math.ceil(metadata.weekNumber / 13)));
                 } else if (metadata.date && $profile?.district_id) {
                     const docDate = parseDocDate(metadata.date);
                     if (docDate) {
@@ -649,6 +680,8 @@
                         );
                         if (derivedWeek) {
                             weekNumber = derivedWeek;
+                            const entry = calendarEntries.find((w) => w.week_number === derivedWeek);
+                            termNumber = entry?.term || Math.min(3, Math.max(1, Math.ceil(derivedWeek / 13)));
                             console.log(
                                 `[upload] Derived week ${weekNumber} from date ${metadata.date}`,
                             );
@@ -772,6 +805,7 @@
             userRole: $profile!.role,
             docType,
             subject: subject || undefined,
+            termNumber,
             weekNumber,
             teachingLoadId,
             enforceOcr: $settings.enforce_ocr,
@@ -810,6 +844,8 @@
                         docType = event.metadata.docType;
                     if (event.metadata.weekNumber)
                         weekNumber = event.metadata.weekNumber;
+                    if (event.metadata.termNumber)
+                        termNumber = event.metadata.termNumber;
                     if (event.metadata.confidence !== undefined)
                         ocrConfidence = event.metadata.confidence;
                     const { speak } = await import("$lib/utils/voiceGuide");
@@ -1085,7 +1121,7 @@
                             <div class="h-2 w-full overflow-hidden rounded-full bg-border-subtle" role="progressbar" aria-label="Document scan progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={scanProgress}>
                                 <div class="h-full rounded-full bg-gov-blue transition-[width] duration-300 ease-out" style={`width: ${scanProgress}%`}></div>
                             </div>
-                            <p class="mt-2 text-xs text-text-muted">Reading the document and detecting its type, week, and teaching load.</p>
+                            <p class="mt-2 text-xs text-text-muted">Reading the document and detecting its type, term, week, and teaching load.</p>
                         </div>
                     {:else}
                         <div class="space-y-4 animate-fade-in">
@@ -1193,7 +1229,7 @@
                             </div>
                             {/if}
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <!-- Doc Type -->
                                 <div class="space-y-2">
                                     <span
@@ -1233,6 +1269,42 @@
                                 {/if}
 
                                 {#if docType === "DLL"}
+                                <!-- Term -->
+                                <div class="space-y-2">
+                                    <span
+                                        class="text-xs font-bold text-text-muted uppercase tracking-wide ml-1"
+                                        >Target Term</span
+                                    >
+                                    <button
+                                        onclick={() =>
+                                            (requiresTeachingLoadSelection($profile?.role || '', docType) ? teachingLoads.length > 0 : true) &&
+                                            (showTermPicker = true)
+                                        }
+                                        disabled={requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0}
+                                        class="w-full p-3 rounded-md bg-surface-muted border border-border-subtle transition-colors text-left flex items-center justify-between group {requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0
+                                            ? 'opacity-60 cursor-not-allowed'
+                                            : 'hover:border-gov-blue/30'}"
+                                    >
+                                        <div>
+                                            {#if termNumber}
+                                                <p class="text-xs font-semibold text-gov-blue/60 uppercase tracking-normal mb-0.5">
+                                                    Selected
+                                                </p>
+                                                <p class="text-base font-semibold text-text-primary">
+                                                    Term {termNumber}
+                                                </p>
+                                            {:else}
+                                                <p class="text-base font-semibold text-text-muted">
+                                                    Select Term
+                                                </p>
+                                            {/if}
+                                        </div>
+                                        <div class="px-2 py-1 rounded bg-gov-blue/10 text-gov-blue text-xs font-semibold uppercase">
+                                            {teachingLoads.length === 0 ? 'Pending' : 'Edit'}
+                                        </div>
+                                    </button>
+                                </div>
+
                                 <!-- Week -->
                                 <div class="space-y-2">
                                     <span
@@ -1278,6 +1350,11 @@
                                                 >
                                                     Select Week
                                                 </p>
+                                                {#if termNumber}
+                                                    <p class="text-xs font-medium text-text-muted mt-0.5">
+                                                        Term {termNumber} weeks only
+                                                    </p>
+                                                {/if}
                                             {/if}
                                         </div>
                                         <div
@@ -1366,6 +1443,7 @@
                                 onclick={handleUpload}
                                 disabled={!canUploadDocument($profile?.role || '', docType) ||
                                     (requiresTeachingLoadSelection($profile?.role || '', docType) && !teachingLoadId) ||
+                                    (docType === "DLL" && !termNumber) ||
                                     (docType === "DLL" && !weekNumber) ||
                                     processing}
                                 class="gov-btn-primary mt-4 w-full"
@@ -1435,7 +1513,7 @@
                         </li>
                         <li class="flex items-start gap-3">
                             <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-                            <span>The system reads the file and suggests the teaching load, document type, and week.</span>
+                            <span>The system reads the file and suggests the teaching load, document type, term, and week.</span>
                         </li>
                         <li class="flex items-start gap-3">
                             <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
@@ -1643,10 +1721,11 @@
             <div
                 class="max-h-[60vh] overflow-y-auto p-4 grid grid-cols-2 gap-3"
             >
-                {#each academicWeeks as wk}
+                {#each visibleWeeks as wk}
                     <button
                         onclick={() => {
                             weekNumber = wk;
+                            termNumber = calendarEntries.find((w) => w.week_number === wk)?.term || termNumber;
                             showWeekPicker = false;
                         }}
                         class="p-6 rounded-md text-center transition-colors flex flex-col items-center justify-center gap-1 group {weekNumber ===
@@ -1669,6 +1748,63 @@
                         <p class="text-sm font-medium">No calendar weeks configured</p>
                         <p class="text-xs mt-1">Contact your district supervisor to set up the academic calendar.</p>
                     </div>
+                {/each}
+            </div>
+        </div>
+    </div>
+{/if}
+
+{#if showTermPicker}
+    <div
+        class="fixed inset-0 z-[var(--z-modal)] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60  transition-opacity"
+        onclick={() => (showTermPicker = false)}
+        onkeydown={(e) => e.key === "Escape" && (showTermPicker = false)}
+        role="presentation"
+        transition:fade={{ duration: 200 }}
+    >
+        <div
+            class="w-full max-w-sm bg-surface-white rounded-t-3xl sm:rounded-xl shadow-sm overflow-hidden animate-slide-up sm:animate-scale-in"
+            onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => { e.stopPropagation(); if (e.key === "Escape") showTermPicker = false; }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Select Term"
+            tabindex="-1"
+            use:focusTrap
+        >
+            <div class="p-6 border-b border-border-subtle flex items-center justify-between">
+                <h3 class="text-xl font-semibold text-text-primary">
+                    Select Term
+                </h3>
+                <button
+                    onclick={() => (showTermPicker = false)}
+                    class="p-2.5 hover:bg-surface-muted rounded-full text-text-muted"
+                    aria-label="Close"
+                >
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="max-h-[60vh] overflow-y-auto p-4 grid grid-cols-1 gap-3">
+                {#each academicTerms as term}
+                    <button
+                        onclick={() => {
+                            termNumber = term.value;
+                            if (weekNumber && !calendarEntries.some((w) => w.week_number === weekNumber && w.term === term.value)) {
+                                weekNumber = undefined;
+                            }
+                            showTermPicker = false;
+                        }}
+                        class="p-5 rounded-md text-left transition-colors flex items-center justify-between group {termNumber === term.value
+                            ? 'bg-gov-blue text-white shadow-lg'
+                            : 'bg-surface-muted hover:bg-gov-blue/5 border border-transparent hover:border-gov-blue/20'}"
+                    >
+                        <span class="text-lg font-semibold">{term.label}</span>
+                        <span class="text-xs font-semibold uppercase tracking-wide {termNumber === term.value ? 'text-white/70' : 'text-text-muted'}">
+                            Weeks {(term.value - 1) * 13 + 1}-{term.value * 13}
+                        </span>
+                    </button>
                 {/each}
             </div>
         </div>

@@ -28,15 +28,22 @@ interface CoreResult {
     fileName: string;
     filePath: string;
     detectedMetadata: any;
+    activeTermNumber?: number;
     activeWeekNumber?: number;
     activeDocType: string;
     rawText: string;
 }
 
-function getTermPathSegment(docType: string, weekNumber: number | undefined, userRole?: string): string | null {
+function resolveTermNumber(termNumber: number | undefined, weekNumber: number | undefined): number | undefined {
+    if (termNumber && Number.isFinite(termNumber)) return Math.min(3, Math.max(1, termNumber));
+    if (weekNumber && Number.isFinite(weekNumber)) return Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
+    return undefined;
+}
+
+function getTermPathSegment(docType: string, termNumber: number | undefined, weekNumber: number | undefined, userRole?: string): string | null {
     const roleCanUploadDll = userRole === 'Teacher' || userRole === 'Master Teacher';
-    if (docType !== 'DLL' || !roleCanUploadDll || !weekNumber || !Number.isFinite(weekNumber)) return null;
-    const term = Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
+    const term = resolveTermNumber(termNumber, weekNumber);
+    if (docType !== 'DLL' || !roleCanUploadDll || !term) return null;
     return `Term_${term}`;
 }
 
@@ -240,11 +247,12 @@ async function* runPipelineCore(
     );
 
     const activeWeekNumber = options.weekNumber || detectedMetadata?.weekNumber;
+    const activeTermNumber = resolveTermNumber(options.termNumber || detectedMetadata?.termNumber, activeWeekNumber);
     const activeDocType = options.docType || detectedMetadata?.docType || 'DLL';
     const rawText = options.rawText || detectedMetadata?.rawText || '';
     const fileName = file.name.replace(/\.\w+$/, '.pdf');
     const sanitizedFileName = (fileName || 'document').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-    const termPathSegment = getTermPathSegment(activeDocType, activeWeekNumber, options.userRole);
+    const termPathSegment = getTermPathSegment(activeDocType, activeTermNumber, activeWeekNumber, options.userRole);
     const filePath = [
         'submissions',
         options.userId,
@@ -263,6 +271,7 @@ async function* runPipelineCore(
                 fileName,
                 filePath,
                 detectedMetadata,
+                activeTermNumber,
                 activeWeekNumber,
                 activeDocType,
                 rawText

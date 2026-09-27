@@ -43,6 +43,13 @@ for (let g = 1; g <= 6; g++) {
 
 const DOC_TYPES = ['DLL', 'ISP', 'ISR'];
 
+const TERMS = [
+    'Term 1', 'Term 2', 'Term 3',
+    '1st Term', '2nd Term', '3rd Term',
+    'First Term', 'Second Term', 'Third Term',
+    'Unang Term', 'Ikalawang Term', 'Ikatlong Term'
+];
+
 const FIELD_LABELS = [
     'Learning Area', 'Asignatura', 'Subject',
     'Grade Level', 'Baitang', 'Grade',
@@ -161,6 +168,26 @@ export function predictDocType(text: string): FuzzyPrediction {
     return result.value
         ? { value: result.value, confidence: result.score }
         : { value: null, confidence: 0 };
+}
+
+export function predictTermNumber(text: string): { value: number | null; confidence: number } {
+    const upper = text.toUpperCase();
+    const explicit = upper.match(/\b(?:TERM|TRIMESTER|MARKAHAN)\s*(?:NO\.?|NUMBER|#|:)?\s*(1|2|3|I|II|III|FIRST|SECOND|THIRD|UNANG|IKALAWANG|IKATLONG)\b/i) ||
+        upper.match(/\b(1ST|2ND|3RD|FIRST|SECOND|THIRD|UNANG|IKALAWANG|IKATLONG)\s*(?:TERM|TRIMESTER|MARKAHAN)\b/i);
+
+    if (explicit) {
+        const raw = normalize(explicit[1]);
+        if (raw === '1' || raw === 'i' || raw === '1st' || raw === 'first' || raw === 'unang') return { value: 1, confidence: 100 };
+        if (raw === '2' || raw === 'ii' || raw === '2nd' || raw === 'second' || raw === 'ikalawang') return { value: 2, confidence: 100 };
+        if (raw === '3' || raw === 'iii' || raw === '3rd' || raw === 'third' || raw === 'ikatlong') return { value: 3, confidence: 100 };
+    }
+
+    const result = fuzzyMatchAny(text, TERMS);
+    if (!result.value) return { value: null, confidence: 0 };
+    if (/1|1st|first|unang/i.test(result.value)) return { value: 1, confidence: result.score };
+    if (/2|2nd|second|ikalawang/i.test(result.value)) return { value: 2, confidence: result.score };
+    if (/3|3rd|third|ikatlong/i.test(result.value)) return { value: 3, confidence: result.score };
+    return { value: null, confidence: 0 };
 }
 
 /**

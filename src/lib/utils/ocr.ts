@@ -3,7 +3,7 @@
  * Dynamically imported to avoid blocking initial bundle.
  * Scans the first page ROI to extract document type, week, and school year.
  */
-import { predictSubject, predictGradeLevel, predictDocType } from './fuzzyClassifier';
+import { predictSubject, predictGradeLevel, predictDocType, predictTermNumber } from './fuzzyClassifier';
 import { createWorker } from 'tesseract.js';
 import { PDFJS_VERSION } from './pdfjsVersion';
 
@@ -15,6 +15,7 @@ export interface DateRange {
 
 export interface DocMetadata {
     docType: 'DLL' | 'ISP' | 'ISR' | 'Unknown';
+    termNumber: number | null;
     weekNumber: number | null;
     schoolYear: string | null;
     subject: string | null;
@@ -160,6 +161,7 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
 function createDefaultMetadata(): DocMetadata {
     return {
         docType: 'Unknown',
+        termNumber: null,
         weekNumber: null,
         schoolYear: null,
         subject: null,
@@ -308,6 +310,7 @@ export function parseMetadata(text: string): Omit<DocMetadata, 'confidence' | 'l
     let subject: string | null = null;
     let subjectConfidence = 0;
     let gradeLevel: string | null = null;
+    let termNumber: number | null = null;
     let weekNumber: number | null = null;
     let weekSource: 'calendar' | 'header-date' | 'regex' | 'none' = 'none';
 
@@ -359,11 +362,20 @@ export function parseMetadata(text: string): Omit<DocMetadata, 'confidence' | 'l
             }
         }
 
+        const term = predictTermNumber(text);
+        if (term.value) {
+            termNumber = term.value;
+            console.log(`[ocr] Matched term as Term ${termNumber} (confidence: ${term.confidence}%)`);
+        }
+
         // Extract week number
         const weekMatch = upper.match(/(?:WEEK|LINGGO)\s*[#:]*\s*(\d+)/i) ||
             upper.match(/IKA-\s*(\d+)\s*LINGGO/i);
         weekNumber = weekMatch ? parseInt(weekMatch[1], 10) : null;
         weekSource = weekNumber ? 'regex' : 'none';
+        if (!termNumber && weekNumber) {
+            termNumber = Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
+        }
     }
 
     // Extract school year
@@ -395,6 +407,7 @@ export function parseMetadata(text: string): Omit<DocMetadata, 'confidence' | 'l
 
     return {
         docType,
+        termNumber,
         weekNumber,
         schoolYear,
         subject,
