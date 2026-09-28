@@ -1,0 +1,29 @@
+
+> cedims@0.0.1 dev
+> vite dev --host 127.0.0.1 --port 5174 --strictPort
+
+
+  VITE v7.3.6  ready in 9485 ms
+
+  ➜  Local:   http://127.0.0.1:5174/
+  ➜  press h + enter to show help
+6:08:43 PM [vite] (ssr) hmr update /src/app.css
+6:08:45 PM [vite] (ssr) hmr update /src/app.css
+6:09:55 PM [vite] (ssr) hmr update /src/app.css
+6:11:06 PM [vite] (ssr) hmr update /src/app.css
+6:11:10 PM [vite] (ssr) hmr update /src/app.css
+6:11:59 PM [vite] (ssr) page reload .svelte-kit/generated/shared/error-template.js
+6:12:00 PM [vite] (ssr) page reload .svelte-kit/generated/server/internal.js
+6:12:00 PM [vite] (ssr) page reload .svelte-kit/generated/root.svelte
+6:12:00 PM [vite] (ssr) page reload .svelte-kit/generated/shared/error-template.js
+6:12:00 PM [vite] (ssr) page reload .svelte-kit/generated/root.js
+6:13:40 PM [vite] (ssr) hmr update /src/app.css
+6:13:56 PM [vite] (ssr) page reload .svelte-kit/generated/shared/error-template.js
+6:13:56 PM [vite] (ssr) page reload .svelte-kit/generated/server/internal.js
+6:13:56 PM [vite] (ssr) page reload .svelte-kit/generated/root.svelte
+6:13:56 PM [vite] (ssr) hmr update /src/app.css
+6:13:56 PM [vite] (ssr) hmr update /src/app.css
+6:13:58 PM [vite] (ssr) page reload .svelte-kit/generated/shared/error-template.js
+6:13:58 PM [vite] (ssr) page reload .svelte-kit/generated/server/internal.js
+6:13:58 PM [vite] (ssr) page reload .svelte-kit/generated/root.svelte
+6:13:58 PM [vite] (ssr) page reload .svelte-kit/generated/root.js

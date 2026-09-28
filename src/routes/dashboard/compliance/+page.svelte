@@ -8,7 +8,6 @@
     import PageHeader from '$lib/components/PageHeader.svelte';
     import SkeletonLoader from '$lib/components/SkeletonLoader.svelte';
     import { makeScopedCacheKey, readLocalData, writeLocalData } from '$lib/utils/localDataCache';
-    import { RefreshCw } from 'lucide-svelte';
 
     let year = $state(getCurrentSchoolYear());
     let loading = $state(true);
@@ -25,6 +24,18 @@
     let data = $state<Snapshot | null>(null);
     let run = 0;
     const allowed = $derived(['Master Teacher', 'School Head', 'District Supervisor'].includes($profile?.role || ''));
+    const yearOptions = $derived(Array.from({ length: 6 }, (_, i) => {
+        const start = Number(getCurrentSchoolYear().slice(0, 4)) + 1 - i;
+        return `${start}-${start + 1}`;
+    }));
+
+    function changeYear(nextYear: string) {
+        year = nextYear;
+        try { sessionStorage.setItem(`compliance-year:${$profile?.id}`, year); } catch { /* Storage is optional. */ }
+        data = null;
+        loading = true;
+        void load();
+    }
 
     async function load() {
         if (!$profile || !allowed) { loading = false; return; }
@@ -97,18 +108,8 @@
 {#if !allowed && !loading}
     <p role="alert">Compliance Monitoring is available to supervisors.</p>
 {:else}
-    <div class="mb-4 flex flex-wrap items-end gap-3">
-        <label class="text-sm font-semibold">School year
-            <select class="ml-2 min-h-11 rounded border border-border-subtle bg-surface-white p-2" bind:value={year} onchange={() => { try { sessionStorage.setItem(`compliance-year:${$profile?.id}`, year); } catch {} data = null; loading = true; void load(); }}>
-                {#each Array.from({ length: 6 }, (_, i) => Number(getCurrentSchoolYear().slice(0, 4)) + 1 - i) as start}
-                    <option value={`${start}-${start + 1}`}>{start}-{start + 1}</option>
-                {/each}
-            </select>
-        </label>
-        <button class="gov-btn-secondary" disabled={refreshing} onclick={() => void load()}><RefreshCw size={16} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>
-    </div>
     {#if data}<p role="status" class="mb-4 text-sm text-text-muted">{offline ? 'Offline. ' : cachedAt ? 'Saved data. Latest refresh unavailable. ' : ''}Updated at {new Date(data.savedAt).toLocaleString('en-PH')}{offline || cachedAt ? '. Recent changes may not be reflected.' : ''}</p>{/if}
     {#if loading}<SkeletonLoader variant="card-grid" count={3} />
     {:else if error}<p role="alert" class="text-gov-red">{error}</p>
-    {:else if data}<ComplianceWorkspace {...data} role={$profile?.role || 'School Head'} {year} />{/if}
+    {:else if data}<ComplianceWorkspace {...data} role={$profile?.role || 'School Head'} {year} {yearOptions} onYearChange={changeYear} refreshing={refreshing} onRefresh={() => void load()} />{/if}
 {/if}

@@ -2,8 +2,8 @@
     import { onMount } from 'svelte';
     import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, weekMix, overdueByWeek } from '$lib/utils/compliance';
     import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
-    import { Download, Search, ArrowLeft, ChevronLeft, ChevronRight, Filter } from 'lucide-svelte';
-    let { teachers, schools, loads, calendar, submissions, reviews, year, role }: {
+    import { Download, Search, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, RefreshCw } from 'lucide-svelte';
+    let { teachers, schools, loads, calendar, submissions, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
         teachers: { id: string; full_name: string; school_id: string }[];
         schools: { id: string; name: string; district_id: string }[];
         loads: ComplianceLoad[];
@@ -12,9 +12,14 @@
         reviews: { submission_id: string; status?: string | null; reviewer_comment?: string | null }[];
         year: string;
         role: string;
+        yearOptions?: string[];
+        onYearChange?: (year: string) => void;
+        refreshing?: boolean;
+        onRefresh?: () => void;
     } = $props();
     let term = $state('all');
     let week = $state('all');
+    let openPeriodMenu = $state<'year' | 'term' | 'week' | null>(null);
     let school = $state('all');
     let search = $state('');
     let status = $state('risk');
@@ -50,6 +55,7 @@
     let page = $state(1);
     let exporting = $state(false);
     let exportError = $state('');
+    const resolvedYearOptions = $derived(yearOptions?.length ? yearOptions : [year]);
     const size = 15;
     const requirements = $derived(teachers.flatMap(t => buildRequirements(
         loads.filter(l => l.user_id === t.id),
@@ -136,6 +142,10 @@
     const pages = $derived(Math.max(1, Math.ceil(rowCount / size)));
     $effect(() => { if (page > pages) page = pages; });
     function reset() { page = 1; }
+    function selectYear(nextYear: string) { openPeriodMenu = null; if (nextYear !== year) onYearChange?.(nextYear); }
+    function selectTerm(nextTerm: string) { term = nextTerm; week = 'all'; openPeriodMenu = null; reset(); }
+    function selectWeek(nextWeek: string) { week = nextWeek; openPeriodMenu = null; reset(); }
+    function togglePeriodMenu(menu: 'year' | 'term' | 'week') { openPeriodMenu = openPeriodMenu === menu ? null : menu; }
     function remember() { history = [...history, { school, search, status, cluster: clusterFilter, selectedTeacher, page }]; }
     function openSchool(id: string, missing = false) { remember(); school = id; search = ''; status = missing ? 'missing' : 'all'; clusterFilter = 'all'; selectedTeacher = null; reset(); }
     function openTeacher(id: string, missing = false) { remember(); selectedTeacher = id; clusterFilter = 'all'; search = ''; status = missing ? 'missing' : 'all'; reset(); }
@@ -210,9 +220,54 @@
             <button class="export" onclick={exportReport} disabled={exporting || !scoped.length}><Download size={16} />{exporting ? 'Exporting...' : 'Export period report'}</button>
         </header>
         <div class="filters">
-            <label>Term<select aria-label="Term" bind:value={term} onchange={() => { week = 'all'; reset(); }}><option value="all">All terms</option>{#each [1, 2, 3] as t}<option value={String(t)}>Term {t}</option>{/each}</select></label>
-            <label>Week<select aria-label="Week" bind:value={week} onchange={reset}><option value="all">All weeks</option>{#each weeks as w}<option value={String(w)}>Week {w}</option>{/each}</select></label>
-            <span class="period">{year}</span>
+            <div class="picker-field">
+                <span>School year</span>
+                <div class="picker">
+                    <button type="button" class="picker-trigger" aria-haspopup="listbox" aria-expanded={openPeriodMenu === 'year'} onclick={() => togglePeriodMenu('year')}>
+                        <strong>{year}</strong>{#if openPeriodMenu === 'year'}<ChevronUp size={18} />{:else}<ChevronDown size={18} />{/if}
+                    </button>
+                    {#if openPeriodMenu === 'year'}
+                        <div class="picker-menu" role="listbox" aria-label="School year">
+                            {#each resolvedYearOptions as option}
+                                <button type="button" role="option" aria-selected={option === year} class:active={option === year} onclick={() => selectYear(option)}>{option}</button>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
+            </div>
+            <div class="picker-field">
+                <span>Term</span>
+                <div class="picker">
+                    <button type="button" class="picker-trigger" aria-haspopup="listbox" aria-expanded={openPeriodMenu === 'term'} onclick={() => togglePeriodMenu('term')}>
+                        <strong>{term === 'all' ? 'All terms' : `Term ${term}`}</strong>{#if openPeriodMenu === 'term'}<ChevronUp size={18} />{:else}<ChevronDown size={18} />{/if}
+                    </button>
+                    {#if openPeriodMenu === 'term'}
+                        <div class="picker-menu" role="listbox" aria-label="Term">
+                            <button type="button" role="option" aria-selected={term === 'all'} class:active={term === 'all'} onclick={() => selectTerm('all')}>All terms</button>
+                            {#each [1, 2, 3] as t}
+                                <button type="button" role="option" aria-selected={term === String(t)} class:active={term === String(t)} onclick={() => selectTerm(String(t))}>Term {t}</button>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
+            </div>
+            <div class="picker-field">
+                <span>Week</span>
+                <div class="picker">
+                    <button type="button" class="picker-trigger" aria-haspopup="listbox" aria-expanded={openPeriodMenu === 'week'} onclick={() => togglePeriodMenu('week')}>
+                        <strong>{week === 'all' ? 'All weeks' : `Week ${week}`}</strong>{#if openPeriodMenu === 'week'}<ChevronUp size={18} />{:else}<ChevronDown size={18} />{/if}
+                    </button>
+                    {#if openPeriodMenu === 'week'}
+                        <div class="picker-menu" role="listbox" aria-label="Week">
+                            <button type="button" role="option" aria-selected={week === 'all'} class:active={week === 'all'} onclick={() => selectWeek('all')}>All weeks</button>
+                            {#each weeks as w}
+                                <button type="button" role="option" aria-selected={week === String(w)} class:active={week === String(w)} onclick={() => selectWeek(String(w))}>Week {w}</button>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
+            </div>
+            {#if onRefresh}<button class="refresh" type="button" disabled={refreshing} onclick={onRefresh}><RefreshCw size={16} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>{/if}
         </div>
     </section>
     {#if exportError}<p role="alert" class="text-gov-red">{exportError}</p>{/if}
@@ -344,16 +399,54 @@
     .list-tools { padding: 4px 0; }
     h2 { font-size: 22px; font-weight: 750; overflow-wrap: anywhere; line-height: 1.15; } h3 { font-size: 16px; font-weight: 700; }
     .back { width: fit-content; color: var(--color-text-muted); font-size: 13px; min-height: 32px; }
-    .filters { display: grid; grid-template-columns: repeat(2, minmax(150px, 220px)) auto; gap: 10px; align-items: end; }
-    label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; min-width: 0; }
-    select, .search div, .cluster-filter div { min-width: 0; height: 38px; border: 1px solid var(--color-border-subtle); border-radius: 6px; background: var(--color-surface-white); padding: 7px 10px; font-size: 14px; }
-    select { width: 100%; } .period { padding: 10px 0; font-size: 13px; color: var(--color-text-muted); }
+    .filters { display: grid; grid-template-columns: repeat(3, minmax(160px, 230px)) auto; gap: 14px; align-items: end; }
+    label, .picker-field { display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 700; min-width: 0; }
+    .picker { position: relative; min-width: 0; }
+    .picker-trigger {
+        width: 100%;
+        min-height: 56px;
+        justify-content: space-between;
+        padding: 0 16px;
+        border: 1px solid var(--color-border-subtle);
+        border-radius: 8px;
+        background: var(--color-surface-white);
+        color: var(--color-gov-blue);
+        font-size: 17px;
+        text-align: left;
+    }
+    .picker-trigger strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .picker-menu {
+        position: absolute;
+        z-index: 20;
+        inset-inline: 0;
+        top: calc(100% + 6px);
+        max-height: 280px;
+        overflow: auto;
+        border: 1px solid var(--color-border-subtle);
+        border-radius: 8px;
+        background: var(--color-surface-white);
+        box-shadow: 0 18px 36px rgba(15, 23, 42, .16);
+    }
+    .picker-menu button {
+        width: 100%;
+        justify-content: flex-start;
+        min-height: 56px;
+        padding: 0 16px;
+        color: var(--color-text-primary);
+        font-size: 16px;
+        font-weight: 750;
+        text-align: left;
+    }
+    .picker-menu button.active { background: var(--color-surface-muted); color: var(--color-gov-blue); }
+    .picker-menu button:hover { background: var(--color-surface-muted); }
+    .search div, .cluster-filter div { min-width: 0; height: 38px; border: 1px solid var(--color-border-subtle); border-radius: 6px; background: var(--color-surface-white); padding: 7px 10px; font-size: 14px; }
     .search, .cluster-filter { width: 220px; max-width: 100%; } .search div, .cluster-filter div { display: flex; gap: 8px; align-items: center; }
     .search input, .cluster-filter select { width: 100%; min-width: 0; background: transparent; }
     .attention { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; }
     button { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 40px; cursor: pointer; }
     button:disabled { opacity: .5; cursor: default; }
-    .export { align-self: start; min-width: 210px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); background: var(--color-surface-white); font-size: 14px; }
+    .export, .refresh { align-self: start; min-width: 170px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); background: var(--color-surface-white); font-size: 14px; }
+    .export { min-width: 210px; }
     .summary-panel { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, .9fr); gap: 12px; align-items: stretch; }
     .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     .stats div { display: grid; align-content: center; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px 14px; background: var(--color-surface-white); }
@@ -433,7 +526,10 @@
     @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } }
     @media (max-width: 700px) {
         .control-panel { padding: 12px; }
-        .filters { grid-template-columns: 1fr; gap: 10px; } select { width: 100%; min-height: 44px; font-size: 16px; }
+        .filters { grid-template-columns: 1fr; gap: 12px; }
+        .picker-trigger { min-height: 54px; font-size: 16px; }
+        .picker-menu { position: static; margin-top: 6px; max-height: 240px; }
+        .refresh { width: 100%; }
         .search input, .cluster-filter select { font-size: 16px; } .view-heading > div { min-width: 0; }
         .stats { gap: 12px; } .stats small { overflow-wrap: anywhere; }
         .list-header { grid-template-columns: 1fr; align-items: stretch; gap: 10px; }

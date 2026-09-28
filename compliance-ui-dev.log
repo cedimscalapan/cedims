@@ -1,0 +1,12 @@
+6:10:15 PM [vite] (client) Forced re-optimization of dependencies
+
+  VITE v7.3.6  ready in 7554 ms
+
+  ➜  Local:   http://127.0.0.1:5175/
+  ➜  press h + enter to show help
+6:12:00 PM [vite] changed tsconfig file detected: C:/Users/ASUS/OneDrive/Documents/ChatGPT/CDEDIMSCALAPAN/.svelte-kit/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+6:12:01 PM [vite] changed tsconfig file detected: C:/Users/ASUS/OneDrive/Documents/ChatGPT/CDEDIMSCALAPAN/.svelte-kit/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
+6:12:45 PM [vite] (client) hmr update /src/app.css
+6:12:46 PM [vite] (client) hmr update /src/app.css
+6:12:50 PM [vite] (client) hmr update /src/app.css
+6:13:30 PM [vite] changed tsconfig file detected: C:/Users/ASUS/OneDrive/Documents/ChatGPT/CDEDIMSCALAPAN/.svelte-kit/tsconfig.json - Clearing cache and forcing full-reload to ensure TypeScript is compiled with updated config values.
