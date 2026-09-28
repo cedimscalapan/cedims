@@ -45,6 +45,12 @@ export interface ClusterSummary {
     avgVolume: number;
 }
 
+export interface ClusterOutput {
+    results: ClusterResult[];
+    summaries: ClusterSummary[];
+    iterations: number;
+}
+
 export interface SchoolFeatureVector {
     schoolId: string;
     schoolName: string;

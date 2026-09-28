@@ -1,9 +1,8 @@
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte';
-    import { currentCompliancePeriod, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, weekMix, overdueByWeek } from '$lib/utils/compliance';
-    import { extractFeatures, runKMeansClustering, canCluster, type TeacherFeatureVector } from '$lib/utils/clusterAnalytics';
+    import { onMount } from 'svelte';
+    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, weekMix, overdueByWeek } from '$lib/utils/compliance';
+    import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
     import { Download, Search, ArrowUpDown, ArrowLeft, ChevronLeft, ChevronRight, Filter } from 'lucide-svelte';
-    import type { Profile } from '$lib/utils/auth';
     let { teachers, schools, loads, calendar, submissions, reviews, year, role }: {
         teachers: { id: string; full_name: string; school_id: string }[];
         schools: { id: string; name: string; district_id: string }[];
@@ -18,7 +17,7 @@
     let week = $state('all');
     let school = $state('all');
     let search = $state('');
-    let status = $state('all');
+    let status = $state('risk');
     let clusterFilter = $state('all');
     let selectedTeacher = $state<string | null>(null);
     type NavigationState = { school: string; search: string; status: string; cluster: string; selectedTeacher: string | null; page: number };
@@ -60,7 +59,7 @@
         submissions.filter(s => s.user_id === t.id), reviews,
     )));
     const unmatched = $derived.by(() => {
-        const key = (s: ComplianceSubmission) => `${s.teaching_load_id}|${s.school_year}|${submissionTerm(s) ?? s.calendar_id}|${s.week_number}`;
+        const key = (s: ComplianceSubmission) => `${s.teaching_load_id}|${s.school_year}|${submissionTermFromPath(s) ?? s.calendar_id}|${s.week_number}`;
         const matched = new Set(requirements.filter(r => r.submission).map(r => key(r.submission!)));
         return submissions.filter(s => ['compliant', 'late', 'on-time'].includes(s.compliance_status || '') && !matched.has(key(s))).length;
     });
@@ -75,47 +74,67 @@
         (status === 'risk' && (!!t.risk || t.missing > 0)) || (status === 'missing' && t.missing > 0) ||
         (status === 'for-checking' && t.forChecking > 0)));
     const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(requirements.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === s.id && (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week)) )) })));
-    const visible = $derived(scoped.filter(r => (districtOverview && !selectedTeacher || !districtOverview) && teacherRows.some(t => t.id === r.teacherId)));
     const summary = $derived(summarizeRequirements(scoped));
-    const cluster = $derived.by(() => {
-        if (!initialized || !canCluster(teachers.length, submissions.length)) return null;
-        const features = extractFeatures(
+    const termNumber = $derived(term === 'all' ? null : Number(term));
+    const clusterSubmissions = $derived(submissions.filter((s): s is ComplianceSubmission & { user_id: string } => {
+        if (!s.user_id) return false;
+        if (!['compliant', 'on-time', 'late'].includes(s.compliance_status || '')) return false;
+        const sTerm = submissionTermFromPath(s);
+        return termNumber === null || (sTerm !== null && sTerm <= termNumber);
+    }));
+    const teacherFeatureVectors = $derived(extractFeatures(
             teachers.map(t => ({ id: t.id, full_name: t.full_name, school_name: schools.find(s => s.id === t.school_id)?.name || '' })),
-            submissions.filter(s => ['compliant', 'on-time', 'late'].includes(s.compliance_status || '')),
-            Math.max(...calendar.map(c => c.week_number))
-        );
-        return runKMeansClustering(features, 3);
+            clusterSubmissions.map(s => ({ ...s, week_number: s.week_number ?? undefined })),
+            Math.max(1, ...calendar.filter(c => termNumber === null || c.term <= termNumber).map(c => c.week_number))
+        ));
+    const cluster = $derived.by(() => {
+        if (!initialized) return null;
+        if (districtOverview) {
+            const schoolFeatures = schools.map(s => {
+                const members = teacherFeatureVectors.filter(t => t.schoolName === s.name);
+                const count = Math.max(1, members.length);
+                return {
+                    teacherId: s.id,
+                    teacherName: s.name,
+                    schoolName: s.name,
+                    punctuality: Math.round(members.reduce((sum, t) => sum + t.punctuality, 0) / count),
+                    consistency: Math.round(members.reduce((sum, t) => sum + t.consistency, 0) / count),
+                    completeness: Math.round(members.reduce((sum, t) => sum + t.completeness, 0) / count),
+                    volume: Math.round(members.reduce((sum, t) => sum + t.volume, 0) / count),
+                };
+            });
+            if (!canCluster(schoolFeatures.length, clusterSubmissions.length)) return null;
+            return runKMeansClustering(schoolFeatures, 3);
+        }
+        const schoolTeacherFeatures = teacherFeatureVectors.filter(t => school === 'all' || teachers.find(teacher => teacher.id === t.teacherId)?.school_id === school);
+        if (!canCluster(schoolTeacherFeatures.length, clusterSubmissions.length)) return null;
+        return runKMeansClustering(schoolTeacherFeatures, 3);
     });
-    const clusterMap = $derived(cluster ? new Map(cluster.results.map(r => [r.teacher.teacherId, r.clusterId])) : new Map());
-    const clusterLabels = $derived(cluster ? cluster.summaries.map(s => ({ id: s.clusterId, label: s.label, color: s.color })) : []);
-    const teacherClusters = $derived(cluster ? cluster.results.map(r => ({ teacherId: r.teacher.teacherId, clusterId: r.clusterId, label: r.clusterLabel, color: r.clusterColor })) : []);
-    const teacherClusterStats = $derived(cluster ? cluster.summaries.map(s => ({ id: s.clusterId, label: s.label, count: s.count })) : []);
-    const schoolClusterStats = $derived(cluster ? cluster.summaries.map(s => ({ id: s.clusterId, label: s.label, count: s.count })) : []);
-    const schoolClusters = $derived(cluster ? cluster.summaries.map(s => ({ clusterId: s.clusterId, label: s.label, color: s.color, count: s.count, centroid: s.centroid })) : []);
-    const clusterStats = $derived(districtOverview ? schoolClusters : teacherClusters);
-    const filteredClusterStats = $derived(clusterStats.filter(c => clusterFilter === 'all' || c.label === clusterFilter));
-    const filteredTeacherRows = $derived(teacherRows.filter(t => clusterFilter === 'all' || (clusterMap.has(t.id) && clusterMap.get(t.id) !== null && clusterLabels.some(l => l.id === clusterMap.get(t.id) && l.label === clusterFilter))));
+    function centroidScore(summary: ClusterSummary) { return summary.centroid.reduce((sum: number, value: number) => sum + value, 0); }
+    const clusterLabels = $derived(cluster ? [...cluster.summaries].sort((a: ClusterSummary, b: ClusterSummary) => centroidScore(a) - centroidScore(b)).map((s: ClusterSummary) => ({ id: s.clusterId, label: s.label, color: s.color, count: s.count, score: Math.round(centroidScore(s) / s.centroid.length) })) : []);
+    const teacherClusters = $derived(cluster ? cluster.results.map((r: ClusterResult) => ({ teacherId: r.teacher.teacherId, clusterId: r.clusterId, label: r.clusterLabel, color: r.clusterColor })) : []);
+    const clusterMap = $derived(new Map<string, string>(teacherClusters.map((c: { teacherId: string; label: string }) => [c.teacherId, c.label])));
+    const filteredTeacherRows = $derived(teacherRows.filter(t => clusterFilter === 'all' || clusterMap.get(t.id) === clusterFilter));
     const sortedTeachers = $derived([...filteredTeacherRows].sort((a, b) => {
         const value = sort === 'name' ? a.full_name.localeCompare(b.full_name) : sort === 'missing' ? a.missing - b.missing : (a.rate ?? -1) - (b.rate ?? -1);
         return descending ? -value : value;
     }));
-    const rankedSchools = $derived(schoolRows.filter(s => (!search.trim() || s.name.toLowerCase().includes(search.trim().toLowerCase())) && (status !== 'risk' || s.missing > 0)).sort((a, b) => b.missing - a.missing || a.name.localeCompare(b.name)));
+    const rankedSchools = $derived(schoolRows.filter(s => (!search.trim() || s.name.toLowerCase().includes(search.trim().toLowerCase())) &&
+        (status === 'all' || status === 'risk' && s.missing > 0 || status === 'missing' && s.missing > 0 || status === 'for-checking' && s.forChecking > 0) &&
+        (clusterFilter === 'all' || clusterMap.get(s.id) === clusterFilter)).sort((a, b) => b.missing - a.missing || a.name.localeCompare(b.name)));
     const weekMixData = $derived(weekMix(scoped));
-    const overdueByWeekData = $derived(overdueByWeek(scoped));
-    const termOverdueBars = $derived(week === 'all' ? overdueByWeekData.map(d => ({ term: d.term, week: d.week, missing: d.missing })) : []);
-    const schoolOverdueBars = $derived(schoolRows.sort((a, b) => b.missing - a.missing));
-    const selectedTeacherRows = $derived(visible.filter(r => selectedTeacher && r.teacherId === selectedTeacher));
-    const selectedTeacherStats = $derived(selectedTeacher ? scopedTeachers.find(t => t.id === selectedTeacher) : null);
-    const selectedTeacherCluster = $derived(selectedTeacher && cluster ? cluster.results.find(r => r.teacher.teacherId === selectedTeacher) : null);
-    const selectedTeacherOverdue = $derived(scoped.filter(r => r.teacherId === selectedTeacher && r.status === 'missing'));
-    const selectedTeacherForChecking = $derived(scoped.filter(r => r.teacherId === selectedTeacher && r.review === 'for-checking'));
+    const termOverdueBars = $derived(overdueByWeek(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) && (term === 'all' || r.calendar.term === Number(term)))));
+    const schoolOverdueBars = $derived([...schoolRows].sort((a, b) => b.missing - a.missing));
+    const maxTermOverdue = $derived(Math.max(1, ...termOverdueBars.map(b => b.missing)));
+    const maxSchoolOverdue = $derived(Math.max(1, ...schoolOverdueBars.map(s => s.missing)));
+    const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'for-checking' ? r.review === 'for-checking' : status === 'missing' ? r.status === 'missing' : true));
     const rowCount = $derived(activeTab === 'schools' ? rankedSchools.length : activeTab === 'teacher' ? selectedTeacherRows.length : sortedTeachers.length);
     const pages = $derived(Math.max(1, Math.ceil(rowCount / size)));
     $effect(() => { if (page > pages) page = pages; });
     function reset() { page = 1; }
     function remember() { history = [...history, { school, search, status, cluster: clusterFilter, selectedTeacher, page }]; }
-    function openSchool(id: string, missing = false) { remember(); school = id; search = ''; status = 'all'; clusterFilter = 'all'; selectedTeacher = null; reset(); }
-    function openTeacher(id: string, missing = false) { remember(); selectedTeacher = id; clusterFilter = 'all'; search = ''; status = 'all'; reset(); }
+    function openSchool(id: string, missing = false) { remember(); school = id; search = ''; status = missing ? 'missing' : 'all'; clusterFilter = 'all'; selectedTeacher = null; reset(); }
+    function openTeacher(id: string, missing = false) { remember(); selectedTeacher = id; clusterFilter = 'all'; search = ''; status = missing ? 'missing' : 'all'; reset(); }
     function goBack() {
         const previous = history.at(-1);
         if (previous) { history = history.slice(0, -1); ({ school, search, status, cluster: clusterFilter, selectedTeacher, page } = previous); return; }
@@ -125,6 +144,7 @@
     }
     function teacherName(id: string) { return teachers.find(t => t.id === id)?.full_name || 'Unknown teacher'; }
     function schoolName(id: string) { return schools.find(s => s.id === id)?.name || 'Unassigned school'; }
+    function clusterLabelFor(id: string) { return clusterMap.get(id) || ''; }
     function changeSort(field: string) { descending = sort === field ? !descending : false; sort = field; reset(); }
     async function exportReport() {
         exporting = true; exportError = '';
@@ -142,18 +162,25 @@
             ]);
             const people = book.addWorksheet(districtOverview ? 'Schools' : 'Teachers');
             people.addRow(districtOverview ? ['School', 'Overdue DLLs', 'For checking', 'Checked', 'Submission progress', 'Attention'] : ['Teacher', 'Overdue DLLs', 'For checking', 'Checked', 'Submission progress', 'Attention', 'Cluster']);
-            for (const item of districtOverview ? rankedSchools : sortedTeachers) {
-                const rows = scoped.filter(r => !districtOverview && item.id === item.id || districtOverview && teachers.find(t => t.id === item.id)?.school_id === item.id);
-                const t = summarizeRequirements(rows);
-                const clusterLabel = !districtOverview && item.id ? teacherClusters.find(c => c.teacherId === item.id)?.label || '' : '';
-                const risk = riskReason(rows);
-                people.addRow(districtOverview ? [item.name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', risk] : [item.full_name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', risk, clusterLabel]);
+            if (districtOverview) {
+                for (const item of rankedSchools) {
+                    const rows = scoped.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === item.id);
+                    const t = summarizeRequirements(rows);
+                    people.addRow([item.name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', riskReason(rows)]);
+                }
+            } else {
+                for (const item of sortedTeachers) {
+                    const rows = scoped.filter(r => r.teacherId === item.id);
+                    const t = summarizeRequirements(rows);
+                    people.addRow([item.full_name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', riskReason(rows), clusterLabelFor(item.id)]);
+                }
             }
             const details = book.addWorksheet('Requirements');
             details.addRow(['School year', 'Teacher', 'School', 'Subject', 'Grade', 'Term', 'Week', 'Deadline', 'Submission status', 'Review status', 'Submitted at', 'Submission ID', 'Cluster']);
             for (const r of scoped) {
-                const clusterLabel = teacherClusters.find(c => c.teacherId === r.teacherId)?.label || '';
-                details.addRow([year, teacherName(r.teacherId), schoolName(teachers.find(t => t.id === r.teacherId)?.school_id || ''), r.load.subject, r.load.grade_level, r.calendar.term, r.calendar.week_number, r.calendar.deadline_date, r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late, submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming', r.review === 'none' ? '-' : r.review === 'for-checking' ? 'For checking' : r.review === 'checked' ? 'Checked' : 'None', r.submission?.created_at || '', r.submission?.id || '', clusterLabel]);
+                const teacherSchoolId = teachers.find(t => t.id === r.teacherId)?.school_id || '';
+                const clusterLabel = districtOverview ? clusterMap.get(teacherSchoolId) || '' : clusterMap.get(r.teacherId) || '';
+                details.addRow([year, teacherName(r.teacherId), schoolName(teacherSchoolId), r.load.subject, r.load.grade_level, r.calendar.term, r.calendar.week_number, r.calendar.deadline_date, r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late, submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming', r.review === 'none' ? '-' : r.review === 'for-checking' ? 'For checking' : r.review === 'checked' ? 'Checked' : 'None', r.submission?.created_at || '', r.submission?.id || '', clusterLabel]);
             }
             for (const sheet of book.worksheets) {
                 sheet.views = [{ state: 'frozen', ySplit: 1 }];
@@ -167,11 +194,7 @@
         } catch (e) { exportError = 'Export failed. Please try again.'; console.error(e); }
         finally { exporting = false; }
     }
-    function submissionTerm(s: Pick<ComplianceSubmission, 'term_number' | 'file_path'>): number | null {
-        if (s.term_number && [1, 2, 3].includes(s.term_number)) return s.term_number;
-        const match = s.file_path?.match(/(?:^|\/)Term_([1-3])(?:\/|$)/i);
-        return match ? Number(match[1]) : null;
-    }
+    const weekMixTotal = $derived(weekMixData.onTime + weekMixData.late + weekMixData.missing);
 </script>
 
 <div class="compliance-workspace">
@@ -198,70 +221,72 @@
         <progress max="100" value={summary.rate || 0} aria-label="Overall submission completion"></progress>
         <span>Late uploads count as submitted. Upcoming DLLs are not overdue.</span>
     </div>
+    {#if clusterLabels.length}
+        <section class="cluster-chips" aria-label={districtOverview ? 'School pattern groups' : 'Teacher pattern groups'}>
+            <button class:active={clusterFilter === 'all'} onclick={() => { clusterFilter = 'all'; reset(); }}>
+                All {districtOverview ? 'schools' : 'teachers'} <strong>{districtOverview ? schoolRows.length : teacherRows.length}</strong>
+            </button>
+            {#each clusterLabels as group}
+                <button class:active={clusterFilter === group.label} style={"--cluster-color: " + group.color} onclick={() => { clusterFilter = group.label; status = status === 'all' ? 'risk' : status; reset(); }}>
+                    <span></span>{group.label}<strong>{group.count}</strong>
+                </button>
+            {/each}
+        </section>
+        <details class="cluster-note">
+            <summary>How grouping works</summary>
+            <p>K-means groups {districtOverview ? 'schools' : 'teachers'} by term-to-date submission habits: completeness, punctuality, consistency, and upload volume. Use Building Momentum first for pattern support, then check this week&apos;s overdue list.</p>
+        </details>
+    {/if}
+    <div class="charts">
+        {#if weekMixTotal > 0}
+            <div class="chart-card mix">
+                <h4>This week mix</h4>
+                <div class="bar-container" aria-label="This week upload mix">
+                    <div class="bar-segment on-time" style="width: {100 * weekMixData.onTime / weekMixTotal}%"><span class="bar-label">On time {weekMixData.onTime}</span></div>
+                    <div class="bar-segment late" style="width: {100 * weekMixData.late / weekMixTotal}%"><span class="bar-label">Late {weekMixData.late}</span></div>
+                    <div class="bar-segment missing" style="width: {100 * weekMixData.missing / weekMixTotal}%"><span class="bar-label">Missing {weekMixData.missing}</span></div>
+                </div>
+            </div>
+        {/if}
+        {#if termOverdueBars.length > 1}
+            <div class="chart-card">
+                <h4>Weeks in this term</h4>
+                <div class="spark-bars" aria-label="Overdue files by week">
+                    {#each termOverdueBars as bar}
+                        <div>
+                            <span style="height: {Math.max(6, 80 * bar.missing / maxTermOverdue)}px"></span>
+                            <small>T{bar.term} W{bar.week}</small>
+                            <strong>{bar.missing}</strong>
+                        </div>
+                    {/each}
+                </div>
+            </div>
+        {/if}
+        {#if districtOverview && schoolOverdueBars.length > 1}
+            <div class="chart-card">
+                <h4>School overdue bars</h4>
+                <div class="horizontal-bars">
+                    {#each schoolOverdueBars.slice(0, 8) as item}
+                        <button class="horizontal-bar-item" onclick={() => openSchool(item.id, true)}>
+                            <span>{item.name}</span>
+                            <span class="bar-container-small"><span class="bar-fill overdue" style="width: {100 * item.missing / maxSchoolOverdue}%"></span></span>
+                            <strong>{item.missing}</strong>
+                        </button>
+                    {/each}
+                </div>
+            </div>
+        {/if}
+    </div>
     <div class="list-tools">
         <div class="list-header">
-            <h3>{districtOverview ? 'Schools' : 'Follow-up list'}</h3>
+            <h3>{districtOverview ? 'Schools to follow up' : selectedTeacher ? 'DLLs to follow up' : 'Teachers to follow up'}</h3>
             <div class="list-controls">
-                {#if !districtOverview}<label class="search"><span class="sr-only">Search teachers</span><div><Search size={16} /><input aria-label="Search teachers" placeholder="Search teachers" bind:value={search} oninput={reset} /></div></label>{/if}
-                {#if !districtOverview}<label class="cluster-filter"><span class="sr-only">Cluster filter</span><div><Filter size={16} /><select aria-label="Filter by cluster" bind:value={clusterFilter} onchange={reset}><option value="all">All clusters</option>{#each clusterLabels as label}<option value={label.label}>{label.label}</option>{/each}</select></div></label>{/if}
+                {#if !selectedTeacher}<label class="search"><span class="sr-only">Search {districtOverview ? 'schools' : 'teachers'}</span><div><Search size={16} /><input aria-label={districtOverview ? 'Search schools' : 'Search teachers'} placeholder={districtOverview ? 'Search schools' : 'Search teachers'} bind:value={search} oninput={reset} /></div></label>{/if}
+                {#if clusterLabels.length && !selectedTeacher}<label class="cluster-filter"><span class="sr-only">Cluster filter</span><div><Filter size={16} /><select aria-label="Filter by cluster" bind:value={clusterFilter} onchange={reset}><option value="all">All clusters</option>{#each clusterLabels as label}<option value={label.label}>{label.label}</option>{/each}</select></div></label>{/if}
                 <label class="attention"><input type="checkbox" checked={status === 'risk'} onchange={(event) => { status = event.currentTarget.checked ? 'risk' : 'all'; reset(); }} />Needs follow-up only</label>
             </div>
         </div>
     </div>
-    {#if !districtOverview && weekMixData}
-        <div class="charts">
-            <div class="chart-card">
-                <h4>Week mix</h4>
-                <div class="bar-container">
-                    <div class="bar-segment" style="width: {weekMixData.onTime ? 100 * weekMixData.onTime / (weekMixData.onTime + weekMixData.late + weekMixData.missing) : 0}%">
-                        <span class="bar-label">On time: {weekMixData.onTime}</span>
-                    </div>
-                    <div class="bar-segment late" style="width: {weekMixData.late ? 100 * weekMixData.late / (weekMixData.onTime + weekMixData.late + weekMixData.missing) : 0}%">
-                        <span class="bar-label">Late: {weekMixData.late}</span>
-                    </div>
-                    <div class="bar-segment missing" style="width: {weekMixData.missing ? 100 * weekMixData.missing / (weekMixData.onTime + weekMixData.late + weekMixData.missing) : 0}%">
-                        <span class="bar-label">Missing: {weekMixData.missing}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    {/if}
-    {#if termOverdueBars && termOverdueBars.length > 0}
-        <div class="charts">
-            <div class="chart-card">
-                <h4>Term overdue</h4>
-                <div class="horizontal-bars">
-                    {#each termOverdueBars as bar}
-                        <div class="horizontal-bar-item">
-                            <div class="bar-label">Term {bar.term} Week {bar.week}</div>
-                            <div class="bar-container-small">
-                                <div class="bar-fill" style="width: {bar.missing > 0 ? Math.min(bar.missing / 10 * 100, 100) : 0}%"></div>
-                            </div>
-                            <div class="bar-count">{bar.missing}</div>
-                        </div>
-                    {/each}
-                </div>
-            </div>
-        </div>
-    {/if}
-    {#if districtOverview && schoolOverdueBars && schoolOverdueBars.length > 0}
-        <div class="charts">
-            <div class="chart-card">
-                <h4>School overdue</h4>
-                <div class="horizontal-bars">
-                    {#each schoolOverdueBars as school}
-                        <div class="horizontal-bar-item">
-                            <div class="bar-label">{school.name}</div>
-                            <div class="bar-container-small">
-                                <div class="bar-fill overdue" style="width: {school.missing > 0 ? Math.min(school.missing / 5 * 100, 100) : 0}%"></div>
-                            </div>
-                            <div class="bar-count">{school.missing}</div>
-                        </div>
-                    {/each}
-                </div>
-            </div>
-        </div>
-    {/if}
     <div class="table-scroll" role="region" aria-label="Compliance results">
         <table>
             {#if districtOverview}
@@ -272,12 +297,12 @@
             {:else if selectedTeacher}
                 <thead><tr><th>Subject / Grade</th><th>Term / Week</th><th>Deadline</th><th>Status</th><th>Review</th><th></th></tr></thead>
                 <tbody>{#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
-                    <tr><td data-label="Subject / Grade">{r.load.subject}<small>{r.load.grade_level || ''}</small></td><td data-label="Term / Week">Term {r.calendar.term}<small>Week {r.calendar.week_number}</small></td><td data-label="Deadline">{new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</td><td data-label="Submission" class:missing={r.status === 'missing'}>{r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late, submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming'}</td><td data-label="Review">{r.review === 'none' ? '-' : r.review === 'for-checking' ? 'For checking' : r.review === 'checked' ? 'Checked' : 'None'}{#if r.submission && (r.review === "for-checking" || r.review === "checked")}<a class="row-action" href={"/dashboard/archive?review=" + encodeURIComponent(r.submission.id)}>Review DLL <ChevronRight size={16} /></a>{/if}</td><td class="actions"><button class="row-action" onclick={() => openTeacher(r.teacherId)}>View teacher <ChevronRight size={16} /></button></td></tr>
+                    <tr><td data-label="Subject / Grade">{r.load.subject}<small>{r.load.grade_level || ''}</small></td><td data-label="Term / Week">Term {r.calendar.term}<small>Week {r.calendar.week_number}</small></td><td data-label="Deadline">{new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</td><td data-label="Submission" class:missing={r.status === 'missing'}>{r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late, submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming'}</td><td data-label="Review">{r.review === 'none' ? '-' : r.review === 'for-checking' ? 'For checking' : r.review === 'checked' ? 'Checked' : 'None'}{#if r.submission && r.review === "for-checking"}<a class="row-action" href={"/dashboard/archive?review=" + encodeURIComponent(r.submission.id)}>Review DLL <ChevronRight size={16} /></a>{/if}</td><td class="actions"><button class="row-action" onclick={() => openTeacher(r.teacherId)}>View teacher <ChevronRight size={16} /></button></td></tr>
                 {/each}</tbody>
             {:else}
                 <thead><tr><th><button onclick={() => changeSort('name')}>Teacher <ArrowUpDown size={14} /></button></th><th>Overdue DLLs</th><th>For checking</th><th>Submission progress</th><th>Cluster</th><th></th></tr></thead>
                 <tbody>{#each sortedTeachers.slice((page - 1) * size, page * size) as t}
-                    <tr><th scope="row">{t.full_name}</th><td data-label="Overdue DLLs" class:missing={t.missing > 0}><button class="count-link" disabled={!t.missing} aria-label={"Show overdue DLLs for " + t.full_name} onclick={() => openTeacher(t.id, true)}>{t.missing}</button></td><td data-label="For checking"><button class="count-link" disabled={!t.forChecking} aria-label={"Show files for checking for " + t.full_name} onclick={() => openTeacher(t.id, false)}>{t.forChecking}</button></td><td data-label="Submission progress"><strong>{t.rate === null ? 'N/A' : t.rate + '%'}</strong><progress max="100" value={t.rate || 0} aria-label={t.full_name + ' completion'}></progress><small>{t.submitted} of {t.expected} submitted</small></td><td data-label="Cluster">{clusterFilter === 'all' ? (t.id ? teacherClusters.find(c => c.teacherId === t.id)?.label || '' : '') : ''}</td><td class="actions"><button class="row-action" onclick={() => openTeacher(t.id)}>View DLLs <ChevronRight size={16} /></button></td></tr>
+                    <tr><th scope="row">{t.full_name}</th><td data-label="Overdue DLLs" class:missing={t.missing > 0}><button class="count-link" disabled={!t.missing} aria-label={"Show overdue DLLs for " + t.full_name} onclick={() => openTeacher(t.id, true)}>{t.missing}</button></td><td data-label="For checking"><button class="count-link" disabled={!t.forChecking} aria-label={"Show files for checking for " + t.full_name} onclick={() => openTeacher(t.id, false)}>{t.forChecking}</button></td><td data-label="Submission progress"><strong>{t.rate === null ? 'N/A' : t.rate + '%'}</strong><progress max="100" value={t.rate || 0} aria-label={t.full_name + ' completion'}></progress><small>{t.submitted} of {t.expected} submitted</small></td><td data-label="Cluster">{clusterFilter === 'all' ? clusterLabelFor(t.id) : ''}</td><td class="actions"><button class="row-action" onclick={() => openTeacher(t.id)}>View DLLs <ChevronRight size={16} /></button></td></tr>
                 {/each}</tbody>
             {/if}
         </table>
@@ -308,6 +333,14 @@
     .completion { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 16px 0; font-size: 13px; }
     progress { display: block; width: 140px; max-width: 100%; height: 7px; border: 0; border-radius: 4px; overflow: hidden; margin: 6px 0; background: var(--color-surface-muted); accent-color: var(--color-gov-green); }
     progress::-webkit-progress-bar { background: var(--color-surface-muted); } progress::-webkit-progress-value { background: var(--color-gov-green); }
+    .cluster-chips { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px 0 10px; }
+    .cluster-chips button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-border-subtle); border-radius: 999px; background: var(--color-surface-white); font-size: 13px; justify-content: flex-start; }
+    .cluster-chips button.active { border-color: var(--color-gov-blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-gov-blue) 14%, transparent); }
+    .cluster-chips span { width: 10px; height: 10px; border-radius: 999px; background: var(--cluster-color, var(--color-gov-blue)); }
+    .cluster-chips strong { margin-left: 2px; color: var(--cluster-color, var(--color-gov-blue)); }
+    .cluster-note { padding: 0 0 12px; color: var(--color-text-muted); font-size: 13px; }
+    .cluster-note summary { cursor: pointer; width: fit-content; color: var(--color-gov-blue); font-weight: 700; }
+    .cluster-note p { max-width: 820px; margin-top: 8px; }
     .list-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .list-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
     .cluster-filter select { width: 200px; }
@@ -323,20 +356,25 @@
     .list-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .list-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
     .cluster-filter select { width: 200px; }
-    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 16px 0; }
-    .chart-card { background: var(--color-surface-muted); border-radius: 8px; padding: 16px; }
+    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 10px 0 16px; }
+    .chart-card { background: var(--color-surface-muted); border-radius: 8px; padding: 16px; min-width: 0; }
     .chart-card h4 { font-size: 14px; font-weight: 700; color: var(--color-text-muted); margin: 0 0 12px 0; }
     .bar-container { display: flex; height: 32px; border-radius: 4px; overflow: hidden; }
-    .bar-segment { display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 13px; }
-    .bar-segment .bar-label { white-space: nowrap; }
+    .bar-segment { display: flex; align-items: center; justify-content: center; min-width: 0; background: var(--color-gov-green); color: white; font-weight: 600; font-size: 13px; }
+    .bar-segment .bar-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; }
     .bar-segment.late { background: var(--color-gov-gold); }
     .bar-segment.missing { background: var(--color-gov-red); }
+    .spark-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 10px; align-items: end; min-height: 128px; }
+    .spark-bars div { display: grid; justify-items: center; align-items: end; gap: 5px; min-width: 0; }
+    .spark-bars span { width: 100%; max-width: 30px; min-height: 6px; border-radius: 4px 4px 0 0; background: var(--color-gov-red); }
+    .spark-bars small { margin: 0; text-align: center; }
+    .spark-bars strong { font-size: 13px; }
     .horizontal-bars { display: flex; flex-direction: column; gap: 12px; }
-    .horizontal-bar-item { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; }
-    .bar-container-small { width: 100%; height: 24px; background: var(--color-surface-muted); border-radius: 4px; position: relative; }
+    .horizontal-bar-item { display: grid; grid-template-columns: minmax(96px, 1fr) minmax(80px, 1.4fr) auto; gap: 12px; align-items: center; width: 100%; text-align: left; }
+    button.horizontal-bar-item { min-height: 36px; justify-content: stretch; }
+    .bar-container-small { width: 100%; height: 24px; background: var(--color-surface-white); border-radius: 4px; position: relative; overflow: hidden; }
     .bar-fill { height: 100%; background: var(--color-gov-red); border-radius: 4px; transition: width 0.3s ease; }
     .bar-fill.overdue { background: var(--color-gov-red); }
-    .bar-count { font-weight: 700; font-size: 14px; min-width: 24px; text-align: right; }
     button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-gov-blue); outline-offset: 3px; }
     footer, footer div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; font-size: 13px; }
     footer button { width: 40px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
@@ -350,6 +388,9 @@
         .list-controls { flex-direction: column; align-items: stretch; }
         .cluster-filter { width: 100%; }
         .charts { grid-template-columns: 1fr; }
+        .cluster-chips button { width: 100%; justify-content: space-between; border-radius: 6px; }
+        .horizontal-bar-item { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+        button.horizontal-bar-item { border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 10px; }
         .table-scroll { overflow: visible; } table, tbody { display: block; }
         thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
         tbody tr { display: grid; grid-template-columns: minmax(0, 1fr); padding: 16px 0; border-bottom: 1px solid var(--color-border-subtle); }
