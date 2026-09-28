@@ -202,17 +202,17 @@
 
 <div class="compliance-workspace">
     <header class="view-heading">
-        <div>
+        <div class="heading-main">
             {#if selectedTeacher || (isDistrict && school !== 'all')}<button class="back" onclick={goBack}><ArrowLeft size={16} />{selectedTeacher ? 'Back to teachers' : 'Back to district'}</button>{/if}
             <h2>{selectedTeacher ? teacherName(selectedTeacher) : districtOverview ? 'District compliance' : school !== 'all' ? schoolName(school) : schools[0]?.name || 'School compliance'}</h2>
+            <div class="filters">
+                <label>Term<select aria-label="Term" bind:value={term} onchange={() => { week = 'all'; reset(); }}><option value="all">All terms</option>{#each [1, 2, 3] as t}<option value={String(t)}>Term {t}</option>{/each}</select></label>
+                <label>Week<select aria-label="Week" bind:value={week} onchange={reset}><option value="all">All weeks</option>{#each weeks as w}<option value={String(w)}>Week {w}</option>{/each}</select></label>
+                <span class="period">{year}</span>
+            </div>
         </div>
         <button class="export" onclick={exportReport} disabled={exporting || !scoped.length}><Download size={16} />{exporting ? 'Exporting...' : 'Export period report'}</button>
     </header>
-    <div class="filters">
-        <label>Term<select aria-label="Term" bind:value={term} onchange={() => { week = 'all'; reset(); }}><option value="all">All terms</option>{#each [1, 2, 3] as t}<option value={String(t)}>Term {t}</option>{/each}</select></label>
-        <label>Week<select aria-label="Week" bind:value={week} onchange={reset}><option value="all">All weeks</option>{#each weeks as w}<option value={String(w)}>Week {w}</option>{/each}</select></label>
-        <span class="period">{year}</span>
-    </div>
     {#if exportError}<p role="alert" class="text-gov-red">{exportError}</p>{/if}
     <dl class="stats">
         <div><dt>Overdue</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show overdue DLLs" disabled={!summary.missing}>{summary.missing}</button><small>missing DLLs this period</small></dd></div>
@@ -334,20 +334,21 @@
 
 <style>
     .compliance-workspace { color: var(--color-text-primary); min-width: 0; display: grid; gap: 12px; }
-    .view-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0; }
+    .view-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 16px; padding: 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
+    .heading-main { min-width: 0; display: grid; gap: 14px; }
     .list-tools { padding: 4px 0; }
     h2 { font-size: 20px; font-weight: 700; overflow-wrap: anywhere; } h3 { font-size: 16px; font-weight: 700; }
     .back { color: var(--color-text-muted); font-size: 13px; margin-bottom: 8px; }
-    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+    .filters { display: grid; grid-template-columns: repeat(2, minmax(160px, 240px)) auto; gap: 12px; align-items: end; }
     label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; min-width: 0; }
     select, .search div, .cluster-filter div { min-width: 0; height: 38px; border: 1px solid var(--color-border-subtle); border-radius: 6px; background: var(--color-surface-white); padding: 7px 10px; font-size: 14px; }
-    select { width: 160px; } .period { padding: 10px 0; font-size: 13px; color: var(--color-text-muted); }
+    select { width: 100%; } .period { padding: 10px 0; font-size: 13px; color: var(--color-text-muted); }
     .search, .cluster-filter { width: 220px; max-width: 100%; } .search div, .cluster-filter div { display: flex; gap: 8px; align-items: center; }
     .search input, .cluster-filter select { width: 100%; min-width: 0; background: transparent; }
     .attention { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; }
     button { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 40px; cursor: pointer; }
     button:disabled { opacity: .5; cursor: default; }
-    .export { padding: 7px 11px; border-radius: 6px; border: 1px solid var(--color-border-subtle); font-size: 14px; }
+    .export { align-self: end; min-width: 220px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); font-size: 14px; }
     .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .stats div { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px 14px; background: var(--color-surface-white); }
     dt { font-size: 13px; color: var(--color-text-muted); } dd { font-size: 26px; font-weight: 700; }
@@ -417,9 +418,13 @@
     footer, footer div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; font-size: 13px; }
     footer button { width: 40px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
     .empty { padding: 32px 12px; text-align: center; color: var(--color-text-muted); } .data-note { font-size: 13px; color: var(--color-text-muted); padding: 12px 0; }
+    @media (max-width: 920px) {
+        .view-heading { grid-template-columns: 1fr; align-items: stretch; }
+        .export { width: 100%; min-width: 0; justify-content: center; }
+    }
     @media (max-width: 600px) { .stats { gap: 12px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } }
     @media (max-width: 700px) {
-        .filters label { flex: 1 1 100px; } select { width: 100%; min-height: 44px; font-size: 16px; }
+        .filters { grid-template-columns: 1fr; gap: 10px; } select { width: 100%; min-height: 44px; font-size: 16px; }
         .search input, .cluster-filter select { font-size: 16px; } .view-heading > div { min-width: 0; }
         .stats { gap: 12px; } .stats small { overflow-wrap: anywhere; }
         .list-header { grid-template-columns: 1fr; align-items: stretch; gap: 10px; }
