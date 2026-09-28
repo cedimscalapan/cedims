@@ -2,7 +2,7 @@
  * Google Apps Script — CEDIMS Web App.
  *
  * Two capabilities in one deployment, dispatched by request payload shape:
- *   1. Word (.doc/.docx) -> PDF conversion (unchanged from before).
+ *   1. Word (.doc/.docx) -> PDF conversion with permanent temp cleanup.
  *   2. Compliance report export to a Google Sheet.
  *
  * Deploy this as a Web App (Extensions > Apps Script in a Google Sheet/Doc,
@@ -20,9 +20,9 @@
  *
  * Requires:
  *   - The "Drive API" advanced service (Editor > Services > + > Drive API)
- *     for conversion. Bound to Drive API v3 (v2's Drive.Files.insert() was
- *     retired), so this uses Drive.Files.create() and v3 field names
- *     (name, not title).
+ *     for conversion and permanent cleanup. Bound to Drive API v3 (v2's
+ *     Drive.Files.insert() was retired), so this uses Drive.Files.create()
+ *     and v3 field names (name, not title).
  *   - Script Properties (Project Settings > Script Properties) for the
  *     report export:
  *       SUPABASE_URL            = https://<project>.supabase.co
@@ -72,6 +72,8 @@ function jsonOutput_(obj) {
 // ─── Word -> PDF conversion ─────────────────────────────────────────────
 
 function convertDocToPdf_(body) {
+    var tempDocId = null;
+
     try {
         var fileName = body.fileName;
         var base64Data = body.base64Data;
@@ -98,17 +100,33 @@ function convertDocToPdf_(body) {
             mimeType: 'application/vnd.google-apps.document'
         };
         var docFile = Drive.Files.create(resource, blob);
+        tempDocId = docFile.id;
 
         // Export the converted Google Doc as PDF.
-        var pdfBlob = DriveApp.getFileById(docFile.id).getAs('application/pdf');
+        var pdfBlob = DriveApp.getFileById(tempDocId).getAs('application/pdf');
         var pdfBase64 = Utilities.base64Encode(pdfBlob.getBytes());
-
-        // Clean up the temporary Google Doc so Drive doesn't fill up with junk.
-        DriveApp.getFileById(docFile.id).setTrashed(true);
 
         return jsonOutput_({ success: true, pdfBase64: pdfBase64 });
     } catch (err) {
         return jsonOutput_({ success: false, error: err.message });
+    } finally {
+        permanentlyDeleteTempFile_(tempDocId);
+    }
+}
+
+function permanentlyDeleteTempFile_(fileId) {
+    if (!fileId) return;
+
+    try {
+        DriveApp.getFileById(fileId).setTrashed(true);
+    } catch (trashErr) {
+        console.warn('Temporary conversion file could not be moved to trash: ' + trashErr.message);
+    }
+
+    try {
+        Drive.Files.remove(fileId);
+    } catch (deleteErr) {
+        console.warn('Temporary conversion file could not be permanently deleted from Drive trash: ' + deleteErr.message);
     }
 }
 

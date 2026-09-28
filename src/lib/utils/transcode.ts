@@ -74,39 +74,20 @@ export async function transcodeToPdf(file: File): Promise<TranscodeResult> {
     }
 
     if (ext === 'docx' || ext === 'doc') {
-        // Per .env.example: PUBLIC_GOOGLE_SCRIPT_URL is the primary engine
-        // when configured, with the server-side LibreOffice proxy as a
-        // fallback for deployments without it. Serverless hosts (Vercel)
-        // don't ship a LibreOffice binary, so trying the server proxy first
-        // here meant every conversion round-tripped through a guaranteed
-        // 500 before falling back to the engine that actually works.
-        //
-        // A logical failure (the script's own reported error) is tried at
-        // most once — see withGasRetry for why retrying a network-level
-        // failure is worth it but retrying a script-reported one isn't.
-        // Falling back to the server proxy after that wastes a round trip
-        // (it has no LibreOffice binary on Vercel) but costs little and
-        // covers deployments that do have a working server-side engine.
-        if (config.GOOGLE_SCRIPT_URL) {
-            try {
-                const pdfBytes = await withGasRetry(() => googleConvertToPdf(file));
-                return { pdfBytes };
-            } catch (err) {
-                console.warn('[transcode] Google Apps Script conversion failed, trying server proxy:', err);
-                const serverResult = await convertViaServerProxy(file);
-                if (serverResult) {
-                    return { pdfBytes: serverResult };
-                }
-                throw err;
-            }
-        }
-
+        // Route browser uploads through the SvelteKit API first. Production
+        // Google Apps Script web apps do not reliably emit CORS headers for
+        // direct browser fetches, while server-side fetches are not subject
+        // to browser CORS and can still use the same Apps Script URL.
         const serverResult = await convertViaServerProxy(file);
         if (serverResult) {
             return { pdfBytes: serverResult };
         }
 
-        const pdfBytes = await googleConvertToPdf(file);
+        if (!config.GOOGLE_SCRIPT_URL) {
+            throw new Error('Document conversion failed. Please sign in again or configure PUBLIC_GOOGLE_SCRIPT_URL for the server converter.');
+        }
+
+        const pdfBytes = await withGasRetry(() => googleConvertToPdf(file));
         return { pdfBytes };
     }
 
