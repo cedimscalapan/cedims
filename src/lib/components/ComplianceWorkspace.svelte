@@ -124,8 +124,10 @@
     const weekMixData = $derived(weekMix(scoped));
     const termOverdueBars = $derived(overdueByWeek(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) && (term === 'all' || r.calendar.term === Number(term)))));
     const schoolOverdueBars = $derived([...schoolRows].sort((a, b) => b.missing - a.missing));
+    const visibleTermOverdueBars = $derived(termOverdueBars.filter(bar => bar.missing > 0));
+    const visibleSchoolOverdueBars = $derived(schoolOverdueBars.filter(item => item.missing > 0).slice(0, 6));
     const maxTermOverdue = $derived(Math.max(1, ...termOverdueBars.map(b => b.missing)));
-    const maxSchoolOverdue = $derived(Math.max(1, ...schoolOverdueBars.map(s => s.missing)));
+    const maxSchoolOverdue = $derived(Math.max(1, ...visibleSchoolOverdueBars.map(s => s.missing)));
     const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'for-checking' ? r.review === 'for-checking' : status === 'missing' ? r.status === 'missing' : true));
     const rowCount = $derived(activeTab === 'schools' ? rankedSchools.length : activeTab === 'teacher' ? selectedTeacherRows.length : sortedTeachers.length);
     const listTitle = $derived(districtOverview ? 'Schools needing action' : selectedTeacher ? 'DLLs needing action' : 'Teachers needing action');
@@ -221,7 +223,7 @@
         <span>{summary.submitted} of {summary.expected} expected DLLs submitted. Completion: {summary.rate === null ? 'N/A' : summary.rate + '%'}.</span>
         <progress max="100" value={summary.rate || 0} aria-label="Overall submission completion"></progress>
     </div>
-    {#if clusterLabels.length}
+    {#if clusterLabels.length && !selectedTeacher}
         <section class="cluster-panel" aria-label={districtOverview ? 'School pattern groups' : 'Teacher pattern groups'}>
             <div class="cluster-head">
                 <div>
@@ -245,6 +247,7 @@
             </div>
         </section>
     {/if}
+    {#if !selectedTeacher && (weekMixTotal > 0 || visibleTermOverdueBars.length > 1 || districtOverview && visibleSchoolOverdueBars.length)}
     <div class="charts">
         {#if weekMixTotal > 0}
             <div class="chart-card mix">
@@ -256,11 +259,11 @@
                 </div>
             </div>
         {/if}
-        {#if termOverdueBars.length > 1}
+        {#if visibleTermOverdueBars.length > 1}
             <div class="chart-card">
                 <h4>Weeks in this term</h4>
                 <div class="spark-bars" aria-label="Overdue files by week">
-                    {#each termOverdueBars as bar}
+                    {#each visibleTermOverdueBars as bar}
                         <div>
                             <span style="height: {Math.max(6, 80 * bar.missing / maxTermOverdue)}px"></span>
                             <small>T{bar.term} W{bar.week}</small>
@@ -270,11 +273,11 @@
                 </div>
             </div>
         {/if}
-        {#if districtOverview && schoolOverdueBars.length > 1}
+        {#if districtOverview && visibleSchoolOverdueBars.length}
             <div class="chart-card">
-                <h4>School overdue bars</h4>
+                <h4>Schools with overdue DLLs</h4>
                 <div class="horizontal-bars">
-                    {#each schoolOverdueBars.slice(0, 8) as item}
+                    {#each visibleSchoolOverdueBars as item}
                         <button class="horizontal-bar-item" onclick={() => openSchool(item.id, true)}>
                             <span>{item.name}</span>
                             <span class="bar-container-small"><span class="bar-fill overdue" style="width: {100 * item.missing / maxSchoolOverdue}%"></span></span>
@@ -285,6 +288,7 @@
             </div>
         {/if}
     </div>
+    {/if}
     <div class="list-tools">
         <div class="list-header">
             <h3>{listTitle}</h3>
@@ -329,34 +333,35 @@
 </div>
 
 <style>
-    .compliance-workspace { color: var(--color-text-primary); min-width: 0; display: grid; gap: 14px; }
-    .view-heading, .list-tools { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px; padding: 8px 0; }
+    .compliance-workspace { color: var(--color-text-primary); min-width: 0; display: grid; gap: 12px; }
+    .view-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 4px 0; }
+    .list-tools { padding: 4px 0; }
     h2 { font-size: 20px; font-weight: 700; overflow-wrap: anywhere; } h3 { font-size: 16px; font-weight: 700; }
     .back { color: var(--color-text-muted); font-size: 13px; margin-bottom: 8px; }
-    .filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
     label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; min-width: 0; }
-    select, .search div, .cluster-filter div { min-width: 0; height: 40px; border: 1px solid var(--color-border-subtle); border-radius: 6px; background: var(--color-surface-white); padding: 8px 12px; font-size: 14px; }
+    select, .search div, .cluster-filter div { min-width: 0; height: 38px; border: 1px solid var(--color-border-subtle); border-radius: 6px; background: var(--color-surface-white); padding: 7px 10px; font-size: 14px; }
     select { width: 160px; } .period { padding: 10px 0; font-size: 13px; color: var(--color-text-muted); }
     .search, .cluster-filter { width: 220px; max-width: 100%; } .search div, .cluster-filter div { display: flex; gap: 8px; align-items: center; }
     .search input, .cluster-filter select { width: 100%; min-width: 0; background: transparent; }
     .attention { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; }
     button { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 40px; cursor: pointer; }
     button:disabled { opacity: .5; cursor: default; }
-    .export { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); font-size: 14px; }
+    .export { padding: 7px 11px; border-radius: 6px; border: 1px solid var(--color-border-subtle); font-size: 14px; }
     .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .stats div { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; background: var(--color-surface-white); }
-    dt { font-size: 13px; color: var(--color-text-muted); } dd { font-size: 28px; font-weight: 700; }
+    .stats div { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px 14px; background: var(--color-surface-white); }
+    dt { font-size: 13px; color: var(--color-text-muted); } dd { font-size: 26px; font-weight: 700; }
     small { display: block; font-size: 12px; font-weight: 400; color: var(--color-text-muted); margin-top: 4px; }
-    .decision-strip { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-muted); font-size: 13px; }
+    .decision-strip { display: grid; gap: 7px; padding: 12px 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-muted); font-size: 13px; }
     progress { display: block; width: 140px; max-width: 100%; height: 7px; border: 0; border-radius: 4px; overflow: hidden; margin: 6px 0; background: var(--color-surface-muted); accent-color: var(--color-gov-green); }
     progress::-webkit-progress-bar { background: var(--color-surface-muted); } progress::-webkit-progress-value { background: var(--color-gov-green); }
-    .cluster-panel { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; background: var(--color-surface-white); }
+    .cluster-panel { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px; background: var(--color-surface-white); }
     .cluster-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 12px; }
     .cluster-head h3 { margin: 0; }
     .cluster-head p { margin: 4px 0 0; color: var(--color-text-muted); font-size: 13px; }
     .cluster-head button { min-width: 128px; padding: 8px 12px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-muted); font-size: 13px; }
     .cluster-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .cluster-grid button { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 108px; padding: 12px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: color-mix(in srgb, var(--cluster-color, var(--color-gov-blue)) 6%, var(--color-surface-white)); text-align: left; }
+    .cluster-grid button { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 96px; padding: 10px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: color-mix(in srgb, var(--cluster-color, var(--color-gov-blue)) 6%, var(--color-surface-white)); text-align: left; }
     .cluster-grid button.active, .cluster-head button.active { border-color: var(--color-gov-blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-gov-blue) 14%, transparent); }
     .cluster-dot { width: 12px; height: 12px; border-radius: 999px; background: var(--cluster-color, var(--color-gov-blue)); }
     .cluster-copy { min-width: 0; }
@@ -365,8 +370,8 @@
     .cluster-grid strong { color: var(--cluster-color, var(--color-gov-blue)); font-size: 22px; }
     .cluster-score { grid-column: 1 / -1; height: 7px; border-radius: 999px; background: var(--color-surface-muted); overflow: hidden; }
     .cluster-score span { display: block; height: 100%; background: var(--cluster-color, var(--color-gov-blue)); }
-    .cluster-grid em { grid-column: 1 / -1; min-height: 32px; color: var(--color-text-muted); font-size: 12px; font-style: normal; line-height: 1.35; overflow: hidden; }
-    .list-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+    .cluster-grid em { grid-column: 1 / -1; min-height: 18px; color: var(--color-text-muted); font-size: 12px; font-style: normal; line-height: 1.35; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .list-header { display: grid; grid-template-columns: minmax(140px, .7fr) minmax(240px, 1fr); align-items: start; gap: 12px; width: 100%; }
     .list-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
     .cluster-filter select { width: 200px; }
     .row-action { color: var(--color-gov-blue); white-space: nowrap; font-size: 13px; }
@@ -374,7 +379,7 @@
     .count-link { color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 4px; min-width: 44px; min-height: 44px; }
     .count-link:disabled { text-decoration: none; opacity: 1; cursor: default; }
     a.row-action { display: flex; align-items: center; min-height: 44px; gap: 6px; }
-    .selected-cluster { flex-basis: 100%; margin: -6px 0 0; color: var(--color-text-muted); font-size: 13px; }
+    .selected-cluster { grid-column: 1 / 2; margin: 0; color: var(--color-text-muted); font-size: 13px; overflow-wrap: anywhere; }
     .action-list { display: grid; gap: 8px; }
     .action-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
     .action-list h4 { font-size: 15px; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
@@ -386,18 +391,18 @@
     .metric span { font-size: 11px; color: var(--color-text-muted); }
     .metric.missing strong, .status-pill.missing { color: var(--color-gov-red); }
     .status-pill { justify-self: end; border: 1px solid var(--color-border-subtle); border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
-    .list-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-    .list-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .list-tools .list-controls { justify-self: end; }
+    .list-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .cluster-filter select { width: 200px; }
-    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
-    .chart-card { background: var(--color-surface-muted); border-radius: 8px; padding: 16px; min-width: 0; }
+    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+    .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px; min-width: 0; }
     .chart-card h4 { font-size: 14px; font-weight: 700; color: var(--color-text-muted); margin: 0 0 12px 0; }
     .bar-container { display: flex; height: 32px; border-radius: 4px; overflow: hidden; }
     .bar-segment { display: flex; align-items: center; justify-content: center; min-width: 0; background: var(--color-gov-green); color: white; font-weight: 600; font-size: 13px; }
     .bar-segment .bar-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; }
     .bar-segment.late { background: var(--color-gov-gold); }
     .bar-segment.missing { background: var(--color-gov-red); }
-    .spark-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 10px; align-items: end; min-height: 128px; }
+    .spark-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 10px; align-items: end; min-height: 92px; }
     .spark-bars div { display: grid; justify-items: center; align-items: end; gap: 5px; min-width: 0; }
     .spark-bars span { width: 100%; max-width: 30px; min-height: 6px; border-radius: 4px 4px 0 0; background: var(--color-gov-red); }
     .spark-bars small { margin: 0; text-align: center; }
@@ -417,7 +422,9 @@
         .filters label { flex: 1 1 100px; } select { width: 100%; min-height: 44px; font-size: 16px; }
         .search input, .cluster-filter select { font-size: 16px; } .view-heading > div { min-width: 0; }
         .stats { gap: 12px; } .stats small { overflow-wrap: anywhere; }
-        .list-header { flex-direction: column; align-items: stretch; gap: 12px; }
+        .list-header { grid-template-columns: 1fr; align-items: stretch; gap: 10px; }
+        .selected-cluster { grid-column: auto; }
+        .list-tools .list-controls { justify-self: stretch; }
         .list-controls { flex-direction: column; align-items: stretch; }
         .cluster-filter { width: 100%; }
         .charts { grid-template-columns: 1fr; }
