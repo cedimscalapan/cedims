@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, weekMix, overdueByWeek } from '$lib/utils/compliance';
     import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
-    import { Download, Search, ArrowUpDown, ArrowLeft, ChevronLeft, ChevronRight, Filter } from 'lucide-svelte';
+    import { Download, Search, ArrowLeft, ChevronLeft, ChevronRight, Filter } from 'lucide-svelte';
     let { teachers, schools, loads, calendar, submissions, reviews, year, role }: {
         teachers: { id: string; full_name: string; school_id: string }[];
         schools: { id: string; name: string; district_id: string }[];
@@ -48,8 +48,6 @@
         try { sessionStorage.setItem(stateKey, JSON.stringify({ version: 2, term, week, school, status, cluster: clusterFilter, selectedTeacher, history })); } catch { /* Navigation still works without storage. */ }
     });
     let page = $state(1);
-    let descending = $state(true);
-    let sort = $state('missing');
     let exporting = $state(false);
     let exportError = $state('');
     const size = 15;
@@ -114,11 +112,12 @@
     const clusterLabels = $derived(cluster ? [...cluster.summaries].sort((a: ClusterSummary, b: ClusterSummary) => centroidScore(a) - centroidScore(b)).map((s: ClusterSummary) => ({ id: s.clusterId, label: s.label, color: s.color, count: s.count, score: Math.round(centroidScore(s) / s.centroid.length) })) : []);
     const teacherClusters = $derived(cluster ? cluster.results.map((r: ClusterResult) => ({ teacherId: r.teacher.teacherId, clusterId: r.clusterId, label: r.clusterLabel, color: r.clusterColor })) : []);
     const clusterMap = $derived(new Map<string, string>(teacherClusters.map((c: { teacherId: string; label: string }) => [c.teacherId, c.label])));
+    const clusterMembers = $derived(new Map(clusterLabels.map(group => [group.label, (districtOverview ? schoolRows : teacherRows)
+        .filter(item => clusterMap.get(item.id) === group.label)
+        .map(item => 'name' in item ? item.name : item.full_name)
+        .sort((a, b) => a.localeCompare(b))])));
     const filteredTeacherRows = $derived(teacherRows.filter(t => clusterFilter === 'all' || clusterMap.get(t.id) === clusterFilter));
-    const sortedTeachers = $derived([...filteredTeacherRows].sort((a, b) => {
-        const value = sort === 'name' ? a.full_name.localeCompare(b.full_name) : sort === 'missing' ? a.missing - b.missing : (a.rate ?? -1) - (b.rate ?? -1);
-        return descending ? -value : value;
-    }));
+    const sortedTeachers = $derived([...filteredTeacherRows].sort((a, b) => b.missing - a.missing || b.forChecking - a.forChecking || a.full_name.localeCompare(b.full_name)));
     const rankedSchools = $derived(schoolRows.filter(s => (!search.trim() || s.name.toLowerCase().includes(search.trim().toLowerCase())) &&
         (status === 'all' || status === 'risk' && s.missing > 0 || status === 'missing' && s.missing > 0 || status === 'for-checking' && s.forChecking > 0) &&
         (clusterFilter === 'all' || clusterMap.get(s.id) === clusterFilter)).sort((a, b) => b.missing - a.missing || a.name.localeCompare(b.name)));
@@ -129,6 +128,8 @@
     const maxSchoolOverdue = $derived(Math.max(1, ...schoolOverdueBars.map(s => s.missing)));
     const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'for-checking' ? r.review === 'for-checking' : status === 'missing' ? r.status === 'missing' : true));
     const rowCount = $derived(activeTab === 'schools' ? rankedSchools.length : activeTab === 'teacher' ? selectedTeacherRows.length : sortedTeachers.length);
+    const listTitle = $derived(districtOverview ? 'Schools needing action' : selectedTeacher ? 'DLLs needing action' : 'Teachers needing action');
+    const decisionLine = $derived(summary.missing ? `${summary.missing} overdue DLL${summary.missing === 1 ? '' : 's'} need follow-up first.` : summary.forChecking ? `${summary.forChecking} file${summary.forChecking === 1 ? '' : 's'} need Archive remarks.` : 'No immediate follow-up for this period.');
     const pages = $derived(Math.max(1, Math.ceil(rowCount / size)));
     $effect(() => { if (page > pages) page = pages; });
     function reset() { page = 1; }
@@ -145,7 +146,6 @@
     function teacherName(id: string) { return teachers.find(t => t.id === id)?.full_name || 'Unknown teacher'; }
     function schoolName(id: string) { return schools.find(s => s.id === id)?.name || 'Unassigned school'; }
     function clusterLabelFor(id: string) { return clusterMap.get(id) || ''; }
-    function changeSort(field: string) { descending = sort === field ? !descending : false; sort = field; reset(); }
     async function exportReport() {
         exporting = true; exportError = '';
         try {
@@ -212,14 +212,13 @@
     </div>
     {#if exportError}<p role="alert" class="text-gov-red">{exportError}</p>{/if}
     <dl class="stats">
-        <div><dt>Overdue DLLs</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show overdue DLLs" disabled={!summary.missing}>{summary.missing}</button><small>for {year}</small></dd></div>
-        <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>needs remarks</small></dd></div>
-        <div><dt>Submitted this period</dt><dd><span class="count-value">{summary.submitted}</span><small>of {summary.expected} expected DLLs</small></dd></div>
+        <div><dt>Overdue</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show overdue DLLs" disabled={!summary.missing}>{summary.missing}</button><small>missing DLLs this period</small></dd></div>
+        <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>open in Archive for remarks</small></dd></div>
     </dl>
-    <div class="completion">
-        <strong>Submission completion: {summary.rate === null ? 'N/A' : summary.rate + '%'}</strong>
+    <div class="decision-strip">
+        <strong>{decisionLine}</strong>
+        <span>{summary.submitted} of {summary.expected} expected DLLs submitted. Completion: {summary.rate === null ? 'N/A' : summary.rate + '%'}.</span>
         <progress max="100" value={summary.rate || 0} aria-label="Overall submission completion"></progress>
-        <span>Late uploads count as submitted. Upcoming DLLs are not overdue.</span>
     </div>
     {#if clusterLabels.length}
         <section class="cluster-chips" aria-label={districtOverview ? 'School pattern groups' : 'Teacher pattern groups'}>
@@ -228,7 +227,8 @@
             </button>
             {#each clusterLabels as group}
                 <button class:active={clusterFilter === group.label} style={"--cluster-color: " + group.color} onclick={() => { clusterFilter = group.label; status = status === 'all' ? 'risk' : status; reset(); }}>
-                    <span></span>{group.label}<strong>{group.count}</strong>
+                    <span></span><b>{group.label}</b><strong>{group.count}</strong>
+                    <small>{(clusterMembers.get(group.label) || []).slice(0, 4).join(', ')}{(clusterMembers.get(group.label) || []).length > 4 ? '...' : ''}</small>
                 </button>
             {/each}
         </section>
@@ -279,7 +279,7 @@
     </div>
     <div class="list-tools">
         <div class="list-header">
-            <h3>{districtOverview ? 'Schools to follow up' : selectedTeacher ? 'DLLs to follow up' : 'Teachers to follow up'}</h3>
+            <h3>{listTitle}</h3>
             <div class="list-controls">
                 {#if !selectedTeacher}<label class="search"><span class="sr-only">Search {districtOverview ? 'schools' : 'teachers'}</span><div><Search size={16} /><input aria-label={districtOverview ? 'Search schools' : 'Search teachers'} placeholder={districtOverview ? 'Search schools' : 'Search teachers'} bind:value={search} oninput={reset} /></div></label>{/if}
                 {#if clusterLabels.length && !selectedTeacher}<label class="cluster-filter"><span class="sr-only">Cluster filter</span><div><Filter size={16} /><select aria-label="Filter by cluster" bind:value={clusterFilter} onchange={reset}><option value="all">All clusters</option>{#each clusterLabels as label}<option value={label.label}>{label.label}</option>{/each}</select></div></label>{/if}
@@ -287,25 +287,32 @@
             </div>
         </div>
     </div>
-    <div class="table-scroll" role="region" aria-label="Compliance results">
-        <table>
-            {#if districtOverview}
-                <thead><tr><th>School</th><th>Overdue DLLs</th><th>For checking</th><th>Submission progress</th><th></th></tr></thead>
-                <tbody>{#each rankedSchools.slice((page - 1) * size, page * size) as s}
-                    <tr><th scope="row">{s.name}</th><td data-label="Overdue DLLs" class:missing={s.missing > 0}><button class="count-link" disabled={!s.missing} aria-label={"Show overdue DLLs for " + s.name} onclick={() => openSchool(s.id, true)}>{s.missing}</button></td><td data-label="For checking"><button class="count-link" disabled={!s.forChecking} aria-label={"Show files for checking for " + s.name} onclick={() => openSchool(s.id, false)}>{s.forChecking}</button></td><td data-label="Submission progress"><strong>{s.rate === null ? 'N/A' : s.rate + '%'}</strong><progress max="100" value={s.rate || 0} aria-label={s.name + ' completion'}></progress><small>{s.submitted} of {s.expected} submitted</small></td><td class="actions"><button class="row-action" onclick={() => openSchool(s.id)}>View school <ChevronRight size={16} /></button></td></tr>
-                {/each}</tbody>
-            {:else if selectedTeacher}
-                <thead><tr><th>Subject / Grade</th><th>Term / Week</th><th>Deadline</th><th>Status</th><th>Review</th><th></th></tr></thead>
-                <tbody>{#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
-                    <tr><td data-label="Subject / Grade">{r.load.subject}<small>{r.load.grade_level || ''}</small></td><td data-label="Term / Week">Term {r.calendar.term}<small>Week {r.calendar.week_number}</small></td><td data-label="Deadline">{new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</td><td data-label="Submission" class:missing={r.status === 'missing'}>{r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late, submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming'}</td><td data-label="Review">{r.review === 'none' ? '-' : r.review === 'for-checking' ? 'For checking' : r.review === 'checked' ? 'Checked' : 'None'}{#if r.submission && r.review === "for-checking"}<a class="row-action" href={"/dashboard/archive?review=" + encodeURIComponent(r.submission.id)}>Review DLL <ChevronRight size={16} /></a>{/if}</td><td class="actions"><button class="row-action" onclick={() => openTeacher(r.teacherId)}>View teacher <ChevronRight size={16} /></button></td></tr>
-                {/each}</tbody>
-            {:else}
-                <thead><tr><th><button onclick={() => changeSort('name')}>Teacher <ArrowUpDown size={14} /></button></th><th>Overdue DLLs</th><th>For checking</th><th>Submission progress</th><th>Cluster</th><th></th></tr></thead>
-                <tbody>{#each sortedTeachers.slice((page - 1) * size, page * size) as t}
-                    <tr><th scope="row">{t.full_name}</th><td data-label="Overdue DLLs" class:missing={t.missing > 0}><button class="count-link" disabled={!t.missing} aria-label={"Show overdue DLLs for " + t.full_name} onclick={() => openTeacher(t.id, true)}>{t.missing}</button></td><td data-label="For checking"><button class="count-link" disabled={!t.forChecking} aria-label={"Show files for checking for " + t.full_name} onclick={() => openTeacher(t.id, false)}>{t.forChecking}</button></td><td data-label="Submission progress"><strong>{t.rate === null ? 'N/A' : t.rate + '%'}</strong><progress max="100" value={t.rate || 0} aria-label={t.full_name + ' completion'}></progress><small>{t.submitted} of {t.expected} submitted</small></td><td data-label="Cluster">{clusterFilter === 'all' ? clusterLabelFor(t.id) : ''}</td><td class="actions"><button class="row-action" onclick={() => openTeacher(t.id)}>View DLLs <ChevronRight size={16} /></button></td></tr>
-                {/each}</tbody>
-            {/if}
-        </table>
+    <div class="action-list" role="region" aria-label="Compliance action list">
+        {#if districtOverview}
+            {#each rankedSchools.slice((page - 1) * size, page * size) as s}
+                <article>
+                    <div><h4>{s.name}</h4><p>{s.submitted} of {s.expected} submitted · {s.rate === null ? 'N/A' : s.rate + '%'} complete</p>{#if clusterLabelFor(s.id)}<small>{clusterLabelFor(s.id)}</small>{/if}</div>
+                    <div class="action-metrics"><button class="metric missing" disabled={!s.missing} onclick={() => openSchool(s.id, true)}><strong>{s.missing}</strong><span>Overdue</span></button><button class="metric" disabled={!s.forChecking} onclick={() => openSchool(s.id, false)}><strong>{s.forChecking}</strong><span>For checking</span></button></div>
+                    <button class="row-action" onclick={() => openSchool(s.id)}>Open school <ChevronRight size={16} /></button>
+                </article>
+            {/each}
+        {:else if selectedTeacher}
+            {#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
+                <article>
+                    <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</small></div>
+                    <div class="status-pill" class:missing={r.status === 'missing'}>{r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming'}</div>
+                    {#if r.submission && r.review === "for-checking"}<a class="row-action" href={"/dashboard/archive?review=" + encodeURIComponent(r.submission.id)}>Open Archive <ChevronRight size={16} /></a>{/if}
+                </article>
+            {/each}
+        {:else}
+            {#each sortedTeachers.slice((page - 1) * size, page * size) as t}
+                <article>
+                    <div><h4>{t.full_name}</h4><p>{t.submitted} of {t.expected} submitted · {t.rate === null ? 'N/A' : t.rate + '%'} complete</p>{#if clusterLabelFor(t.id)}<small>{clusterLabelFor(t.id)}</small>{/if}</div>
+                    <div class="action-metrics"><button class="metric missing" disabled={!t.missing} onclick={() => openTeacher(t.id, true)}><strong>{t.missing}</strong><span>Overdue</span></button><button class="metric" disabled={!t.forChecking} onclick={() => openTeacher(t.id, false)}><strong>{t.forChecking}</strong><span>For checking</span></button></div>
+                    <button class="row-action" onclick={() => openTeacher(t.id)}>Open DLLs <ChevronRight size={16} /></button>
+                </article>
+            {/each}
+        {/if}
         {#if rowCount === 0}<p class="empty">{calendar.length === 0 ? 'No active calendar weeks for this school year.' : status === 'missing' && !search ? 'No overdue DLLs for this period.' : status === 'for-checking' && !search ? 'No files waiting for remarks for this period.' : 'No results match this view.'}</p>{/if}
     </div>
     <footer><span>{rowCount ? (page - 1) * size + 1 : 0}-{Math.min(page * size, rowCount)} of {rowCount}</span><div><button aria-label="Previous page" title="Previous page" disabled={page === 1} onclick={() => page--}><ChevronLeft size={18} /></button><span>{page} / {pages}</span><button aria-label="Next page" title="Next page" disabled={page === pages} onclick={() => page++}><ChevronRight size={18} /></button></div></footer>
@@ -327,32 +334,40 @@
     button { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 40px; cursor: pointer; }
     button:disabled { opacity: .5; cursor: default; }
     .export { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); font-size: 14px; }
-    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid var(--color-border-subtle); padding: 20px 0; gap: 20px; }
+    .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-block: 1px solid var(--color-border-subtle); padding: 20px 0; gap: 20px; }
     dt { font-size: 13px; color: var(--color-text-muted); } dd { font-size: 28px; font-weight: 700; }
     small { display: block; font-size: 12px; font-weight: 400; color: var(--color-text-muted); margin-top: 4px; }
-    .completion { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 16px 0; font-size: 13px; }
+    .decision-strip { display: grid; gap: 8px; padding: 16px 0; font-size: 13px; }
     progress { display: block; width: 140px; max-width: 100%; height: 7px; border: 0; border-radius: 4px; overflow: hidden; margin: 6px 0; background: var(--color-surface-muted); accent-color: var(--color-gov-green); }
     progress::-webkit-progress-bar { background: var(--color-surface-muted); } progress::-webkit-progress-value { background: var(--color-gov-green); }
     .cluster-chips { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px 0 10px; }
-    .cluster-chips button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-border-subtle); border-radius: 999px; background: var(--color-surface-white); font-size: 13px; justify-content: flex-start; }
+    .cluster-chips button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-size: 13px; justify-content: flex-start; flex-wrap: wrap; max-width: 320px; }
     .cluster-chips button.active { border-color: var(--color-gov-blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-gov-blue) 14%, transparent); }
     .cluster-chips span { width: 10px; height: 10px; border-radius: 999px; background: var(--cluster-color, var(--color-gov-blue)); }
     .cluster-chips strong { margin-left: 2px; color: var(--cluster-color, var(--color-gov-blue)); }
+    .cluster-chips small { flex-basis: 100%; margin-left: 18px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cluster-note { padding: 0 0 12px; color: var(--color-text-muted); font-size: 13px; }
     .cluster-note summary { cursor: pointer; width: fit-content; color: var(--color-gov-blue); font-weight: 700; }
     .cluster-note p { max-width: 820px; margin-top: 8px; }
     .list-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .list-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
     .cluster-filter select { width: 200px; }
-    .table-scroll { overflow-x: auto; border-block: 1px solid var(--color-border-subtle); }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
-    th, td { padding: 16px 12px; border-bottom: 1px solid var(--color-border-subtle); vertical-align: middle; min-width: 90px; }
-    thead { background: var(--color-surface-muted); font-size: 12px; } th:first-child { min-width: 160px; }
     .row-action { color: var(--color-gov-blue); white-space: nowrap; font-size: 13px; }
     .missing { color: var(--color-gov-red); font-weight: 700; }
     .count-link { color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 4px; min-width: 44px; min-height: 44px; }
     .count-link:disabled { text-decoration: none; opacity: 1; cursor: default; }
     a.row-action { display: flex; align-items: center; min-height: 44px; gap: 6px; }
+    .action-list { display: grid; gap: 10px; border-block: 1px solid var(--color-border-subtle); padding: 10px 0; }
+    .action-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--color-border-subtle); }
+    .action-list h4 { font-size: 15px; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+    .action-list p { margin: 4px 0 0; color: var(--color-text-muted); font-size: 13px; }
+    .action-list small { color: var(--color-gov-blue); }
+    .action-metrics { display: flex; gap: 8px; }
+    .metric { display: grid; gap: 1px; min-width: 76px; min-height: 54px; padding: 6px 10px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-muted); }
+    .metric strong { font-size: 18px; line-height: 1; }
+    .metric span { font-size: 11px; color: var(--color-text-muted); }
+    .metric.missing strong, .status-pill.missing { color: var(--color-gov-red); }
+    .status-pill { justify-self: end; border: 1px solid var(--color-border-subtle); border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
     .list-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
     .list-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
     .cluster-filter select { width: 200px; }
@@ -379,7 +394,7 @@
     footer, footer div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; font-size: 13px; }
     footer button { width: 40px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
     .empty { padding: 32px 12px; text-align: center; color: var(--color-text-muted); } .data-note { font-size: 13px; color: var(--color-text-muted); padding: 12px 0; }
-    @media (max-width: 600px) { .stats { gap: 12px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } .completion span { width: 100%; } }
+    @media (max-width: 600px) { .stats { gap: 12px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } }
     @media (max-width: 700px) {
         .filters label { flex: 1 1 100px; } select { width: 100%; min-height: 44px; font-size: 16px; }
         .search input, .cluster-filter select { font-size: 16px; } .view-heading > div { min-width: 0; }
@@ -391,12 +406,10 @@
         .cluster-chips button { width: 100%; justify-content: space-between; border-radius: 6px; }
         .horizontal-bar-item { grid-template-columns: minmax(0, 1fr); gap: 6px; }
         button.horizontal-bar-item { border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 10px; }
-        .table-scroll { overflow: visible; } table, tbody { display: block; }
-        thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-        tbody tr { display: grid; grid-template-columns: minmax(0, 1fr); padding: 16px 0; border-bottom: 1px solid var(--color-border-subtle); }
-        tbody th, tbody td { min-width: 0; border: 0; padding: 8px 4px; overflow-wrap: anywhere; }
-        tbody th { font-size: 16px; } tbody td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 400; color: var(--color-text-muted); margin-bottom: 5px; }
-        .actions button { width: 100%; justify-content: space-between; min-height: 44px; }
+        .action-list article { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+        .action-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .row-action, .action-list .row-action { width: 100%; justify-content: space-between; min-height: 44px; }
+        .status-pill { justify-self: stretch; text-align: center; }
         progress { width: 100%; } footer { flex-wrap: wrap; }
     }
 </style>
