@@ -201,28 +201,32 @@
 </script>
 
 <div class="compliance-workspace">
-    <header class="view-heading">
-        <div class="heading-main">
+    <section class="control-panel">
+        <header class="view-heading">
+            <div class="heading-main">
             {#if selectedTeacher || (isDistrict && school !== 'all')}<button class="back" onclick={goBack}><ArrowLeft size={16} />{selectedTeacher ? 'Back to teachers' : 'Back to district'}</button>{/if}
             <h2>{selectedTeacher ? teacherName(selectedTeacher) : districtOverview ? 'District compliance' : school !== 'all' ? schoolName(school) : schools[0]?.name || 'School compliance'}</h2>
-            <div class="filters">
-                <label>Term<select aria-label="Term" bind:value={term} onchange={() => { week = 'all'; reset(); }}><option value="all">All terms</option>{#each [1, 2, 3] as t}<option value={String(t)}>Term {t}</option>{/each}</select></label>
-                <label>Week<select aria-label="Week" bind:value={week} onchange={reset}><option value="all">All weeks</option>{#each weeks as w}<option value={String(w)}>Week {w}</option>{/each}</select></label>
-                <span class="period">{year}</span>
             </div>
+            <button class="export" onclick={exportReport} disabled={exporting || !scoped.length}><Download size={16} />{exporting ? 'Exporting...' : 'Export period report'}</button>
+        </header>
+        <div class="filters">
+            <label>Term<select aria-label="Term" bind:value={term} onchange={() => { week = 'all'; reset(); }}><option value="all">All terms</option>{#each [1, 2, 3] as t}<option value={String(t)}>Term {t}</option>{/each}</select></label>
+            <label>Week<select aria-label="Week" bind:value={week} onchange={reset}><option value="all">All weeks</option>{#each weeks as w}<option value={String(w)}>Week {w}</option>{/each}</select></label>
+            <span class="period">{year}</span>
         </div>
-        <button class="export" onclick={exportReport} disabled={exporting || !scoped.length}><Download size={16} />{exporting ? 'Exporting...' : 'Export period report'}</button>
-    </header>
+    </section>
     {#if exportError}<p role="alert" class="text-gov-red">{exportError}</p>{/if}
-    <dl class="stats">
-        <div><dt>Overdue</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show overdue DLLs" disabled={!summary.missing}>{summary.missing}</button><small>missing DLLs this period</small></dd></div>
-        <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>open in Archive for remarks</small></dd></div>
-    </dl>
-    <div class="decision-strip">
-        <strong>{decisionLine}</strong>
-        <span>{summary.submitted} of {summary.expected} expected DLLs submitted. Completion: {summary.rate === null ? 'N/A' : summary.rate + '%'}.</span>
-        <progress max="100" value={summary.rate || 0} aria-label="Overall submission completion"></progress>
-    </div>
+    <section class="summary-panel">
+        <div class="decision-strip">
+            <strong>{decisionLine}</strong>
+            <span>{summary.submitted} of {summary.expected} expected DLLs submitted. Completion: {summary.rate === null ? 'N/A' : summary.rate + '%'}.</span>
+            <progress max="100" value={summary.rate || 0} aria-label="Overall submission completion"></progress>
+        </div>
+        <dl class="stats">
+            <div><dt>Overdue</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show overdue DLLs" disabled={!summary.missing}>{summary.missing}</button><small>missing DLLs</small></dd></div>
+            <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>needs remarks</small></dd></div>
+        </dl>
+    </section>
     {#if clusterLabels.length && !selectedTeacher}
         <section class="cluster-panel" aria-label={districtOverview ? 'School pattern groups' : 'Teacher pattern groups'}>
             <div class="cluster-head">
@@ -333,13 +337,14 @@
 </div>
 
 <style>
-    .compliance-workspace { color: var(--color-text-primary); min-width: 0; display: grid; gap: 12px; }
-    .view-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 16px; padding: 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
-    .heading-main { min-width: 0; display: grid; gap: 14px; }
+    .compliance-workspace { color: var(--color-text-primary); min-width: 0; display: grid; gap: 14px; }
+    .control-panel { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
+    .view-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 16px; }
+    .heading-main { min-width: 0; display: grid; gap: 6px; }
     .list-tools { padding: 4px 0; }
-    h2 { font-size: 20px; font-weight: 700; overflow-wrap: anywhere; } h3 { font-size: 16px; font-weight: 700; }
-    .back { color: var(--color-text-muted); font-size: 13px; margin-bottom: 8px; }
-    .filters { display: grid; grid-template-columns: repeat(2, minmax(160px, 240px)) auto; gap: 12px; align-items: end; }
+    h2 { font-size: 22px; font-weight: 750; overflow-wrap: anywhere; line-height: 1.15; } h3 { font-size: 16px; font-weight: 700; }
+    .back { width: fit-content; color: var(--color-text-muted); font-size: 13px; min-height: 32px; }
+    .filters { display: grid; grid-template-columns: repeat(2, minmax(150px, 220px)) auto; gap: 10px; align-items: end; }
     label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 600; min-width: 0; }
     select, .search div, .cluster-filter div { min-width: 0; height: 38px; border: 1px solid var(--color-border-subtle); border-radius: 6px; background: var(--color-surface-white); padding: 7px 10px; font-size: 14px; }
     select { width: 100%; } .period { padding: 10px 0; font-size: 13px; color: var(--color-text-muted); }
@@ -348,21 +353,23 @@
     .attention { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; }
     button { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 40px; cursor: pointer; }
     button:disabled { opacity: .5; cursor: default; }
-    .export { align-self: end; min-width: 220px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); font-size: 14px; }
-    .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .stats div { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px 14px; background: var(--color-surface-white); }
+    .export { align-self: start; min-width: 210px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); background: var(--color-surface-white); font-size: 14px; }
+    .summary-panel { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, .9fr); gap: 12px; align-items: stretch; }
+    .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .stats div { display: grid; align-content: center; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px 14px; background: var(--color-surface-white); }
     dt { font-size: 13px; color: var(--color-text-muted); } dd { font-size: 26px; font-weight: 700; }
     small { display: block; font-size: 12px; font-weight: 400; color: var(--color-text-muted); margin-top: 4px; }
-    .decision-strip { display: grid; gap: 7px; padding: 12px 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-muted); font-size: 13px; }
+    .decision-strip { display: grid; align-content: center; gap: 8px; padding: 14px 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-size: 13px; }
+    .decision-strip strong { font-size: 16px; }
     progress { display: block; width: 140px; max-width: 100%; height: 7px; border: 0; border-radius: 4px; overflow: hidden; margin: 6px 0; background: var(--color-surface-muted); accent-color: var(--color-gov-green); }
     progress::-webkit-progress-bar { background: var(--color-surface-muted); } progress::-webkit-progress-value { background: var(--color-gov-green); }
-    .cluster-panel { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px; background: var(--color-surface-white); }
+    .cluster-panel { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; background: var(--color-surface-white); }
     .cluster-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 12px; }
     .cluster-head h3 { margin: 0; }
     .cluster-head p { margin: 4px 0 0; color: var(--color-text-muted); font-size: 13px; }
     .cluster-head button { min-width: 128px; padding: 8px 12px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-muted); font-size: 13px; }
     .cluster-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .cluster-grid button { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 96px; padding: 10px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: color-mix(in srgb, var(--cluster-color, var(--color-gov-blue)) 6%, var(--color-surface-white)); text-align: left; }
+    .cluster-grid button { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 92px; padding: 11px; border: 1px solid color-mix(in srgb, var(--cluster-color, var(--color-gov-blue)) 25%, var(--color-border-subtle)); border-radius: 8px; background: color-mix(in srgb, var(--cluster-color, var(--color-gov-blue)) 5%, var(--color-surface-white)); text-align: left; }
     .cluster-grid button.active, .cluster-head button.active { border-color: var(--color-gov-blue); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-gov-blue) 14%, transparent); }
     .cluster-dot { width: 12px; height: 12px; border-radius: 999px; background: var(--cluster-color, var(--color-gov-blue)); }
     .cluster-copy { min-width: 0; }
@@ -372,7 +379,7 @@
     .cluster-score { grid-column: 1 / -1; height: 7px; border-radius: 999px; background: var(--color-surface-muted); overflow: hidden; }
     .cluster-score span { display: block; height: 100%; background: var(--cluster-color, var(--color-gov-blue)); }
     .cluster-grid em { grid-column: 1 / -1; min-height: 18px; color: var(--color-text-muted); font-size: 12px; font-style: normal; line-height: 1.35; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .list-header { display: grid; grid-template-columns: minmax(140px, .7fr) minmax(240px, 1fr); align-items: start; gap: 12px; width: 100%; }
+    .list-header { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(260px, 1fr); align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
     .list-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
     .cluster-filter select { width: 200px; }
     .row-action { color: var(--color-gov-blue); white-space: nowrap; font-size: 13px; }
@@ -380,9 +387,9 @@
     .count-link { color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 4px; min-width: 44px; min-height: 44px; }
     .count-link:disabled { text-decoration: none; opacity: 1; cursor: default; }
     a.row-action { display: flex; align-items: center; min-height: 44px; gap: 6px; }
-    .selected-cluster { grid-column: 1 / 2; margin: 0; color: var(--color-text-muted); font-size: 13px; overflow-wrap: anywhere; }
+    .selected-cluster { grid-column: 1 / 2; margin: 2px 0 0; color: var(--color-text-muted); font-size: 13px; overflow-wrap: anywhere; }
     .action-list { display: grid; gap: 8px; }
-    .action-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
+    .action-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 14px 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
     .action-list h4 { font-size: 15px; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
     .action-list p { margin: 4px 0 0; color: var(--color-text-muted); font-size: 13px; }
     .action-list small { color: var(--color-gov-blue); }
@@ -395,8 +402,8 @@
     .list-tools .list-controls { justify-self: end; }
     .list-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .cluster-filter select { width: 200px; }
-    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
-    .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px; min-width: 0; }
+    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+    .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; min-width: 0; }
     .chart-card h4 { font-size: 14px; font-weight: 700; color: var(--color-text-muted); margin: 0 0 12px 0; }
     .bar-container { display: flex; height: 32px; border-radius: 4px; overflow: hidden; }
     .bar-segment { display: flex; align-items: center; justify-content: center; min-width: 0; background: var(--color-gov-green); color: white; font-weight: 600; font-size: 13px; }
@@ -421,9 +428,11 @@
     @media (max-width: 920px) {
         .view-heading { grid-template-columns: 1fr; align-items: stretch; }
         .export { width: 100%; min-width: 0; justify-content: center; }
+        .summary-panel { grid-template-columns: 1fr; }
     }
-    @media (max-width: 600px) { .stats { gap: 12px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } }
+    @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } }
     @media (max-width: 700px) {
+        .control-panel { padding: 12px; }
         .filters { grid-template-columns: 1fr; gap: 10px; } select { width: 100%; min-height: 44px; font-size: 16px; }
         .search input, .cluster-filter select { font-size: 16px; } .view-heading > div { min-width: 0; }
         .stats { gap: 12px; } .stats small { overflow-wrap: anywhere; }
