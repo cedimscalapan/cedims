@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isCountedSubmission } from '$lib/utils/compliance';
+    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isReviewableSubmission } from '$lib/utils/compliance';
     import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
     import { Download, Search, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, RefreshCw } from 'lucide-svelte';
     let { teachers, schools, loads, calendar, submissions, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
@@ -72,7 +72,7 @@
     const scoped = $derived(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) &&
         (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week))));
     const scopedTeacherIds = $derived(new Set(scopedTeachers.map(t => t.id)));
-    const scopedSubmissions = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedTeacherIds.has(s.user_id) && isCountedSubmission(s.compliance_status)), term, week));
+    const scopedSubmissions = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedTeacherIds.has(s.user_id) && isReviewableSubmission(s.compliance_status)), term, week));
     const reviewSummary = $derived(summarizeSubmissionReviews(scopedSubmissions, reviews));
     const teacherRows = $derived(scopedTeachers.map(t => {
         const rows = scoped.filter(r => r.teacherId === t.id);
@@ -84,14 +84,15 @@
         return requirements.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === id && (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week)));
     }
     function submissionsForTeacher(id: string) {
-        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id === id && isCountedSubmission(s.compliance_status)), term, week);
+        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id === id && isReviewableSubmission(s.compliance_status)), term, week);
     }
     function submissionsForSchool(id: string) {
         const teacherIds = new Set(teachers.filter(t => t.school_id === id).map(t => t.id));
-        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id && teacherIds.has(s.user_id) && isCountedSubmission(s.compliance_status)), term, week);
+        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id && teacherIds.has(s.user_id) && isReviewableSubmission(s.compliance_status)), term, week);
     }
     const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id)), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
     const summary = $derived({ ...summarizeRequirements(scoped), ...reviewSummary });
+    const reviewMap = $derived(new Map(reviews.map(r => [r.submission_id, r])));
     const termNumber = $derived(term === 'all' ? null : Number(term));
     const clusterSubmissions = $derived(submissions.filter((s): s is ComplianceSubmission & { user_id: string } => {
         if (!s.user_id) return false;
@@ -148,12 +149,17 @@
     const maxSchoolOverdue = $derived(Math.max(1, ...visibleSchoolOverdueBars.map(s => s.missing)));
     const docTypeData = $derived(documentTypeCounts(scopedSubmissions));
     const docTypeTotal = $derived(docTypeData.reduce((sum, item) => sum + item.value, 0));
+    const supplementaryUploads = $derived(scopedSubmissions.filter(s => ['supplementary', 'extra'].includes((s.compliance_status || '').toLowerCase())).length);
     const uploadDays = $derived(uploadDayCounts(scopedSubmissions, calendar.filter(c => c.school_year === year), term, week));
     const maxUploadDay = $derived(Math.max(1, ...uploadDays.map(d => d.total)));
-    const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'for-checking' ? r.review === 'for-checking' : status === 'missing' ? r.status === 'missing' : true));
-    const rowCount = $derived(activeTab === 'schools' ? rankedSchools.length : activeTab === 'teacher' ? selectedTeacherRows.length : sortedTeachers.length);
+    const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'missing' ? r.status === 'missing' : status === 'for-checking' ? false : true));
+    const selectedTeacherReviewRows = $derived(selectedTeacher && status === 'for-checking'
+        ? submissionsForTeacher(selectedTeacher).filter(s => !reviewMap.get(s.id)?.reviewer_comment)
+        : []);
+    const rowCount = $derived(activeTab === 'schools' ? rankedSchools.length : activeTab === 'teacher' ? (status === 'for-checking' ? selectedTeacherReviewRows.length : selectedTeacherRows.length) : sortedTeachers.length);
     const listTitle = $derived(districtOverview ? 'Schools needing action' : selectedTeacher ? 'DLLs needing action' : 'Teachers needing action');
-    const decisionLine = $derived(summary.missing ? `${summary.missing} missing DLL${summary.missing === 1 ? '' : 's'} need follow-up first.` : summary.forChecking ? `${summary.forChecking} file${summary.forChecking === 1 ? '' : 's'} need Archive remarks.` : 'No immediate follow-up for this period.');
+    const decisionLine = $derived(summary.missing ? `${summary.missing} missing DLL${summary.missing === 1 ? '' : 's'} need follow-up first.` : summary.forChecking ? `${summary.forChecking} file${summary.forChecking === 1 ? ' needs' : 's need'} Archive remarks.` : 'No immediate follow-up for this period.');
+    const reviewUploadLine = $derived(`${summary.forChecking + summary.checked} review upload${summary.forChecking + summary.checked === 1 ? '' : 's'}${supplementaryUploads ? `, including ${supplementaryUploads} supplementary` : ''}.`);
     const filteredClusterTitle = $derived(clusterFilter === 'all' ? '' : `${clusterFilter}: ${(clusterMembers.get(clusterFilter) || []).join(', ')}`);
     const pages = $derived(Math.max(1, Math.ceil(rowCount / size)));
     $effect(() => { if (page > pages) page = pages; });
@@ -163,8 +169,8 @@
     function selectWeek(nextWeek: string) { week = nextWeek; openPeriodMenu = null; reset(); }
     function togglePeriodMenu(menu: 'year' | 'term' | 'week') { openPeriodMenu = openPeriodMenu === menu ? null : menu; }
     function remember() { history = [...history, { school, search, status, cluster: clusterFilter, selectedTeacher, page }]; }
-    function openSchool(id: string, missing = false) { remember(); school = id; search = ''; status = missing ? 'missing' : 'all'; clusterFilter = 'all'; selectedTeacher = null; reset(); }
-    function openTeacher(id: string, missing = false) { remember(); selectedTeacher = id; clusterFilter = 'all'; search = ''; status = missing ? 'missing' : 'all'; reset(); }
+    function openSchool(id: string, nextStatus = 'all') { remember(); school = id; search = ''; status = nextStatus; clusterFilter = 'all'; selectedTeacher = null; reset(); }
+    function openTeacher(id: string, nextStatus = 'all') { remember(); selectedTeacher = id; clusterFilter = 'all'; search = ''; status = nextStatus; reset(); }
     function goBack() {
         const previous = history.at(-1);
         if (previous) { history = history.slice(0, -1); ({ school, search, status, cluster: clusterFilter, selectedTeacher, page } = previous); return; }
@@ -300,15 +306,16 @@
     <section class="summary-panel">
         <div class="decision-strip">
             <strong>{decisionLine}</strong>
-            <span>{summary.submitted} of {summary.expected} expected DLLs submitted. Completion: {summary.rate === null ? 'N/A' : summary.rate + '%'}.</span>
+            <span>DLL compliance: {summary.submitted} of {summary.expected} expected submitted · {summary.rate === null ? 'N/A' : summary.rate + '%'} complete.</span>
+            <small>{reviewUploadLine}</small>
             <progress max="100" value={summary.rate || 0} aria-label="Overall submission completion"></progress>
         </div>
         <dl class="stats">
             <div><dt>On time</dt><dd>{summary.onTime}<small>submitted before deadline</small></dd></div>
             <div><dt>Late</dt><dd>{summary.late}<small>submitted after deadline</small></dd></div>
             <div><dt>Missing</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show missing DLLs" disabled={!summary.missing}>{summary.missing}</button><small>deadlines with no DLL</small></dd></div>
-            <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>database submissions without remarks</small></dd></div>
-            <div><dt>Checked</dt><dd>{summary.checked}<small>with Archive remarks</small></dd></div>
+            <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>uploads without remarks{supplementaryUploads ? ', supplementary included' : ''}</small></dd></div>
+            <div><dt>Checked</dt><dd>{summary.checked}<small>with Archive remarks{supplementaryUploads ? ', supplementary included' : ''}</small></dd></div>
         </dl>
     </section>
     {#if clusterLabels.length && !selectedTeacher}
@@ -387,7 +394,7 @@
                 <h4>Schools with missing DLLs</h4>
                 <div class="horizontal-bars">
                     {#each visibleSchoolOverdueBars as item}
-                        <button class="horizontal-bar-item" onclick={() => openSchool(item.id, true)}>
+                        <button class="horizontal-bar-item" onclick={() => openSchool(item.id, 'missing')}>
                             <span>{item.name}</span>
                             <span class="bar-container-small"><span class="bar-fill overdue" style="width: {100 * item.missing / maxSchoolOverdue}%"></span></span>
                             <strong>{item.missing}</strong>
@@ -414,23 +421,32 @@
             {#each rankedSchools.slice((page - 1) * size, page * size) as s}
                 <article>
                     <div><h4>{s.name}</h4><p>{s.submitted} of {s.expected} submitted · {s.rate === null ? 'N/A' : s.rate + '%'} complete</p>{#if clusterLabelFor(s.id)}<small>{clusterLabelFor(s.id)}</small>{/if}</div>
-                    <div class="action-metrics"><button class="metric missing" disabled={!s.missing} onclick={() => openSchool(s.id, true)}><strong>{s.missing}</strong><span>Missing</span></button><button class="metric" disabled={!s.forChecking} onclick={() => openSchool(s.id, false)}><strong>{s.forChecking}</strong><span>For checking</span></button></div>
+                    <div class="action-metrics"><button class="metric missing" disabled={!s.missing} onclick={() => openSchool(s.id, 'missing')}><strong>{s.missing}</strong><span>Missing</span></button><button class="metric" disabled={!s.forChecking} onclick={() => openSchool(s.id, 'for-checking')}><strong>{s.forChecking}</strong><span>For checking</span></button></div>
                     <button class="row-action" onclick={() => openSchool(s.id)}>Open school <ChevronRight size={16} /></button>
                 </article>
             {/each}
         {:else if selectedTeacher}
-            {#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
-                <article>
-                    <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</small></div>
-                    <div class="status-pill" class:missing={r.status === 'missing'}>{r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming'}</div>
-                    {#if r.submission && r.review === "for-checking"}<a class="row-action" href={"/dashboard/archive?review=" + encodeURIComponent(r.submission.id)}>Open Archive <ChevronRight size={16} /></a>{/if}
-                </article>
-            {/each}
+            {#if status === 'for-checking'}
+                {#each selectedTeacherReviewRows.slice((page - 1) * size, page * size) as s}
+                    <article>
+                        <div><h4>{s.subject || s.doc_type || 'Uploaded file'}</h4><p>{(s.doc_type || 'DLL').toUpperCase() === 'DLL' ? 'DLP' : s.doc_type} · Term {submissionTermFromPath(s) || '—'}, Week {s.week_number || '—'}</p><small>{s.compliance_status === 'supplementary' ? 'Supplementary upload' : 'Needs Archive remarks'}</small></div>
+                        <div class="status-pill">For checking</div>
+                        <a class="row-action" href={"/dashboard/archive?review=" + encodeURIComponent(s.id)}>Open Archive <ChevronRight size={16} /></a>
+                    </article>
+                {/each}
+            {:else}
+                {#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
+                    <article>
+                        <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</small></div>
+                        <div class="status-pill" class:missing={r.status === 'missing'}>{r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming'}</div>
+                    </article>
+                {/each}
+            {/if}
         {:else}
             {#each sortedTeachers.slice((page - 1) * size, page * size) as t}
                 <article>
                     <div><h4>{t.full_name}</h4><p>{t.submitted} of {t.expected} submitted · {t.rate === null ? 'N/A' : t.rate + '%'} complete</p>{#if clusterLabelFor(t.id)}<small>{clusterLabelFor(t.id)}</small>{/if}</div>
-                    <div class="action-metrics"><button class="metric missing" disabled={!t.missing} onclick={() => openTeacher(t.id, true)}><strong>{t.missing}</strong><span>Missing</span></button><button class="metric" disabled={!t.forChecking} onclick={() => openTeacher(t.id, false)}><strong>{t.forChecking}</strong><span>For checking</span></button></div>
+                    <div class="action-metrics"><button class="metric missing" disabled={!t.missing} onclick={() => openTeacher(t.id, 'missing')}><strong>{t.missing}</strong><span>Missing</span></button><button class="metric" disabled={!t.forChecking} onclick={() => openTeacher(t.id, 'for-checking')}><strong>{t.forChecking}</strong><span>For checking</span></button></div>
                     <button class="row-action" onclick={() => openTeacher(t.id)}>Open DLLs <ChevronRight size={16} /></button>
                 </article>
             {/each}
@@ -497,14 +513,15 @@
     button:disabled { opacity: .5; cursor: default; }
     .export, .refresh { align-self: start; min-width: 170px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); background: var(--color-surface-white); font-size: 14px; }
     .export { min-width: 210px; }
-    .summary-panel { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(420px, 1.1fr); gap: 12px; align-items: stretch; }
-    .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-    .stats div { display: grid; align-content: center; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px 14px; background: var(--color-surface-white); }
-    dt { font-size: 13px; color: var(--color-text-muted); } dd { font-size: 26px; font-weight: 700; }
-    small { display: block; font-size: 12px; font-weight: 400; color: var(--color-text-muted); margin-top: 4px; }
-    .decision-strip { display: grid; align-content: center; gap: 8px; padding: 14px 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-size: 13px; }
-    .decision-strip strong { font-size: 16px; }
-    progress { display: block; width: 140px; max-width: 100%; height: 7px; border: 0; border-radius: 4px; overflow: hidden; margin: 6px 0; background: var(--color-surface-muted); accent-color: var(--color-gov-green); }
+    .summary-panel { display: grid; grid-template-columns: minmax(280px, .95fr) minmax(520px, 1.25fr); gap: 12px; align-items: start; }
+    .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: start; }
+    .stats div { display: grid; align-content: start; min-height: 116px; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px; background: var(--color-surface-white); }
+    dt { font-size: 12px; color: var(--color-text-muted); line-height: 1.25; } dd { font-size: 23px; font-weight: 700; line-height: 1.15; }
+    small { display: block; font-size: 11px; line-height: 1.35; font-weight: 400; color: var(--color-text-muted); margin-top: 5px; }
+    .decision-strip { display: grid; align-content: start; gap: 6px; padding: 12px 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-size: 12px; }
+    .decision-strip strong { font-size: 14px; }
+    .decision-strip span { color: var(--color-text-primary); }
+    progress { display: block; width: 160px; max-width: 100%; height: 6px; border: 0; border-radius: 4px; overflow: hidden; margin: 3px 0 0; background: var(--color-surface-muted); accent-color: var(--color-gov-green); }
     progress::-webkit-progress-bar { background: var(--color-surface-muted); } progress::-webkit-progress-value { background: var(--color-gov-green); }
     .cluster-panel { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; background: var(--color-surface-white); }
     .cluster-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 12px; }

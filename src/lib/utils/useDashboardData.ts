@@ -126,7 +126,7 @@ export async function getDefinedWeeksCount(
 /**
  * ISP/ISR are one-off administrative uploads (Instructional Supervisory Plans and
  * Instructional Supervisory Reports), not part of the weekly DLL submission cadence — they must never
- * count toward, or dilute, compliance rates or "total uploaded" figures.
+ * count toward, or dilute, compliance rates.
  */
 export function isComplianceTrackedDocType(docType: string | null | undefined): boolean {
   const dt = (docType || '').toUpperCase().trim();

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 const code = ts.transpileModule(readFileSync(new URL('../src/lib/utils/compliance.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { buildRequirements, scopedCalendar, summarizeRequirements, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const now = Date.parse('2026-09-27T12:00:00Z');
 const load = { id: 'load', user_id: 'teacher', subject: 'English', grade_level: 'Grade 5' };
 const calendar = [1, 2, 3].map(term => ({ id: `c${term}`, school_year: '2026-2027', term, week_number: 1, deadline_date: term === 3 ? '2026-12-01T12:00:00Z' : '2026-09-01T12:00:00Z', is_active: true }));
@@ -28,6 +28,13 @@ test('Term 2 Week 1 never fulfills Term 1 Week 1', () => {
 test('duplicate, supplementary and missing records cannot inflate fulfillment', () => {
     const rows = buildRequirements([load], calendar, [sub, { ...sub, id: 'duplicate' }, { ...sub, id: 'extra', term_number: 1, compliance_status: 'supplementary' }, { ...sub, id: 'missing', term_number: 3, compliance_status: 'missing' }], [], now);
     assert.equal(summarizeRequirements(rows, now).submitted, 1);
+});
+test('supplementary uploads require remarks but do not fulfill requirements', () => {
+    const extra = { ...sub, id: 'extra', term_number: 1, compliance_status: 'supplementary' };
+    const rows = buildRequirements([load], [calendar[0]], [extra], [], now);
+    assert.equal(summarizeRequirements(rows, now).submitted, 0);
+    assert.deepEqual(summarizeSubmissionReviews([extra], []), { forChecking: 1, checked: 0, reviewable: 1 });
+    assert.deepEqual(summarizeSubmissionReviews([extra], [{ submission_id: 'extra', reviewer_comment: 'checked' }]), { forChecking: 0, checked: 1, reviewable: 1 });
 });
 test('review status uses remarks, independently of lateness', () => {
         for (const remark of ['', 'review comment', '  ']) {

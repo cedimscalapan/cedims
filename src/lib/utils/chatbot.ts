@@ -1,7 +1,7 @@
 import intentModel from '../models/intent_classifier_model.json';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentSchoolYear as getDynamicSchoolYear } from './schoolYear';
-import { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, filterSubmissionsByPeriod, isCountedSubmission, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type ComplianceReview } from './compliance';
+import { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, filterSubmissionsByPeriod, isReviewableSubmission, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type ComplianceReview } from './compliance';
 
 // Text Normalization
 // Makes the bot robust to typos, wrong grammar, repeated characters, emojis,
@@ -296,11 +296,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['supplementary', 'extra dll', 'another dll', 'duplicate submission'],
         answers: {
             en: [
-                'A "Supplementary" submission is an extra Daily Lesson Plan for a week/subject that already has one on file: it’s kept for reference but never counts toward your compliance rate, upload totals, or a "missing" mark.',
+                'A "Supplementary" submission is an extra Daily Lesson Plan for a week/subject that already has one on file. It needs remarks like other uploads, but it never counts toward your compliance rate, late count, or missing count.',
                 'Nag-upload kayo ba ng pangalawang Daily Lesson Plan sa parehong linggo at subject? That extra one gets tagged "Supplementary": it’s just extra documentation, it won’t hurt or help your compliance number.'
             ],
             tl: [
-                'Ang "Supplementary" ay dagdag na Daily Lesson Plan para sa linggo/subject na may na-submit na: itinatago ito bilang reference pero hindi ito nabibilang sa compliance rate, total uploads, o "missing" mark.',
+                'Ang "Supplementary" ay dagdag na Daily Lesson Plan para sa linggo/subject na may na-submit na. Kailangan pa rin ito ng remarks tulad ng ibang uploads, pero hindi ito kasama sa compliance rate, late, o missing count.',
                 'Nag-upload kayo ba ng pangalawang Daily Lesson Plan sa parehong linggo at subject? Ito ay tatawaging "Supplementary": extra documentation lang ito, hindi nakakaapekto sa compliance number ninyo.'
             ]
         }
@@ -1024,7 +1024,7 @@ async function queryCompliance(
         submissions.filter(s => s.user_id === t.id),
         reviews,
     )).filter(r => (periodTerm === 'all' || r.calendar.term === Number(periodTerm)) && (periodWeek === 'all' || r.calendar.week_number === Number(periodWeek)));
-    const scopedSubmissions = filterSubmissionsByPeriod(submissions.filter(s => isCountedSubmission(s.compliance_status)), periodTerm, periodWeek);
+    const scopedSubmissions = filterSubmissionsByPeriod(submissions.filter(s => isReviewableSubmission(s.compliance_status)), periodTerm, periodWeek);
     const summary = { ...summarizeRequirements(requirements), ...summarizeSubmissionReviews(scopedSubmissions, reviews) };
     const rate = summary.rate ?? 0;
 

@@ -393,11 +393,9 @@
         // and reveals more via "Show more activity", so extra rows here are
         // headroom for that button rather than something rendered up front.
         recentActivity = (subsResult.data || []).slice(0, 30);
-        // ISP/ISR aren't part of the weekly DLL cadence — excluded from the
-        // upload count the same way calculateCompliance excludes them above.
-        stats.totalUploads = submissions.filter((s: any) =>
-            isComplianceTrackedDocType(s.doc_type),
-        ).length;
+        // Total uploads is a file count, so supplementary files stay included.
+        // Compliance rate above still excludes supplementary through calculateCompliance().
+        stats.totalUploads = submissions.length;
         stats.compliantRate = complianceStats.rate;
     }
 
@@ -546,10 +544,9 @@
         const definedWeeks = calendarArr.filter((c: any) => c.is_active).length || 1;
 
         // ISP/ISR are one-off administrative uploads, not part of the weekly
-        // DLL cadence — excluded here (and below) so they never inflate
-        // "total uploads" or skew compliant/late/missing counts. They still
-        // show up in recentActivity (with their doc type labeled) since that
-        // list is meant to reflect everything uploaded, not just DLLs.
+        // DLL cadence — excluded here (and below) so they never skew
+        // compliant/late/missing counts. They still show up in total uploads
+        // and recentActivity because those are file counts.
         const complianceSubs = allSubs.filter((s) => isComplianceTrackedDocType(s.doc_type));
 
         // Per-teacher compliance: expected = active loads x defined weeks.
@@ -595,7 +592,7 @@
         const overallStats = calculateCompliance(complianceSubs, totalExpected);
 
         stats.totalTeachers = teachersWithNames.length;
-        stats.totalUploads = complianceSubs.length;
+        stats.totalUploads = allSubs.length;
         stats.compliantCount = overallStats.Compliant;
         stats.lateCount = overallStats.Late;
         stats.nonCompliantCount = teacherCompliance.reduce(

@@ -68,6 +68,10 @@ export function isCountedSubmission(status?: string | null) {
     return ['compliant', 'on-time', 'late'].includes(status || '');
 }
 
+export function isReviewableSubmission(status?: string | null) {
+    return isCountedSubmission(status) || ['supplementary', 'extra'].includes((status || '').toLowerCase());
+}
+
 export function periodSubmissionTerm(s: ComplianceSubmission): number | null {
     return submissionTerm(s);
 }
@@ -81,7 +85,7 @@ export function filterSubmissionsByPeriod(submissions: ComplianceSubmission[], t
 
 export function summarizeSubmissionReviews(submissions: ComplianceSubmission[], reviews: ComplianceReview[]) {
     const reviewMap = new Map(reviews.map(r => [r.submission_id, r]));
-    const reviewable = submissions.filter(s => isCountedSubmission(s.compliance_status));
+    const reviewable = submissions.filter(s => isReviewableSubmission(s.compliance_status));
     const checked = reviewable.filter(s => hasRemarks(reviewMap.get(s.id)?.reviewer_comment)).length;
     return { forChecking: reviewable.length - checked, checked, reviewable: reviewable.length };
 }
