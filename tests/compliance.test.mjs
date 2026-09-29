@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 const code = ts.transpileModule(readFileSync(new URL('../src/lib/utils/compliance.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, documentTypeCounts, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const now = Date.parse('2026-09-27T12:00:00Z');
 const load = { id: 'load', user_id: 'teacher', subject: 'English', grade_level: 'Grade 5' };
 const calendar = [1, 2, 3].map(term => ({ id: `c${term}`, school_year: '2026-2027', term, week_number: 1, deadline_date: term === 3 ? '2026-12-01T12:00:00Z' : '2026-09-01T12:00:00Z', is_active: true }));
@@ -52,6 +52,13 @@ test('ISP and ISR uploads do not require checking remarks', () => {
     const isp = { ...sub, id: 'isp', doc_type: 'ISP', compliance_status: 'compliant' };
     const isr = { ...sub, id: 'isr', doc_type: 'ISR', compliance_status: 'late' };
     assert.deepEqual(summarizeSubmissionReviews([isp, isr], [{ submission_id: 'isr', reviewer_comment: 'checked' }]), { forChecking: 0, checked: 0, reviewable: 0 });
+});
+test('document type totals include ISP and ISR uploads', () => {
+    assert.deepEqual(documentTypeCounts([
+        { ...sub, id: 'dll', doc_type: 'DLL' },
+        { ...sub, id: 'isp', doc_type: 'ISP' },
+        { ...sub, id: 'isr', doc_type: 'ISR' },
+    ]), [{ label: 'DLP', value: 1 }, { label: 'ISP', value: 1 }, { label: 'ISR', value: 1 }]);
 });
 test('review status uses remarks, independently of lateness', () => {
         for (const remark of ['', 'review comment', '  ']) {

@@ -75,6 +75,7 @@
         (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week))));
     const countOpenAsMissing = $derived(week !== 'all');
     const scopedSubmissionUserIds = $derived(new Set(scopedSubmissionUsers.map(t => t.id)));
+    const scopedUploadTotals = $derived(submissions.filter(s => s.user_id && scopedSubmissionUserIds.has(s.user_id) && s.school_year === year && isUploadSubmission(s)));
     const scopedUploads = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedSubmissionUserIds.has(s.user_id) && isUploadSubmission(s)), term, week));
     const scopedReviewSubmissions = $derived(scopedUploads.filter(isRemarkRequiredSubmission));
     const reviewSummary = $derived(summarizeSubmissionReviews(scopedReviewSubmissions, reviews));
@@ -151,7 +152,7 @@
     const visibleSchoolOverdueBars = $derived(schoolOverdueBars.filter(item => item.missing > 0).slice(0, 6));
     const maxTermOverdue = $derived(Math.max(1, ...termOverdueBars.map(b => b.missing)));
     const maxSchoolOverdue = $derived(Math.max(1, ...visibleSchoolOverdueBars.map(s => s.missing)));
-    const docTypeData = $derived(documentTypeCounts(scopedUploads));
+    const docTypeData = $derived(documentTypeCounts(scopedUploadTotals));
     const docTypeTotal = $derived(docTypeData.reduce((sum, item) => sum + item.value, 0));
     const supplementaryUploads = $derived(scopedReviewSubmissions.filter(s => ['supplementary', 'extra'].includes((s.compliance_status || '').toLowerCase())).length);
     const uploadDays = $derived(uploadDayCounts(scopedUploads, calendar.filter(c => c.school_year === year), term, week));
@@ -351,7 +352,7 @@
     <div class="charts">
         {#if docTypeTotal > 0}
             <div class="chart-card pie-card">
-                <h4>Document types this period</h4>
+                <h4>Upload totals this school year</h4>
                 <div class="pie-wrap">
                     <div class="pie" style={pieStyle(docTypeData)} aria-label="Document type pie chart"></div>
                     <div class="legend">
