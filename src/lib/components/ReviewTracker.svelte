@@ -24,8 +24,12 @@
     let remarkText = "";
     let savingRemark = false;
     let openingId: string | null = null;
+    $: reviewItems = items.filter((item) => {
+        const docType = (item.doc_type || "DLL").toUpperCase();
+        return docType === "DLL" || docType === "DLP";
+    });
 
-    $: filteredItems = items.filter((item) => {
+    $: filteredItems = reviewItems.filter((item) => {
         if (pendingOnly || filterStatus === "forChecking") return !item.reviewer_comment;
         if (filterStatus === "checked") return !!item.reviewer_comment;
         return true;
@@ -40,7 +44,7 @@
     $: totalPages = Math.max(1, Math.ceil(sortedItems.length / pageSize));
     $: if (currentPage > totalPages) currentPage = totalPages;
     $: pageItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-    $: forCheckingCount = items.filter((item) => !item.reviewer_comment).length;
+    $: forCheckingCount = reviewItems.filter((item) => !item.reviewer_comment).length;
 
     function setSort(field: SortField) {
         if (sortField === field) sortDir = sortDir === "asc" ? "desc" : "asc";
@@ -128,7 +132,7 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                 <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Total</p>
-                <p class="text-xl font-bold text-text-primary">{items.length}</p>
+                <p class="text-xl font-bold text-text-primary">{reviewItems.length}</p>
             </div>
             <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                 <p class="text-xs font-bold text-gov-gold uppercase tracking-tight">For Checking</p>
@@ -136,7 +140,7 @@
             </div>
             <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                 <p class="text-xs font-bold text-gov-green uppercase tracking-tight">Checked</p>
-                <p class="text-xl font-bold text-gov-green">{Math.max(0, items.length - forCheckingCount)}</p>
+                <p class="text-xl font-bold text-gov-green">{Math.max(0, reviewItems.length - forCheckingCount)}</p>
             </div>
         </div>
     </div>

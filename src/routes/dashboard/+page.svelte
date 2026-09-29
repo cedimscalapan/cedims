@@ -643,6 +643,10 @@
                 const nameById: Record<string, string> = {};
                 for (const t of teachersWithNames) nameById[t.id] = t.full_name;
                 awaitingReview = allSubs
+                    .filter((s: any) => {
+                        const docType = (s.doc_type || "DLL").toUpperCase();
+                        return docType === "DLL" || docType === "DLP";
+                    })
                     .map((s: any) => ({
                         ...s,
                         teacher_name: nameById[s.user_id] || "Unknown teacher",
