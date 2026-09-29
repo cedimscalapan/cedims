@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, weekMix, overdueByWeek } from '$lib/utils/compliance';
+    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isCountedSubmission } from '$lib/utils/compliance';
     import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
     import { Download, Search, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, RefreshCw } from 'lucide-svelte';
     let { teachers, schools, loads, calendar, submissions, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
@@ -71,14 +71,27 @@
     const scopedTeachers = $derived(teachers.filter(t => school === 'all' || t.school_id === school));
     const scoped = $derived(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) &&
         (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week))));
+    const scopedTeacherIds = $derived(new Set(scopedTeachers.map(t => t.id)));
+    const scopedSubmissions = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedTeacherIds.has(s.user_id) && isCountedSubmission(s.compliance_status)), term, week));
+    const reviewSummary = $derived(summarizeSubmissionReviews(scopedSubmissions, reviews));
     const teacherRows = $derived(scopedTeachers.map(t => {
         const rows = scoped.filter(r => r.teacherId === t.id);
-        return { ...t, ...summarizeRequirements(rows), risk: riskReason(rows), rows };
+        return { ...t, ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForTeacher(t.id), reviews), risk: riskReason(rows), rows };
     }).filter(t => (districtOverview && school === 'all' || !districtOverview) && (!search.trim() || t.full_name.toLowerCase().includes(search.trim().toLowerCase()))).filter(t => status === 'all' ||
         (status === 'risk' && (!!t.risk || t.missing > 0)) || (status === 'missing' && t.missing > 0) ||
         (status === 'for-checking' && t.forChecking > 0)));
-    const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(requirements.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === s.id && (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week)) )) })));
-    const summary = $derived(summarizeRequirements(scoped));
+    function rowsForSchool(id: string) {
+        return requirements.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === id && (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week)));
+    }
+    function submissionsForTeacher(id: string) {
+        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id === id && isCountedSubmission(s.compliance_status)), term, week);
+    }
+    function submissionsForSchool(id: string) {
+        const teacherIds = new Set(teachers.filter(t => t.school_id === id).map(t => t.id));
+        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id && teacherIds.has(s.user_id) && isCountedSubmission(s.compliance_status)), term, week);
+    }
+    const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id)), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
+    const summary = $derived({ ...summarizeRequirements(scoped), ...reviewSummary });
     const termNumber = $derived(term === 'all' ? null : Number(term));
     const clusterSubmissions = $derived(submissions.filter((s): s is ComplianceSubmission & { user_id: string } => {
         if (!s.user_id) return false;
@@ -127,17 +140,20 @@
     const rankedSchools = $derived(schoolRows.filter(s => (!search.trim() || s.name.toLowerCase().includes(search.trim().toLowerCase())) &&
         (status === 'all' || status === 'risk' && s.missing > 0 || status === 'missing' && s.missing > 0 || status === 'for-checking' && s.forChecking > 0) &&
         (clusterFilter === 'all' || clusterMap.get(s.id) === clusterFilter)).sort((a, b) => b.missing - a.missing || a.name.localeCompare(b.name)));
-    const weekMixData = $derived(weekMix(scoped));
     const termOverdueBars = $derived(overdueByWeek(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) && (term === 'all' || r.calendar.term === Number(term)))));
     const schoolOverdueBars = $derived([...schoolRows].sort((a, b) => b.missing - a.missing));
     const visibleTermOverdueBars = $derived(termOverdueBars.filter(bar => bar.missing > 0));
     const visibleSchoolOverdueBars = $derived(schoolOverdueBars.filter(item => item.missing > 0).slice(0, 6));
     const maxTermOverdue = $derived(Math.max(1, ...termOverdueBars.map(b => b.missing)));
     const maxSchoolOverdue = $derived(Math.max(1, ...visibleSchoolOverdueBars.map(s => s.missing)));
+    const docTypeData = $derived(documentTypeCounts(scopedSubmissions));
+    const docTypeTotal = $derived(docTypeData.reduce((sum, item) => sum + item.value, 0));
+    const uploadDays = $derived(uploadDayCounts(scopedSubmissions, calendar.filter(c => c.school_year === year), term, week));
+    const maxUploadDay = $derived(Math.max(1, ...uploadDays.map(d => d.total)));
     const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'for-checking' ? r.review === 'for-checking' : status === 'missing' ? r.status === 'missing' : true));
     const rowCount = $derived(activeTab === 'schools' ? rankedSchools.length : activeTab === 'teacher' ? selectedTeacherRows.length : sortedTeachers.length);
     const listTitle = $derived(districtOverview ? 'Schools needing action' : selectedTeacher ? 'DLLs needing action' : 'Teachers needing action');
-    const decisionLine = $derived(summary.missing ? `${summary.missing} overdue DLL${summary.missing === 1 ? '' : 's'} need follow-up first.` : summary.forChecking ? `${summary.forChecking} file${summary.forChecking === 1 ? '' : 's'} need Archive remarks.` : 'No immediate follow-up for this period.');
+    const decisionLine = $derived(summary.missing ? `${summary.missing} missing DLL${summary.missing === 1 ? '' : 's'} need follow-up first.` : summary.forChecking ? `${summary.forChecking} file${summary.forChecking === 1 ? '' : 's'} need Archive remarks.` : 'No immediate follow-up for this period.');
     const filteredClusterTitle = $derived(clusterFilter === 'all' ? '' : `${clusterFilter}: ${(clusterMembers.get(clusterFilter) || []).join(', ')}`);
     const pages = $derived(Math.max(1, Math.ceil(rowCount / size)));
     $effect(() => { if (page > pages) page = pages; });
@@ -159,6 +175,17 @@
     function teacherName(id: string) { return teachers.find(t => t.id === id)?.full_name || 'Unknown teacher'; }
     function schoolName(id: string) { return schools.find(s => s.id === id)?.name || 'Unassigned school'; }
     function clusterLabelFor(id: string) { return clusterMap.get(id) || ''; }
+    function docColor(label: string) { return label === 'DLP' ? 'var(--color-gov-blue)' : label === 'ISP' ? 'var(--color-gov-green)' : 'var(--color-gov-gold)'; }
+    function pieStyle(items: { label: string; value: number }[]) {
+        if (!docTypeTotal) return 'background: var(--color-surface-muted)';
+        let cursor = 0;
+        const stops = items.filter(item => item.value > 0).map(item => {
+            const start = cursor;
+            cursor += item.value / docTypeTotal * 100;
+            return `${docColor(item.label)} ${start}% ${cursor}%`;
+        });
+        return `background: conic-gradient(${stops.join(', ')})`;
+    }
     async function exportReport() {
         exporting = true; exportError = '';
         try {
@@ -169,22 +196,22 @@
                 ['CEDIMS Compliance', year], ['Generated', new Date().toISOString()],
                 ['Term', term], ['Week', week], ['School', school === 'all' ? 'All' : schoolName(school)],
                 ['Scope', 'All requirements in the selected school and period'],
-                ['Expected', summary.expected], ['Submitted', summary.submitted], ['Missing overdue', summary.missing],
-                ['Upcoming', summary.upcoming], ['Late submitted', summary.late], ['Overdue DLLs', summary.missing],
+                ['Expected', summary.expected], ['Submitted', summary.submitted], ['Missing', summary.missing],
+                ['Upcoming', summary.upcoming], ['Late submitted', summary.late],
                 ['For checking', summary.forChecking], ['Checked', summary.checked], ['Completion %', summary.rate ?? 'N/A'], ['Formula', 'Submitted / expected requirements x 100; late included'],
             ]);
             const people = book.addWorksheet(districtOverview ? 'Schools' : 'Teachers');
-            people.addRow(districtOverview ? ['School', 'Overdue DLLs', 'For checking', 'Checked', 'Submission progress', 'Attention'] : ['Teacher', 'Overdue DLLs', 'For checking', 'Checked', 'Submission progress', 'Attention', 'Cluster']);
+            people.addRow(districtOverview ? ['School', 'Missing DLLs', 'For checking', 'Checked', 'Submission progress', 'Attention'] : ['Teacher', 'Missing DLLs', 'For checking', 'Checked', 'Submission progress', 'Attention', 'Cluster']);
             if (districtOverview) {
                 for (const item of rankedSchools) {
                     const rows = scoped.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === item.id);
-                    const t = summarizeRequirements(rows);
+                    const t = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForSchool(item.id), reviews) };
                     people.addRow([item.name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', riskReason(rows)]);
                 }
             } else {
                 for (const item of sortedTeachers) {
                     const rows = scoped.filter(r => r.teacherId === item.id);
-                    const t = summarizeRequirements(rows);
+                    const t = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForTeacher(item.id), reviews) };
                     people.addRow([item.full_name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', riskReason(rows), clusterLabelFor(item.id)]);
                 }
             }
@@ -207,7 +234,6 @@
         } catch (e) { exportError = 'Export failed. Please try again.'; console.error(e); }
         finally { exporting = false; }
     }
-    const weekMixTotal = $derived(weekMixData.onTime + weekMixData.late + weekMixData.missing);
 </script>
 
 <div class="compliance-workspace">
@@ -278,8 +304,11 @@
             <progress max="100" value={summary.rate || 0} aria-label="Overall submission completion"></progress>
         </div>
         <dl class="stats">
-            <div><dt>Overdue</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show overdue DLLs" disabled={!summary.missing}>{summary.missing}</button><small>missing DLLs</small></dd></div>
-            <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>needs remarks</small></dd></div>
+            <div><dt>On time</dt><dd>{summary.onTime}<small>submitted before deadline</small></dd></div>
+            <div><dt>Late</dt><dd>{summary.late}<small>submitted after deadline</small></dd></div>
+            <div><dt>Missing</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show missing DLLs" disabled={!summary.missing}>{summary.missing}</button><small>deadlines with no DLL</small></dd></div>
+            <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>database submissions without remarks</small></dd></div>
+            <div><dt>Checked</dt><dd>{summary.checked}<small>with Archive remarks</small></dd></div>
         </dl>
     </section>
     {#if clusterLabels.length && !selectedTeacher}
@@ -306,22 +335,43 @@
             </div>
         </section>
     {/if}
-    {#if !selectedTeacher && (weekMixTotal > 0 || visibleTermOverdueBars.length > 1 || districtOverview && visibleSchoolOverdueBars.length)}
+    {#if !selectedTeacher && (docTypeTotal > 0 || scopedSubmissions.length > 0 || visibleTermOverdueBars.length > 1 || districtOverview && visibleSchoolOverdueBars.length)}
     <div class="charts">
-        {#if weekMixTotal > 0}
-            <div class="chart-card mix">
-                <h4>This week mix</h4>
-                <div class="bar-container" aria-label="This week upload mix">
-                    <div class="bar-segment on-time" style="width: {100 * weekMixData.onTime / weekMixTotal}%"><span class="bar-label">On time {weekMixData.onTime}</span></div>
-                    <div class="bar-segment late" style="width: {100 * weekMixData.late / weekMixTotal}%"><span class="bar-label">Late {weekMixData.late}</span></div>
-                    <div class="bar-segment missing" style="width: {100 * weekMixData.missing / weekMixTotal}%"><span class="bar-label">Missing {weekMixData.missing}</span></div>
+        {#if docTypeTotal > 0}
+            <div class="chart-card pie-card">
+                <h4>Document types this period</h4>
+                <div class="pie-wrap">
+                    <div class="pie" style={pieStyle(docTypeData)} aria-label="Document type pie chart"></div>
+                    <div class="legend">
+                        {#each docTypeData as item}
+                            <span><i style={"background: " + docColor(item.label)}></i>{item.label}<strong>{item.value}</strong></span>
+                        {/each}
+                    </div>
+                </div>
+            </div>
+        {/if}
+        {#if scopedSubmissions.length > 0}
+            <div class="chart-card">
+                <h4>Uploads from Monday to Sunday</h4>
+                <div class="upload-bars" aria-label="Uploads by day">
+                    {#each uploadDays as day}
+                        <div>
+                            <span class="stack" style="height: {Math.max(6, 100 * day.total / maxUploadDay)}px">
+                                {#if day.DLP}<b class="dlp" style="height: {100 * day.DLP / Math.max(1, day.total)}%"></b>{/if}
+                                {#if day.ISP}<b class="isp" style="height: {100 * day.ISP / Math.max(1, day.total)}%"></b>{/if}
+                                {#if day.ISR}<b class="isr" style="height: {100 * day.ISR / Math.max(1, day.total)}%"></b>{/if}
+                            </span>
+                            <small>{day.day}</small>
+                            <strong>{day.total}</strong>
+                        </div>
+                    {/each}
                 </div>
             </div>
         {/if}
         {#if visibleTermOverdueBars.length > 1}
             <div class="chart-card">
-                <h4>Weeks in this term</h4>
-                <div class="spark-bars" aria-label="Overdue files by week">
+                <h4>Missing DLLs by week</h4>
+                <div class="spark-bars" aria-label="Missing files by week">
                     {#each visibleTermOverdueBars as bar}
                         <div>
                             <span style="height: {Math.max(6, 80 * bar.missing / maxTermOverdue)}px"></span>
@@ -334,7 +384,7 @@
         {/if}
         {#if districtOverview && visibleSchoolOverdueBars.length}
             <div class="chart-card">
-                <h4>Schools with overdue DLLs</h4>
+                <h4>Schools with missing DLLs</h4>
                 <div class="horizontal-bars">
                     {#each visibleSchoolOverdueBars as item}
                         <button class="horizontal-bar-item" onclick={() => openSchool(item.id, true)}>
@@ -364,7 +414,7 @@
             {#each rankedSchools.slice((page - 1) * size, page * size) as s}
                 <article>
                     <div><h4>{s.name}</h4><p>{s.submitted} of {s.expected} submitted · {s.rate === null ? 'N/A' : s.rate + '%'} complete</p>{#if clusterLabelFor(s.id)}<small>{clusterLabelFor(s.id)}</small>{/if}</div>
-                    <div class="action-metrics"><button class="metric missing" disabled={!s.missing} onclick={() => openSchool(s.id, true)}><strong>{s.missing}</strong><span>Overdue</span></button><button class="metric" disabled={!s.forChecking} onclick={() => openSchool(s.id, false)}><strong>{s.forChecking}</strong><span>For checking</span></button></div>
+                    <div class="action-metrics"><button class="metric missing" disabled={!s.missing} onclick={() => openSchool(s.id, true)}><strong>{s.missing}</strong><span>Missing</span></button><button class="metric" disabled={!s.forChecking} onclick={() => openSchool(s.id, false)}><strong>{s.forChecking}</strong><span>For checking</span></button></div>
                     <button class="row-action" onclick={() => openSchool(s.id)}>Open school <ChevronRight size={16} /></button>
                 </article>
             {/each}
@@ -380,12 +430,12 @@
             {#each sortedTeachers.slice((page - 1) * size, page * size) as t}
                 <article>
                     <div><h4>{t.full_name}</h4><p>{t.submitted} of {t.expected} submitted · {t.rate === null ? 'N/A' : t.rate + '%'} complete</p>{#if clusterLabelFor(t.id)}<small>{clusterLabelFor(t.id)}</small>{/if}</div>
-                    <div class="action-metrics"><button class="metric missing" disabled={!t.missing} onclick={() => openTeacher(t.id, true)}><strong>{t.missing}</strong><span>Overdue</span></button><button class="metric" disabled={!t.forChecking} onclick={() => openTeacher(t.id, false)}><strong>{t.forChecking}</strong><span>For checking</span></button></div>
+                    <div class="action-metrics"><button class="metric missing" disabled={!t.missing} onclick={() => openTeacher(t.id, true)}><strong>{t.missing}</strong><span>Missing</span></button><button class="metric" disabled={!t.forChecking} onclick={() => openTeacher(t.id, false)}><strong>{t.forChecking}</strong><span>For checking</span></button></div>
                     <button class="row-action" onclick={() => openTeacher(t.id)}>Open DLLs <ChevronRight size={16} /></button>
                 </article>
             {/each}
         {/if}
-        {#if rowCount === 0}<p class="empty">{calendar.length === 0 ? 'No active calendar weeks for this school year.' : status === 'missing' && !search ? 'No overdue DLLs for this period.' : status === 'for-checking' && !search ? 'No files waiting for remarks for this period.' : 'No results match this view.'}</p>{/if}
+        {#if rowCount === 0}<p class="empty">{calendar.length === 0 ? 'No active calendar weeks for this school year.' : status === 'missing' && !search ? 'No missing DLLs for this period.' : status === 'for-checking' && !search ? 'No files waiting for remarks for this period.' : 'No results match this view.'}</p>{/if}
     </div>
     <footer><span>{rowCount ? (page - 1) * size + 1 : 0}-{Math.min(page * size, rowCount)} of {rowCount}</span><div><button aria-label="Previous page" title="Previous page" disabled={page === 1} onclick={() => page--}><ChevronLeft size={18} /></button><span>{page} / {pages}</span><button aria-label="Next page" title="Next page" disabled={page === pages} onclick={() => page++}><ChevronRight size={18} /></button></div></footer>
     {#if unmatched}<details class="data-note"><summary>{unmatched} DLL(s) need an assignment check</summary><p>These files could not be matched to an active term, week, and teaching load. They are excluded from completion totals.</p></details>{/if}
@@ -447,8 +497,8 @@
     button:disabled { opacity: .5; cursor: default; }
     .export, .refresh { align-self: start; min-width: 170px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); background: var(--color-surface-white); font-size: 14px; }
     .export { min-width: 210px; }
-    .summary-panel { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, .9fr); gap: 12px; align-items: stretch; }
-    .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .summary-panel { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(420px, 1.1fr); gap: 12px; align-items: stretch; }
+    .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
     .stats div { display: grid; align-content: center; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px 14px; background: var(--color-surface-white); }
     dt { font-size: 13px; color: var(--color-text-muted); } dd { font-size: 26px; font-weight: 700; }
     small { display: block; font-size: 12px; font-weight: 400; color: var(--color-text-muted); margin-top: 4px; }
@@ -498,11 +548,6 @@
     .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
     .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; min-width: 0; }
     .chart-card h4 { font-size: 14px; font-weight: 700; color: var(--color-text-muted); margin: 0 0 12px 0; }
-    .bar-container { display: flex; height: 32px; border-radius: 4px; overflow: hidden; }
-    .bar-segment { display: flex; align-items: center; justify-content: center; min-width: 0; background: var(--color-gov-green); color: white; font-weight: 600; font-size: 13px; }
-    .bar-segment .bar-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; }
-    .bar-segment.late { background: var(--color-gov-gold); }
-    .bar-segment.missing { background: var(--color-gov-red); }
     .spark-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 10px; align-items: end; min-height: 92px; }
     .spark-bars div { display: grid; justify-items: center; align-items: end; gap: 5px; min-width: 0; }
     .spark-bars span { width: 100%; max-width: 30px; min-height: 6px; border-radius: 4px 4px 0 0; background: var(--color-gov-red); }
@@ -514,6 +559,21 @@
     .bar-container-small { width: 100%; height: 24px; background: var(--color-surface-white); border-radius: 4px; position: relative; overflow: hidden; }
     .bar-fill { height: 100%; background: var(--color-gov-red); border-radius: 4px; transition: width 0.3s ease; }
     .bar-fill.overdue { background: var(--color-gov-red); }
+    .pie-wrap { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 16px; align-items: center; }
+    .pie { width: 132px; height: 132px; border-radius: 50%; border: 10px solid var(--color-surface-white); box-shadow: inset 0 0 0 1px var(--color-border-subtle), 0 0 0 1px var(--color-border-subtle); }
+    .legend { display: grid; gap: 8px; }
+    .legend span { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 8px; align-items: center; color: var(--color-text-muted); font-size: 13px; }
+    .legend i { width: 12px; height: 12px; border-radius: 3px; }
+    .legend strong { color: var(--color-text-primary); }
+    .upload-bars { display: grid; grid-template-columns: repeat(7, minmax(28px, 1fr)); gap: 10px; align-items: end; min-height: 144px; }
+    .upload-bars div { display: grid; justify-items: center; align-items: end; gap: 5px; min-width: 0; }
+    .upload-bars .stack { display: flex; flex-direction: column-reverse; width: 100%; max-width: 34px; min-height: 6px; border-radius: 5px 5px 0 0; overflow: hidden; background: var(--color-surface-muted); }
+    .upload-bars b { display: block; width: 100%; min-height: 3px; }
+    .upload-bars .dlp { background: var(--color-gov-blue); }
+    .upload-bars .isp { background: var(--color-gov-green); }
+    .upload-bars .isr { background: var(--color-gov-gold); }
+    .upload-bars small { margin: 0; }
+    .upload-bars strong { font-size: 13px; }
     button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-gov-blue); outline-offset: 3px; }
     footer, footer div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; font-size: 13px; }
     footer button { width: 40px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
@@ -522,8 +582,9 @@
         .view-heading { grid-template-columns: 1fr; align-items: stretch; }
         .export { width: 100%; min-width: 0; justify-content: center; }
         .summary-panel { grid-template-columns: 1fr; }
+        .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
-    @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } }
+    @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } .pie-wrap { grid-template-columns: 1fr; justify-items: center; } }
     @media (max-width: 700px) {
         .control-panel { padding: 12px; }
         .filters { grid-template-columns: 1fr; gap: 12px; }

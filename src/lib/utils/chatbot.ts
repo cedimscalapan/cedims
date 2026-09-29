@@ -1,6 +1,7 @@
 import intentModel from '../models/intent_classifier_model.json';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentSchoolYear as getDynamicSchoolYear } from './schoolYear';
+import { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, filterSubmissionsByPeriod, isCountedSubmission, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type ComplianceReview } from './compliance';
 
 // Text Normalization
 // Makes the bot robust to typos, wrong grammar, repeated characters, emojis,
@@ -820,6 +821,9 @@ function extractSlots(text: string, intent: Intent, memory?: ChatContext['memory
     const weekMatch = lower.match(/week\s*(\d+)/i) || lower.match(/(\d+)\s*(?:st|nd|rd|th)?\s*week/i);
     if (weekMatch) slots.week = weekMatch[1];
 
+    const termMatch = lower.match(/term\s*([1-3])/i);
+    if (termMatch) slots.term = termMatch[1];
+
     const gradeMatch = lower.match(/grade\s*(\d+)/i);
     if (gradeMatch) slots.grade = gradeMatch[1];
 
@@ -944,177 +948,107 @@ async function queryCompliance(
     const role = profile?.role;
     const schoolYear = getDynamicSchoolYear();
     const districtId = profile?.district_id;
-
-    let userFilter: string[] | null = null;
+    let teacherScope: { id: string; full_name: string; school_id: string }[] = [];
+    let schools: { id: string; name: string; district_id: string }[] = [];
     let scopeLabel: string;
     if (role === 'Teacher' || role === 'Master Teacher' || !role) {
-        userFilter = [userId];
+        teacherScope = [{ id: userId, full_name: profile?.full_name || 'You', school_id: profile?.school_id || '' }];
+        if (profile?.school_id) {
+            const { data } = await db.from('schools').select('id, name, district_id').eq('id', profile.school_id);
+            schools = (data || []) as any[];
+        }
         scopeLabel = lang === 'tl' ? 'Ang' : 'Your';
     } else if (role === 'School Head' && profile?.school_id) {
+        const { data: schoolRows } = await db.from('schools').select('id, name, district_id').eq('id', profile.school_id);
+        schools = (schoolRows || []) as any[];
         const { data: teacherIds } = await db
             .from('profiles')
-            .select('id')
+            .select('id, full_name, school_id')
             .eq('school_id', profile.school_id);
         if (!teacherIds || teacherIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa paaralan ninyo.' : 'No teachers found in your school.';
-        userFilter = teacherIds.map((t: any) => t.id);
+        teacherScope = teacherIds as any[];
         scopeLabel = lang === 'tl' ? 'Ang compliance ng paaralan ninyo' : 'Your school\'s';
     } else if (role === 'District Supervisor' && districtId) {
         const { data: schoolIds } = await db
             .from('schools')
-            .select('id')
+            .select('id, name, district_id')
             .eq('district_id', districtId);
         if (!schoolIds || schoolIds.length === 0) return lang === 'tl' ? 'Walang nahanap na paaralan sa distrito ninyo.' : 'No schools found in your district.';
+        schools = schoolIds as any[];
         const { data: teacherIds } = await db
             .from('profiles')
-            .select('id')
+            .select('id, full_name, school_id')
             .in('school_id', schoolIds.map((s: any) => s.id));
         if (!teacherIds || teacherIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa distrito ninyo.' : 'No teachers found in your district.';
-        userFilter = teacherIds.map((t: any) => t.id);
+        teacherScope = teacherIds as any[];
         scopeLabel = lang === 'tl' ? 'Ang compliance ng distrito ninyo' : 'Your district\'s';
     } else {
         return lang === 'tl' ? 'Hindi ma-determine ang scope ninyo. Mag-login gamit ang valid na account.' : 'Unable to determine your scope. Please log in with a valid account.';
     }
 
-    // Calculate expected count (matches dashboard: teachingLoadsCount × definedWeeks)
-    const loadsFilter: any = { user_id: userFilter.length === 1 ? userFilter[0] : undefined };
-    let teachingLoadsCount = 0;
-    let uniqueSubjects: string[] = [];
-
-    if (slots.grade) {
-        loadsFilter.grade_level = slots.grade.length === 1 ? `Grade ${slots.grade}` : slots.grade;
-    }
-
-    if (userFilter.length === 1) {
-        loadsFilter.user_id = userFilter[0];
-        const { data: loads } = await db
-            .from('teaching_loads')
-            .select('subject')
-            .eq('is_active', true)
-            .eq('user_id', userFilter[0]);
-        if (loads) {
-            uniqueSubjects = [...new Set(loads.map((l: any) => l.subject))];
-            teachingLoadsCount = uniqueSubjects.length;
-        }
-    } else {
-        const { data: loads } = await db
-            .from('teaching_loads')
-            .select('user_id, subject')
-            .eq('is_active', true)
-            .in('user_id', userFilter);
-        if (loads) {
-            const userSubjects = new Map<string, Set<string>>();
-            for (const l of loads as any[]) {
-                if (!userSubjects.has(l.user_id)) userSubjects.set(l.user_id, new Set());
-                userSubjects.get(l.user_id)!.add(l.subject);
-            }
-            teachingLoadsCount = 0;
-            for (const subjects of userSubjects.values()) {
-                teachingLoadsCount += subjects.size;
-            }
-            uniqueSubjects = [...new Set(loads.map((l: any) => l.subject))];
-        }
-    }
-
-    // Get defined weeks from academic calendar
-    let definedWeeks = 1;
-    if (!slots.week) {
-        let calQuery = db
-            .from('academic_calendar')
-            .select('week_number', { count: 'exact', head: true })
-            .eq('school_year', schoolYear);
-        if (districtId) {
-            calQuery = calQuery.or(`district_id.eq.${districtId},district_id.is.null`);
-        }
-        const { count } = await calQuery;
-        definedWeeks = count || 1;
-    }
-
-    // Filter teaching loads count by subject if subject slot is provided
-    if (slots.subject && uniqueSubjects.length > 0) {
-        const matched = uniqueSubjects.filter(s => s.toLowerCase().includes(slots.subject!.toLowerCase()));
-        if (matched.length === 0) {
-            return lang === 'tl'
-                ? `Walang nahanap na teaching load para sa "${slots.subject}".`
-                : `I couldn't find a teaching load for "${slots.subject}".`;
-        }
-        teachingLoadsCount = matched.length;
-    }
-
-    const expectedTotal = teachingLoadsCount * definedWeeks;
-
-    let query = db
-        .from('submissions')
-        .select('compliance_status, week_number, subject')
-        .not('file_hash', 'like', 'nc_%');
-
-    if (userFilter) query = query.in('user_id', userFilter);
-    if (slots.week) query = query.eq('week_number', parseInt(slots.week));
-    if (slots.subject) query = query.ilike('subject', `%${slots.subject}%`);
-
+    const teacherIds = teacherScope.map(t => t.id);
+    let loadsQuery = db.from('teaching_loads').select('id, user_id, subject, grade_level, is_active').eq('is_active', true).in('user_id', teacherIds);
     if (slots.grade) {
         const gradeLabel = slots.grade.length === 1 ? `Grade ${slots.grade}` : slots.grade;
-        const { data: tlData } = await db
-            .from('teaching_loads')
-            .select('id')
-            .eq('grade_level', gradeLabel)
-            .in('user_id', userFilter || [userId]);
-        if (tlData && tlData.length > 0) {
-            query = query.in('teaching_load_id', tlData.map((tl: any) => tl.id));
-        } else {
-            return lang === 'tl' ? `Walang nahanap na submissions para sa ${gradeLabel}.` : `I couldn't find any submissions for ${gradeLabel}.`;
-        }
+        loadsQuery = loadsQuery.eq('grade_level', gradeLabel);
+    }
+    if (slots.subject) loadsQuery = loadsQuery.ilike('subject', `%${slots.subject}%`);
+
+    const [loadsResult, submissionsResult, calendarResult] = await Promise.all([
+        loadsQuery,
+        db.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at, subject').eq('school_year', schoolYear).in('user_id', teacherIds).in('doc_type', ['DLL', 'DLP', 'ISP', 'ISR']),
+        db.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active').eq('school_year', schoolYear).eq('is_active', true),
+    ]);
+    if (loadsResult.error || submissionsResult.error || calendarResult.error) {
+        return lang === 'tl' ? 'Paumanhin po, hindi ma-access ngayon ang compliance data. Mangyaring subukan muli.' : "Sorry, I couldn't access the compliance data right now. Please try again.";
     }
 
-    const { data, error } = await query;
+    const loads = (loadsResult.data || []) as ComplianceLoad[];
+    if (!loads.length) {
+        return lang === 'tl' ? 'Walang active teaching load na tugma sa tanong ninyo.' : 'No active teaching load matches your question.';
+    }
+    const submissions = (submissionsResult.data || []) as ComplianceSubmission[];
+    const calendar = (calendarResult.data || []) as CalendarSlot[];
+    const reviewIds = submissions.map(s => s.id);
+    let reviews: ComplianceReview[] = [];
+    if (reviewIds.length) {
+        const { data: reviewRows } = await db.from('dll_reviews').select('submission_id, status, reviewer_comment').in('submission_id', reviewIds);
+        reviews = (reviewRows || []) as ComplianceReview[];
+    }
 
-    if (error) return lang === 'tl' ? 'Paumanhin po, hindi ma-access ngayon ang compliance data. Mangyaring subukan muli.' : "Sorry, I couldn't access the compliance data right now. Please try again.";
-
-    // Calculate compliance against expected
-    const actualSubmissions = data || [];
-    const compliant = actualSubmissions.filter((s: any) => isCompliant(s.compliance_status)).length;
-    const late = actualSubmissions.filter((s: any) => s.compliance_status === 'late').length;
-    const actualUploads = compliant;
-    const nonCompliant = Math.max(0, expectedTotal - actualUploads);
-    const rate = expectedTotal > 0 ? Math.round((actualUploads / expectedTotal) * 100) : 0;
-
-    const pendingReview = actualSubmissions.filter((s: any) => !s.compliance_status).length;
-    const compliantExplicit = actualSubmissions.filter((s: any) => s.compliance_status === 'compliant' || s.compliance_status === 'on-time').length;
+    const periodTerm = slots.term || 'all';
+    const periodWeek = slots.week || 'all';
+    const requirements = teacherScope.flatMap(t => buildRequirements(
+        loads.filter(l => l.user_id === t.id),
+        scopedCalendar(calendar, schools.find(s => s.id === t.school_id)?.district_id || districtId),
+        submissions.filter(s => s.user_id === t.id),
+        reviews,
+    )).filter(r => (periodTerm === 'all' || r.calendar.term === Number(periodTerm)) && (periodWeek === 'all' || r.calendar.week_number === Number(periodWeek)));
+    const scopedSubmissions = filterSubmissionsByPeriod(submissions.filter(s => isCountedSubmission(s.compliance_status)), periodTerm, periodWeek);
+    const summary = { ...summarizeRequirements(requirements), ...summarizeSubmissionReviews(scopedSubmissions, reviews) };
+    const rate = summary.rate ?? 0;
 
     let response: string;
     if (lang === 'tl') {
         if (slots.week) {
-            response = `Para sa Week ${slots.week}${slots.subject ? ` (${slots.subject})` : ''}, ang compliance rate ay ${rate}% (${actualUploads} sa ${expectedTotal}).`;
-            if (compliant > 0) response += ` ${compliant} submission ang compliant, kabilang ang late kung mayroon.`;
-            if (late > 0) response += ` ${late} submission ang late.`;
-            if (nonCompliant > 0) response += ` ${nonCompliant} submission pa ang missing.`;
+            response = `Para sa ${slots.term ? `Term ${slots.term}, ` : ''}Week ${slots.week}${slots.subject ? ` (${slots.subject})` : ''}, ang compliance rate ay ${rate}% (${summary.submitted} sa ${summary.expected}).`;
+            response += ` On time: ${summary.onTime}. Late: ${summary.late}. Missing: ${summary.missing}. For checking: ${summary.forChecking}. Checked: ${summary.checked}.`;
         } else {
-            response = `${scopeLabel} ay ${rate}% (${actualUploads} sa ${expectedTotal} na inaasahang submissions).`;
-            response += ` May ${compliant} na compliant`;
-            if (late > 0) response += `, ${late} late`;
-            response += `, at ${nonCompliant} missing na submission.`;
-            if (pendingReview > 0 && compliantExplicit < compliant) {
-                response += ` ${pendingReview} submission ang na-upload pero hinihintay pa ang official review.`;
-            }
-            if (nonCompliant > 0) response += ' Mangyaring suriin ang mga kulang na Daily Lesson Plan at ang mga itinakdang deadline.';
+            response = `${scopeLabel} ay ${rate}% (${summary.submitted} sa ${summary.expected} na inaasahang DLL).`;
+            response += ` On time: ${summary.onTime}. Late: ${summary.late}. Missing: ${summary.missing}. For checking: ${summary.forChecking}. Checked: ${summary.checked}.`;
+            if (summary.missing > 0) response += ' Mangyaring suriin ang mga kulang na Daily Lesson Plan at ang mga itinakdang deadline.';
             else response += ' Naisumite na ang lahat ng inaasahang Daily Lesson Plan para sa saklaw na ito.';
         }
         return response;
     }
 
     if (slots.week) {
-        response = `For Week ${slots.week}${slots.subject ? ` (${slots.subject})` : ''}, the compliance rate is ${rate}% (${actualUploads} out of ${expectedTotal}).`;
-        if (compliant > 0) response += ` ${compliant} submission${compliant !== 1 ? 's are' : ' is'} compliant, including late if any.`;
-        if (late > 0) response += ` ${late} submission${late !== 1 ? 's are' : ' is'} late.`;
-        if (nonCompliant > 0) response += ` ${nonCompliant} submission${nonCompliant !== 1 ? 's are' : ' is'} still missing.`;
+        response = `For ${slots.term ? `Term ${slots.term}, ` : ''}Week ${slots.week}${slots.subject ? ` (${slots.subject})` : ''}, the compliance rate is ${rate}% (${summary.submitted} out of ${summary.expected}).`;
+        response += ` On time: ${summary.onTime}. Late: ${summary.late}. Missing: ${summary.missing}. For checking: ${summary.forChecking}. Checked: ${summary.checked}.`;
     } else {
-        response = `${scopeLabel} compliance rate is ${rate}% (${actualUploads} out of ${expectedTotal} expected submissions).`;
-        response += ` There ${compliant === 1 ? 'is' : 'are'} ${compliant} compliant`;
-        if (late > 0) response += `, ${late} late`;
-        response += `, and ${nonCompliant} missing submission${nonCompliant !== 1 ? 's' : ''}.`;
-        if (pendingReview > 0 && compliantExplicit < compliant) {
-            response += ` ${pendingReview} submission${pendingReview > 1 ? 's are' : ' is'} uploaded but awaiting official review.`;
-        }
-        if (nonCompliant > 0) response += ' Please review the missing Daily Lesson Plans and their submission deadlines.';
+        response = `${scopeLabel} compliance rate is ${rate}% (${summary.submitted} out of ${summary.expected} expected DLLs).`;
+        response += ` On time: ${summary.onTime}. Late: ${summary.late}. Missing: ${summary.missing}. For checking: ${summary.forChecking}. Checked: ${summary.checked}.`;
+        if (summary.missing > 0) response += ' Please review the missing Daily Lesson Plans and their deadlines.';
         else response += ' All expected Daily Lesson Plans for this scope have been submitted.';
     }
 

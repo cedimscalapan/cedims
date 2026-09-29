@@ -9,6 +9,7 @@ export interface ComplianceSubmission {
     id: string; user_id?: string; teaching_load_id?: string | null; school_year?: string | null;
     term_number?: number | null; week_number?: number | null; calendar_id?: string | null;
     file_path?: string | null; doc_type?: string | null; compliance_status?: string; created_at?: string;
+    subject?: string | null;
 }
 export interface ComplianceReview {
     submission_id: string; status?: string | null; reviewer_comment?: string | null;
@@ -58,6 +59,33 @@ export function hasRemarks(comment?: string | null) {
     return !!comment?.trim();
 }
 
+export function reviewState(submissionId: string, reviews: ComplianceReview[]): 'checked' | 'for-checking' {
+    const review = reviews.find(r => r.submission_id === submissionId);
+    return hasRemarks(review?.reviewer_comment) ? 'checked' : 'for-checking';
+}
+
+export function isCountedSubmission(status?: string | null) {
+    return ['compliant', 'on-time', 'late'].includes(status || '');
+}
+
+export function periodSubmissionTerm(s: ComplianceSubmission): number | null {
+    return submissionTerm(s);
+}
+
+export function filterSubmissionsByPeriod(submissions: ComplianceSubmission[], term: string, week: string) {
+    return submissions.filter(s => {
+        const sTerm = periodSubmissionTerm(s);
+        return (term === 'all' || sTerm === Number(term)) && (week === 'all' || s.week_number === Number(week));
+    });
+}
+
+export function summarizeSubmissionReviews(submissions: ComplianceSubmission[], reviews: ComplianceReview[]) {
+    const reviewMap = new Map(reviews.map(r => [r.submission_id, r]));
+    const reviewable = submissions.filter(s => isCountedSubmission(s.compliance_status));
+    const checked = reviewable.filter(s => hasRemarks(reviewMap.get(s.id)?.reviewer_comment)).length;
+    return { forChecking: reviewable.length - checked, checked, reviewable: reviewable.length };
+}
+
 export function buildRequirements(
     loads: ComplianceLoad[], calendar: CalendarSlot[], submissions: ComplianceSubmission[],
     reviews: ComplianceReview[] = [], now = Date.now(),
@@ -65,7 +93,7 @@ export function buildRequirements(
     const reviewMap = new Map(reviews.map(r => [r.submission_id, r]));
     const candidates = new Map<string, ComplianceSubmission[]>();
     for (const s of submissions) {
-        if (s.doc_type !== 'DLL' || !['compliant', 'on-time', 'late'].includes(s.compliance_status || '')) continue;
+        if (s.doc_type !== 'DLL' || !isCountedSubmission(s.compliance_status)) continue;
         const key = `${s.teaching_load_id}|${s.school_year}|${s.week_number}`;
         const group = candidates.get(key) || [];
         group.push(s);
@@ -114,6 +142,46 @@ export function weekMix(rows: Requirement[]) {
     return { onTime: summary.onTime, late: summary.late, missing: summary.missing, upcoming: summary.upcoming };
 }
 
+export function documentTypeCounts(submissions: ComplianceSubmission[]) {
+    const labels = new Map<string, string>([
+        ['DLL', 'DLP'],
+        ['DLP', 'DLP'],
+        ['ISP', 'ISP'],
+        ['ISR', 'ISR'],
+    ]);
+    const counts = new Map<string, number>([['DLP', 0], ['ISP', 0], ['ISR', 0]]);
+    for (const s of submissions) {
+        const key = labels.get((s.doc_type || '').toUpperCase());
+        if (key) counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return [...counts.entries()].map(([label, value]) => ({ label, value }));
+}
+
+export function uploadDayCounts(submissions: ComplianceSubmission[], calendar: CalendarSlot[], term: string, week: string) {
+    const selected = term !== 'all' && week !== 'all'
+        ? calendar.find(c => c.term === Number(term) && c.week_number === Number(week))
+        : null;
+    const deadline = selected && Number.isFinite(Date.parse(selected.deadline_date)) ? new Date(selected.deadline_date) : null;
+    const end = deadline ? new Date(deadline) : null;
+    if (end) end.setHours(23, 59, 59, 999);
+    const start = end ? new Date(end) : null;
+    if (start) start.setDate(start.getDate() - 6), start.setHours(0, 0, 0, 0);
+    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const counts = labels.map(day => ({ day, total: 0, DLP: 0, ISP: 0, ISR: 0 }));
+    for (const s of submissions) {
+        if (!s.created_at) continue;
+        const created = new Date(s.created_at);
+        if (start && end && (created < start || created > end)) continue;
+        const jsDay = created.getDay();
+        const index = jsDay === 0 ? 6 : jsDay - 1;
+        const doc = (s.doc_type || '').toUpperCase() === 'DLL' ? 'DLP' : (s.doc_type || '').toUpperCase();
+        if (doc !== 'DLP' && doc !== 'ISP' && doc !== 'ISR') continue;
+        counts[index].total += 1;
+        counts[index][doc as 'DLP' | 'ISP' | 'ISR'] += 1;
+    }
+    return counts;
+}
+
 export function overdueByWeek(rows: Requirement[]) {
     const groups = new Map<string, { term: number; week: number; missing: number }>();
     for (const r of rows) {
@@ -126,10 +194,10 @@ export function overdueByWeek(rows: Requirement[]) {
 }
 
 export function riskReason(rows: Requirement[]): string {
-    const overdue = rows.filter(r => r.status === 'missing');
-    const weeks = new Set(overdue.map(r => `${r.calendar.term}|${r.calendar.week_number}`));
-    if (weeks.size >= 2) return `Overdue in ${weeks.size} weeks`;
-    if (overdue.length) return `${overdue.length} overdue requirement${overdue.length === 1 ? '' : 's'}`;
+    const missing = rows.filter(r => r.status === 'missing');
+    const weeks = new Set(missing.map(r => `${r.calendar.term}|${r.calendar.week_number}`));
+    if (weeks.size >= 2) return `Missing in ${weeks.size} weeks`;
+    if (missing.length) return `${missing.length} missing requirement${missing.length === 1 ? '' : 's'}`;
     if (rows.some(r => r.review === 'for-checking')) {
         const count = rows.filter(r => r.review === 'for-checking').length;
         return `${count} file${count === 1 ? '' : 's'} waiting for remarks`;
