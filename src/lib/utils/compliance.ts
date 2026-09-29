@@ -171,21 +171,12 @@ export function documentTypeCounts(submissions: ComplianceSubmission[]) {
     return [...counts.entries()].map(([label, value]) => ({ label, value }));
 }
 
-export function uploadDayCounts(submissions: ComplianceSubmission[], calendar: CalendarSlot[], term: string, week: string) {
-    const selected = term !== 'all' && week !== 'all'
-        ? calendar.find(c => c.term === Number(term) && c.week_number === Number(week))
-        : null;
-    const deadline = selected && Number.isFinite(Date.parse(selected.deadline_date)) ? new Date(selected.deadline_date) : null;
-    const end = deadline ? new Date(deadline) : null;
-    if (end) end.setHours(23, 59, 59, 999);
-    const start = end ? new Date(end) : null;
-    if (start) start.setDate(start.getDate() - 6), start.setHours(0, 0, 0, 0);
+export function uploadDayCounts(submissions: ComplianceSubmission[]) {
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const counts = labels.map(day => ({ day, total: 0, DLP: 0, ISP: 0, ISR: 0 }));
     for (const s of submissions) {
         if (!s.created_at) continue;
         const created = new Date(s.created_at);
-        if (start && end && (created < start || created > end)) continue;
         const jsDay = created.getDay();
         const index = jsDay === 0 ? 6 : jsDay - 1;
         const doc = (s.doc_type || '').toUpperCase() === 'DLL' ? 'DLP' : (s.doc_type || '').toUpperCase();
