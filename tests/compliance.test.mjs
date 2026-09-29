@@ -25,6 +25,18 @@ test('Term 2 Week 1 never fulfills Term 1 Week 1', () => {
     const summary = summarizeRequirements(rows, now);
     assert.equal(summary.submitted, 1); assert.equal(summary.rate, 33); assert.equal(summary.dueRate, 50);
 });
+test('selected week can count every no-DLL requirement as missing for action stats', () => {
+    const futureWeek = [{ ...calendar[2], id: 'future-week', term: 1, week_number: 1 }];
+    const rows = buildRequirements([
+        load,
+        { ...load, id: 'math', subject: 'Math' },
+        { ...load, id: 'science', subject: 'Science' },
+    ], futureWeek, [{ ...sub, term_number: 1, week_number: 1 }], [], now);
+    const summary = summarizeRequirements(rows, now, true);
+    assert.equal(summary.expected, 3);
+    assert.equal(summary.submitted, 1);
+    assert.equal(summary.missing, 2);
+});
 test('duplicate, supplementary and missing records cannot inflate fulfillment', () => {
     const rows = buildRequirements([load], calendar, [sub, { ...sub, id: 'duplicate' }, { ...sub, id: 'extra', term_number: 1, compliance_status: 'supplementary' }, { ...sub, id: 'missing', term_number: 3, compliance_status: 'missing' }], [], now);
     assert.equal(summarizeRequirements(rows, now).submitted, 1);

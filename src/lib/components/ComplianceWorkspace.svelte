@@ -71,12 +71,13 @@
     const scopedTeachers = $derived(teachers.filter(t => school === 'all' || t.school_id === school));
     const scoped = $derived(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) &&
         (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week))));
+    const countOpenAsMissing = $derived(week !== 'all');
     const scopedTeacherIds = $derived(new Set(scopedTeachers.map(t => t.id)));
     const scopedSubmissions = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedTeacherIds.has(s.user_id) && isReviewableSubmission(s.compliance_status)), term, week));
     const reviewSummary = $derived(summarizeSubmissionReviews(scopedSubmissions, reviews));
     const teacherRows = $derived(scopedTeachers.map(t => {
         const rows = scoped.filter(r => r.teacherId === t.id);
-        return { ...t, ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForTeacher(t.id), reviews), risk: riskReason(rows), rows };
+        return { ...t, ...summarizeRequirements(rows, Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForTeacher(t.id), reviews), risk: riskReason(rows), rows };
     }).filter(t => (districtOverview && school === 'all' || !districtOverview) && (!search.trim() || t.full_name.toLowerCase().includes(search.trim().toLowerCase()))).filter(t => status === 'all' ||
         (status === 'risk' && (!!t.risk || t.missing > 0)) || (status === 'missing' && t.missing > 0) ||
         (status === 'for-checking' && t.forChecking > 0)));
@@ -90,8 +91,8 @@
         const teacherIds = new Set(teachers.filter(t => t.school_id === id).map(t => t.id));
         return filterSubmissionsByPeriod(submissions.filter(s => s.user_id && teacherIds.has(s.user_id) && isReviewableSubmission(s.compliance_status)), term, week);
     }
-    const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id)), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
-    const summary = $derived({ ...summarizeRequirements(scoped), ...reviewSummary });
+    const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id), Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
+    const summary = $derived({ ...summarizeRequirements(scoped, Date.now(), countOpenAsMissing), ...reviewSummary });
     const reviewMap = $derived(new Map(reviews.map(r => [r.submission_id, r])));
     const termNumber = $derived(term === 'all' ? null : Number(term));
     const clusterSubmissions = $derived(submissions.filter((s): s is ComplianceSubmission & { user_id: string } => {
@@ -152,14 +153,14 @@
     const supplementaryUploads = $derived(scopedSubmissions.filter(s => ['supplementary', 'extra'].includes((s.compliance_status || '').toLowerCase())).length);
     const uploadDays = $derived(uploadDayCounts(scopedSubmissions, calendar.filter(c => c.school_year === year), term, week));
     const maxUploadDay = $derived(Math.max(1, ...uploadDays.map(d => d.total)));
-    const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'missing' ? r.status === 'missing' : status === 'for-checking' ? false : true));
+    const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'missing' ? r.status === 'missing' || (countOpenAsMissing && !r.submission) : status === 'for-checking' ? false : true));
     const selectedTeacherReviewRows = $derived(selectedTeacher && status === 'for-checking'
         ? submissionsForTeacher(selectedTeacher).filter(s => !reviewMap.get(s.id)?.reviewer_comment)
         : []);
     const rowCount = $derived(activeTab === 'schools' ? rankedSchools.length : activeTab === 'teacher' ? (status === 'for-checking' ? selectedTeacherReviewRows.length : selectedTeacherRows.length) : sortedTeachers.length);
     const listTitle = $derived(districtOverview ? 'Schools needing action' : selectedTeacher ? 'DLLs needing action' : 'Teachers needing action');
     const decisionLine = $derived(summary.missing ? `${summary.missing} missing DLL${summary.missing === 1 ? '' : 's'} need follow-up first.` : summary.forChecking ? `${summary.forChecking} file${summary.forChecking === 1 ? ' needs' : 's need'} Archive remarks.` : 'No immediate follow-up for this period.');
-    const reviewUploadLine = $derived(`${summary.forChecking + summary.checked} review upload${summary.forChecking + summary.checked === 1 ? '' : 's'}${supplementaryUploads ? `, including ${supplementaryUploads} supplementary` : ''}.`);
+    const reviewUploadLine = $derived(`${summary.forChecking + summary.checked} review upload${summary.forChecking + summary.checked === 1 ? '' : 's'}${supplementaryUploads ? ` · ${supplementaryUploads} supplementary` : ''}`);
     const filteredClusterTitle = $derived(clusterFilter === 'all' ? '' : `${clusterFilter}: ${(clusterMembers.get(clusterFilter) || []).join(', ')}`);
     const pages = $derived(Math.max(1, Math.ceil(rowCount / size)));
     $effect(() => { if (page > pages) page = pages; });
@@ -211,13 +212,13 @@
             if (districtOverview) {
                 for (const item of rankedSchools) {
                     const rows = scoped.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === item.id);
-                    const t = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForSchool(item.id), reviews) };
+                    const t = { ...summarizeRequirements(rows, Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForSchool(item.id), reviews) };
                     people.addRow([item.name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', riskReason(rows)]);
                 }
             } else {
                 for (const item of sortedTeachers) {
                     const rows = scoped.filter(r => r.teacherId === item.id);
-                    const t = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForTeacher(item.id), reviews) };
+                    const t = { ...summarizeRequirements(rows, Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForTeacher(item.id), reviews) };
                     people.addRow([item.full_name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', riskReason(rows), clusterLabelFor(item.id)]);
                 }
             }
@@ -311,11 +312,12 @@
             <progress max="100" value={summary.rate || 0} aria-label="Overall submission completion"></progress>
         </div>
         <dl class="stats">
-            <div><dt>On time</dt><dd>{summary.onTime}<small>submitted before deadline</small></dd></div>
-            <div><dt>Late</dt><dd>{summary.late}<small>submitted after deadline</small></dd></div>
-            <div><dt>Missing</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show missing DLLs" disabled={!summary.missing}>{summary.missing}</button><small>deadlines with no DLL</small></dd></div>
-            <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>uploads without remarks{supplementaryUploads ? ', supplementary included' : ''}</small></dd></div>
-            <div><dt>Checked</dt><dd>{summary.checked}<small>with Archive remarks{supplementaryUploads ? ', supplementary included' : ''}</small></dd></div>
+            <div><dt>On time</dt><dd>{summary.onTime}<small>before deadline</small></dd></div>
+            <div><dt>Late</dt><dd>{summary.late}<small>after deadline</small></dd></div>
+            <div><dt>Missing</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show missing DLLs" disabled={!summary.missing}>{summary.missing}</button><small>no DLL yet</small></dd></div>
+            <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>needs remarks</small></dd></div>
+            <div><dt>Checked</dt><dd>{summary.checked}<small>with remarks</small></dd></div>
+            <div><dt>Supplementary</dt><dd>{supplementaryUploads}<small>review only</small></dd></div>
         </dl>
     </section>
     {#if clusterLabels.length && !selectedTeacher}
@@ -438,7 +440,7 @@
                 {#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
                     <article>
                         <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</small></div>
-                        <div class="status-pill" class:missing={r.status === 'missing'}>{r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming'}</div>
+                        <div class="status-pill" class:missing={r.status === 'missing' || (countOpenAsMissing && !r.submission)}>{r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late submitted' : r.status === 'missing' || (countOpenAsMissing && !r.submission) ? 'Missing' : 'Upcoming'}</div>
                     </article>
                 {/each}
             {/if}
@@ -513,13 +515,13 @@
     button:disabled { opacity: .5; cursor: default; }
     .export, .refresh { align-self: start; min-width: 170px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); background: var(--color-surface-white); font-size: 14px; }
     .export { min-width: 210px; }
-    .summary-panel { display: grid; grid-template-columns: minmax(280px, .95fr) minmax(520px, 1.25fr); gap: 12px; align-items: start; }
-    .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: start; }
-    .stats div { display: grid; align-content: start; min-height: 116px; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px; background: var(--color-surface-white); }
-    dt { font-size: 12px; color: var(--color-text-muted); line-height: 1.25; } dd { font-size: 23px; font-weight: 700; line-height: 1.15; }
-    small { display: block; font-size: 11px; line-height: 1.35; font-weight: 400; color: var(--color-text-muted); margin-top: 5px; }
-    .decision-strip { display: grid; align-content: start; gap: 6px; padding: 12px 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-size: 12px; }
-    .decision-strip strong { font-size: 14px; }
+    .summary-panel { display: grid; grid-template-columns: minmax(300px, .82fr) minmax(0, 1.35fr); gap: 12px; align-items: start; }
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)); gap: 10px; align-items: stretch; }
+    .stats div { display: grid; align-content: start; min-height: 94px; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px 14px; background: var(--color-surface-white); }
+    dt { font-size: 12px; color: var(--color-text-muted); line-height: 1.25; } dd { font-size: 25px; font-weight: 750; line-height: 1.05; }
+    small { display: block; font-size: 11px; line-height: 1.3; font-weight: 400; color: var(--color-text-muted); margin-top: 6px; }
+    .decision-strip { display: grid; align-content: start; gap: 7px; min-height: 94px; padding: 14px 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-size: 12px; }
+    .decision-strip strong { font-size: 15px; line-height: 1.25; }
     .decision-strip span { color: var(--color-text-primary); }
     progress { display: block; width: 160px; max-width: 100%; height: 6px; border: 0; border-radius: 4px; overflow: hidden; margin: 3px 0 0; background: var(--color-surface-muted); accent-color: var(--color-gov-green); }
     progress::-webkit-progress-bar { background: var(--color-surface-muted); } progress::-webkit-progress-value { background: var(--color-gov-green); }
@@ -539,8 +541,8 @@
     .cluster-score { grid-column: 1 / -1; height: 7px; border-radius: 999px; background: var(--color-surface-muted); overflow: hidden; }
     .cluster-score span { display: block; height: 100%; background: var(--cluster-color, var(--color-gov-blue)); }
     .cluster-grid em { grid-column: 1 / -1; min-height: 18px; color: var(--color-text-muted); font-size: 12px; font-style: normal; line-height: 1.35; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .list-header { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(260px, 1fr); align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
-    .list-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .list-header { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(360px, auto); align-items: start; gap: 12px; width: 100%; padding: 14px 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
+    .list-controls { display: grid; grid-template-columns: minmax(220px, 360px) minmax(170px, 260px); gap: 10px 12px; align-items: center; justify-content: end; }
     .cluster-filter select { width: 200px; }
     .row-action { color: var(--color-gov-blue); white-space: nowrap; font-size: 13px; }
     .missing { color: var(--color-gov-red); font-weight: 700; }
@@ -560,7 +562,7 @@
     .metric.missing strong, .status-pill.missing { color: var(--color-gov-red); }
     .status-pill { justify-self: end; border: 1px solid var(--color-border-subtle); border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
     .list-tools .list-controls { justify-self: end; }
-    .list-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .list-controls .attention { grid-column: 1 / -1; justify-self: start; }
     .cluster-filter select { width: 200px; }
     .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
     .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; min-width: 0; }
@@ -613,7 +615,8 @@
         .list-header { grid-template-columns: 1fr; align-items: stretch; gap: 10px; }
         .selected-cluster { grid-column: auto; }
         .list-tools .list-controls { justify-self: stretch; }
-        .list-controls { flex-direction: column; align-items: stretch; }
+        .list-controls { grid-template-columns: 1fr; justify-content: stretch; }
+        .list-controls .attention { grid-column: auto; }
         .cluster-filter { width: 100%; }
         .charts { grid-template-columns: 1fr; }
         .cluster-head { display: grid; }

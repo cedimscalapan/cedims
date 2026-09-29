@@ -123,9 +123,9 @@ export function buildRequirements(
     }));
 }
 
-export function summarizeRequirements(rows: Requirement[], now = Date.now()) {
+export function summarizeRequirements(rows: Requirement[], now = Date.now(), countOpenAsMissing = false) {
     const submitted = rows.filter(r => r.submission).length;
-    const missing = rows.filter(r => r.status === 'missing').length;
+    const missing = rows.filter(r => r.status === 'missing' || (countOpenAsMissing && !r.submission)).length;
     const upcoming = rows.filter(r => r.status === 'upcoming').length;
     const expected = rows.length;
     const due = rows.filter(r => Date.parse(r.calendar.deadline_date) <= now).length;
