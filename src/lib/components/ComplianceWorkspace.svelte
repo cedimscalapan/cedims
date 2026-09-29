@@ -490,44 +490,43 @@
         {#if rowCount === 0}<p class="empty">{calendar.length === 0 ? 'No active calendar weeks for this school year.' : status === 'missing' && !search ? 'No missing DLLs for this period.' : status === 'for-checking' && !search ? 'No files waiting for remarks for this period.' : 'No results match this view.'}</p>{/if}
     </div>
     <footer><span>{rowCount ? (page - 1) * size + 1 : 0}-{Math.min(page * size, rowCount)} of {rowCount}</span><div><button aria-label="Previous page" title="Previous page" disabled={page === 1} onclick={() => page--}><ChevronLeft size={18} /></button><span>{page} / {pages}</span><button aria-label="Next page" title="Next page" disabled={page === pages} onclick={() => page++}><ChevronRight size={18} /></button></div></footer>
-    {#if unmatched}<details class="data-note"><summary>{unmatched} DLL(s) need an assignment check</summary><p>These files could not be matched to an active term, week, and teaching load. They are excluded from completion totals.</p></details>{/if}
 </div>
 
 <style>
     .compliance-workspace { color: var(--color-text-primary); min-width: 0; display: grid; gap: 14px; }
-    .control-panel { display: grid; gap: 16px; padding: 18px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: linear-gradient(180deg, color-mix(in srgb, var(--color-gov-blue) 5%, var(--color-surface-white)), var(--color-surface-white)); box-shadow: 0 12px 28px rgba(15, 23, 42, .06); }
-    .view-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 16px; }
-    .heading-main { min-width: 0; display: grid; gap: 6px; }
+    .control-panel { display: grid; gap: 12px; padding: 14px 16px 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: linear-gradient(180deg, color-mix(in srgb, var(--color-gov-blue) 4%, var(--color-surface-white)), var(--color-surface-white)); box-shadow: 0 10px 24px rgba(15, 23, 42, .05); }
+    .view-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 14px; }
+    .heading-main { min-width: 0; display: grid; gap: 4px; }
     .heading-main p { margin: 0; color: var(--color-text-muted); font-size: 14px; }
     .scope-label { width: fit-content; border-radius: 999px; padding: 4px 10px; background: color-mix(in srgb, var(--color-gov-blue) 10%, var(--color-surface-white)); color: var(--color-gov-blue); font-size: 12px; font-weight: 800; }
     .header-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 10px; }
     .list-tools { padding: 4px 0; }
     h2 { font-size: 22px; font-weight: 750; overflow-wrap: anywhere; line-height: 1.15; } h3 { font-size: 16px; font-weight: 700; }
     .back { width: fit-content; color: var(--color-text-muted); font-size: 13px; min-height: 32px; }
-    .filters { display: grid; grid-template-columns: repeat(3, minmax(160px, 230px)) minmax(170px, 230px); gap: 14px; align-items: end; }
-    label, .picker-field { display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 700; min-width: 0; }
+    .filters { display: grid; grid-template-columns: repeat(3, minmax(150px, 210px)) minmax(160px, 220px); gap: 10px; align-items: end; padding-top: 4px; border-top: 1px solid color-mix(in srgb, var(--color-border-subtle) 70%, transparent); }
+    label, .picker-field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 750; min-width: 0; color: var(--color-text-muted); }
     .school-select select {
         width: 100%;
-        min-height: 56px;
+        min-height: 46px;
         border: 1px solid var(--color-border-subtle);
         border-radius: 8px;
         background: var(--color-surface-white);
         color: var(--color-gov-blue);
         padding: 0 12px;
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 750;
     }
     .picker { position: relative; min-width: 0; }
     .picker-trigger {
         width: 100%;
-        min-height: 56px;
+        min-height: 46px;
         justify-content: space-between;
-        padding: 0 16px;
+        padding: 0 12px;
         border: 1px solid var(--color-border-subtle);
         border-radius: 8px;
         background: var(--color-surface-white);
         color: var(--color-gov-blue);
-        font-size: 17px;
+        font-size: 15px;
         text-align: left;
     }
     .picker-trigger strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -546,10 +545,10 @@
     .picker-menu button {
         width: 100%;
         justify-content: flex-start;
-        min-height: 56px;
+        min-height: 46px;
         padding: 0 16px;
         color: var(--color-text-primary);
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 750;
         text-align: left;
     }
@@ -599,28 +598,32 @@
     .cluster-score { grid-column: 1 / -1; height: 7px; border-radius: 999px; background: var(--color-surface-muted); overflow: hidden; }
     .cluster-score span { display: block; height: 100%; background: var(--cluster-color, var(--color-gov-blue)); }
     .cluster-grid em { grid-column: 1 / -1; min-height: 18px; color: var(--color-text-muted); font-size: 12px; font-style: normal; line-height: 1.35; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .list-header { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(360px, auto); align-items: start; gap: 12px; width: 100%; padding: 14px 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
-    .list-controls { display: grid; grid-template-columns: minmax(220px, 360px) minmax(170px, 260px); gap: 10px 12px; align-items: center; justify-content: end; }
+    .list-header { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(360px, auto); align-items: center; gap: 12px; width: 100%; padding: 10px 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
+    .list-header h3 { margin: 0; }
+    .list-controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: end; }
     .cluster-filter select { width: 200px; }
-    .row-action { color: var(--color-gov-blue); white-space: nowrap; font-size: 13px; }
+    .row-action { min-width: 128px; min-height: 44px; padding: 0 12px; border: 1px solid color-mix(in srgb, var(--color-gov-blue) 18%, var(--color-border-subtle)); border-radius: 8px; background: color-mix(in srgb, var(--color-gov-blue) 6%, var(--color-surface-white)); color: var(--color-gov-blue); white-space: nowrap; font-size: 13px; font-weight: 800; }
+    .row-action:hover { background: var(--color-gov-blue); color: white; }
     .missing { color: var(--color-gov-red); font-weight: 700; }
     .count-link { color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 4px; min-width: 44px; min-height: 44px; }
     .count-link:disabled { text-decoration: none; opacity: 1; cursor: default; }
-    a.row-action { display: flex; align-items: center; min-height: 44px; gap: 6px; }
+    a.row-action { display: flex; align-items: center; justify-content: center; gap: 6px; }
     .selected-cluster { grid-column: 1 / 2; margin: 2px 0 0; color: var(--color-text-muted); font-size: 13px; overflow-wrap: anywhere; }
     .action-list { display: grid; gap: 8px; }
-    .action-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 14px 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
+    .action-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 16px 18px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
     .action-list h4 { font-size: 15px; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
     .action-list p { margin: 4px 0 0; color: var(--color-text-muted); font-size: 13px; }
     .action-list small { color: var(--color-gov-blue); }
     .action-metrics { display: flex; gap: 8px; }
-    .metric { display: grid; gap: 1px; min-width: 76px; min-height: 54px; padding: 6px 10px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-muted); }
+    .metric { display: grid; gap: 1px; min-width: 82px; min-height: 54px; padding: 6px 10px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-muted); }
     .metric strong { font-size: 18px; line-height: 1; }
     .metric span { font-size: 11px; color: var(--color-text-muted); }
+    .metric:disabled { opacity: .42; background: color-mix(in srgb, var(--color-surface-muted) 60%, var(--color-surface-white)); }
+    .metric:disabled strong { color: var(--color-text-muted); }
     .metric.missing strong, .status-pill.missing { color: var(--color-gov-red); }
     .status-pill { justify-self: end; border: 1px solid var(--color-border-subtle); border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
     .list-tools .list-controls { justify-self: end; }
-    .list-controls .attention { grid-column: 1 / -1; justify-self: start; }
+    .list-controls .attention { min-height: 38px; padding-inline: 2px; }
     .cluster-filter select { width: 200px; }
     .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
     .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; min-width: 0; }
@@ -654,7 +657,7 @@
     button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-gov-blue); outline-offset: 3px; }
     footer, footer div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; font-size: 13px; }
     footer button { width: 40px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
-    .empty { padding: 32px 12px; text-align: center; color: var(--color-text-muted); } .data-note { font-size: 13px; color: var(--color-text-muted); padding: 12px 0; }
+    .empty { padding: 32px 12px; text-align: center; color: var(--color-text-muted); }
     @media (max-width: 920px) {
         .view-heading { grid-template-columns: 1fr; align-items: stretch; }
         .export { width: 100%; min-width: 0; justify-content: center; }
