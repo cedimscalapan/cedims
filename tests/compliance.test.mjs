@@ -48,6 +48,11 @@ test('supplementary uploads require remarks but do not fulfill requirements', ()
     assert.deepEqual(summarizeSubmissionReviews([extra], []), { forChecking: 1, checked: 0, reviewable: 1 });
     assert.deepEqual(summarizeSubmissionReviews([extra], [{ submission_id: 'extra', reviewer_comment: 'checked' }]), { forChecking: 0, checked: 1, reviewable: 1 });
 });
+test('ISP and ISR uploads do not require checking remarks', () => {
+    const isp = { ...sub, id: 'isp', doc_type: 'ISP', compliance_status: 'compliant' };
+    const isr = { ...sub, id: 'isr', doc_type: 'ISR', compliance_status: 'late' };
+    assert.deepEqual(summarizeSubmissionReviews([isp, isr], [{ submission_id: 'isr', reviewer_comment: 'checked' }]), { forChecking: 0, checked: 0, reviewable: 0 });
+});
 test('review status uses remarks, independently of lateness', () => {
         for (const remark of ['', 'review comment', '  ']) {
             const rows = buildRequirements([load], calendar, [sub], [{ submission_id: 's', reviewer_comment: remark }], now);

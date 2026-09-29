@@ -17,6 +17,7 @@
     let offline = $state(false);
     type Snapshot = {
         teachers: { id: string; full_name: string; school_id: string }[];
+        submissionUsers: { id: string; full_name: string; school_id: string; role?: string | null }[];
         schools: { id: string; name: string; district_id: string }[];
         loads: ComplianceLoad[]; calendar: CalendarSlot[]; submissions: ComplianceSubmission[];
         reviews: { submission_id: string; status?: string | null; reviewer_comment?: string | null }[]; savedAt: string;
@@ -53,12 +54,14 @@
                 return q;
             });
             const schoolIds = schools.map(s => s.id);
-            const teachers = await fetchRowsForIds<Snapshot['teachers'][number]>(schoolIds, batch => supabase.from('profiles')
-                .select('id, full_name, school_id').in('school_id', batch).in('role', ['Teacher', 'Master Teacher']).order('id'));
+            const submissionUsers = await fetchRowsForIds<Snapshot['submissionUsers'][number]>(schoolIds, batch => supabase.from('profiles')
+                .select('id, full_name, school_id, role').in('school_id', batch).in('role', ['Teacher', 'Master Teacher', 'School Head']).order('id'));
+            const teachers = submissionUsers.filter(user => user.role === 'Teacher' || user.role === 'Master Teacher').map(({ id, full_name, school_id }) => ({ id, full_name, school_id }));
             const ids = teachers.map(t => t.id);
+            const submissionUserIds = submissionUsers.map(t => t.id);
             const [loads, submissions, calendar] = await Promise.all([
                 fetchRowsForIds<ComplianceLoad>(ids, batch => supabase.from('teaching_loads').select('id, user_id, subject, grade_level, is_active').in('user_id', batch).eq('is_active', true).order('id')),
-                fetchRowsForIds<ComplianceSubmission>(ids, batch => supabase.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at, subject').in('user_id', batch).eq('school_year', selectedYear).in('doc_type', ['DLL', 'DLP', 'ISP', 'ISR']).order('id')),
+                fetchRowsForIds<ComplianceSubmission>(submissionUserIds, batch => supabase.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at, subject').in('user_id', batch).eq('school_year', selectedYear).in('doc_type', ['DLL', 'DLP', 'ISP', 'ISR']).order('id')),
                 fetchAllRows<CalendarSlot>(() => supabase.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active').eq('school_year', selectedYear).eq('is_active', true).order('id')),
             ]);
             const reviews: Snapshot['reviews'] = [];
@@ -66,7 +69,7 @@
                 reviews.push(...await fetchAllRows<Snapshot['reviews'][number]>(() => supabase.from('dll_reviews').select('submission_id, status, reviewer_comment').in('submission_id', submissions.slice(i, i + 100).map(s => s.id)).order('id')));
             }
             if (request !== run) return;
-            data = { schools, teachers, loads, submissions, calendar, reviews, savedAt: new Date().toISOString() };
+            data = { schools, teachers, submissionUsers, loads, submissions, calendar, reviews, savedAt: new Date().toISOString() };
             cachedAt = '';
             await writeLocalData(cacheKey, data);
         } catch (e) {

@@ -72,6 +72,16 @@ export function isReviewableSubmission(status?: string | null) {
     return isCountedSubmission(status) || ['supplementary', 'extra'].includes((status || '').toLowerCase());
 }
 
+export function isUploadSubmission(s: ComplianceSubmission) {
+    const doc = (s.doc_type || '').toUpperCase();
+    return ['DLL', 'DLP', 'ISP', 'ISR'].includes(doc) && (s.compliance_status || '').toLowerCase() !== 'missing';
+}
+
+export function isRemarkRequiredSubmission(s: ComplianceSubmission) {
+    const doc = (s.doc_type || '').toUpperCase();
+    return (doc === 'DLL' || doc === 'DLP') && isReviewableSubmission(s.compliance_status);
+}
+
 export function periodSubmissionTerm(s: ComplianceSubmission): number | null {
     return submissionTerm(s);
 }
@@ -85,7 +95,7 @@ export function filterSubmissionsByPeriod(submissions: ComplianceSubmission[], t
 
 export function summarizeSubmissionReviews(submissions: ComplianceSubmission[], reviews: ComplianceReview[]) {
     const reviewMap = new Map(reviews.map(r => [r.submission_id, r]));
-    const reviewable = submissions.filter(s => isReviewableSubmission(s.compliance_status));
+    const reviewable = submissions.filter(isRemarkRequiredSubmission);
     const checked = reviewable.filter(s => hasRemarks(reviewMap.get(s.id)?.reviewer_comment)).length;
     return { forChecking: reviewable.length - checked, checked, reviewable: reviewable.length };
 }

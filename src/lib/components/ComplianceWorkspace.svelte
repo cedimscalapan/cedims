@@ -1,10 +1,11 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isReviewableSubmission } from '$lib/utils/compliance';
+    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission } from '$lib/utils/compliance';
     import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
     import { Download, Search, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, RefreshCw } from 'lucide-svelte';
-    let { teachers, schools, loads, calendar, submissions, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
+    let { teachers, submissionUsers, schools, loads, calendar, submissions, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
         teachers: { id: string; full_name: string; school_id: string }[];
+        submissionUsers?: { id: string; full_name: string; school_id: string; role?: string | null }[];
         schools: { id: string; name: string; district_id: string }[];
         loads: ComplianceLoad[];
         calendar: CalendarSlot[];
@@ -69,12 +70,14 @@
     });
     const weeks = $derived([...new Set(calendar.filter(c => term === 'all' || c.term === Number(term)).map(c => c.week_number))].sort((a, b) => a - b));
     const scopedTeachers = $derived(teachers.filter(t => school === 'all' || t.school_id === school));
+    const scopedSubmissionUsers = $derived((submissionUsers?.length ? submissionUsers : teachers).filter(t => school === 'all' || t.school_id === school));
     const scoped = $derived(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) &&
         (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week))));
     const countOpenAsMissing = $derived(week !== 'all');
-    const scopedTeacherIds = $derived(new Set(scopedTeachers.map(t => t.id)));
-    const scopedSubmissions = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedTeacherIds.has(s.user_id) && isReviewableSubmission(s.compliance_status)), term, week));
-    const reviewSummary = $derived(summarizeSubmissionReviews(scopedSubmissions, reviews));
+    const scopedSubmissionUserIds = $derived(new Set(scopedSubmissionUsers.map(t => t.id)));
+    const scopedUploads = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedSubmissionUserIds.has(s.user_id) && isUploadSubmission(s)), term, week));
+    const scopedReviewSubmissions = $derived(scopedUploads.filter(isRemarkRequiredSubmission));
+    const reviewSummary = $derived(summarizeSubmissionReviews(scopedReviewSubmissions, reviews));
     const teacherRows = $derived(scopedTeachers.map(t => {
         const rows = scoped.filter(r => r.teacherId === t.id);
         return { ...t, ...summarizeRequirements(rows, Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForTeacher(t.id), reviews), risk: riskReason(rows), rows };
@@ -85,11 +88,11 @@
         return requirements.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === id && (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week)));
     }
     function submissionsForTeacher(id: string) {
-        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id === id && isReviewableSubmission(s.compliance_status)), term, week);
+        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id === id && isRemarkRequiredSubmission(s)), term, week);
     }
     function submissionsForSchool(id: string) {
-        const teacherIds = new Set(teachers.filter(t => t.school_id === id).map(t => t.id));
-        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id && teacherIds.has(s.user_id) && isReviewableSubmission(s.compliance_status)), term, week);
+        const userIds = new Set((submissionUsers?.length ? submissionUsers : teachers).filter(t => t.school_id === id).map(t => t.id));
+        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id && userIds.has(s.user_id) && isRemarkRequiredSubmission(s)), term, week);
     }
     const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id), Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
     const summary = $derived({ ...summarizeRequirements(scoped, Date.now(), countOpenAsMissing), ...reviewSummary });
@@ -148,10 +151,10 @@
     const visibleSchoolOverdueBars = $derived(schoolOverdueBars.filter(item => item.missing > 0).slice(0, 6));
     const maxTermOverdue = $derived(Math.max(1, ...termOverdueBars.map(b => b.missing)));
     const maxSchoolOverdue = $derived(Math.max(1, ...visibleSchoolOverdueBars.map(s => s.missing)));
-    const docTypeData = $derived(documentTypeCounts(scopedSubmissions));
+    const docTypeData = $derived(documentTypeCounts(scopedUploads));
     const docTypeTotal = $derived(docTypeData.reduce((sum, item) => sum + item.value, 0));
-    const supplementaryUploads = $derived(scopedSubmissions.filter(s => ['supplementary', 'extra'].includes((s.compliance_status || '').toLowerCase())).length);
-    const uploadDays = $derived(uploadDayCounts(scopedSubmissions, calendar.filter(c => c.school_year === year), term, week));
+    const supplementaryUploads = $derived(scopedReviewSubmissions.filter(s => ['supplementary', 'extra'].includes((s.compliance_status || '').toLowerCase())).length);
+    const uploadDays = $derived(uploadDayCounts(scopedUploads, calendar.filter(c => c.school_year === year), term, week));
     const maxUploadDay = $derived(Math.max(1, ...uploadDays.map(d => d.total)));
     const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'missing' ? r.status === 'missing' || (countOpenAsMissing && !r.submission) : status === 'for-checking' ? false : true));
     const selectedTeacherReviewRows = $derived(selectedTeacher && status === 'for-checking'
@@ -344,7 +347,7 @@
             </div>
         </section>
     {/if}
-    {#if !selectedTeacher && (docTypeTotal > 0 || scopedSubmissions.length > 0 || visibleTermOverdueBars.length > 1 || districtOverview && visibleSchoolOverdueBars.length)}
+    {#if !selectedTeacher && (docTypeTotal > 0 || scopedUploads.length > 0 || visibleTermOverdueBars.length > 1 || districtOverview && visibleSchoolOverdueBars.length)}
     <div class="charts">
         {#if docTypeTotal > 0}
             <div class="chart-card pie-card">
@@ -359,7 +362,7 @@
                 </div>
             </div>
         {/if}
-        {#if scopedSubmissions.length > 0}
+        {#if scopedUploads.length > 0}
             <div class="chart-card">
                 <h4>Uploads from Monday to Sunday</h4>
                 <div class="upload-bars" aria-label="Uploads by day">
