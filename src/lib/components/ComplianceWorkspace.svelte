@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission } from '$lib/utils/compliance';
     import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
-    import { Download, Search, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, RefreshCw } from 'lucide-svelte';
+    import { Download, Search, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, RefreshCw, AlertTriangle, CheckCircle, Eye, FileText } from 'lucide-svelte';
     let { teachers, submissionUsers, schools, loads, calendar, submissions, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
         teachers: { id: string; full_name: string; school_id: string }[];
         submissionUsers?: { id: string; full_name: string; school_id: string; role?: string | null }[];
@@ -165,6 +165,9 @@
     const listTitle = $derived(districtOverview ? 'Schools needing action' : selectedTeacher ? 'DLLs needing action' : 'Teachers needing action');
     const decisionLine = $derived(summary.missing ? `${summary.missing} missing DLL${summary.missing === 1 ? '' : 's'} need follow-up first.` : summary.forChecking ? `${summary.forChecking} file${summary.forChecking === 1 ? ' needs' : 's need'} Archive remarks.` : 'No immediate follow-up for this period.');
     const reviewUploadLine = $derived(`${summary.forChecking + summary.checked} review upload${summary.forChecking + summary.checked === 1 ? '' : 's'}${supplementaryUploads ? ` · ${supplementaryUploads} supplementary` : ''}`);
+    const nextActionLabel = $derived(districtOverview ? 'Open school' : selectedTeacher ? 'Open Archive' : 'Open teacher');
+    const nextActionDetail = $derived(summary.missing ? (districtOverview ? 'Start with the schools that have missing DLLs.' : 'Start with teachers who still have missing DLLs.') : summary.forChecking ? 'Open files waiting for Archive remarks.' : 'Keep monitoring this period.');
+    const nextActionTone = $derived(summary.missing ? 'urgent' : summary.forChecking ? 'review' : 'clear');
     const filteredClusterTitle = $derived(clusterFilter === 'all' ? '' : `${clusterFilter}: ${(clusterMembers.get(clusterFilter) || []).join(', ')}`);
     const pages = $derived(Math.max(1, Math.ceil(rowCount / size)));
     $effect(() => { if (page > pages) page = pages; });
@@ -176,6 +179,21 @@
     function remember() { history = [...history, { school, search, status, cluster: clusterFilter, selectedTeacher, page }]; }
     function openSchool(id: string, nextStatus = 'all') { remember(); school = id; search = ''; status = nextStatus; clusterFilter = 'all'; selectedTeacher = null; reset(); }
     function openTeacher(id: string, nextStatus = 'all') { remember(); selectedTeacher = id; clusterFilter = 'all'; search = ''; status = nextStatus; reset(); }
+    function doNextAction() {
+        if (districtOverview) {
+            const target = rankedSchools.find(s => summary.missing ? s.missing > 0 : s.forChecking > 0) || rankedSchools[0];
+            if (target) openSchool(target.id, summary.missing ? 'missing' : summary.forChecking ? 'for-checking' : 'all');
+            return;
+        }
+        if (selectedTeacher && status === 'for-checking' && selectedTeacherReviewRows[0]?.id) {
+            window.location.href = `/dashboard/archive?review=${encodeURIComponent(selectedTeacherReviewRows[0].id)}`;
+            return;
+        }
+        if (!selectedTeacher) {
+            const target = sortedTeachers.find(t => summary.missing ? t.missing > 0 : t.forChecking > 0) || sortedTeachers[0];
+            if (target) openTeacher(target.id, summary.missing ? 'missing' : summary.forChecking ? 'for-checking' : 'all');
+        }
+    }
     function goBack() {
         const previous = history.at(-1);
         if (previous) { history = history.slice(0, -1); ({ school, search, status, cluster: clusterFilter, selectedTeacher, page } = previous); return; }
@@ -252,9 +270,15 @@
         <header class="view-heading">
             <div class="heading-main">
             {#if selectedTeacher || (isDistrict && school !== 'all')}<button class="back" onclick={goBack}><ArrowLeft size={16} />{selectedTeacher ? 'Back to teachers' : 'Back to district'}</button>{/if}
-            <h2>{selectedTeacher ? teacherName(selectedTeacher) : districtOverview ? 'District compliance' : school !== 'all' ? schoolName(school) : schools[0]?.name || 'School compliance'}</h2>
+            <span class="scope-label">{districtOverview ? 'District Supervisor' : 'School Head'}</span>
+            <h2>{selectedTeacher ? teacherName(selectedTeacher) : districtOverview ? 'Compliance Monitoring' : school !== 'all' ? schoolName(school) : schools[0]?.name || 'School compliance'}</h2>
+            <p>{districtOverview ? 'District-wide instructional document compliance.' : 'Track submissions, follow up missing DLLs, and manage review work.'}</p>
+            <small>{districtOverview ? `${schoolRows.length} schools monitored` : `${scopedTeachers.length} teachers monitored`} · {summary.rate === null ? 'N/A' : summary.rate + '%'} complete</small>
             </div>
-            <button class="export" onclick={exportReport} disabled={exporting || !scoped.length}><Download size={16} />{exporting ? 'Exporting...' : 'Export period report'}</button>
+            <div class="header-actions">
+                {#if onRefresh}<button class="refresh" type="button" disabled={refreshing} onclick={onRefresh}><RefreshCw size={16} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>{/if}
+                <button class="export" onclick={exportReport} disabled={exporting || !scoped.length}><Download size={16} />{exporting ? 'Exporting...' : 'Export report'}</button>
+            </div>
         </header>
         <div class="filters">
             <div class="picker-field">
@@ -304,25 +328,31 @@
                     {/if}
                 </div>
             </div>
-            {#if onRefresh}<button class="refresh" type="button" disabled={refreshing} onclick={onRefresh}><RefreshCw size={16} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>{/if}
+            {#if districtOverview}
+                <label class="school-select"><span>School</span><select bind:value={school} onchange={() => { selectedTeacher = null; clusterFilter = 'all'; reset(); }}><option value="all">All schools</option>{#each schools as s}<option value={s.id}>{s.name}</option>{/each}</select></label>
+            {/if}
         </div>
     </section>
     {#if exportError}<p role="alert" class="text-gov-red">{exportError}</p>{/if}
-    <section class="summary-panel">
-        <div class="decision-strip">
-            <strong>{decisionLine}</strong>
-            <span>DLL compliance: {summary.submitted} of {summary.expected} expected submitted · {summary.rate === null ? 'N/A' : summary.rate + '%'} complete.</span>
-            <small>{reviewUploadLine}</small>
-            <progress max="100" value={summary.rate || 0} aria-label="Overall submission completion"></progress>
+    <dl class="stats">
+        <div class="stat-card is-missing"><dt><FileText size={18} />Missing DLLs</dt><dd><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show missing DLLs" disabled={!summary.missing}>{summary.missing}</button><small>no DLL yet</small></dd></div>
+        <div class="stat-card is-review"><dt><Eye size={18} />For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>needs remarks</small></dd></div>
+        <div class="stat-card is-late"><dt><AlertTriangle size={18} />Late submissions</dt><dd>{summary.late}<small>after deadline</small></dd></div>
+        <div class="stat-card is-good"><dt><CheckCircle size={18} />On-time / Compliant</dt><dd>{summary.onTime}<small>before deadline</small></dd></div>
+        <div class="stat-card is-good"><dt><CheckCircle size={18} />Checked / With remarks</dt><dd>{summary.checked}<small>review completed</small></dd></div>
+        <div class="stat-card"><dt><FileText size={18} />Supplementary uploads</dt><dd>{supplementaryUploads}<small>review only</small></dd></div>
+    </dl>
+    <section class:urgent={nextActionTone === 'urgent'} class:review={nextActionTone === 'review'} class:clear={nextActionTone === 'clear'} class="decision-strip">
+        <div class="decision-icon">
+            {#if nextActionTone === 'clear'}<CheckCircle size={26} />{:else}<AlertTriangle size={26} />{/if}
         </div>
-        <dl class="stats">
-            <div><dt>On time</dt><dd>{summary.onTime}<small>before deadline</small></dd></div>
-            <div><dt>Late</dt><dd>{summary.late}<small>after deadline</small></dd></div>
-            <div><dt>Missing</dt><dd class:missing={summary.missing > 0}><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show missing DLLs" disabled={!summary.missing}>{summary.missing}</button><small>no DLL yet</small></dd></div>
-            <div><dt>For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>needs remarks</small></dd></div>
-            <div><dt>Checked</dt><dd>{summary.checked}<small>with remarks</small></dd></div>
-            <div><dt>Supplementary</dt><dd>{supplementaryUploads}<small>review only</small></dd></div>
-        </dl>
+        <div>
+            <span>Do this next</span>
+            <strong>{decisionLine}</strong>
+            <p>{nextActionDetail} DLL compliance: {summary.submitted} of {summary.expected} expected submitted. {reviewUploadLine}.</p>
+            {#if countOpenAsMissing}<small>Week view is active, so open requirements without files are counted as missing for this view.</small>{/if}
+        </div>
+        <button class="primary-action" onclick={doNextAction} disabled={rowCount === 0 || nextActionTone === 'clear'}>{nextActionLabel}<ChevronRight size={18} /></button>
     </section>
     {#if clusterLabels.length && !selectedTeacher}
         <section class="cluster-panel" aria-label={districtOverview ? 'School pattern groups' : 'Teacher pattern groups'}>
@@ -465,14 +495,28 @@
 
 <style>
     .compliance-workspace { color: var(--color-text-primary); min-width: 0; display: grid; gap: 14px; }
-    .control-panel { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
+    .control-panel { display: grid; gap: 16px; padding: 18px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: linear-gradient(180deg, color-mix(in srgb, var(--color-gov-blue) 5%, var(--color-surface-white)), var(--color-surface-white)); box-shadow: 0 12px 28px rgba(15, 23, 42, .06); }
     .view-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 16px; }
     .heading-main { min-width: 0; display: grid; gap: 6px; }
+    .heading-main p { margin: 0; color: var(--color-text-muted); font-size: 14px; }
+    .scope-label { width: fit-content; border-radius: 999px; padding: 4px 10px; background: color-mix(in srgb, var(--color-gov-blue) 10%, var(--color-surface-white)); color: var(--color-gov-blue); font-size: 12px; font-weight: 800; }
+    .header-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 10px; }
     .list-tools { padding: 4px 0; }
     h2 { font-size: 22px; font-weight: 750; overflow-wrap: anywhere; line-height: 1.15; } h3 { font-size: 16px; font-weight: 700; }
     .back { width: fit-content; color: var(--color-text-muted); font-size: 13px; min-height: 32px; }
-    .filters { display: grid; grid-template-columns: repeat(3, minmax(160px, 230px)) auto; gap: 14px; align-items: end; }
+    .filters { display: grid; grid-template-columns: repeat(3, minmax(160px, 230px)) minmax(170px, 230px); gap: 14px; align-items: end; }
     label, .picker-field { display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 700; min-width: 0; }
+    .school-select select {
+        width: 100%;
+        min-height: 56px;
+        border: 1px solid var(--color-border-subtle);
+        border-radius: 8px;
+        background: var(--color-surface-white);
+        color: var(--color-gov-blue);
+        padding: 0 12px;
+        font-size: 16px;
+        font-weight: 750;
+    }
     .picker { position: relative; min-width: 0; }
     .picker-trigger {
         width: 100%;
@@ -517,18 +561,28 @@
     .attention { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; }
     button { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 40px; cursor: pointer; }
     button:disabled { opacity: .5; cursor: default; }
-    .export, .refresh { align-self: start; min-width: 170px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); background: var(--color-surface-white); font-size: 14px; }
-    .export { min-width: 210px; }
-    .summary-panel { display: grid; grid-template-columns: minmax(300px, .82fr) minmax(0, 1.35fr); gap: 12px; align-items: start; }
-    .stats { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)); gap: 10px; align-items: stretch; }
-    .stats div { display: grid; align-content: start; min-height: 94px; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 12px 14px; background: var(--color-surface-white); }
-    dt { font-size: 12px; color: var(--color-text-muted); line-height: 1.25; } dd { font-size: 25px; font-weight: 750; line-height: 1.05; }
+    .export, .refresh { align-self: start; min-width: 140px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--color-border-subtle); background: var(--color-surface-white); font-size: 14px; font-weight: 700; }
+    .export { min-width: 150px; }
+    .stats { display: grid; grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: 12px; align-items: stretch; }
+    .stat-card { display: grid; align-content: start; min-height: 112px; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px 16px; background: var(--color-surface-white); box-shadow: 0 8px 18px rgba(15, 23, 42, .05); }
+    .stat-card.is-missing { background: linear-gradient(180deg, color-mix(in srgb, var(--color-gov-red) 10%, var(--color-surface-white)), var(--color-surface-white)); border-color: color-mix(in srgb, var(--color-gov-red) 20%, var(--color-border-subtle)); }
+    .stat-card.is-review { background: linear-gradient(180deg, color-mix(in srgb, var(--color-gov-gold) 14%, var(--color-surface-white)), var(--color-surface-white)); border-color: color-mix(in srgb, var(--color-gov-gold) 28%, var(--color-border-subtle)); }
+    .stat-card.is-late { background: linear-gradient(180deg, color-mix(in srgb, var(--color-gov-gold) 10%, var(--color-surface-white)), var(--color-surface-white)); border-color: color-mix(in srgb, var(--color-gov-gold) 22%, var(--color-border-subtle)); }
+    .stat-card.is-good { background: linear-gradient(180deg, color-mix(in srgb, var(--color-gov-green) 10%, var(--color-surface-white)), var(--color-surface-white)); border-color: color-mix(in srgb, var(--color-gov-green) 24%, var(--color-border-subtle)); }
+    dt { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-text-muted); line-height: 1.25; } dd { font-size: 28px; font-weight: 800; line-height: 1.05; }
     small { display: block; font-size: 11px; line-height: 1.3; font-weight: 400; color: var(--color-text-muted); margin-top: 6px; }
-    .decision-strip { display: grid; align-content: start; gap: 7px; min-height: 94px; padding: 14px 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-size: 12px; }
-    .decision-strip strong { font-size: 15px; line-height: 1.25; }
-    .decision-strip span { color: var(--color-text-primary); }
-    progress { display: block; width: 160px; max-width: 100%; height: 6px; border: 0; border-radius: 4px; overflow: hidden; margin: 3px 0 0; background: var(--color-surface-muted); accent-color: var(--color-gov-green); }
-    progress::-webkit-progress-bar { background: var(--color-surface-muted); } progress::-webkit-progress-value { background: var(--color-gov-green); }
+    .decision-strip { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 96px; padding: 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-size: 13px; box-shadow: 0 12px 28px rgba(15, 23, 42, .07); }
+    .decision-strip.urgent { border-color: color-mix(in srgb, var(--color-gov-red) 32%, var(--color-border-subtle)); background: linear-gradient(90deg, color-mix(in srgb, var(--color-gov-red) 13%, var(--color-surface-white)), var(--color-surface-white)); }
+    .decision-strip.review { border-color: color-mix(in srgb, var(--color-gov-gold) 42%, var(--color-border-subtle)); background: linear-gradient(90deg, color-mix(in srgb, var(--color-gov-gold) 18%, var(--color-surface-white)), var(--color-surface-white)); }
+    .decision-strip.clear { border-color: color-mix(in srgb, var(--color-gov-green) 32%, var(--color-border-subtle)); background: linear-gradient(90deg, color-mix(in srgb, var(--color-gov-green) 12%, var(--color-surface-white)), var(--color-surface-white)); }
+    .decision-icon { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 8px; background: var(--color-surface-white); color: var(--color-gov-red); border: 1px solid var(--color-border-subtle); }
+    .decision-strip.review .decision-icon { color: var(--color-gov-gold-dark); }
+    .decision-strip.clear .decision-icon { color: var(--color-gov-green-dark); }
+    .decision-strip strong { display: block; margin-top: 2px; font-size: 18px; line-height: 1.25; }
+    .decision-strip span { color: var(--color-text-muted); font-size: 12px; font-weight: 800; text-transform: uppercase; }
+    .decision-strip p { margin: 4px 0 0; color: var(--color-text-primary); }
+    .primary-action { min-width: 150px; padding: 10px 14px; border-radius: 8px; background: var(--color-gov-blue); color: white; font-weight: 800; box-shadow: 0 8px 18px rgba(30, 64, 175, .24); }
+    .primary-action:disabled { background: var(--color-surface-muted); color: var(--color-text-muted); box-shadow: none; }
     .cluster-panel { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; background: var(--color-surface-white); }
     .cluster-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 12px; }
     .cluster-head h3 { margin: 0; }
@@ -604,8 +658,9 @@
     @media (max-width: 920px) {
         .view-heading { grid-template-columns: 1fr; align-items: stretch; }
         .export { width: 100%; min-width: 0; justify-content: center; }
-        .summary-panel { grid-template-columns: 1fr; }
         .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .decision-strip { grid-template-columns: auto minmax(0, 1fr); }
+        .primary-action { grid-column: 1 / -1; width: 100%; }
     }
     @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } .pie-wrap { grid-template-columns: 1fr; justify-items: center; } }
     @media (max-width: 700px) {
@@ -633,6 +688,6 @@
         .action-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .row-action, .action-list .row-action { width: 100%; justify-content: space-between; min-height: 44px; }
         .status-pill { justify-self: stretch; text-align: center; }
-        progress { width: 100%; } footer { flex-wrap: wrap; }
+        footer { flex-wrap: wrap; }
     }
 </style>
