@@ -61,6 +61,7 @@
     let teachingLoadsCount = $state(0);
     let activeTeachingLoads = $state<any[]>([]);
     let academicCalendar = $state<any[]>([]);
+    let leaveRequests = $state<any[]>([]);
     let recentActivity = $state<any[]>([]);
     let stats = $state({
         totalUploads: 0,
@@ -199,6 +200,11 @@
                     scheduleReload();
                 },
             )
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: "submission_leave_requests" },
+                () => scheduleReload(),
+            )
             .subscribe();
     }
 
@@ -209,6 +215,7 @@
         teachingLoadsCount: number;
         activeTeachingLoads: any[];
         academicCalendar: any[];
+        leaveRequests: any[];
         recentActivity: any[];
         stats: typeof stats;
         alerts: any[];
@@ -229,6 +236,7 @@
             teachingLoadsCount,
             activeTeachingLoads,
             academicCalendar,
+            leaveRequests,
             recentActivity,
             stats,
             alerts,
@@ -245,6 +253,7 @@
         teachingLoadsCount = snapshot.teachingLoadsCount || 0;
         activeTeachingLoads = snapshot.activeTeachingLoads || [];
         academicCalendar = snapshot.academicCalendar || [];
+        leaveRequests = snapshot.leaveRequests || [];
         recentActivity = snapshot.recentActivity || [];
         stats = snapshot.stats || stats;
         alerts = snapshot.alerts || [];
@@ -331,11 +340,17 @@
                 .select("*")
                 .eq("school_year", getDynamicSchoolYear())
                 .order("week_number", { ascending: true }),
+            supabase
+                .from("submission_leave_requests")
+                .select("*")
+                .eq("user_id", userProfile.id)
+                .eq("school_year", getDynamicSchoolYear()),
         ]);
 
         const subsResult = results[0].status === 'fulfilled' ? results[0].value : { data: [], count: 0 };
         const loadsResult = results[1].status === 'fulfilled' ? results[1].value : { data: [], count: 0 };
         const calendarResult = results[2].status === 'fulfilled' ? results[2].value : { data: [] };
+        const leaveResult = results[3].status === 'fulfilled' ? results[3].value : { data: [] };
 
         const rawSubmissions = subsResult.data || [];
         const submissionIds = rawSubmissions.map((submission: any) => submission.id);
@@ -367,6 +382,7 @@
         activeTeachingLoads = loadsResult.data || [];
         teachingLoadsCount = loadsResult.count || 0;
         academicCalendar = calendarResult.data || [];
+        leaveRequests = leaveResult.data || [];
         const calendar = academicCalendar;
 
         // Calculate cumulative expected loads to date based on defined calendar weeks
@@ -474,6 +490,10 @@
             .select("*, uploader:profiles!inner(school_id, district_id)", {
                 count: "exact",
             });
+        let leaveQuery = supabase
+            .from("submission_leave_requests")
+            .select("*")
+            .eq("school_year", getDynamicSchoolYear());
 
         if (role === "School Head" || role === "Master Teacher") {
             if (userProfile.school_id) {
@@ -485,6 +505,7 @@
                     "profiles.school_id",
                     userProfile.school_id,
                 );
+                leaveQuery = leaveQuery.eq("school_id", userProfile.school_id);
             }
         } else if (role === "District Supervisor") {
             if (userProfile.district_id) {
@@ -496,16 +517,19 @@
                     "profiles.district_id",
                     userProfile.district_id,
                 );
+                leaveQuery = leaveQuery.eq("district_id", userProfile.district_id);
             }
         }
 
         const results = await Promise.allSettled([
             teacherQuery,
             subQuery.order("created_at", { ascending: false }),
+            leaveQuery.order("created_at", { ascending: false }),
         ]);
 
         const teachers = results[0].status === 'fulfilled' ? results[0].value.data || [] : [];
         const allSubs = results[1].status === 'fulfilled' ? results[1].value.data || [] : [];
+        leaveRequests = results[2].status === 'fulfilled' ? results[2].value.data || [] : [];
 
         // Resolve school names for alerts (can't use the schools() embed here)
         const teacherSchoolIds = [...new Set(
@@ -802,6 +826,8 @@
                 {submissions}
                 teachingLoads={activeTeachingLoads}
                 calendarWeeks={academicCalendar}
+                {leaveRequests}
+                onChanged={() => void loadDashboard({ background: true })}
             />
         </div>
         <ReviewTracker
@@ -846,6 +872,8 @@
                     {submissions}
                     teachingLoads={activeTeachingLoads}
                     calendarWeeks={academicCalendar}
+                    {leaveRequests}
+                    onChanged={() => void loadDashboard({ background: true })}
                 />
                 <ReviewTracker
                     title="Review Tracker"

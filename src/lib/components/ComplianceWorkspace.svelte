@@ -1,15 +1,18 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission } from '$lib/utils/compliance';
+    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission } from '$lib/utils/compliance';
+    import { supabase } from '$lib/utils/supabase';
+    import { profile } from '$lib/utils/auth';
     import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
-    import { Download, Search, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, RefreshCw, AlertTriangle, CheckCircle, Eye, FileText } from 'lucide-svelte';
-    let { teachers, submissionUsers, schools, loads, calendar, submissions, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
+    import { Download, Search, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, RefreshCw, AlertTriangle, CheckCircle, Eye, FileText, CalendarX } from 'lucide-svelte';
+    let { teachers, submissionUsers, schools, loads, calendar, submissions, leaveRequests, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
         teachers: { id: string; full_name: string; school_id: string }[];
         submissionUsers?: { id: string; full_name: string; school_id: string; role?: string | null }[];
         schools: { id: string; name: string; district_id: string }[];
         loads: ComplianceLoad[];
         calendar: CalendarSlot[];
         submissions: ComplianceSubmission[];
+        leaveRequests?: LeaveRequest[];
         reviews: { submission_id: string; status?: string | null; reviewer_comment?: string | null }[];
         year: string;
         role: string;
@@ -61,7 +64,7 @@
     const requirements = $derived(teachers.flatMap(t => buildRequirements(
         loads.filter(l => l.user_id === t.id),
         scopedCalendar(calendar.filter(c => c.school_year === year), schools.find(s => s.id === t.school_id)?.district_id),
-        submissions.filter(s => s.user_id === t.id), reviews,
+        submissions.filter(s => s.user_id === t.id), reviews, Date.now(), (leaveRequests || []).filter(r => r.user_id === t.id),
     )));
     const unmatched = $derived.by(() => {
         const key = (s: ComplianceSubmission) => `${s.teaching_load_id}|${s.school_year}|${submissionTermFromPath(s) ?? s.calendar_id}|${s.week_number}`;
@@ -83,7 +86,7 @@
         const rows = scoped.filter(r => r.teacherId === t.id);
         return { ...t, ...summarizeRequirements(rows, Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForTeacher(t.id), reviews), risk: riskReason(rows), rows };
     }).filter(t => (districtOverview && school === 'all' || !districtOverview) && (!search.trim() || t.full_name.toLowerCase().includes(search.trim().toLowerCase()))).filter(t => status === 'all' ||
-        (status === 'risk' && (!!t.risk || t.missing > 0)) || (status === 'missing' && t.missing > 0) ||
+        (status === 'risk' && (!!t.risk || t.missing > 0 || t.leavePending > 0)) || (status === 'missing' && t.missing > 0) ||
         (status === 'for-checking' && t.forChecking > 0)));
     function rowsForSchool(id: string) {
         return requirements.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === id && (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week)));
@@ -144,7 +147,7 @@
     const filteredTeacherRows = $derived(teacherRows.filter(t => clusterFilter === 'all' || clusterMap.get(t.id) === clusterFilter));
     const sortedTeachers = $derived([...filteredTeacherRows].sort((a, b) => b.missing - a.missing || b.forChecking - a.forChecking || a.full_name.localeCompare(b.full_name)));
     const rankedSchools = $derived(schoolRows.filter(s => (!search.trim() || s.name.toLowerCase().includes(search.trim().toLowerCase())) &&
-        (status === 'all' || status === 'risk' && s.missing > 0 || status === 'missing' && s.missing > 0 || status === 'for-checking' && s.forChecking > 0) &&
+        (status === 'all' || status === 'risk' && (s.missing > 0 || s.leavePending > 0) || status === 'missing' && s.missing > 0 || status === 'for-checking' && s.forChecking > 0) &&
         (clusterFilter === 'all' || clusterMap.get(s.id) === clusterFilter)).sort((a, b) => b.missing - a.missing || a.name.localeCompare(b.name)));
     const termOverdueBars = $derived(overdueByWeek(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) && (term === 'all' || r.calendar.term === Number(term)))));
     const schoolOverdueBars = $derived([...schoolRows].sort((a, b) => b.missing - a.missing));
@@ -163,11 +166,11 @@
         : []);
     const rowCount = $derived(activeTab === 'schools' ? rankedSchools.length : activeTab === 'teacher' ? (status === 'for-checking' ? selectedTeacherReviewRows.length : selectedTeacherRows.length) : sortedTeachers.length);
     const listTitle = $derived(districtOverview ? 'Schools needing action' : selectedTeacher ? 'DLLs needing action' : 'Teachers needing action');
-    const decisionLine = $derived(summary.missing ? `${summary.missing} missing DLL${summary.missing === 1 ? '' : 's'} need follow-up first.` : summary.forChecking ? `${summary.forChecking} file${summary.forChecking === 1 ? ' needs' : 's need'} Archive remarks.` : 'No immediate follow-up for this period.');
+    const decisionLine = $derived(summary.leavePending ? `${summary.leavePending} leave request${summary.leavePending === 1 ? '' : 's'} need review.` : summary.missing ? `${summary.missing} missing DLL${summary.missing === 1 ? '' : 's'} need follow-up first.` : summary.forChecking ? `${summary.forChecking} file${summary.forChecking === 1 ? ' needs' : 's need'} Archive remarks.` : 'No immediate follow-up for this period.');
     const reviewUploadLine = $derived(`${summary.forChecking + summary.checked} review upload${summary.forChecking + summary.checked === 1 ? '' : 's'}${supplementaryUploads ? ` · ${supplementaryUploads} supplementary` : ''}`);
     const nextActionLabel = $derived(districtOverview ? 'Open school' : selectedTeacher ? 'Open Archive' : 'Open teacher');
-    const nextActionDetail = $derived(summary.missing ? (districtOverview ? 'Start with the schools that have missing DLLs.' : 'Start with teachers who still have missing DLLs.') : summary.forChecking ? 'Open files waiting for Archive remarks.' : 'Keep monitoring this period.');
-    const nextActionTone = $derived(summary.missing ? 'urgent' : summary.forChecking ? 'review' : 'clear');
+    const nextActionDetail = $derived(summary.leavePending ? 'Review pending leave/exclusion requests before counting them as excluded.' : summary.missing ? (districtOverview ? 'Start with the schools that have missing DLLs.' : 'Start with teachers who still have missing DLLs.') : summary.forChecking ? 'Open files waiting for Archive remarks.' : 'Keep monitoring this period.');
+    const nextActionTone = $derived(summary.leavePending || summary.missing ? 'urgent' : summary.forChecking ? 'review' : 'clear');
     const filteredClusterTitle = $derived(clusterFilter === 'all' ? '' : `${clusterFilter}: ${(clusterMembers.get(clusterFilter) || []).join(', ')}`);
     const pages = $derived(Math.max(1, Math.ceil(rowCount / size)));
     $effect(() => { if (page > pages) page = pages; });
@@ -181,7 +184,7 @@
     function openTeacher(id: string, nextStatus = 'all') { remember(); selectedTeacher = id; clusterFilter = 'all'; search = ''; status = nextStatus; reset(); }
     function doNextAction() {
         if (districtOverview) {
-            const target = rankedSchools.find(s => summary.missing ? s.missing > 0 : s.forChecking > 0) || rankedSchools[0];
+            const target = rankedSchools.find(s => summary.leavePending ? s.leavePending > 0 : summary.missing ? s.missing > 0 : s.forChecking > 0) || rankedSchools[0];
             if (target) openSchool(target.id, summary.missing ? 'missing' : summary.forChecking ? 'for-checking' : 'all');
             return;
         }
@@ -190,7 +193,7 @@
             return;
         }
         if (!selectedTeacher) {
-            const target = sortedTeachers.find(t => summary.missing ? t.missing > 0 : t.forChecking > 0) || sortedTeachers[0];
+            const target = sortedTeachers.find(t => summary.leavePending ? t.leavePending > 0 : summary.missing ? t.missing > 0 : t.forChecking > 0) || sortedTeachers[0];
             if (target) openTeacher(target.id, summary.missing ? 'missing' : summary.forChecking ? 'for-checking' : 'all');
         }
     }
@@ -205,6 +208,24 @@
     function schoolName(id: string) { return schools.find(s => s.id === id)?.name || 'Unassigned school'; }
     function clusterLabelFor(id: string) { return clusterMap.get(id) || ''; }
     function docColor(label: string) { return label === 'DLP' ? 'var(--color-gov-blue)' : label === 'ISP' ? 'var(--color-gov-green)' : 'var(--color-gov-gold)'; }
+    function requirementLabel(r: Requirement) {
+        if (r.status === 'on-time') return 'On time';
+        if (r.status === 'late') return 'Late submitted';
+        if (r.status === 'on-leave') return 'On Leave / Excluded';
+        if (r.status === 'leave-requested') return 'Leave requested';
+        if (r.status === 'leave-rejected') return 'Leave rejected';
+        return r.status === 'missing' || (countOpenAsMissing && !r.submission) ? 'Missing' : 'Upcoming';
+    }
+    async function decideLeave(request: LeaveRequest, status: 'approved' | 'rejected') {
+        if (!$profile) return;
+        await supabase.from('submission_leave_requests').update({
+            status,
+            reviewer_id: $profile.id,
+            reviewed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        }).eq('id', request.id);
+        onRefresh?.();
+    }
     function pieStyle(items: { label: string; value: number }[]) {
         if (!docTypeTotal) return 'background: var(--color-surface-muted)';
         let cursor = 0;
@@ -339,6 +360,7 @@
         <div class="stat-card is-review"><dt><Eye size={18} />For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>needs remarks</small></dd></div>
         <div class="stat-card is-late"><dt><AlertTriangle size={18} />Late submissions</dt><dd>{summary.late}<small>after deadline</small></dd></div>
         <div class="stat-card is-good"><dt><CheckCircle size={18} />On-time / Compliant</dt><dd>{summary.onTime}<small>before deadline</small></dd></div>
+        <div class="stat-card is-leave"><dt><CalendarX size={18} />On Leave / Excluded</dt><dd>{summary.onLeave}<small>{summary.leavePending ? `${summary.leavePending} pending review` : 'not counted'}</small></dd></div>
         <div class="stat-card is-good"><dt><CheckCircle size={18} />Checked / With remarks</dt><dd>{summary.checked}<small>review completed</small></dd></div>
         <div class="stat-card"><dt><FileText size={18} />Supplementary uploads</dt><dd>{supplementaryUploads}<small>review only</small></dd></div>
     </dl>
@@ -349,7 +371,7 @@
         <div>
             <span>Do this next</span>
             <strong>{decisionLine}</strong>
-            <p>{nextActionDetail} DLL compliance: {summary.submitted} of {summary.expected} expected submitted. {reviewUploadLine}.</p>
+            <p>{nextActionDetail} DLL compliance: {summary.submitted} of {summary.expected} expected submitted. {summary.onLeave} on leave excluded. {reviewUploadLine}.</p>
             {#if countOpenAsMissing}<small>Week view is active, so open requirements without files are counted as missing for this view.</small>{/if}
         </div>
         <button class="primary-action" onclick={doNextAction} disabled={rowCount === 0 || nextActionTone === 'clear'}>{nextActionLabel}<ChevronRight size={18} /></button>
@@ -474,14 +496,20 @@
                 {#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
                     <article>
                         <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</small></div>
-                        <div class="status-pill" class:missing={r.status === 'missing' || (countOpenAsMissing && !r.submission)}>{r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late submitted' : r.status === 'missing' || (countOpenAsMissing && !r.submission) ? 'Missing' : 'Upcoming'}</div>
+                        <div class="status-pill" class:missing={r.status === 'missing' || (countOpenAsMissing && !r.submission && r.status !== 'on-leave' && r.status !== 'leave-requested')} class:leave={r.status === 'on-leave' || r.status === 'leave-requested'}>{requirementLabel(r)}</div>
+                        {#if r.leaveRequest?.status === 'pending'}
+                            <div class="leave-actions">
+                                <button type="button" onclick={() => decideLeave(r.leaveRequest!, 'approved')}>Approve</button>
+                                <button type="button" onclick={() => decideLeave(r.leaveRequest!, 'rejected')}>Reject</button>
+                            </div>
+                        {/if}
                     </article>
                 {/each}
             {/if}
         {:else}
             {#each sortedTeachers.slice((page - 1) * size, page * size) as t}
                 <article>
-                    <div><h4>{t.full_name}</h4><p>{t.submitted} of {t.expected} submitted · {t.rate === null ? 'N/A' : t.rate + '%'} complete</p>{#if clusterLabelFor(t.id)}<small>{clusterLabelFor(t.id)}</small>{/if}</div>
+                    <div><h4>{t.full_name}</h4><p>{t.submitted} of {t.expected} submitted · {t.rate === null ? 'N/A' : t.rate + '%'} complete{t.onLeave ? ` · ${t.onLeave} on leave excluded` : ''}</p>{#if t.leavePending}<small>{t.leavePending} leave request{t.leavePending === 1 ? '' : 's'} pending</small>{:else if clusterLabelFor(t.id)}<small>{clusterLabelFor(t.id)}</small>{/if}</div>
                     <div class="action-metrics"><button class="metric missing" disabled={!t.missing} onclick={() => openTeacher(t.id, 'missing')}><strong>{t.missing}</strong><span>Missing</span></button><button class="metric" disabled={!t.forChecking} onclick={() => openTeacher(t.id, 'for-checking')}><strong>{t.forChecking}</strong><span>For checking</span></button></div>
                     <button class="row-action" onclick={() => openTeacher(t.id)}>Open DLLs <ChevronRight size={16} /></button>
                 </article>
@@ -569,6 +597,7 @@
     .stat-card.is-review { background: #fff7ed; border-color: #f2c48d; }
     .stat-card.is-late { background: #fff7ed; border-color: #f2c48d; }
     .stat-card.is-good { background: #ecfdf5; border-color: #8bd7b0; }
+    .stat-card.is-leave { background: #eef4ff; border-color: #aac3eb; }
     dt { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--color-text-primary); line-height: 1.3; font-weight: 750; } dd { font-size: 34px; font-weight: 850; line-height: 1.05; }
     small { display: block; font-size: 14px; line-height: 1.35; font-weight: 500; color: var(--color-text-primary); margin-top: 6px; }
     .decision-strip { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 96px; padding: 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-size: 16px; box-shadow: 0 12px 28px rgba(15, 23, 42, .07); }
@@ -623,6 +652,10 @@
     .metric:disabled strong { color: var(--color-text-muted); }
     .metric.missing strong, .status-pill.missing { color: var(--color-gov-red); }
     .status-pill { justify-self: end; border: 1px solid var(--color-border-subtle); border-radius: 999px; padding: 7px 12px; font-size: 15px; font-weight: 800; }
+    .status-pill.leave { color: var(--color-gov-blue); background: #eef4ff; border-color: #aac3eb; }
+    .leave-actions { display: flex; gap: 8px; align-items: center; justify-content: end; }
+    .leave-actions button { width: auto; min-height: 38px; padding: 0 12px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-weight: 850; }
+    .leave-actions button:first-child { color: white; background: var(--color-gov-blue); border-color: var(--color-gov-blue); }
     .list-tools .list-controls { justify-self: end; }
     .list-controls .attention { min-height: 38px; padding-inline: 2px; }
     .cluster-filter select { width: 200px; }

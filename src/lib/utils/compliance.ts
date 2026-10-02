@@ -14,9 +14,16 @@ export interface ComplianceSubmission {
 export interface ComplianceReview {
     submission_id: string; status?: string | null; reviewer_comment?: string | null;
 }
+export interface LeaveRequest {
+    id: string; user_id: string; teaching_load_id: string; school_year: string;
+    term_number: number; week_number: number; status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+    leave_type?: string | null; reason?: string | null; start_date?: string | null; end_date?: string | null;
+    reviewer_comment?: string | null;
+}
 export interface Requirement {
     key: string; teacherId: string; load: ComplianceLoad; calendar: CalendarSlot;
-    submission?: ComplianceSubmission; status: 'on-time' | 'late' | 'missing' | 'upcoming';
+    submission?: ComplianceSubmission; leaveRequest?: LeaveRequest;
+    status: 'on-time' | 'late' | 'missing' | 'upcoming' | 'leave-requested' | 'on-leave' | 'leave-rejected';
     review: 'checked' | 'for-checking' | 'none';
 }
 
@@ -102,9 +109,15 @@ export function summarizeSubmissionReviews(submissions: ComplianceSubmission[], 
 
 export function buildRequirements(
     loads: ComplianceLoad[], calendar: CalendarSlot[], submissions: ComplianceSubmission[],
-    reviews: ComplianceReview[] = [], now = Date.now(),
+    reviews: ComplianceReview[] = [], now = Date.now(), leaveRequests: LeaveRequest[] = [],
 ): Requirement[] {
     const reviewMap = new Map(reviews.map(r => [r.submission_id, r]));
+    const leaveMap = new Map<string, LeaveRequest>();
+    for (const request of leaveRequests.filter(r => r.status !== 'cancelled')) {
+        const key = `${request.teaching_load_id}|${request.school_year}|${request.term_number}|${request.week_number}`;
+        const current = leaveMap.get(key);
+        if (!current || request.status === 'approved' || current.status === 'rejected') leaveMap.set(key, request);
+    }
     const candidates = new Map<string, ComplianceSubmission[]>();
     for (const s of submissions) {
         if (s.doc_type !== 'DLL' || !isCountedSubmission(s.compliance_status)) continue;
@@ -114,6 +127,7 @@ export function buildRequirements(
         candidates.set(key, group);
     }
     return loads.filter(l => l.is_active !== false).flatMap(load => calendar.map(c => {
+        const leaveRequest = leaveMap.get(`${load.id}|${c.school_year}|${c.term}|${c.week_number}`);
         const group = candidates.get(`${load.id}|${c.school_year}|${c.week_number}`) || [];
         const matching = group.filter(s => {
             const term = submissionTerm(s);
@@ -124,28 +138,36 @@ export function buildRequirements(
         });
         const submission = matching.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0];
         const review = submission ? reviewMap.get(submission.id) : undefined;
+        const status = submission ? (submission.compliance_status === 'late' ? 'late' : 'on-time')
+            : leaveRequest?.status === 'approved' ? 'on-leave'
+                : leaveRequest?.status === 'pending' ? 'leave-requested'
+                    : leaveRequest?.status === 'rejected' ? 'leave-rejected'
+                        : (Date.parse(c.deadline_date) <= now ? 'missing' : 'upcoming');
         return {
-            key: `${load.id}|${c.school_year}|${c.term}|${c.week_number}`, teacherId: load.user_id, load, calendar: c, submission,
-            status: submission ? (submission.compliance_status === 'late' ? 'late' : 'on-time')
-                : (Date.parse(c.deadline_date) <= now ? 'missing' : 'upcoming'),
+            key: `${load.id}|${c.school_year}|${c.term}|${c.week_number}`, teacherId: load.user_id, load, calendar: c, submission, leaveRequest,
+            status,
             review: !submission ? 'none' : hasRemarks(review?.reviewer_comment) ? 'checked' : 'for-checking',
         } as Requirement;
     }));
 }
 
 export function summarizeRequirements(rows: Requirement[], now = Date.now(), countOpenAsMissing = false) {
-    const submitted = rows.filter(r => r.submission).length;
-    const missing = rows.filter(r => r.status === 'missing' || (countOpenAsMissing && !r.submission)).length;
-    const upcoming = rows.filter(r => r.status === 'upcoming').length;
-    const expected = rows.length;
-    const due = rows.filter(r => Date.parse(r.calendar.deadline_date) <= now).length;
-    const dueSubmitted = rows.filter(r => r.submission && Date.parse(r.calendar.deadline_date) <= now).length;
+    const countedRows = rows.filter(r => r.status !== 'on-leave');
+    const submitted = countedRows.filter(r => r.submission).length;
+    const missing = countedRows.filter(r => r.status === 'missing' || (countOpenAsMissing && !r.submission && r.status !== 'leave-requested' && r.status !== 'upcoming')).length;
+    const upcoming = countedRows.filter(r => r.status === 'upcoming').length;
+    const expected = countedRows.length;
+    const due = countedRows.filter(r => Date.parse(r.calendar.deadline_date) <= now).length;
+    const dueSubmitted = countedRows.filter(r => r.submission && Date.parse(r.calendar.deadline_date) <= now).length;
     return {
         expected, submitted, missing, upcoming,
-        onTime: rows.filter(r => r.status === 'on-time').length,
-        late: rows.filter(r => r.status === 'late').length,
-        forChecking: rows.filter(r => r.review === 'for-checking').length,
-        checked: rows.filter(r => r.review === 'checked').length,
+        onLeave: rows.filter(r => r.status === 'on-leave').length,
+        leavePending: rows.filter(r => r.status === 'leave-requested').length,
+        leaveRejected: rows.filter(r => r.status === 'leave-rejected').length,
+        onTime: countedRows.filter(r => r.status === 'on-time').length,
+        late: countedRows.filter(r => r.status === 'late').length,
+        forChecking: countedRows.filter(r => r.review === 'for-checking').length,
+        checked: countedRows.filter(r => r.review === 'checked').length,
         rate: expected ? Math.round(submitted / expected * 100) : null,
         dueRate: due ? Math.round(dueSubmitted / due * 100) : null,
     };
@@ -153,7 +175,7 @@ export function summarizeRequirements(rows: Requirement[], now = Date.now(), cou
 
 export function weekMix(rows: Requirement[]) {
     const summary = summarizeRequirements(rows);
-    return { onTime: summary.onTime, late: summary.late, missing: summary.missing, upcoming: summary.upcoming };
+    return { onTime: summary.onTime, late: summary.late, missing: summary.missing, upcoming: summary.upcoming, onLeave: summary.onLeave };
 }
 
 export function documentTypeCounts(submissions: ComplianceSubmission[]) {
@@ -203,6 +225,8 @@ export function riskReason(rows: Requirement[]): string {
     const weeks = new Set(missing.map(r => `${r.calendar.term}|${r.calendar.week_number}`));
     if (weeks.size >= 2) return `Missing in ${weeks.size} weeks`;
     if (missing.length) return `${missing.length} missing requirement${missing.length === 1 ? '' : 's'}`;
+    const pendingLeave = rows.filter(r => r.status === 'leave-requested').length;
+    if (pendingLeave) return `${pendingLeave} leave request${pendingLeave === 1 ? '' : 's'} pending`;
     if (rows.some(r => r.review === 'for-checking')) {
         const count = rows.filter(r => r.review === 'for-checking').length;
         return `${count} file${count === 1 ? '' : 's'} waiting for remarks`;

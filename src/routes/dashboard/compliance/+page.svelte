@@ -3,7 +3,7 @@
     import { profile } from '$lib/utils/auth';
     import { supabase } from '$lib/utils/supabase';
     import { getCurrentSchoolYear } from '$lib/utils/schoolYear';
-    import { fetchAllRows, fetchRowsForIds, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission } from '$lib/utils/compliance';
+    import { fetchAllRows, fetchRowsForIds, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type LeaveRequest } from '$lib/utils/compliance';
     import ComplianceWorkspace from '$lib/components/ComplianceWorkspace.svelte';
     import PageHeader from '$lib/components/PageHeader.svelte';
     import SkeletonLoader from '$lib/components/SkeletonLoader.svelte';
@@ -20,6 +20,7 @@
         submissionUsers: { id: string; full_name: string; school_id: string; role?: string | null }[];
         schools: { id: string; name: string; district_id: string }[];
         loads: ComplianceLoad[]; calendar: CalendarSlot[]; submissions: ComplianceSubmission[];
+        leaveRequests: LeaveRequest[];
         reviews: { submission_id: string; status?: string | null; reviewer_comment?: string | null }[]; savedAt: string;
     };
     let data = $state<Snapshot | null>(null);
@@ -59,17 +60,18 @@
             const teachers = submissionUsers.filter(user => user.role === 'Teacher' || user.role === 'Master Teacher').map(({ id, full_name, school_id }) => ({ id, full_name, school_id }));
             const ids = teachers.map(t => t.id);
             const submissionUserIds = submissionUsers.map(t => t.id);
-            const [loads, submissions, calendar] = await Promise.all([
+            const [loads, submissions, calendar, leaveRequests] = await Promise.all([
                 fetchRowsForIds<ComplianceLoad>(ids, batch => supabase.from('teaching_loads').select('id, user_id, subject, grade_level, is_active').in('user_id', batch).eq('is_active', true).order('id')),
                 fetchRowsForIds<ComplianceSubmission>(submissionUserIds, batch => supabase.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at, subject').in('user_id', batch).eq('school_year', selectedYear).in('doc_type', ['DLL', 'DLP', 'ISP', 'ISR']).order('id')),
                 fetchAllRows<CalendarSlot>(() => supabase.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active').eq('school_year', selectedYear).eq('is_active', true).order('id')),
+                fetchRowsForIds<LeaveRequest>(submissionUserIds, batch => supabase.from('submission_leave_requests').select('*').in('user_id', batch).eq('school_year', selectedYear).order('created_at', { ascending: false })),
             ]);
             const reviews: Snapshot['reviews'] = [];
             for (let i = 0; i < submissions.length; i += 100) {
                 reviews.push(...await fetchAllRows<Snapshot['reviews'][number]>(() => supabase.from('dll_reviews').select('submission_id, status, reviewer_comment').in('submission_id', submissions.slice(i, i + 100).map(s => s.id)).order('id')));
             }
             if (request !== run) return;
-            data = { schools, teachers, submissionUsers, loads, submissions, calendar, reviews, savedAt: new Date().toISOString() };
+            data = { schools, teachers, submissionUsers, loads, submissions, calendar, leaveRequests, reviews, savedAt: new Date().toISOString() };
             cachedAt = '';
             await writeLocalData(cacheKey, data);
         } catch (e) {
@@ -96,7 +98,7 @@
         let timer: ReturnType<typeof setTimeout>;
         const refresh = () => { clearTimeout(timer); timer = setTimeout(() => void load(), 400); };
         const channel = supabase.channel('compliance-workspace');
-        for (const table of ['submissions', 'dll_reviews', 'teaching_loads', 'academic_calendar', 'profiles', 'schools']) {
+        for (const table of ['submissions', 'dll_reviews', 'teaching_loads', 'academic_calendar', 'profiles', 'schools', 'submission_leave_requests']) {
             channel.on('postgres_changes', { event: '*', schema: 'public', table }, refresh);
         }
         channel.subscribe();
