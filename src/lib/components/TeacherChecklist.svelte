@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Upload, ChevronLeft, ChevronRight, CalendarX } from 'lucide-svelte';
+    import { ChevronLeft, ChevronRight } from 'lucide-svelte';
     import { profile } from '$lib/utils/auth';
     import { supabase } from '$lib/utils/supabase';
     import { buildRequirements, scopedCalendar, summarizeRequirements } from '$lib/utils/compliance';
@@ -77,7 +77,7 @@
     <p class="formula">Completion: {summary.rate === null ? 'N/A' : `${summary.rate}%`} ({summary.submitted} / {summary.expected}). Approved leave is excluded from expected submissions.</p>
     <div class="scroll"><table><thead><tr><th>Term</th><th>Week</th><th>Subject / Grade</th><th>Deadline</th><th>Status</th><th></th></tr></thead><tbody>
         {#each rows.slice((page - 1) * size, page * size) as row}
-            <tr><td>{row.calendar.term}</td><td>{row.calendar.week_number}</td><th scope="row">{row.load.subject}<small>{row.load.grade_level}</small></th><td>{new Date(row.calendar.deadline_date).toLocaleDateString('en-PH')}</td><td class:missing={row.status === 'missing'} class:leave={row.status === 'on-leave' || row.status === 'leave-requested'}>{label(row)}</td><td class="actions">{#if !row.submission && row.status !== 'on-leave'}<a href="/dashboard/upload" title="Upload DLL" aria-label="Upload DLL"><Upload size={18} /></a>{#if row.status !== 'leave-requested'}<button type="button" title="Request leave or exclusion" aria-label="Request leave or exclusion" on:click={() => openLeave(row)}><CalendarX size={18} /></button>{/if}{/if}</td></tr>
+            <tr><td>{row.calendar.term}</td><td>{row.calendar.week_number}</td><th scope="row">{row.load.subject}<small>{row.load.grade_level}</small></th><td>{new Date(row.calendar.deadline_date).toLocaleDateString('en-PH')}</td><td class:missing={row.status === 'missing'} class:leave={row.status === 'on-leave' || row.status === 'leave-requested'}>{label(row)}</td><td class="actions">{#if !row.submission && row.status !== 'on-leave'}<a class="text-action primary-action" href="/dashboard/upload">Upload DLL</a>{#if row.status !== 'leave-requested'}<button class="text-action" type="button" on:click={() => openLeave(row)}>Request leave</button>{/if}{/if}</td></tr>
         {/each}
     </tbody></table></div>
     {#if rows.length === 0}<p class="empty">No requirements match this view.</p>{/if}
@@ -107,8 +107,11 @@
     .formula { padding: 12px 0; } .scroll { overflow-x: auto; } table { width: 100%; text-align: left; border-collapse: collapse; }
     td, th { padding: 12px; border-bottom: 1px solid var(--color-border-subtle); } thead { background: var(--color-surface-muted); }
     small { display: block; font-weight: 400; } .missing { color: var(--color-gov-red); font-weight: 700; } .leave { color: var(--color-gov-blue); font-weight: 800; }
-    footer { padding: 12px 0; } button, a { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
-    .actions { display: flex; gap: 8px; }
+    footer { padding: 12px 0; } button, a { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
+    footer button { width: 36px; height: 36px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; min-width: 240px; }
+    .text-action { width: auto; min-width: 106px; padding: 0 12px; color: var(--color-gov-blue); background: #eef4ff; border-color: #b8c7ee; font-size: 13px; font-weight: 800; white-space: nowrap; }
+    .text-action.primary-action { color: white; background: var(--color-gov-blue); border-color: var(--color-gov-blue); }
     button:disabled { opacity: .4; } .empty { padding: 24px 0; text-align: center; }
     .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .35); }
     .leave-modal { width: min(520px, 100%); display: grid; gap: 14px; padding: 20px; border-radius: 8px; background: var(--color-surface-white); box-shadow: 0 18px 44px rgba(15, 23, 42, .25); }
