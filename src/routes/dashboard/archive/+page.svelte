@@ -1239,7 +1239,7 @@
         >
             {#each paginatedData as sub, i (sub.id)}
                 <div
-                    class="gov-card p-0 overflow-hidden flex flex-col group h-[178px]"
+                    class="gov-card p-0 overflow-hidden flex flex-col group h-[202px]"
                 >
                     <!-- Card Top: Icon & Status -->
                     <div
@@ -1263,12 +1263,14 @@
                         </div>
 
                         <!-- Filename -->
-                        <h4
-                            class="text-sm font-bold text-text-primary truncate w-full px-2 leading-tight mb-2"
-                            title={sub.file_name}
-                        >
-                            {sub.file_name}
-                        </h4>
+                        <div class="w-full min-h-[2.5rem] px-2 mb-2 flex items-start justify-center">
+                            <h4
+                                class="text-sm font-bold text-text-primary leading-tight line-clamp-2 break-words overflow-hidden max-w-full"
+                                title={sub.file_name}
+                            >
+                                {sub.file_name}
+                            </h4>
+                        </div>
 
                         <!-- Metadata Row -->
                         <div
