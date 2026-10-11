@@ -63,10 +63,8 @@
         })),
     ];
 
-    const isDistrictSupervisor = $derived(
-        $profile?.role === "District Supervisor",
-    );
-    const canEdit = $derived(isDistrictSupervisor);
+    const isAdmin = $derived($profile?.role === "Admin");
+    const canEdit = $derived(isAdmin);
 
     onMount(async () => {
         try {

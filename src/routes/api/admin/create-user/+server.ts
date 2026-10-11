@@ -20,7 +20,7 @@ export async function POST({ request }) {
             throw error(400, 'Missing required fields: email, password, fullName, role');
         }
 
-        const validRoles = ['Teacher', 'School Head', 'Master Teacher', 'District Supervisor'];
+        const validRoles = ['Admin', 'Teacher', 'School Head', 'Master Teacher', 'District Supervisor'];
         if (!validRoles.includes(role)) {
             throw error(400, `Invalid role. Must be one of: ${validRoles.join(', ')}`);
         }
@@ -46,8 +46,8 @@ export async function POST({ request }) {
             .eq('id', requester.id)
             .single();
 
-        if (!adminProfile || (adminProfile.role !== 'District Supervisor' && adminProfile.role !== 'Admin')) {
-            throw error(403, 'Only District Supervisors and Admins can create users.');
+        if (!adminProfile || adminProfile.role !== 'Admin') {
+            throw error(403, 'Only Admin users can create users.');
         }
 
         const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({

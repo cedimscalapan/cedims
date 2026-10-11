@@ -297,13 +297,26 @@
         if (role === "Teacher") {
             const { data } = await supabase
                 .from("submissions")
-                .select("*")
+                .select("*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)")
                 .eq("user_id", userProfile.id)
                 .eq("school_year", currentSchoolYear)
                 .in("doc_type", ["DLL", "DLP"])
                 .order("created_at", { ascending: false });
             if (runId !== loadRun) return;
             allSubmissions = getRows<Submission>(data).filter((s) => s.user_id === userProfile.id);
+            teachersMap = buildTeachersMap(allSubmissions);
+            if (userProfile.school_id) {
+                const { data: school } = await supabase
+                    .from("schools")
+                    .select("id, name, avatar_url")
+                    .eq("id", userProfile.school_id)
+                    .maybeSingle();
+                if (school) {
+                    schoolsMap = {
+                        [school.id]: { label: school.name, avatar_url: school.avatar_url || null },
+                    };
+                }
+            }
         } else if (role === "Master Teacher") {
             if (!userProfile.school_id) return;
 
@@ -673,9 +686,13 @@
         const depth = currentPath.length;
 
         if (role === "Teacher") {
-            if (depth === 1) return getSubjectFolders(filteredByPath);
-            if (depth === 2) return getTermFolders(filteredByPath);
-            if (depth === 3) return getWeekFolders(filteredByPath);
+            if (depth === 1) return getDocTypeFolders(filteredByPath);
+            if (depth === 2) return getSchoolFolders(filteredByPath);
+            if (depth === 3) return getTeacherFolders(filteredByPath);
+            if (depth === 4) return getGradeFolders(filteredByPath);
+            if (depth === 5) return getSubjectFolders(filteredByPath);
+            if (depth === 6) return getTermFolders(filteredByPath);
+            if (depth === 7) return getWeekFolders(filteredByPath);
             return [];
         }
 

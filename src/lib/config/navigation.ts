@@ -167,7 +167,7 @@ export const navItems: NavItem[] = [
         mobileNav: true,
         priority: 5,
         navKey: "admin",
-        roles: ["District Supervisor"],
+        roles: ["Admin"],
     },
     {
         href: "/dashboard/settings",

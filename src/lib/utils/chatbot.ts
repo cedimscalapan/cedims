@@ -492,11 +492,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['academic calendar', 'school year', 'term', 'week schedule', 'open week', 'scheduled week', 'generate calendar', 'deped calendar'],
         answers: {
             en: [
-                'The Academic Calendar (under Admin, for District Supervisors) is where each week’s submission deadline gets set. A week starts "Scheduled" (hidden from teachers) until it’s toggled "Open." Only open weeks count toward compliance.',
+                'The Academic Calendar (under Admin, for Admin users) is where each week’s submission deadline gets set. A week starts "Scheduled" (hidden from teachers) until it’s toggled "Open." Only open weeks count toward compliance.',
                 'District Supervisors manage the calendar: they can add weeks one by one or generate the full DepEd school-year calendar in one click, then open each week as it becomes active.'
             ],
             tl: [
-                'Ang Academic Calendar (nasa ilalim ng Admin, para sa District Supervisors) ay kung saan itinatakda ang deadline ng bawat linggo. "Scheduled" muna ang isang linggo (nakatago sa guro) hanggang i-toggle itong "Open." Mga bukas na linggo lang ang binibilang sa compliance.',
+                'Ang Academic Calendar (nasa ilalim ng Admin, para sa Admin users) ay kung saan itinatakda ang deadline ng bawat linggo. "Scheduled" muna ang isang linggo (nakatago sa guro) hanggang i-toggle itong "Open." Mga bukas na linggo lang ang binibilang sa compliance.',
                 'Pinapamahalaan ng District Supervisor ang calendar: puwede niyang idagdag ang bawat linggo isa-isa o i-generate ang buong DepEd school-year calendar sa isang click.'
             ]
         }
@@ -505,11 +505,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['admin panel', 'admin tab', 'user management', 'create account', 'add teacher account', 'change role'],
         answers: {
             en: [
-                'The Admin panel (District Supervisors only) has three tabs: Settings for system-wide options, Users for creating accounts and managing roles, and Calendar for the academic calendar.',
+                'The Admin panel (Admin users only) has three tabs: Settings for system-wide options, Users for creating accounts and managing roles, and Calendar for the academic calendar.',
                 'Need to add a new teacher account or change someone’s role/school? That’s all in Admin → Users.'
             ],
             tl: [
-                'Ang Admin panel (para lang sa District Supervisors) ay may tatlong tab: Settings para sa system-wide options, Users para sa paggawa ng account at pamamahala ng role, at Calendar para sa academic calendar.',
+                'Ang Admin panel (para lang sa Admin users) ay may tatlong tab: Settings para sa system-wide options, Users para sa paggawa ng account at pamamahala ng role, at Calendar para sa academic calendar.',
                 'Gusto ninyong magdagdag ng bagong teacher account o baguhin ang role/school ng isang tao? Nasa Admin → Users ang lahat niyan.'
             ]
         }
@@ -576,11 +576,11 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         ],
         answers: {
             en: [
-                'You can reset your password from the login screen’s "Forgot Password" link, or ask your District Supervisor: they can reset it for you from the Admin → Users panel.',
+                'You can reset your password from the login screen’s "Forgot Password" link, or ask an Admin user to reset it from the Admin → Users panel.',
                 'Locked out? Try "Forgot Password" on the login page first. If that doesn’t work, your district supervisor can reset your account from Admin.'
             ],
             tl: [
-                'Puwede ninyong i-reset ang password ninyo sa "Forgot Password" na link sa login screen, o hilingin sa District Supervisor ninyo: puwede niyang i-reset ito mula sa Admin → Users.',
+                'Puwede ninyong i-reset ang password ninyo sa "Forgot Password" na link sa login screen, o hilingin sa Admin user ninyo: puwede niyang i-reset ito mula sa Admin → Users.',
                 'Naka-lock kayo ba? Subukan ninyo muna ang "Forgot Password" sa login page. Kung hindi gumana, puwedeng i-reset ng district supervisor ninyo ang account ninyo mula sa Admin.'
             ]
         }
