@@ -8,7 +8,8 @@
     } from "$lib/utils/pipeline";
     import {
         getQueueSize,
-        getQueueItems,
+        getQueuedUploads,
+        cancelQueuedUpload,
         processQueue,
         cacheMetadata,
         getCachedMetadata,
@@ -28,7 +29,6 @@
     import { onMount, untrack } from "svelte";
     import { fade } from "svelte/transition";
     import { extractMetadata, type DocMetadata } from "$lib/utils/ocr";
-    import { transcodeToPdf } from "$lib/utils/transcode";
     import { predictLoad, validateSelection } from "$lib/utils/copilot";
     import {
         canUploadDocument,
@@ -39,6 +39,7 @@
     import { focusTrap } from "$lib/actions/focusTrap";
     import UploadSuccessModal from "$lib/components/UploadSuccessModal.svelte";
     import { formatDocumentList, getDocumentLabel } from "$lib/utils/documentLabels";
+    import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
 
     import type { PageData } from "./$types";
 
@@ -57,6 +58,9 @@
         description?: string | null;
         is_active?: boolean;
     }
+
+    const MAX_UPLOAD_SIZE_MB = 10;
+    const MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 
     let selectedFile = $state<File | null>(null);
     let docType = $state("DLL");
@@ -78,24 +82,20 @@
     let currentDeadline = $state<any>(null);
     let submissionAlreadyExists = $state(false);
     let submissionBlockReason = $state("");
+    let slotAlreadyCovered = $state(false);
+    let slotNotice = $state("");
     let ocrConfidence = $state<number | null>(null);
     let fileSizeWarning = $state(false);
     let detectingMetadata = $state(false);
     let scanProgress = $state(0);
     let detectedMetadata = $state<any>(null);
     let fileHash = $state<string>("");
-    // Caches the PDF bytes produced by the pre-upload OCR conversion step
-    // below, keyed by File reference, so the actual upload doesn't send the
-    // same docx/doc through Google Apps Script a second time. Consecutive
-    // conversions of the same file were tripping Apps Script's per-user
-    // concurrent-execution quota and causing intermittent CORS/redirect
-    // failures on the second call.
-    let preConvertedPdf: { file: File; bytes: Uint8Array } | null = null;
     let isOnline = $state(
         typeof navigator !== "undefined" ? navigator.onLine : true,
     );
     const isMobile = isMobileDevice();
     let pendingItems = $state<any[]>([]);
+    let cancellingQueueKey = $state("");
     let showPendingPanel = $state(false);
     let initialDataRun = 0;
 
@@ -134,6 +134,9 @@
     });
 
     async function checkExistingSubmission() {
+        slotAlreadyCovered = false;
+        slotNotice = "";
+
         // Check 1: Hash uniqueness (highest priority - blocks content regardless of slot)
         if (fileHash) {
             const { hasHash } = await import(
@@ -184,8 +187,29 @@
             }
         }
 
-        // No slot uniqueness check: multiple uploads per week are allowed.
-        // Only hash deduplication (above) is enforced.
+        if (teachingLoadId && weekNumber && docType === "DLL" && $profile) {
+            const selectedLoad = teachingLoads.find((load) => load.id === teachingLoadId);
+            const resolvedTerm = termNumber || calendarEntries.find((w) => w.week_number === weekNumber)?.term || Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
+            const query = supabase
+                .from("submissions")
+                .select("id, file_name")
+                .eq("user_id", $profile.id)
+                .eq("teaching_load_id", teachingLoadId)
+                .eq("week_number", weekNumber)
+                .eq("school_year", getCurrentSchoolYear())
+                .in("compliance_status", ["compliant", "late"])
+                .in("doc_type", ["DLL", "DLP"])
+                .limit(1);
+            const { data: slotMatches } = resolvedTerm
+                ? await query.eq("term_number", resolvedTerm)
+                : await query;
+            const existingSlot = slotMatches?.[0];
+            if (existingSlot) {
+                slotAlreadyCovered = true;
+                slotNotice = `${selectedLoad ? `${selectedLoad.subject} Grade ${selectedLoad.grade_level}` : "This teaching load"} already has a counted DLL for Week ${weekNumber}. This upload will be saved as supplementary and will not add another compliant count.`;
+            }
+        }
+
         submissionAlreadyExists = false;
     }
 
@@ -314,8 +338,9 @@
     async function refreshPendingItems() {
         queueCount = await getQueueSize();
         if (queueCount > 0) {
-            const items = await getQueueItems();
-            pendingItems = items.map((item) => ({
+            const items = await getQueuedUploads();
+            pendingItems = items.map(({ key, item }) => ({
+                key,
                 fileName: item.fileName,
                 fileHash: item.fileHash,
                 docType: item.options.docType || "DLL",
@@ -325,6 +350,20 @@
             }));
         } else {
             pendingItems = [];
+        }
+    }
+
+    async function cancelPendingUpload(queueKey: string, fileName: string) {
+        if (!confirm(`Cancel the local upload for "${fileName}"? This removes it from this device and it will stop retrying.`)) return;
+        cancellingQueueKey = queueKey;
+        try {
+            await cancelQueuedUpload(queueKey);
+            addToast("success", "Queued upload cancelled.");
+            await refreshPendingItems();
+        } catch (err: any) {
+            addToast("error", err?.message || "Could not cancel this queued upload.");
+        } finally {
+            cancellingQueueKey = "";
         }
     }
 
@@ -622,36 +661,29 @@
             );
             return;
         }
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (file.type !== "application/pdf" && ext !== "pdf") {
+            selectedFile = null;
+            addToast("error", "Only PDF files can be uploaded. Please export or save the document as PDF first.");
+            return;
+        }
+        if (file.size > MAX_UPLOAD_BYTES) {
+            selectedFile = null;
+            addToast("error", `File too large. Maximum upload size is ${MAX_UPLOAD_SIZE_MB}MB.`);
+            return;
+        }
+
         selectedFile = file;
         result = null;
         ocrConfidence = null;
         fileSizeWarning =
-            file.size > $settings.max_upload_size_mb * 1024 * 1024;
-        preConvertedPdf = null;
+            file.size > MAX_UPLOAD_BYTES;
 
         // Runs OCR-based metadata detection: doc type, week number, and teaching load auto-fill
         detectingMetadata = true;
         scanProgress = 5;
         try {
-            const ext = file.name.split('.').pop()?.toLowerCase();
             let ocrTarget = file;
-            if ((ext === 'docx' || ext === 'doc') && navigator.onLine) {
-                scanProgress = 20;
-                // Same server-proxy -> Google Apps Script fallback chain the
-                // actual upload pipeline uses (transcode.ts), so pre-upload
-                // metadata detection doesn't silently skip OCR for Word docs
-                // just because the server-side proxy has no working engine.
-                try {
-                    const { pdfBytes } = await transcodeToPdf(file);
-                    // Cached so handleUpload's pipeline run can reuse these
-                    // bytes instead of converting this exact file again.
-                    preConvertedPdf = { file, bytes: pdfBytes };
-                    scanProgress = 48;
-                    ocrTarget = new File([pdfBytes as BlobPart], file.name.replace(/\.\w+$/, '.pdf'), { type: 'application/pdf' });
-                } catch (err) {
-                    console.warn('[upload] Pre-upload conversion failed, skipping OCR metadata detection:', err);
-                }
-            }
             scanProgress = Math.max(scanProgress, 55);
             const metadata = await extractMetadata(ocrTarget);
             scanProgress = 82;
@@ -763,6 +795,17 @@
             return;
         }
 
+        const ext = selectedFile.name.split('.').pop()?.toLowerCase();
+        if (selectedFile.type !== "application/pdf" && ext !== "pdf") {
+            addToast("error", "Only PDF files can be uploaded. Please export or save the document as PDF first.");
+            return;
+        }
+
+        if (selectedFile.size > MAX_UPLOAD_BYTES) {
+            addToast("error", `File too large. Maximum upload size is ${MAX_UPLOAD_SIZE_MB}MB.`);
+            return;
+        }
+
         // Auto-wait for profile and teaching load list to be ready (up to 5s)
         if (loadingTeachingLoads || !$profile) {
             addToast("info", "Syncing data, please wait...");
@@ -784,15 +827,6 @@
             return;
         }
 
-        // Block Word files when offline (GAS needs internet)
-        if (!isOnline) {
-            const ext = selectedFile.name.split('.').pop()?.toLowerCase();
-            if (ext === 'docx' || ext === 'doc') {
-                addToast("error", "Word document conversion requires an internet connection. Please upload a PDF or connect to the internet.");
-                return;
-            }
-        }
-
         processing = true;
         result = null;
 
@@ -811,8 +845,6 @@
             enforceOcr: $settings.enforce_ocr,
             submissionWindowDays: $settings.submission_window_days,
             preDetectedMetadata: detectedMetadata,
-            preConvertedPdfBytes:
-                preConvertedPdf?.file === selectedFile ? preConvertedPdf.bytes : undefined,
             // Show real bytes-sent during the transfer. Without this the bar
             // parks at one number for the whole upload, which on a slow phone
             // connection is minutes of UI that looks identical to a hang.
@@ -952,11 +984,7 @@
             {/if}
         </div>
 
-        <!-- Hidden on mobile: every upload there is queued by design and syncs
-             on its own, so this panel would appear after every submission and
-             imply the document hadn't been handed in. Desktop only queues when
-             a direct upload actually failed, where it's worth surfacing. -->
-        {#if queueCount > 0 && !isMobile}
+        {#if queueCount > 0}
             <div class="flex flex-col gap-2 w-full sm:w-auto">
                 <div
                     onclick={() => (showPendingPanel = !showPendingPanel)}
@@ -1017,9 +1045,7 @@
                         class="bg-surface-white border border-border-subtle rounded-xl p-3 space-y-2 max-h-48 overflow-y-auto animate-fade-in"
                     >
                         {#each pendingItems as item}
-                            <div
-                                class="flex items-center justify-between py-2 px-3 bg-surface-muted rounded-lg text-xs"
-                            >
+                            <div class="flex items-center justify-between gap-2 py-2 px-3 bg-surface-muted rounded-lg text-xs">
                                 <div class="min-w-0">
                                     <p
                                         class="font-semibold text-text-primary truncate"
@@ -1036,10 +1062,18 @@
                                         })}
                                     </p>
                                 </div>
-                                <code
-                                    class="text-xs text-gov-blue font-mono ml-2 flex-shrink-0"
-                                    >{item.fileHash.slice(0, 8)}</code
-                                >
+                                <div class="flex flex-shrink-0 items-center gap-2">
+                                    <code class="text-xs text-gov-blue font-mono">{item.fileHash.slice(0, 8)}</code>
+                                    <button
+                                        type="button"
+                                        class="rounded-md border border-gov-red/30 bg-gov-red/5 px-2 py-1 text-[11px] font-bold text-gov-red hover:bg-gov-red/10 disabled:opacity-60"
+                                        disabled={!!cancellingQueueKey}
+                                        onclick={() => cancelPendingUpload(item.key, item.fileName)}
+                                        aria-label={`Cancel upload for ${item.fileName}`}
+                                    >
+                                        {cancellingQueueKey === item.key ? "Cancelling" : "Cancel"}
+                                    </button>
+                                </div>
                             </div>
                         {/each}
                     </div>
@@ -1055,7 +1089,9 @@
             <FileDropZone
                 onfileselected={onFileSelected}
                 disabled={processing || $settings.maintenance_mode}
-                maxSizeMb={$settings.max_upload_size_mb}
+                accept=".pdf,application/pdf"
+                maxSizeMb={MAX_UPLOAD_SIZE_MB}
+                supportedText="PDF only"
             />
 
             {#if $settings.maintenance_mode}
@@ -1439,6 +1475,11 @@
                                 This exact file has already been uploaded.
                             </p>
                         {:else}
+                            {#if slotAlreadyCovered}
+                                <div class="mt-4 rounded-md border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm font-semibold text-gov-gold-dark">
+                                    {slotNotice}
+                                </div>
+                            {/if}
                             <button
                                 onclick={handleUpload}
                                 disabled={!canUploadDocument($profile?.role || '', docType) ||

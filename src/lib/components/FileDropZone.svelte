@@ -6,6 +6,7 @@
         onfileselected: (file: File) => void;
         disabled?: boolean;
         maxSizeMb?: number;
+        supportedText?: string;
     }
 
     let {
@@ -13,6 +14,7 @@
         onfileselected,
         disabled = false,
         maxSizeMb = 500,
+        supportedText = "PDF, DOCX, DOC, JPG, JPEG, PNG",
     }: Props = $props();
 
     let dragOver = $state(false);
@@ -155,7 +157,7 @@
                     </div>
                 {:else}
                     <p class="text-xs text-text-muted font-medium pt-2">
-                        Supported: PDF, DOCX, DOC, JPG, JPEG, PNG (max {maxSizeMb}MB)
+                        Supported: {supportedText} (max {maxSizeMb}MB)
                     </p>
                 {/if}
             </div>

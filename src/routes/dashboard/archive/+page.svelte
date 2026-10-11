@@ -24,6 +24,7 @@
         Eye,
         MessageSquare,
         Share2,
+        Trash2,
         X,
         ArrowLeft,
         ArrowUpDown,
@@ -102,6 +103,9 @@
     let existingRemark = $state<string | null>(null);
     let savingRemark = $state(false);
     let openingSubmissionId = $state<string | null>(null);
+    let deleteModalOpen = $state(false);
+    let deleteTarget = $state<Submission | null>(null);
+    let deletingSubmissionId = $state<string | null>(null);
     let requestedReview = $state<string | null>(null);
     let fromCompliance = $state(false);
     $effect(() => {
@@ -140,6 +144,23 @@
         }
 
         return canAddRemarkToSubmission(sub);
+    }
+
+    function canDeleteSubmission(sub: Submission): boolean {
+        if (!$profile) return false;
+        return sub.user_id === $profile.id && ($profile.role === "Teacher" || $profile.role === "Master Teacher");
+    }
+
+    function openDeleteModal(sub: Submission) {
+        if (!canDeleteSubmission(sub) || deletingSubmissionId) return;
+        deleteTarget = sub;
+        deleteModalOpen = true;
+    }
+
+    function closeDeleteModal() {
+        if (deletingSubmissionId) return;
+        deleteModalOpen = false;
+        deleteTarget = null;
     }
 
     function openRemarkModal(sub: Submission) {
@@ -903,6 +924,53 @@
         }
     }
 
+    async function deleteStorageObject(sub: Submission) {
+        const path = sub.file_path || `${sub.id}/${sub.file_name}`;
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) throw new Error("You have been signed out. Please sign in again.");
+
+        const res = await fetch('/api/storage/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ key: path })
+        });
+
+        if (!res.ok) {
+            const detail = await res.text();
+            throw new Error(detail || "Storage deletion failed.");
+        }
+    }
+
+    async function confirmDelete() {
+        const target = deleteTarget;
+        if (!target || !canDeleteSubmission(target)) return;
+        deletingSubmissionId = target.id;
+        try {
+            await deleteStorageObject(target);
+            const { data: deletedRows, error: deleteError } = await supabase
+                .from("submissions")
+                .delete()
+                .eq("id", target.id)
+                .eq("user_id", $profile?.id || "")
+                .select("id");
+            if (deleteError) throw deleteError;
+            if (!deletedRows?.length) throw new Error("No archive record was deleted. Please refresh and try again.");
+
+            allSubmissions = allSubmissions.filter((s) => s.id !== target.id);
+            const { [target.id]: _deleted, ...remainingReviews } = reviewsMap;
+            reviewsMap = remainingReviews;
+            addToast("success", "Uploaded file deleted from Archives.");
+            deleteModalOpen = false;
+            deleteTarget = null;
+        } catch (err: any) {
+            console.error("Delete submission error:", err);
+            addToast("error", err?.message || "Could not delete this file. Please try again.");
+        } finally {
+            deletingSubmissionId = null;
+        }
+    }
+
     function buildTeachersMap(subs: Submission[]) {
         const tMap: Record<string, { label: string; avatar_url: string | null }> = {};
         for (const s of subs) {
@@ -1232,6 +1300,20 @@
                             >
                                 <Share2 size={16} />
                             </button>
+                            {#if canDeleteSubmission(sub)}
+                                <button
+                                    onclick={(e) => {
+                                        e.stopPropagation();
+                                        openDeleteModal(sub);
+                                    }}
+                                    class="w-8 h-8 flex items-center justify-center text-text-muted hover:text-gov-red hover:bg-gov-red/10 rounded-lg transition-colors"
+                                    title="Delete uploaded file"
+                                    aria-label={`Delete ${sub.file_name}`}
+                                    disabled={deletingSubmissionId !== null}
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            {/if}
                         </div>
                     </div>
                 </div>
@@ -1265,6 +1347,66 @@
         </div>
     {/if}
 </div>
+
+<!-- Delete Confirmation Modal -->
+{#if deleteModalOpen && deleteTarget}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        onclick={closeDeleteModal}
+        transition:fade={{ duration: 150 }}
+    >
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+            class="w-full max-w-md mx-4 rounded-2xl bg-surface-white shadow-2xl border border-border-subtle overflow-hidden"
+            onclick={(e) => e.stopPropagation()}
+            transition:fly={{ y: 20, duration: 180 }}
+        >
+            <div class="px-6 py-4 border-b border-border-subtle flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold text-gov-red uppercase tracking-wide">Delete upload</p>
+                    <h3 class="text-lg font-bold text-text-primary">Remove this archive file?</h3>
+                </div>
+                <button
+                    onclick={closeDeleteModal}
+                    class="w-9 h-9 rounded-lg hover:bg-surface-muted flex items-center justify-center text-text-muted"
+                    aria-label="Close delete confirmation"
+                    disabled={deletingSubmissionId !== null}
+                >
+                    <X size={18} />
+                </button>
+            </div>
+
+            <div class="px-6 py-4 space-y-3">
+                <p class="text-sm text-text-primary">
+                    This will delete <strong>{deleteTarget.file_name}</strong> from your Archives and remove it from compliance tracking.
+                </p>
+                <p class="rounded-xl border border-gov-red/20 bg-gov-red/5 px-3 py-2 text-sm font-medium text-gov-red">
+                    Use this only when the file was uploaded with the wrong subject, teaching load, week, or document.
+                </p>
+            </div>
+
+            <div class="px-6 py-4 bg-surface-muted border-t border-border-subtle flex justify-end gap-3">
+                <button
+                    onclick={closeDeleteModal}
+                    class="min-h-11 px-4 rounded-xl border border-border-subtle bg-surface-white text-sm font-bold text-text-primary hover:bg-surface-muted"
+                    disabled={deletingSubmissionId !== null}
+                >
+                    Cancel
+                </button>
+                <button
+                    onclick={confirmDelete}
+                    class="min-h-11 px-4 rounded-xl bg-gov-red text-white text-sm font-bold hover:bg-gov-red-dark disabled:opacity-60"
+                    disabled={deletingSubmissionId !== null}
+                >
+                    {deletingSubmissionId === deleteTarget.id ? "Deleting..." : "Delete file"}
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
 
 <!-- Remarks Modal -->
 {#if remarkModalOpen && remarkTarget}

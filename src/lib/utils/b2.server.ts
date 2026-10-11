@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '$env/dynamic/private';
 
@@ -42,6 +42,18 @@ export async function getPresignedDownloadUrl(key: string, expiresIn = 3600) {
     });
 
     return await getSignedUrl(b2, command, { expiresIn });
+}
+
+export async function deleteObject(key: string) {
+    if (!env.B2_ENDPOINT || !env.B2_BUCKET_NAME || !env.B2_APPLICATION_KEY_ID || !env.B2_APPLICATION_KEY) {
+        throw new Error('Backblaze B2 server configuration is incomplete.');
+    }
+    const command = new DeleteObjectCommand({
+        Bucket: env.B2_BUCKET_NAME,
+        Key: key,
+    });
+
+    await b2.send(command);
 }
 
 export const bucketName = env.B2_BUCKET_NAME;

@@ -290,6 +290,11 @@ export interface QueueItem {
     timestamp: number;
 }
 
+export interface QueuedUploadSummary {
+    key: string;
+    item: QueueItem;
+}
+
 export async function enqueue(item: QueueItem): Promise<void> {
     const shortHash = item.fileHash.slice(0, 8);
 
@@ -358,6 +363,36 @@ export async function getQueueItems(): Promise<QueueItem[]> {
     }
 
     return items.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export async function getQueuedUploads(): Promise<QueuedUploadSummary[]> {
+    const allKeys = await keys();
+    const queueKeys = allKeys.filter((k: any) => String(k).startsWith(QUEUE_PREFIX));
+    const items: QueuedUploadSummary[] = [];
+
+    for (const key of queueKeys) {
+        const item = await get<QueueItem>(key);
+        if (item) items.push({ key: String(key), item });
+    }
+
+    return items.sort((a, b) => a.item.timestamp - b.item.timestamp);
+}
+
+export async function cancelQueuedUpload(queueKey: string): Promise<void> {
+    if (!queueKey.startsWith(QUEUE_PREFIX)) {
+        throw new Error('Invalid queued upload key.');
+    }
+    const item = await get<QueueItem>(queueKey);
+    await del(queueKey);
+    if (item?.fileHash) {
+        try {
+            const { removeLedgerEntry } = await import('./offlineSubmissionLedger');
+            await removeLedgerEntry(item.fileHash);
+        } catch (err) {
+            console.warn('[offline] Could not remove cancelled upload from ledger:', err);
+        }
+    }
+    await updatePendingCount();
 }
 
 import { addToast } from '$lib/stores/toast';
@@ -471,17 +506,19 @@ export async function processQueue(force = false): Promise<{ success: number; fa
 
                 // 1. Strict Metadata Check (One per load/week/type)
                 if (item.options.teachingLoadId && item.options.weekNumber) {
-                    const metaCheckPromise = supabase
+                    let metaCheckQuery = supabase
                         .from('submissions')
                         .select('id')
                         .eq('teaching_load_id', item.options.teachingLoadId)
                         .eq('week_number', item.options.weekNumber)
-                        .eq('term_number', item.options.termNumber ?? 0)
                         .in('compliance_status', ['compliant', 'late'])
                         .eq('school_year', item.options.schoolYear || getCurrentSchoolYear())
-                        .eq('doc_type', item.options.docType || 'DLL')
-                        .limit(1)
-                        .maybeSingle();
+                        .limit(1);
+                    if (item.options.termNumber) metaCheckQuery = metaCheckQuery.eq('term_number', item.options.termNumber);
+                    const slotDocTypes = (item.options.docType || 'DLL') === 'DLL' || item.options.docType === 'DLP'
+                        ? ['DLL', 'DLP']
+                        : [item.options.docType || 'DLL'];
+                    const metaCheckPromise = metaCheckQuery.in('doc_type', slotDocTypes).maybeSingle();
 
                     const { data: metaMatch } = await withTimeout(
                         metaCheckPromise as any,
@@ -673,17 +710,21 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                     calculateComplianceStatus(new Date(item.timestamp), deadlineDate);
                 if (item.options.teachingLoadId && item.options.weekNumber) {
                     try {
-                        const { data: slotMatch } = await withTimeout(
-                            supabase
-                                .from('submissions')
-                                .select('id')
-                                .eq('teaching_load_id', item.options.teachingLoadId)
-                                .eq('week_number', item.options.weekNumber)
-                                .eq('term_number', item.options.termNumber ?? 0)
-                                .eq('school_year', item.options.schoolYear || getCurrentSchoolYear())
-                                .in('compliance_status', ['compliant', 'late'])
-                                .eq('doc_type', item.options.docType || 'DLL')
-                                .limit(1) as any,
+	                        let slotQuery = supabase
+	                            .from('submissions')
+	                            .select('id')
+	                            .eq('teaching_load_id', item.options.teachingLoadId)
+	                            .eq('week_number', item.options.weekNumber)
+	                            .eq('school_year', item.options.schoolYear || getCurrentSchoolYear())
+	                            .in('compliance_status', ['compliant', 'late'])
+	                            .limit(1);
+	                        if (item.options.termNumber) slotQuery = slotQuery.eq('term_number', item.options.termNumber);
+	                        const slotDocTypes = (item.options.docType || 'DLL') === 'DLL' || item.options.docType === 'DLP'
+	                            ? ['DLL', 'DLP']
+	                            : [item.options.docType || 'DLL'];
+	                        slotQuery = slotQuery.in('doc_type', slotDocTypes);
+	                        const { data: slotMatch } = await withTimeout(
+	                            slotQuery as any,
                             20000,
                             'Duplicate slot check timed out.'
                         ) as { data: any };

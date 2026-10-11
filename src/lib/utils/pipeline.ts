@@ -11,7 +11,6 @@
  * 3. Sync background processes will attempt to finalize the archive later.
  */
 
-import { transcodeToPdf } from './transcode';
 import PdfWorker from './pdf.worker?worker';
 import { compressFile } from './compress';
 import { supabase } from './supabase';
@@ -21,6 +20,9 @@ import { getCurrentSchoolYear } from './schoolYear';
 import { isMobileDevice } from './device';
 import type { PipelineEvent, PipelineOptions } from '$lib/types/pipeline';
 export type { PipelinePhase, PipelineResult } from '$lib/types/pipeline';
+
+const MAX_UPLOAD_SIZE_MB = 10;
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 
 interface CoreResult {
     stampedBytes: Uint8Array;
@@ -183,14 +185,16 @@ async function* runPipelineCore(
     const originalBytes = new Uint8Array(await file.arrayBuffer());
     const fileHash = await sha256Hex(originalBytes);
 
-    // Transcode (Word to PDF)
-    yield { phase: 'transcoding', progress: 10, message: 'Converting to PDF...' };
-    // Reuse bytes from an earlier conversion of this exact file (e.g. the
-    // upload page's pre-check OCR step) when available, rather than sending
-    // the same docx/doc through the conversion engine a second time.
-    let pdfBytes = file.type === 'application/pdf'
-        ? originalBytes
-        : options.preConvertedPdfBytes ?? (await transcodeToPdf(file)).pdfBytes;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (file.type !== 'application/pdf' && ext !== 'pdf') {
+        throw new Error('Only PDF files can be uploaded. Please export or save the document as PDF first.');
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+        throw new Error(`File too large. Maximum upload size is ${MAX_UPLOAD_SIZE_MB}MB.`);
+    }
+
+    yield { phase: 'transcoding', progress: 10, message: 'Preparing PDF...' };
+    let pdfBytes: Uint8Array = new Uint8Array(originalBytes);
 
     // Detect a low-power/slow-connection state and skip heavy compression if the
     // file is already small, to save CPU/battery on mobile.
@@ -211,14 +215,13 @@ async function* runPipelineCore(
         yield { phase: 'compressing', progress: 30, message: 'Preparing your file...' };
     } else {
         yield { phase: 'compressing', progress: 30, message: 'Preparing your file...' };
-        pdfBytes = await compressFile(pdfBytes);
+        pdfBytes = new Uint8Array(await compressFile(pdfBytes));
     }
 
     // Analyzing (OCR): uses the converted PDF bytes, not the original file.
     yield { phase: 'analyzing', progress: 30, message: 'Reading your document...' };
     const { extractMetadata } = await import('./ocr');
-    const pdfBlob = new Blob([pdfBytes as BlobPart]);
-    const ocrFile = file.type === 'application/pdf' ? file : new File([pdfBlob], file.name.replace(/\.\w+$/, '.pdf'), { type: 'application/pdf' });
+    const ocrFile = file;
     const hasPreDetected = options.preDetectedMetadata?.docType && options.preDetectedMetadata?.docType !== 'Unknown' && options.preDetectedMetadata?.rawText;
     const detectedMetadata = hasPreDetected ? options.preDetectedMetadata : await extractMetadata(ocrFile);
 
@@ -474,7 +477,7 @@ async function* runOnlinePipelineResilient(
             .eq('term_number', activeTermNumber)
             .eq('school_year', options.schoolYear || getCurrentSchoolYear())
             .in('compliance_status', ['compliant', 'late'])
-            .eq('doc_type', activeDocType)
+            .in('doc_type', activeDocType === 'DLL' || activeDocType === 'DLP' ? ['DLL', 'DLP'] : [activeDocType])
             .limit(1) as any,
           30000,
           'Duplicate slot check timed out.'
