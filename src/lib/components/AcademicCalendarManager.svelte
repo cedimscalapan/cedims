@@ -147,6 +147,11 @@
         });
     }
 
+    function selectedDateAtTenAMIso(dateValue: string): string {
+        const [year, month, day] = dateValue.split("-").map(Number);
+        return new Date(year, month - 1, day, 10, 0, 0, 0).toISOString();
+    }
+
     async function saveWeek(weekData: any) {
         if (!canEdit) {
             addToast("error", "You don't have permission to edit the calendar");
@@ -172,7 +177,7 @@
             school_year: schoolYear,
             term: term,
             week_number: weekData.week_number,
-            deadline_date: new Date(weekData.deadline_date).toISOString(),
+            deadline_date: selectedDateAtTenAMIso(weekData.deadline_date),
             description: weekData.description,
             ...(typeof weekData.is_active === "boolean"
                 ? { is_active: weekData.is_active }

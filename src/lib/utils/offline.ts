@@ -846,10 +846,10 @@ export function calculateComplianceStatus(
     const now = submissionDate;
 
     if (deadlineDate) {
-        const deadline = new Date(deadlineDate);
-        deadline.setHours(23, 59, 59, 999);
+        const deadline = deadlineAtTenAM(deadlineDate);
 
-        // Submitted on or before the due date -> compliant; after -> late.
+        // Submitted on or before 10:00 AM on the due date -> compliant;
+        // after that exact cutoff -> late.
         return now <= deadline ? 'compliant' : 'late';
     }
 
@@ -857,6 +857,12 @@ export function calculateComplianceStatus(
     // Without a deadline in the calendar, we cannot determine lateness.
     // Default to 'compliant' — uploaded means compliant.
     return 'compliant';
+}
+
+export function deadlineAtTenAM(deadlineDate: Date | string): Date {
+    const deadline = new Date(deadlineDate);
+    deadline.setHours(10, 0, 0, 0);
+    return deadline;
 }
 
 // Auto-resume when online + Periodic Check

@@ -7,11 +7,9 @@
     import PaginatedSubmissionCards from "$lib/components/PaginatedSubmissionCards.svelte";
     import PaginatedRosterCards from "$lib/components/PaginatedRosterCards.svelte";
     import ComplianceTrendChart from "$lib/components/ComplianceTrendChart.svelte";
-    import AlertBanner from "$lib/components/AlertBanner.svelte";
     import ReviewTracker from "$lib/components/ReviewTracker.svelte";
     import { onMount, onDestroy } from "svelte";
     import { fly, fade } from "svelte/transition";
-    import { goto } from "$app/navigation";
     import TeacherChecklist from "$lib/components/TeacherChecklist.svelte";
     import {
         calculateCompliance,
@@ -28,12 +26,9 @@
         CloudUpload,
         Archive,
         ShieldCheck,
-        Zap,
-        ShieldAlert,
         Briefcase,
         Users,
         FileText,
-        ShieldX,
         Search,
         Building2,
         WifiOff,
@@ -63,6 +58,7 @@
     let academicCalendar = $state<any[]>([]);
     let leaveRequests = $state<any[]>([]);
     let recentActivity = $state<any[]>([]);
+    let archiveMetricItems = $state<any[]>([]);
     let stats = $state({
         totalUploads: 0,
         compliantRate: 0,
@@ -71,7 +67,6 @@
         lateCount: 0,
         nonCompliantCount: 0,
     });
-    let alerts = $state<any[]>([]);
     let teacherCompliance = $state<any[]>([]);
     // Master Teacher: school submissions with no reviewer remark yet.
     let awaitingReview = $state<any[]>([]);
@@ -169,34 +164,6 @@
                     // compliance-status fix write (prevents feedback loops).
                     if (applyingFix) return;
 
-                    // Real-time compliance risk alerts for supervisors
-                    const role = $profile?.role;
-                    if (role && role !== "Teacher" && payload?.new) {
-                        const rec = payload.new as any;
-                        if (
-                            rec?.compliance_status === "late" ||
-                            rec?.compliance_status === "missing"
-                        ) {
-                            try {
-                                const { alertComplianceRisk } = await import(
-                                    "$lib/utils/notificationSystem"
-                                );
-                                await alertComplianceRisk(
-                                    $profile?.district_id || undefined,
-                                    "Your school/district",
-                                    rec.compliance_status === "missing"
-                                        ? "high"
-                                        : "medium",
-                                    `A teacher submitted a ${rec.compliance_status} Daily Lesson Plan (Week ${rec.week_number || "?"}).`,
-                                );
-                            } catch (e) {
-                                console.warn(
-                                    "[dashboard] Compliance alert skipped:",
-                                    e,
-                                );
-                            }
-                        }
-                    }
                     scheduleReload();
                 },
             )
@@ -217,8 +184,8 @@
         academicCalendar: any[];
         leaveRequests: any[];
         recentActivity: any[];
+        archiveMetricItems: any[];
         stats: typeof stats;
-        alerts: any[];
         teacherCompliance: any[];
         awaitingReview: any[];
         schoolStandings: typeof schoolStandings;
@@ -238,8 +205,8 @@
             academicCalendar,
             leaveRequests,
             recentActivity,
+            archiveMetricItems,
             stats,
-            alerts,
             teacherCompliance,
             awaitingReview,
             schoolStandings,
@@ -255,8 +222,8 @@
         academicCalendar = snapshot.academicCalendar || [];
         leaveRequests = snapshot.leaveRequests || [];
         recentActivity = snapshot.recentActivity || [];
+        archiveMetricItems = snapshot.archiveMetricItems || snapshot.recentActivity || [];
         stats = snapshot.stats || stats;
-        alerts = snapshot.alerts || [];
         teacherCompliance = snapshot.teacherCompliance || [];
         awaitingReview = snapshot.awaitingReview || [];
         schoolStandings = snapshot.schoolStandings || [];
@@ -408,10 +375,11 @@
         // 30 rather than 15: the timeline below only renders 6 at a time
         // and reveals more via "Show more activity", so extra rows here are
         // headroom for that button rather than something rendered up front.
-        recentActivity = (subsResult.data || []).slice(0, 30);
+        archiveMetricItems = subsResult.data || [];
+        recentActivity = archiveMetricItems.slice(0, 30);
         // Total uploads is a file count, so supplementary files stay included.
         // Compliance rate above still excludes supplementary through calculateCompliance().
-        stats.totalUploads = submissions.length;
+        stats.totalUploads = archiveMetricItems.length;
         stats.compliantRate = complianceStats.rate;
     }
 
@@ -617,7 +585,8 @@
         const overallStats = calculateCompliance(complianceSubs, totalExpected);
 
         stats.totalTeachers = teachersWithNames.length;
-        stats.totalUploads = allSubs.length;
+        archiveMetricItems = allSubs;
+        stats.totalUploads = archiveMetricItems.length;
         stats.compliantCount = overallStats.Compliant;
         stats.lateCount = overallStats.Late;
         stats.nonCompliantCount = teacherCompliance.reduce(
@@ -630,11 +599,7 @@
         // type) — it's a feed of everything uploaded, not a compliance
         // metric. 30 rather than 15: the timeline only renders 6 at a time
         // and reveals more via "Show more activity".
-        recentActivity = allSubs.slice(0, 30);
-
-        // Predictive integrity alerts (pattern detection) — DLL-cadence only.
-        const { detectPatterns } = await import("$lib/utils/patternDetection");
-        alerts = detectPatterns(complianceSubs, calendarArr, teachersWithNames);
+        recentActivity = archiveMetricItems.slice(0, 30);
 
         // ── Role-specific figures ──
         // Each role's Home answers a different question, so each needs a
@@ -769,7 +734,7 @@
     const reviewCheckedCount = $derived(awaitingReview.filter((item) => item.reviewer_comment).length);
     const archiveTypeMetrics = $derived.by(() => {
         const grouped: Record<string, number> = {};
-        for (const item of recentActivity) {
+        for (const item of archiveMetricItems) {
             const label = getDocumentLabel(item.doc_type || "DLL");
             grouped[label] = (grouped[label] || 0) + 1;
         }
@@ -840,23 +805,6 @@
     {:else}
         <!-- ========== SUPERVISOR DASHBOARD ========== -->
 
-        <!-- Priority alerts -->
-        {#if alerts.length > 0}
-            <!-- Same destination each alert's own role tab already links to
-                 (see "Open Staff"/"Open Schools" below): the teacher- or
-                 school-level roster where a supervisor can actually act on
-                 what the alert flagged. -->
-            <AlertBanner
-                {alerts}
-                onReview={() =>
-                    goto(
-                        $profile?.role === "District Supervisor"
-                            ? "/dashboard/compliance"
-                            : "/dashboard/compliance",
-                    )}
-            />
-        {/if}
-
         <!-- Stats and the primary section below are role-specific.
              Master Teacher, School Head and District Supervisor previously
              shared one identical view whose centrepiece was a Teacher
@@ -900,12 +848,12 @@
                             <div class="w-1.5 h-5 bg-gov-blue rounded-full"></div>
                             <h3 class="text-sm font-bold text-text-primary uppercase tracking-normal">Submission Metrics</h3>
                         </div>
-                        <p class="text-xs font-bold text-text-muted uppercase tracking-normal">{recentActivity.length} recent archives</p>
+                        <p class="text-xs font-bold text-text-muted uppercase tracking-normal">{stats.totalUploads} visible archives</p>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4 bg-surface-muted">
                         <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                             <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Archives</p>
-                            <p class="text-xl font-bold text-text-primary">{recentActivity.length}</p>
+                            <p class="text-xl font-bold text-text-primary">{stats.totalUploads}</p>
                         </div>
                         <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                             <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Schools</p>
