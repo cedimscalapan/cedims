@@ -860,11 +860,11 @@
                             <p class="text-xl font-bold text-text-primary">{schoolStandings.length}</p>
                         </div>
                         <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-gov-green uppercase tracking-tight">Cumulative Rate</p>
+                            <p class="text-xs font-bold text-gov-green uppercase tracking-tight">Submission Completion Rate</p>
                             <p class="text-xl font-bold text-gov-green">{stats.compliantRate}%</p>
                         </div>
                         <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-gov-red uppercase tracking-tight">Cumulative Missing</p>
+                            <p class="text-xs font-bold text-gov-red uppercase tracking-tight">Missing Required DLLs</p>
                             <p class="text-xl font-bold text-gov-red">{stats.nonCompliantCount}</p>
                         </div>
                     </div>

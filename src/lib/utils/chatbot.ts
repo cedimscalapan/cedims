@@ -1351,8 +1351,10 @@ async function queryTeacherStats(
     const teacherIds = (teachers as any[]).map((t: any) => t.id);
     const { data: subs, error: sErr } = await db
         .from('submissions')
-        .select('user_id, compliance_status')
+        .select('user_id, compliance_status, school_year, doc_type, teaching_load_id, week_number, created_at')
         .in('user_id', teacherIds)
+        .eq('school_year', getDynamicSchoolYear())
+        .in('doc_type', ['DLL', 'DLP'])
         .not('file_hash', 'like', 'nc_%');
 
     if (sErr) return lang === 'tl' ? 'Paumanhin po, hindi ma-load ang submission data.' : "Sorry, I couldn't load submission data.";
@@ -1361,9 +1363,13 @@ async function queryTeacherStats(
     for (const t of teachers as any[]) {
         teacherSubMap.set(t.id, { total: 0, compliant: 0, late: 0 });
     }
+    const seenSlots = new Set<string>();
     for (const s of (subs || []) as any[]) {
         const entry = teacherSubMap.get(s.user_id);
         if (entry) {
+            const slot = `${s.user_id}|${s.teaching_load_id || ''}|${s.week_number || ''}`;
+            if (seenSlots.has(slot)) continue;
+            seenSlots.add(slot);
             entry.total++;
             if (isCompliant(s.compliance_status)) entry.compliant++;
             if (s.compliance_status === 'late') entry.late++;
@@ -1593,9 +1599,11 @@ async function queryCreateReport(
         : rows.find(r => r.school_name)?.school_name)
         || (lang === 'tl' ? 'ang saklaw ninyo' : 'your scope');
 
-    const total = rows.length;
-    const onTime = rows.filter(r => r.compliance_status === 'compliant' || r.compliance_status === 'on-time').length;
-    const late = rows.filter(r => r.compliance_status === 'late').length;
+    const archiveTotal = rows.length;
+    const countedRows = rows.filter(r => !['supplementary', 'extra'].includes((r.compliance_status || '').toLowerCase()));
+    const total = countedRows.length;
+    const onTime = countedRows.filter(r => r.compliance_status === 'compliant' || r.compliance_status === 'on-time').length;
+    const late = countedRows.filter(r => r.compliance_status === 'late').length;
     const fulfilled = onTime + late;
     const supplementary = rows.filter(r => r.compliance_status === 'supplementary').length;
     const rate = total > 0 ? Math.round((fulfilled / total) * 100) : 0;
@@ -1606,8 +1614,8 @@ async function queryCreateReport(
     const closer = pick(REPORT_CLOSERS[lang][tier]);
 
     const summary = lang === 'tl'
-        ? `${opener}\n\nMayroong ${total} submissions ngayong school year ${reportSchoolYear}: ${fulfilled} fulfilled (${onTime} on-time at ${late} late), at ${supplementary} supplementary. Ang overall rate ay ${rate}%.\n\n${closer}\n\nInihanda ko ang isang detalyadong report sa Excel at Word: makikita sa ibaba.`
-        : `${opener}\n\nThere are ${total} submissions for school year ${reportSchoolYear}: ${fulfilled} fulfilled (${onTime} on-time and ${late} late), and ${supplementary} supplementary. The overall rate is ${rate}%.\n\nI've prepared a detailed report in Excel and Word: see below.\n\n${closer}`;
+        ? `${opener}\n\nMayroong ${archiveTotal} archive uploads ngayong school year ${reportSchoolYear}: ${fulfilled} fulfilled (${onTime} on-time at ${late} late), at ${supplementary} supplementary. Ang submission completion rate ay ${rate}%.\n\n${closer}\n\nInihanda ko ang isang detalyadong report sa Excel at Word: makikita sa ibaba.`
+        : `${opener}\n\nThere are ${archiveTotal} archive uploads for school year ${reportSchoolYear}: ${fulfilled} fulfilled (${onTime} on-time and ${late} late), and ${supplementary} supplementary. The submission completion rate is ${rate}%.\n\nI've prepared a detailed report in Excel and Word: see below.\n\n${closer}`;
 
     // Reuse the exact same shared, professionally-styled report builders the
     // app already uses elsewhere (excelExport.ts for Archive exports),
