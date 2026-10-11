@@ -298,20 +298,9 @@ export interface QueuedUploadSummary {
 export async function enqueue(item: QueueItem): Promise<void> {
     const shortHash = item.fileHash.slice(0, 8);
 
-    // The same document must not be queued twice. This used to return normally
-    // when it found one, so the caller went on to report the upload as archived
-    // while nothing had been queued — a submission could vanish with a success
-    // message. It throws now, so the teacher is actually told.
-    //
-    // This only ever catches the identical file. An additional DLL for a
-    // week/subject that already has one is a different file with a different
-    // hash: it queues normally and syncs as 'supplementary'.
-    const allKeys = await keys();
-    for (const k of allKeys) {
-        if (typeof k === 'string' && k.startsWith(QUEUE_PREFIX) && k.endsWith(shortHash)) {
-            throw new Error('This exact document is already waiting to be uploaded. Choose a different file, or check My Files.');
-        }
-    }
+    // Local queue duplicates are allowed so a teacher can retry a stuck upload
+    // from the same device. Server-side duplicate checks still protect the
+    // final archive record when the queue syncs.
 
     // Resilience: Workers often return SharedArrayBuffer which CANNOT be stored in IndexedDB.
     // We MUST copy it to a plain Uint8Array (backed by a real ArrayBuffer) first.

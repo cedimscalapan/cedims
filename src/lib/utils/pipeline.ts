@@ -359,16 +359,17 @@ async function* runOnlinePipelineResilient(
 
     // Two different things, deliberately handled differently:
     //
-    //   Same DOCUMENT (identical file hash) -> rejected. Re-submitting the very
-    //   same file is never a new submission, and UNIQUE (file_hash) enforces it
-    //   at the database besides.
+    //   Same DOCUMENT (identical file hash) -> rejected only once it is known
+    //   to be archived on the server. A pending local/offline copy is allowed
+    //   through so the teacher can retry a stuck upload from this device.
     //
     //   Same SLOT (another DLL for a week/subject that already has one) ->
     //   accepted and marked 'supplementary' by the slot check further down.
     //   That's a legitimate additional document, and supplementary is excluded
     //   from compliance rate, upload totals and "missing" checks, so it can't
     //   distort any figure.
-    if (await lookupOfflineDoc(fileHash)) {
+    const localDoc = await lookupOfflineDoc(fileHash);
+    if (localDoc && !localDoc.pending_sync) {
         throw new Error('This exact document has already been uploaded. Choose a different file, or check My Files.');
     }
 
@@ -567,13 +568,12 @@ async function* runOfflinePipelineResilient(
     const { enqueue, cacheVerifiedDoc, lookupOfflineDoc } = await import('./offline');
     const { recordSubmission } = await import('./offlineSubmissionLedger');
 
-    // Matches the direct path: the same document is refused here, before it can
-    // enter the queue, so the teacher is told straight away rather than at sync
-    // time. An additional DLL for a week/subject that already has one is a
-    // different file, so it passes this check and the sync-time slot check
-    // marks it 'supplementary'.
+    // Matches the direct path: server-confirmed local cache entries are refused,
+    // but pending local/offline entries are allowed so a stuck upload can be
+    // retried from the same device.
     yield { phase: 'uploading', progress: 20, message: 'Checking for duplicates...' };
-    if (await lookupOfflineDoc(fileHash)) {
+    const localDoc = await lookupOfflineDoc(fileHash);
+    if (localDoc && !localDoc.pending_sync) {
         throw new Error('This exact document has already been uploaded. Choose a different file, or check My Files.');
     }
 

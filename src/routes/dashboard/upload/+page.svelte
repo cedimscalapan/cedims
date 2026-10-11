@@ -143,7 +143,7 @@
                 "$lib/utils/offlineSubmissionLedger"
             );
             const localMatch = await hasHash(fileHash);
-            if (localMatch) {
+            if (localMatch && localMatch.status !== "pending") {
                 submissionAlreadyExists = true;
                 submissionBlockReason = `Duplicate content: This file was already archived as "${localMatch.fileName}" (${getDocumentLabel(localMatch.docType)}, Week ${localMatch.weekNumber})`;
                 return;
