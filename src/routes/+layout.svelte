@@ -44,6 +44,22 @@
 		}
 	}
 
+	function activateWaitingServiceWorker(registration: ServiceWorkerRegistration) {
+		const worker = registration.waiting || registration.installing;
+		if (!worker) return;
+
+		if (worker.state === "installed") {
+			worker.postMessage({ type: "SKIP_WAITING" });
+			return;
+		}
+
+		worker.addEventListener("statechange", () => {
+			if (worker.state === "installed") {
+				worker.postMessage({ type: "SKIP_WAITING" });
+			}
+		});
+	}
+
 	onMount(() => {
 		// Dynamic `import()` failures (stale chunk hashes after a redeploy,
 		// or a chunk request that got redirected/404'd) surface as a
@@ -92,58 +108,70 @@
 			// Hide loading screen once app is initialized
 			hideLoading();
 
-			// Defer service worker registration
-			setTimeout(() => {
-				if ("serviceWorker" in navigator && import.meta.env.PROD) {
-					(async () => {
-						try {
-							// Preview/staging hosts sometimes front every
-							// request with an auth or canonicalization
-							// redirect. Registering a SW whose script
-							// request is redirected throws a SecurityError
-							// (browsers disallow it outright), so probe
-							// first with a manual-redirect HEAD request and
-							// skip registration entirely when that's the
-							// case instead of letting the browser log a
-							// hard failure every load.
-							const probe = await fetch("/service-worker.js", {
-								method: "HEAD",
-								redirect: "manual",
-								cache: "no-store",
-							});
-							if (
-								probe.type === "opaqueredirect" ||
-								(probe.status >= 300 && probe.status < 400)
-							) {
-								console.warn(
-									"[v0] Skipping Service Worker registration: script is served behind a redirect on this host.",
-								);
-								return;
-							}
-						} catch (probeError) {
-							// Network hiccup on the probe itself isn't a
-							// reason to skip registration — fall through
-							// and let register() attempt it normally.
+			if ("serviceWorker" in navigator && import.meta.env.PROD) {
+				(async () => {
+					try {
+						// Preview/staging hosts sometimes front every
+						// request with an auth or canonicalization
+						// redirect. Registering a SW whose script
+						// request is redirected throws a SecurityError
+						// (browsers disallow it outright), so probe
+						// first with a manual-redirect HEAD request and
+						// skip registration entirely when that's the
+						// case instead of letting the browser log a
+						// hard failure every load.
+						const probe = await fetch("/service-worker.js", {
+							method: "HEAD",
+							redirect: "manual",
+							cache: "no-store",
+						});
+						if (
+							probe.type === "opaqueredirect" ||
+							(probe.status >= 300 && probe.status < 400)
+						) {
+							console.warn(
+								"[v0] Skipping Service Worker registration: script is served behind a redirect on this host.",
+							);
+							return;
 						}
+					} catch (probeError) {
+						// Network hiccup on the probe itself isn't a
+						// reason to skip registration — fall through
+						// and let register() attempt it normally.
+					}
 
-						try {
-							const registration =
-								await navigator.serviceWorker.register(
-									"/service-worker.js",
-								);
-							console.log(
-								"Service Worker registered:",
-								registration,
+					try {
+						let refreshing = false;
+						navigator.serviceWorker.addEventListener("controllerchange", () => {
+							if (refreshing) return;
+							refreshing = true;
+							window.location.reload();
+						});
+
+						const registration =
+							await navigator.serviceWorker.register(
+								"/service-worker.js",
+								{ updateViaCache: "none" },
 							);
-						} catch (error) {
-							console.error(
-								"Service Worker registration failed:",
-								error,
-							);
-						}
-					})();
-				}
-			}, 2000);
+						console.log(
+							"Service Worker registered:",
+							registration,
+						);
+
+						activateWaitingServiceWorker(registration);
+						registration.addEventListener("updatefound", () => {
+							activateWaitingServiceWorker(registration);
+						});
+						await registration.update();
+						activateWaitingServiceWorker(registration);
+					} catch (error) {
+						console.error(
+							"Service Worker registration failed:",
+							error,
+						);
+					}
+				})();
+			}
 		})();
 
 		return () => {

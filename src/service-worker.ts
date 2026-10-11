@@ -26,6 +26,11 @@ const THIRD_PARTY_PRECACHE = [
     `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`
 ];
 
+const NAVIGATION_FETCH_INIT: RequestInit = {
+    cache: 'no-store',
+    redirect: 'follow'
+};
+
 // A device on a weak signal is exactly the device most likely to have a
 // single install-time fetch fail — and silently dropping that one asset
 // (previously: one try, log, move on) is how the cache ends up serving a
@@ -81,8 +86,10 @@ self.addEventListener('install', (event) => {
         // Pre-cache the app shell (root page) for offline navigation.
         // This is the SvelteKit app shell that the client-side router needs.
         try {
-            const rootResponse = await fetchWithRetry('/', { cache: 'reload' });
-            await cache.put('/', rootResponse);
+            const rootResponse = await fetchWithRetry('/', NAVIGATION_FETCH_INIT);
+            if (rootResponse.ok && rootResponse.type !== 'opaqueredirect') {
+                await cache.put('/', rootResponse);
+            }
             console.log('[SW] Pre-cached app shell (/)');
         } catch (e) {
             console.warn('[SW] Failed to pre-cache app shell after retries:', e);
@@ -92,6 +99,12 @@ self.addEventListener('install', (event) => {
     // Activate immediately
     (self as any).skipWaiting();
     event.waitUntil(addFilesToCache());
+});
+
+self.addEventListener('message', (event) => {
+    if (event.data?.type === 'SKIP_WAITING') {
+        (self as any).skipWaiting();
+    }
 });
 
 // ─── Activate: Clean old caches + claim clients ────────────────
@@ -155,7 +168,10 @@ self.addEventListener('fetch', (event) => {
 
         // Strategy 2: Network-first for navigation and other local pages
         try {
-            const response = await fetch(event.request);
+            const response = await fetch(
+                event.request,
+                event.request.mode === 'navigate' ? NAVIGATION_FETCH_INIT : undefined
+            );
 
             if (!(response instanceof Response)) {
                 throw new Error('Invalid response from fetch');
@@ -170,7 +186,7 @@ self.addEventListener('fetch', (event) => {
             // own to fall back to when offline, so it always fell back to
             // the cached landing page instead, showing the wrong page
             // entirely for a URL like /dashboard/upload.
-            if (isLocal && response.status === 200) {
+            if (isLocal && response.status === 200 && response.type !== 'opaqueredirect') {
                 cache.put(event.request, response.clone());
             }
 
