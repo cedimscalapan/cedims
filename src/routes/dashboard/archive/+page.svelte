@@ -34,6 +34,7 @@
     import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import { focusTrap } from "$lib/actions/focusTrap";
     import { getDocumentLabel } from "$lib/utils/documentLabels";
+    import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
 
     // â"€â"€ Types â"€â"€
     interface Submission {
@@ -47,6 +48,7 @@
         term_number: number | null;
         week_number: number | null;
         subject: string | null;
+        grade_level?: string | null;
         teaching_load_id: string | null;
         created_at: string;
         file_path: string;
@@ -62,7 +64,7 @@
     }
 
     interface PathSegment {
-        type: "root" | "docType" | "school" | "teacher" | "subject" | "term" | "week";
+        type: "root" | "docType" | "school" | "teacher" | "grade" | "subject" | "term" | "week";
         id: string;
         label: string;
     }
@@ -71,7 +73,7 @@
         id: string;
         label: string;
         count: number;
-        type: "docType" | "school" | "teacher" | "subject" | "term" | "week";
+        type: "docType" | "school" | "teacher" | "grade" | "subject" | "term" | "week";
         icon?: string;
         avatar_url?: string | null;
     }
@@ -94,7 +96,7 @@
     // â"€â"€ Remarks & Review Status â"€â"€
     let reviewsMap = $state<Record<string, { reviewer_comment: string | null; status: string | null; return_reason: string | null; reviewer_id: string | null; reviewer_name: string | null }>>({});
     let statusFilter = $state<"all" | "for-checking" | "checked">("all");
-    let sortField = $state<"date" | "name" | "size">("date");
+    let sortField = $state<"date" | "name" | "grade" | "size">("date");
     let sortDir = $state<"asc" | "desc">("desc");
 
     let remarkModalOpen = $state(false);
@@ -120,6 +122,24 @@
     const canReview = $derived(
         $profile ? canAddReviewRemarks($profile.role) : false,
     );
+
+    function isLessonPlanDoc(docType: string | null | undefined): boolean {
+        const normalized = (docType || "").toUpperCase();
+        return normalized === "DLL" || normalized === "DLP";
+    }
+
+    function getArchiveDocTypeId(docType: string | null | undefined): string {
+        return isLessonPlanDoc(docType) ? "DLL" : (docType || "Other");
+    }
+
+    function getArchiveSubject(sub: Submission): string {
+        return sub.subject || (isLessonPlanDoc(sub.doc_type) ? "Unassigned" : getDocumentLabel(sub.doc_type));
+    }
+
+    function getArchiveGrade(sub: Submission): string {
+        const grade = (sub.grade_level || "").trim();
+        return grade || "Unassigned Grade";
+    }
 
     function canAddRemarkToSubmission(sub: Submission): boolean {
         if (!$profile) return false;
@@ -252,6 +272,7 @@
         if (!userProfile) return;
 
         const role = userProfile.role;
+        const currentSchoolYear = getCurrentSchoolYear();
         console.log('[archive] Loading with role:', role, 'userId:', userProfile.id, 'schoolId:', userProfile.school_id, 'districtId:', userProfile.district_id);
 
         // Offline: restore cached archive view
@@ -278,7 +299,8 @@
                 .from("submissions")
                 .select("*")
                 .eq("user_id", userProfile.id)
-                .eq("doc_type", "DLL")
+                .eq("school_year", currentSchoolYear)
+                .in("doc_type", ["DLL", "DLP"])
                 .order("created_at", { ascending: false });
             if (runId !== loadRun) return;
             allSubmissions = getRows<Submission>(data).filter((s) => s.user_id === userProfile.id);
@@ -291,7 +313,8 @@
                     "*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)",
                 )
                 .eq("profiles.school_id", userProfile.school_id)
-                .in("doc_type", ["DLL", "ISP", "ISR"])
+                .eq("school_year", currentSchoolYear)
+                .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
                 .order("created_at", { ascending: false });
             if (runId !== loadRun) return;
 
@@ -318,7 +341,8 @@
                     "*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)",
                 )
                 .eq("profiles.school_id", userProfile.school_id)
-                .in("doc_type", ["DLL", "ISP", "ISR"])
+                .eq("school_year", currentSchoolYear)
+                .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
                 .order("created_at", { ascending: false });
             if (runId !== loadRun) return;
 
@@ -367,7 +391,8 @@
                     "*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)",
                 )
                 .in("profiles.school_id", schoolIds)
-                .in("doc_type", ["DLL", "ISP", "ISR"])
+                .eq("school_year", currentSchoolYear)
+                .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
                 .order("created_at", { ascending: false });
             if (runId !== loadRun) return;
 
@@ -402,50 +427,60 @@
             }
         }
 
-        // â"€â"€ Resolve missing subjects from teaching_loads â"€â"€
-        const missingSubjectLoadIds = [...new Set(allSubmissions
-            .filter(s => !s.subject && s.teaching_load_id)
+        // Resolve missing subject/grade details from teaching_loads for lesson-plan archives.
+        const missingLoadIds = [...new Set(allSubmissions
+            .filter(s => s.teaching_load_id && (!s.subject || !s.grade_level))
             .map(s => s.teaching_load_id!)
         )];
-        if (missingSubjectLoadIds.length > 0) {
+        if (missingLoadIds.length > 0) {
             const { data: loads } = await supabase
                 .from("teaching_loads")
-                .select("id, subject")
-                .in("id", missingSubjectLoadIds);
+                .select("id, subject, grade_level")
+                .in("id", missingLoadIds);
             if (loads) {
-                const loadSubjectMap: Record<string, string> = {};
+                const loadMap: Record<string, { subject: string | null; grade_level: string | null }> = {};
                 for (const l of loads) {
-                    loadSubjectMap[l.id] = l.subject;
+                    loadMap[l.id] = { subject: l.subject, grade_level: l.grade_level };
                 }
                 for (const s of allSubmissions) {
-                    if (!s.subject && s.teaching_load_id && loadSubjectMap[s.teaching_load_id]) {
-                        s.subject = loadSubjectMap[s.teaching_load_id];
+                    const load = s.teaching_load_id ? loadMap[s.teaching_load_id] : null;
+                    if (!load) continue;
+                    if (!s.subject && load.subject) {
+                        s.subject = load.subject;
+                    }
+                    if (!s.grade_level && load.grade_level) {
+                        s.grade_level = load.grade_level;
                     }
                 }
             }
         }
 
-        // Fallback: resolve subjects for submissions without teaching_load_id
-        const userIdsWithMissingSubject = [...new Set(allSubmissions
-            .filter(s => !s.subject && !s.teaching_load_id && s.user_id)
+        // Fallback: resolve subject/grade for older submissions without teaching_load_id.
+        const userIdsWithMissingLoadDetails = [...new Set(allSubmissions
+            .filter(s => (!s.subject || !s.grade_level) && !s.teaching_load_id && s.user_id)
             .map(s => s.user_id!)
         )];
-        if (userIdsWithMissingSubject.length > 0) {
+        if (userIdsWithMissingLoadDetails.length > 0) {
             const { data: userLoads } = await supabase
                 .from("teaching_loads")
-                .select("user_id, subject")
-                .in("user_id", userIdsWithMissingSubject)
+                .select("user_id, subject, grade_level")
+                .in("user_id", userIdsWithMissingLoadDetails)
                 .eq("is_active", true);
             if (userLoads) {
-                const userSubjectMap: Record<string, string> = {};
+                const userLoadMap: Record<string, { subject: string | null; grade_level: string | null }> = {};
                 for (const l of userLoads) {
-                    if (!userSubjectMap[l.user_id]) {
-                        userSubjectMap[l.user_id] = l.subject;
+                    if (!userLoadMap[l.user_id]) {
+                        userLoadMap[l.user_id] = { subject: l.subject, grade_level: l.grade_level };
                     }
                 }
                 for (const s of allSubmissions) {
-                    if (!s.subject && !s.teaching_load_id && s.user_id && userSubjectMap[s.user_id]) {
-                        s.subject = userSubjectMap[s.user_id];
+                    const load = s.user_id ? userLoadMap[s.user_id] : null;
+                    if (!load || s.teaching_load_id) continue;
+                    if (!s.subject && load.subject) {
+                        s.subject = load.subject;
+                    }
+                    if (!s.grade_level && load.grade_level) {
+                        s.grade_level = load.grade_level;
                     }
                 }
             }
@@ -575,15 +610,17 @@
         console.log('[archive] After visibility filter:', filtered.length, 'submissions remain, docTypes:', [...new Set(filtered.map(s => s.doc_type))].join(', '));
         for (const seg of currentPath) {
             if (seg.type === "docType") {
-                filtered = filtered.filter((s) => s.doc_type === seg.id);
+                filtered = filtered.filter((s) => getArchiveDocTypeId(s.doc_type) === seg.id);
             } else if (seg.type === "school") {
                 filtered = filtered.filter(
                     (s) => s.uploader?.school_id === seg.id,
                 );
             } else if (seg.type === "teacher") {
                 filtered = filtered.filter((s) => s.user_id === seg.id);
+            } else if (seg.type === "grade") {
+                filtered = filtered.filter((s) => getArchiveGrade(s) === seg.id);
             } else if (seg.type === "subject") {
-                filtered = filtered.filter((s) => (s.subject || (s.doc_type === "DLL" ? "Unassigned" : getDocumentLabel(s.doc_type))) === seg.id);
+                filtered = filtered.filter((s) => getArchiveSubject(s) === seg.id);
             } else if (seg.type === "term") {
                 filtered = filtered.filter((s) => getTermFolderId(s) === seg.id);
             } else if (seg.type === "week") {
@@ -600,6 +637,7 @@
                     s.file_name.toLowerCase().includes(q) ||
                     s.doc_type?.toLowerCase().includes(q) ||
                     getDocumentLabel(s.doc_type).toLowerCase().includes(q) ||
+                    s.grade_level?.toLowerCase().includes(q) ||
                     s.uploader?.full_name?.toLowerCase().includes(q) ||
                     s.file_hash?.toLowerCase().includes(q),
             );
@@ -619,6 +657,8 @@
                 cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
             } else if (sortField === "name") {
                 cmp = a.file_name.localeCompare(b.file_name);
+            } else if (sortField === "grade") {
+                cmp = getArchiveGrade(a).localeCompare(getArchiveGrade(b), undefined, { numeric: true });
             } else if (sortField === "size") {
                 cmp = (a.file_size || 0) - (b.file_size || 0);
             }
@@ -645,11 +685,12 @@
             if (depth === 3) return getTeacherFolders(filteredByPath);
             const currentDocType = currentPath.find(p => p.type === "docType");
             if (depth === 4) {
-                if (currentDocType?.id === "DLL") return getSubjectFolders(filteredByPath);
+                if (isLessonPlanDoc(currentDocType?.id)) return getGradeFolders(filteredByPath);
                 return [];
             }
-            if (depth === 5) return getTermFolders(filteredByPath);
-            if (depth === 6) return getWeekFolders(filteredByPath);
+            if (depth === 5) return getSubjectFolders(filteredByPath);
+            if (depth === 6) return getTermFolders(filteredByPath);
+            if (depth === 7) return getWeekFolders(filteredByPath);
             return [];
         }
 
@@ -688,7 +729,7 @@
     function getDocTypeFolders(subs: Submission[]): FolderItem[] {
         const grouped = new Map<string, number>();
         for (const s of subs) {
-            const dt = s.doc_type || "Other";
+            const dt = getArchiveDocTypeId(s.doc_type);
             grouped.set(dt, (grouped.get(dt) || 0) + 1);
         }
 
@@ -757,7 +798,7 @@
     function getSubjectFolders(subs: Submission[]): FolderItem[] {
         const grouped = new Map<string, number>();
         for (const s of subs) {
-            const sub = s.subject || (s.doc_type === "DLL" ? "Unassigned" : getDocumentLabel(s.doc_type));
+            const sub = getArchiveSubject(s);
             grouped.set(sub, (grouped.get(sub) || 0) + 1);
         }
         return Array.from(grouped.entries())
@@ -767,6 +808,30 @@
                 label: sub,
                 count,
                 type: "subject" as const,
+            }));
+    }
+
+    function getGradeFolders(subs: Submission[]): FolderItem[] {
+        const grouped = new Map<string, number>();
+        for (const s of subs) {
+            if (!isLessonPlanDoc(s.doc_type)) continue;
+            const grade = getArchiveGrade(s);
+            grouped.set(grade, (grouped.get(grade) || 0) + 1);
+        }
+        return Array.from(grouped.entries())
+            .sort(([a], [b]) => {
+                const na = parseInt(a.replace(/\D+/g, ""), 10);
+                const nb = parseInt(b.replace(/\D+/g, ""), 10);
+                if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+                if (a === "Unassigned Grade") return 1;
+                if (b === "Unassigned Grade") return -1;
+                return a.localeCompare(b);
+            })
+            .map(([grade, count]) => ({
+                id: grade,
+                label: grade,
+                count,
+                type: "grade" as const,
             }));
     }
 
@@ -782,7 +847,7 @@
     function getTermFolders(subs: Submission[]): FolderItem[] {
         const grouped = new Map<string, number>();
         for (const s of subs) {
-            if (s.doc_type !== "DLL") continue;
+            if (!isLessonPlanDoc(s.doc_type)) continue;
             const term = getTermFolderId(s);
             grouped.set(term, (grouped.get(term) || 0) + 1);
         }
@@ -803,7 +868,7 @@
     function getWeekFolders(subs: Submission[]): FolderItem[] {
         const grouped = new Map<string, number>();
         for (const s of subs) {
-            if (s.doc_type !== "DLL") continue;
+            if (!isLessonPlanDoc(s.doc_type)) continue;
             const wk = String(s.week_number);
             grouped.set(wk, (grouped.get(wk) || 0) + 1);
         }
@@ -1081,6 +1146,7 @@
             >
                 <option value="date">Date</option>
                 <option value="name">Name</option>
+                <option value="grade">Grade</option>
                 <option value="size">Size</option>
             </select>
             <button
@@ -1208,7 +1274,7 @@
                         <div
                             class="flex flex-wrap items-center justify-center gap-1 mt-auto"
                         >
-                            {#if sub.doc_type === 'DLL'}
+                            {#if isLessonPlanDoc(sub.doc_type)}
                                 {#if reviewsMap[sub.id]?.reviewer_comment}
                                     <span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold rounded uppercase tracking-wider">
                                         Checked
@@ -1229,6 +1295,13 @@
                                     class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-bold rounded uppercase tracking-wider"
                                 >
                                     W{sub.week_number}
+                                </span>
+                            {/if}
+                            {#if isLessonPlanDoc(sub.doc_type) && sub.grade_level}
+                                <span
+                                    class="px-2 py-0.5 bg-surface-muted text-text-secondary text-xs font-bold rounded uppercase tracking-wider"
+                                >
+                                    {sub.grade_level}
                                 </span>
                             {/if}
                         </div>

@@ -489,7 +489,8 @@
             .from("submissions")
             .select("*, uploader:profiles!inner(school_id, district_id)", {
                 count: "exact",
-            });
+            })
+            .eq("school_year", getDynamicSchoolYear());
         let leaveQuery = supabase
             .from("submission_leave_requests")
             .select("*")
@@ -911,11 +912,11 @@
                             <p class="text-xl font-bold text-text-primary">{schoolStandings.length}</p>
                         </div>
                         <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-gov-green uppercase tracking-tight">District Rate</p>
+                            <p class="text-xs font-bold text-gov-green uppercase tracking-tight">Cumulative Rate</p>
                             <p class="text-xl font-bold text-gov-green">{stats.compliantRate}%</p>
                         </div>
                         <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-gov-red uppercase tracking-tight">Missing</p>
+                            <p class="text-xs font-bold text-gov-red uppercase tracking-tight">Cumulative Missing</p>
                             <p class="text-xl font-bold text-gov-red">{stats.nonCompliantCount}</p>
                         </div>
                     </div>

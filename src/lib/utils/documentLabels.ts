@@ -1,5 +1,6 @@
 export const DOCUMENT_LABELS: Record<string, string> = {
   DLL: 'Daily Lesson Plan',
+  DLP: 'Daily Lesson Plan',
   ISP: 'ISP — Instructional Supervisory Plan',
   ISR: 'ISR — Instructional Supervisory Report',
   Unknown: 'Unknown document'
@@ -7,6 +8,7 @@ export const DOCUMENT_LABELS: Record<string, string> = {
 
 export const DOCUMENT_FULL_NAMES: Record<string, string> = {
   DLL: 'Daily Lesson Plan',
+  DLP: 'Daily Lesson Plan',
   ISP: 'Instructional Supervisory Plan',
   ISR: 'Instructional Supervisory Report',
   Unknown: 'Unknown document'
