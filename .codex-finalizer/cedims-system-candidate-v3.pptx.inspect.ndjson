@@ -1,0 +1,328 @@
+{"kind":"deck","id":"pr/ottdcg","name":"Deck"}
+{"kind":"layout","layoutId":"8a748b79-8c38-47af-bac0-91be0e166e8b","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"f3566861-9cdd-4d30-9a4e-64e4531a07c8","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/vdad9u","slide":1,"title":"CEDIMS","textShapes":4}
+{"kind":"shape","id":"sh/ypk3y54f","slide":1,"bbox":[654,0,626,720]}
+{"kind":"textbox","id":"sh/9gvmxk32","slide":1,"text":"CEDIMS","textPreview":"CEDIMS","textChars":6,"textLines":1,"bbox":[82,220,520,78]}
+{"kind":"textbox","id":"sh/mtkn254b","slide":1,"text":"System overview and role guide","textPreview":"System overview and role guide","textChars":30,"textLines":1,"bbox":[88,328,560,46]}
+{"kind":"textbox","id":"sh/7ut4valw","slide":1,"text":"Teachers, Master Teachers, and School Heads","textPreview":"Teachers, Master Teachers, and School Heads","textChars":43,"textLines":1,"bbox":[88,404,560,42]}
+{"kind":"textbox","id":"sh/ojilsvmd","slide":1,"text":"Prepared for feature explanation and live demo screenshots","textPreview":"Prepared for feature explanation and live demo screenshots","textChars":58,"textLines":1,"bbox":[88,534,540,34]}
+{"kind":"image","id":"im/43ihwv2d","slide":1,"name":"","alt":"Calapan East District image","bbox":[690,0,590,720]}
+{"kind":"image","id":"im/i1gzulk7","slide":1,"name":"","alt":"DepEd logo","bbox":[82,66,92,92]}
+{"kind":"image","id":"im/h07ilgjm","slide":1,"name":"","alt":"CEDIMS icon","bbox":[190,74,74,74]}
+{"kind":"notes","id":"nt/vdad9u","slide":1,"text":"Opening slide for the CEDIMS system presentation.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/m481qj","slide":2,"title":"CEDIMS SYSTEM GUIDE","textShapes":13}
+{"kind":"textbox","id":"sh/5ojidgz6","slide":2,"text":"CEDIMS SYSTEM GUIDE","textPreview":"CEDIMS SYSTEM GUIDE","textChars":19,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/ilsj2lgf","slide":2,"text":"What CEDIMS does","textPreview":"What CEDIMS does","textChars":16,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"textbox","id":"sh/sra18vyh","slide":2,"text":"CEDIMS manages instructional documents from upload to archive, review, and compliance follow-up.","textPreview":"CEDIMS manages instructional documents from upload to archive, review, and compliance follow-up.","textChars":96,"textLines":1,"bbox":[84,152,1050,86]}
+{"kind":"shape","id":"sh/tsjih0z2","slide":2,"bbox":[82,292,500,102]}
+{"kind":"shape","id":"sh/6psj6lgr","slide":2,"bbox":[82,292,12,102]}
+{"kind":"textbox","id":"sh/7q10fqhc","slide":2,"text":"Upload","textPreview":"Upload","textChars":6,"textLines":1,"bbox":[116,310,230,30]}
+{"kind":"textbox","id":"sh/8vqhwrid","slide":2,"text":"Teachers submit files and confirm detected details","textPreview":"Teachers submit files and confirm detected details","textChars":50,"textLines":1,"bbox":[116,348,420,30]}
+{"kind":"shape","id":"sh/9wzi5wzy","slide":2,"bbox":[640,292,500,102]}
+{"kind":"shape","id":"sh/hsjipg72","slide":2,"bbox":[640,292,12,102]}
+{"kind":"textbox","id":"sh/wrahgbqh","slide":2,"text":"Archive","textPreview":"Archive","textChars":7,"textLines":1,"bbox":[674,310,230,30]}
+{"kind":"textbox","id":"sh/vq10n69c","slide":2,"text":"Approved files stay searchable with QR verification","textPreview":"Approved files stay searchable with QR verification","textChars":51,"textLines":1,"bbox":[674,348,420,30]}
+{"kind":"shape","id":"sh/upsze18r","slide":2,"bbox":[82,428,500,102]}
+{"kind":"shape","id":"sh/5w3itg7e","slide":2,"bbox":[82,428,12,102]}
+{"kind":"textbox","id":"sh/4vahkbqt","slide":2,"text":"Review","textPreview":"Review","textChars":6,"textLines":1,"bbox":[116,446,230,30]}
+{"kind":"textbox","id":"sh/ju10r6p8","slide":2,"text":"Master Teachers and School Heads add remarks","textPreview":"Master Teachers and School Heads add remarks","textChars":44,"textLines":1,"bbox":[116,484,420,30]}
+{"kind":"shape","id":"sh/itszi18n","slide":2,"bbox":[640,428,500,102]}
+{"kind":"shape","id":"sh/tk3ix07a","slide":2,"bbox":[640,428,12,102]}
+{"kind":"textbox","id":"sh/sju1ovqp","slide":2,"text":"Compliance","textPreview":"Compliance","textChars":10,"textLines":1,"bbox":[674,446,230,30]}
+{"kind":"textbox","id":"sh/cfmtg32d","slide":2,"text":"Leaders see overdue and unchecked files first","textPreview":"Leaders see overdue and unchecked files first","textChars":45,"textLines":1,"bbox":[674,484,420,30]}
+{"kind":"textbox","id":"sh/xgvu9ojy","slide":2,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/ad4betk7","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/65wbat0r","slide":2,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/m481qj","slide":2,"text":"Simple definition of the system before explaining features and roles.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/slua9b","slide":3,"title":"CEDIMS SYSTEM GUIDE","textShapes":20}
+{"kind":"textbox","id":"sh/0bexkfqh","slide":3,"text":"CEDIMS SYSTEM GUIDE","textPreview":"CEDIMS SYSTEM GUIDE","textChars":19,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/za5gba9w","slide":3,"text":"Main workflow","textPreview":"Main workflow","textChars":13,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"shape","id":"sh/dony90rq","slide":3,"bbox":[66,198,202,236]}
+{"kind":"shape","id":"sh/cnexgfq5","slide":3,"bbox":[90,224,52,52]}
+{"kind":"textbox","id":"sh/bm5g7a9k","slide":3,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[90,232,52,30]}
+{"kind":"textbox","id":"sh/qlwfe58z","slide":3,"text":"Prepare","textPreview":"Prepare","textChars":7,"textLines":1,"bbox":[90,308,154,32]}
+{"kind":"textbox","id":"sh/xkryl4ru","slide":3,"text":"Teacher prepares the file","textPreview":"Teacher prepares the file","textChars":25,"textLines":1,"bbox":[90,354,154,54]}
+{"kind":"shape","id":"sh/wjyhszq9","slide":3,"bbox":[304,198,202,236]}
+{"kind":"shape","id":"sh/ilkf6xc7","slide":3,"bbox":[328,224,52,52]}
+{"kind":"textbox","id":"sh/jmtwz2ds","slide":3,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[328,232,52,30]}
+{"kind":"textbox","id":"sh/kn2x87ud","slide":3,"text":"Upload","textPreview":"Upload","textChars":6,"textLines":1,"bbox":[328,308,154,32]}
+{"kind":"textbox","id":"sh/58be1cvy","slide":3,"text":"System detects details","textPreview":"System detects details","textChars":22,"textLines":1,"bbox":[328,354,154,54]}
+{"kind":"shape","id":"sh/ah0f2xcb","slide":3,"bbox":[542,198,202,236]}
+{"kind":"shape","id":"sh/vi9wv2dg","slide":3,"bbox":[566,224,52,52]}
+{"kind":"textbox","id":"sh/wjix47u1","slide":3,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[566,232,52,30]}
+{"kind":"textbox","id":"sh/xkbexsvm","slide":3,"text":"Archive","textPreview":"Archive","textChars":7,"textLines":1,"bbox":[566,308,154,32]}
+{"kind":"textbox","id":"sh/ud4fehcf","slide":3,"text":"PDF is stored and verified","textPreview":"PDF is stored and verified","textChars":26,"textLines":1,"bbox":[566,354,154,54]}
+{"kind":"shape","id":"sh/fedw7mt0","slide":3,"bbox":[780,198,202,236]}
+{"kind":"shape","id":"sh/ry5czetc","slide":3,"bbox":[804,224,52,52]}
+{"kind":"textbox","id":"sh/qxwb69sr","slide":3,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[804,232,52,30]}
+{"kind":"textbox","id":"sh/dknu1obi","slide":3,"text":"Review","textPreview":"Review","textChars":6,"textLines":1,"bbox":[804,308,154,32]}
+{"kind":"textbox","id":"sh/cjet8jax","slide":3,"text":"Reviewer adds remarks","textPreview":"Reviewer adds remarks","textChars":21,"textLines":1,"bbox":[804,354,154,54]}
+{"kind":"shape","id":"sh/zmpc3yt8","slide":3,"bbox":[1018,198,202,236]}
+{"kind":"shape","id":"sh/elgbats3","slide":3,"bbox":[1042,224,52,52]}
+{"kind":"textbox","id":"sh/1o7u5obe","slide":3,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[1042,232,52,30]}
+{"kind":"textbox","id":"sh/0nytc3at","slide":3,"text":"Monitor","textPreview":"Monitor","textChars":7,"textLines":1,"bbox":[1042,308,154,32]}
+{"kind":"textbox","id":"sh/nqpc7ytk","slide":3,"text":"Leaders follow up","textPreview":"Leaders follow up","textChars":17,"textLines":1,"bbox":[1042,354,154,54]}
+{"kind":"shape","id":"sh/mpgbetsz","slide":3,"bbox":[126,520,1028,70]}
+{"kind":"textbox","id":"sh/kvito3qx","slide":3,"text":"Compliance tells who needs follow-up. Archive is where checking happens.","textPreview":"Compliance tells who needs follow-up. Archive is where checking happens.","textChars":72,"textLines":1,"bbox":[158,538,960,34]}
+{"kind":"textbox","id":"sh/5grax87i","slide":3,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/it0bmd87","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/3mlkvy1g","slide":3,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/slua9b","slide":3,"text":"Use this as the quick walkthrough before opening screenshots.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/qo5cel","slide":4,"title":"FEATURE DEFINITION","textShapes":12}
+{"kind":"textbox","id":"sh/xgryl8be","slide":4,"text":"FEATURE DEFINITION","textPreview":"FEATURE DEFINITION","textChars":18,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/at0zadsn","slide":4,"text":"Tracker","textPreview":"Tracker","textChars":7,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"shape","id":"sh/orih83ax","slide":4,"bbox":[70,148,570,142]}
+{"kind":"shape","id":"sh/9sryh8b2","slide":4,"bbox":[70,148,12,142]}
+{"kind":"textbox","id":"sh/mp0z6tsr","slide":4,"text":"Definition","textPreview":"Definition","textChars":10,"textLines":1,"bbox":[104,170,240,28]}
+{"kind":"textbox","id":"sh/nq9gfytc","slide":4,"text":"Shows each user what is submitted, missing, late, or still for checking.","textPreview":"Shows each user what is submitted, missing, late, or still for checking.","textChars":72,"textLines":1,"bbox":[104,208,492,58]}
+{"kind":"textbox","id":"sh/0nyx4jal","slide":4,"text":"What to show in your picture","textPreview":"What to show in your picture","textChars":28,"textLines":1,"bbox":[76,322,520,34]}
+{"kind":"shape","id":"sh/1o7ydob6","slide":4,"bbox":[84,384,16,16]}
+{"kind":"textbox","id":"sh/p0jy9svu","slide":4,"text":"Show status cards","textPreview":"Show status cards","textChars":17,"textLines":1,"bbox":[118,376,520,42]}
+{"kind":"shape","id":"sh/ozqhg7u9","slide":4,"bbox":[84,452,16,16]}
+{"kind":"textbox","id":"sh/3yhg72d4","slide":4,"text":"Show week or period filters","textPreview":"Show week or period filters","textChars":27,"textLines":1,"bbox":[118,444,520,42]}
+{"kind":"shape","id":"sh/2x8zexcj","slide":4,"bbox":[84,520,16,16]}
+{"kind":"textbox","id":"sh/1wzy5svy","slide":4,"text":"Show teacher or school progress","textPreview":"Show teacher or school progress","textChars":31,"textLines":1,"bbox":[118,512,520,42]}
+{"kind":"shape","id":"sh/gvqhcnud","slide":4,"bbox":[704,150,482,440]}
+{"kind":"shape","id":"sh/fuhg3ids","slide":4,"bbox":[722,168,446,48]}
+{"kind":"textbox","id":"sh/e98zadw7","slide":4,"text":"Exact Tracker screenshot","textPreview":"Exact Tracker screenshot","textChars":24,"textLines":1,"bbox":[738,180,414,24]}
+{"kind":"shape","id":"sh/t8fy18vm","slide":4,"bbox":[722,232,446,334]}
+{"kind":"textbox","id":"sh/s76x8ne1","slide":4,"text":"ADD EXACT\nSYSTEM PICTURE","textPreview":"ADD EXACT | SYSTEM PICTURE","textChars":24,"textLines":2,"bbox":[746,316,398,78]}
+{"kind":"textbox","id":"sh/kbahonmx","slide":4,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/lcjyxs3i","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/m1krulc7","slide":4,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/qo5cel","slide":4,"text":"Define Tracker and leave the right side for the exact system screenshot.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/bv2qnr","slide":5,"title":"FEATURE DEFINITION","textShapes":12}
+{"kind":"textbox","id":"sh/pw7ehcvi","slide":5,"text":"FEATURE DEFINITION","textPreview":"FEATURE DEFINITION","textChars":18,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/2tgvmhcr","slide":5,"text":"Upload","textPreview":"Upload","textChars":6,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"shape","id":"sh/grydk7u1","slide":5,"bbox":[70,148,570,142]}
+{"kind":"shape","id":"sh/hs7edcv6","slide":5,"bbox":[70,148,12,142]}
+{"kind":"textbox","id":"sh/upwvixcv","slide":5,"text":"Definition","textPreview":"Definition","textChars":10,"textLines":1,"bbox":[104,170,240,28]}
+{"kind":"textbox","id":"sh/fqpcb2dg","slide":5,"text":"Guides file submission and checks the detected subject, grade, term, week, and document type.","textPreview":"Guides file submission and checks the detected subject, grade, term, week, and document type.","textChars":93,"textLines":1,"bbox":[104,208,492,58]}
+{"kind":"textbox","id":"sh/snedgnup","slide":5,"text":"What to show in your picture","textPreview":"What to show in your picture","textChars":28,"textLines":1,"bbox":[76,322,520,34]}
+{"kind":"shape","id":"sh/tonu9sva","slide":5,"bbox":[84,384,16,16]}
+{"kind":"textbox","id":"sh/hcni94fi","slide":5,"text":"Show file selection","textPreview":"Show file selection","textChars":19,"textLines":1,"bbox":[118,376,520,42]}
+{"kind":"shape","id":"sh/wbe10zyx","slide":5,"bbox":[84,452,16,16]}
+{"kind":"textbox","id":"sh/val07uxc","slide":5,"text":"Show detected details","textPreview":"Show detected details","textChars":21,"textLines":1,"bbox":[118,444,520,42]}
+{"kind":"shape","id":"sh/u9czypgr","slide":5,"bbox":[84,520,16,16]}
+{"kind":"textbox","id":"sh/983i5kf6","slide":5,"text":"Show Confirm and Archive","textPreview":"Show Confirm and Archive","textChars":24,"textLines":1,"bbox":[118,512,520,42]}
+{"kind":"shape","id":"sh/87uhwfyl","slide":5,"bbox":[704,150,482,440]}
+{"kind":"shape","id":"sh/76l03ux0","slide":5,"bbox":[722,168,446,48]}
+{"kind":"textbox","id":"sh/m5czupgv","slide":5,"text":"Exact Upload screenshot","textPreview":"Exact Upload screenshot","textChars":23,"textLines":1,"bbox":[738,180,414,24]}
+{"kind":"shape","id":"sh/l43i1kfa","slide":5,"bbox":[722,232,446,334]}
+{"kind":"textbox","id":"sh/k3uhsfyp","slide":5,"text":"ADD EXACT\nSYSTEM PICTURE","textPreview":"ADD EXACT | SYSTEM PICTURE","textChars":24,"textLines":2,"bbox":[746,316,398,78]}
+{"kind":"textbox","id":"sh/cne1of6l","slide":5,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/do7ihkn6","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/utcralsb","slide":5,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/bv2qnr","slide":5,"text":"Define Upload and leave the right side for the exact system screenshot.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/vxfb9d","slide":6,"title":"FEATURE DEFINITION","textShapes":12}
+{"kind":"textbox","id":"sh/vy50zypc","slide":6,"text":"FEATURE DEFINITION","textPreview":"FEATURE DEFINITION","textChars":18,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/gze1sjqx","slide":6,"text":"Archive","textPreview":"Archive","textChars":7,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"shape","id":"sh/69czm98v","slide":6,"bbox":[70,148,570,142]}
+{"kind":"shape","id":"sh/7al0vepg","slide":6,"bbox":[70,148,12,142]}
+{"kind":"textbox","id":"sh/8buhojq1","slide":6,"text":"Definition","textPreview":"Definition","textChars":10,"textLines":1,"bbox":[104,170,240,28]}
+{"kind":"textbox","id":"sh/tc3ixo7m","slide":6,"text":"Stores submitted documents for search, viewing, remarks, downloads, and QR verification.","textPreview":"Stores submitted documents for search, viewing, remarks, downloads, and QR verification.","textChars":88,"textLines":1,"bbox":[104,208,492,58]}
+{"kind":"textbox","id":"sh/q5gjyd8z","slide":6,"text":"What to show in your picture","textPreview":"What to show in your picture","textChars":28,"textLines":1,"bbox":[76,322,520,34]}
+{"kind":"shape","id":"sh/r6p07ipk","slide":6,"bbox":[84,384,16,16]}
+{"kind":"textbox","id":"sh/f6hkfuhg","slide":6,"text":"Show term and week folders","textPreview":"Show term and week folders","textChars":26,"textLines":1,"bbox":[118,376,520,42]}
+{"kind":"shape","id":"sh/u58j6pgv","slide":6,"bbox":[84,452,16,16]}
+{"kind":"textbox","id":"sh/18z2h4zm","slide":6,"text":"Show document list","textPreview":"Show document list","textChars":18,"textLines":1,"bbox":[118,444,520,42]}
+{"kind":"shape","id":"sh/g7q18zy1","slide":6,"bbox":[84,520,16,16]}
+{"kind":"textbox","id":"sh/3a1kjuhc","slide":6,"text":"Show remarks or status area","textPreview":"Show remarks or status area","textChars":27,"textLines":1,"bbox":[118,512,520,42]}
+{"kind":"shape","id":"sh/298japg7","slide":6,"bbox":[704,150,482,440]}
+{"kind":"shape","id":"sh/pcj2l4zi","slide":6,"bbox":[722,168,446,48]}
+{"kind":"textbox","id":"sh/oba1czyx","slide":6,"text":"Exact Archive screenshot","textPreview":"Exact Archive screenshot","textChars":24,"textLines":1,"bbox":[738,180,414,24]}
+{"kind":"shape","id":"sh/be1kneho","slide":6,"bbox":[722,232,446,334]}
+{"kind":"textbox","id":"sh/qdsje9g3","slide":6,"text":"ADD EXACT\nSYSTEM PICTURE","textPreview":"ADD EXACT | SYSTEM PICTURE","textChars":24,"textLines":2,"bbox":[746,316,398,78]}
+{"kind":"textbox","id":"sh/m9wn6d0b","slide":6,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/nu54fi1w","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/oja58ju1","slide":6,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/vxfb9d","slide":6,"text":"Define Archive and leave the right side for the exact system screenshot.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/0fcv0t","slide":7,"title":"FEATURE DEFINITION","textShapes":12}
+{"kind":"textbox","id":"sh/7epkja9s","slide":7,"text":"FEATURE DEFINITION","textPreview":"FEATURE DEFINITION","textChars":18,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/8fylsfqd","slide":7,"text":"Compliance","textPreview":"Compliance","textChars":10,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"shape","id":"sh/y9wjm58b","slide":7,"bbox":[70,148,570,142]}
+{"kind":"shape","id":"sh/ja5kfa9w","slide":7,"bbox":[70,148,12,142]}
+{"kind":"textbox","id":"sh/kby1ovqh","slide":7,"text":"Definition","textPreview":"Definition","textChars":10,"textLines":1,"bbox":[104,170,240,28]}
+{"kind":"textbox","id":"sh/lc72h0rm","slide":7,"text":"Shows overdue files and files for checking so leaders know who needs action first.","textPreview":"Shows overdue files and files for checking so leaders know who needs action first.","textChars":82,"textLines":1,"bbox":[104,208,492,58]}
+{"kind":"textbox","id":"sh/alwjil8z","slide":7,"text":"What to show in your picture","textPreview":"What to show in your picture","textChars":28,"textLines":1,"bbox":[76,322,520,34]}
+{"kind":"shape","id":"sh/b65kbq9k","slide":7,"bbox":[84,384,16,16]}
+{"kind":"textbox","id":"sh/vi90zm9k","slide":7,"text":"Show overdue count","textPreview":"Show overdue count","textChars":18,"textLines":1,"bbox":[118,376,520,42]}
+{"kind":"shape","id":"sh/ax0j6hsz","slide":7,"bbox":[84,452,16,16]}
+{"kind":"textbox","id":"sh/xkri1wra","slide":7,"text":"Show for checking count","textPreview":"Show for checking count","textChars":23,"textLines":1,"bbox":[118,444,520,42]}
+{"kind":"shape","id":"sh/wji18ra5","slide":7,"bbox":[84,520,16,16]}
+{"kind":"textbox","id":"sh/jmtk369g","slide":7,"text":"Show action list and K-means groups","textPreview":"Show action list and K-means groups","textChars":35,"textLines":1,"bbox":[118,512,520,42]}
+{"kind":"shape","id":"sh/il0ja1sv","slide":7,"bbox":[704,150,482,440]}
+{"kind":"shape","id":"sh/5ob25grm","slide":7,"bbox":[722,168,446,48]}
+{"kind":"textbox","id":"sh/4n21cba1","slide":7,"text":"Exact Compliance screenshot","textPreview":"Exact Compliance screenshot","textChars":27,"textLines":1,"bbox":[738,180,414,24]}
+{"kind":"shape","id":"sh/zqp0r29c","slide":7,"bbox":[722,232,446,334]}
+{"kind":"textbox","id":"sh/ypgjyxsr","slide":7,"text":"ADD EXACT\nSYSTEM PICTURE","textPreview":"ADD EXACT | SYSTEM PICTURE","textChars":24,"textLines":2,"bbox":[746,316,398,78]}
+{"kind":"textbox","id":"sh/2xovm9gb","slide":7,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/nyxcvexw","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/wnylsb69","slide":7,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/0fcv0t","slide":7,"text":"Define Compliance and leave the right side for the exact system screenshot.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/k5zut7","slide":8,"title":"FEATURE DEFINITION","textShapes":12}
+{"kind":"textbox","id":"sh/6p8nyp4n","slide":8,"text":"FEATURE DEFINITION","textPreview":"FEATURE DEFINITION","textChars":18,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/tcj6tkny","slide":8,"text":"Loads","textPreview":"Loads","textChars":5,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"shape","id":"sh/jmh4na5w","slide":8,"bbox":[70,148,570,142]}
+{"kind":"shape","id":"sh/yl8nu54b","slide":8,"bbox":[70,148,12,142]}
+{"kind":"textbox","id":"sh/lozmpkn2","slide":8,"text":"Definition","textPreview":"Definition","textChars":10,"textLines":1,"bbox":[104,170,240,28]}
+{"kind":"textbox","id":"sh/knq5wfmh","slide":8,"text":"Keeps teaching assignments connected to the correct grade, subject, term, and week.","textPreview":"Keeps teaching assignments connected to the correct grade, subject, term, and week.","textChars":83,"textLines":1,"bbox":[104,208,492,58]}
+{"kind":"textbox","id":"sh/bih4jq50","slide":8,"text":"What to show in your picture","textPreview":"What to show in your picture","textChars":28,"textLines":1,"bbox":[76,322,520,34]}
+{"kind":"shape","id":"sh/ahonq54f","slide":8,"bbox":[84,384,16,16]}
+{"kind":"textbox","id":"sh/szm58zm5","slide":8,"text":"Show teaching load list","textPreview":"Show teaching load list","textChars":23,"textLines":1,"bbox":[118,376,520,42]}
+{"kind":"shape","id":"sh/t0f6hk3q","slide":8,"bbox":[84,452,16,16]}
+{"kind":"textbox","id":"sh/6x4n6p4z","slide":8,"text":"Show add or edit load","textPreview":"Show add or edit load","textChars":21,"textLines":1,"bbox":[118,444,520,42]}
+{"kind":"shape","id":"sh/7ydofulk","slide":8,"bbox":[84,520,16,16]}
+{"kind":"textbox","id":"sh/kbm54fmt","slide":8,"text":"Show role-based access","textPreview":"Show role-based access","textChars":22,"textLines":1,"bbox":[118,512,520,42]}
+{"kind":"shape","id":"sh/5wv6dk3e","slide":8,"bbox":[704,150,482,440]}
+{"kind":"shape","id":"sh/i94n2543","slide":8,"bbox":[722,168,446,48]}
+{"kind":"textbox","id":"sh/jadobal8","slide":8,"text":"Exact Loads screenshot","textPreview":"Exact Loads screenshot","textChars":22,"textLines":1,"bbox":[738,180,414,24]}
+{"kind":"shape","id":"sh/4r6pgj2d","slide":8,"bbox":[722,232,446,334]}
+{"kind":"textbox","id":"sh/psz6p43y","slide":8,"text":"ADD EXACT\nSYSTEM PICTURE","textPreview":"ADD EXACT | SYSTEM PICTURE","textChars":24,"textLines":2,"bbox":[746,316,398,78]}
+{"kind":"textbox","id":"sh/dcbedkrq","slide":8,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/cb2xkfq5","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/dwfy10za","slide":8,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/k5zut7","slide":8,"text":"Define Loads and leave the right side for the exact system screenshot.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/39bmp9","slide":9,"title":"CEDIMS SYSTEM GUIDE","textShapes":11}
+{"kind":"textbox","id":"sh/4rahsbah","slide":9,"text":"CEDIMS SYSTEM GUIDE","textPreview":"CEDIMS SYSTEM GUIDE","textChars":19,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/3q10j6tw","slide":9,"text":"Teacher role","textPreview":"Teacher role","textChars":12,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"textbox","id":"sh/dw3ip0by","slide":9,"text":"Teacher focus: upload the right DLL and track personal weekly requirements.","textPreview":"Teacher focus: upload the right DLL and track personal weekly requirements.","textChars":75,"textLines":1,"bbox":[80,150,1050,64]}
+{"kind":"shape","id":"sh/svahwvad","slide":9,"bbox":[88,280,16,16]}
+{"kind":"textbox","id":"sh/ru10nqts","slide":9,"text":"Checks Tracker for missing or upcoming files","textPreview":"Checks Tracker for missing or upcoming files","textChars":44,"textLines":1,"bbox":[122,272,800,38]}
+{"kind":"shape","id":"sh/qtszuls7","slide":9,"bbox":[88,350,16,16]}
+{"kind":"textbox","id":"sh/t0zidwbu","slide":9,"text":"Uses Upload to submit DLLs","textPreview":"Uses Upload to submit DLLs","textChars":26,"textLines":1,"bbox":[122,342,800,38]}
+{"kind":"shape","id":"sh/8zqhkru9","slide":9,"bbox":[88,420,16,16]}
+{"kind":"textbox","id":"sh/65sze98v","slide":9,"text":"Confirms detected term, week, subject, and grade","textPreview":"Confirms detected term, week, subject, and grade","textChars":48,"textLines":1,"bbox":[122,412,800,38]}
+{"kind":"shape","id":"sh/7610nepg","slide":9,"bbox":[88,490,16,16]}
+{"kind":"textbox","id":"sh/s7a1gjq1","slide":9,"text":"Views remarks and final PDFs in Archive","textPreview":"Views remarks and final PDFs in Archive","textChars":39,"textLines":1,"bbox":[122,482,800,38]}
+{"kind":"shape","id":"sh/t8ji9o7m","slide":9,"bbox":[856,278,300,250]}
+{"kind":"shape","id":"sh/e9sji98r","slide":9,"bbox":[874,296,264,48]}
+{"kind":"textbox","id":"sh/fa10bepc","slide":9,"text":"Teacher dashboard or upload screenshot","textPreview":"Teacher dashboard or upload screenshot","textChars":38,"textLines":1,"bbox":[890,308,232,24]}
+{"kind":"shape","id":"sh/gba1kjqx","slide":9,"bbox":[874,360,264,144]}
+{"kind":"textbox","id":"sh/1c3ido7i","slide":9,"text":"ADD EXACT\nSYSTEM PICTURE","textPreview":"ADD EXACT | SYSTEM PICTURE","textChars":24,"textLines":2,"bbox":[898,349,216,78]}
+{"kind":"textbox","id":"sh/2dcjmt83","slide":9,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/3el0fypo","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/r2lcvaxc","slide":9,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/39bmp9","slide":9,"text":"Teacher role explanation with a space for the exact teacher screen.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/xwchdx","slide":10,"title":"CEDIMS SYSTEM GUIDE","textShapes":11}
+{"kind":"textbox","id":"sh/87qlkj61","slide":10,"text":"CEDIMS SYSTEM GUIDE","textPreview":"CEDIMS SYSTEM GUIDE","textChars":19,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/76hkbe5g","slide":10,"text":"Master Teacher role","textPreview":"Master Teacher role","textChars":19,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"textbox","id":"sh/l4f294nq","slide":10,"text":"Master Teacher focus: submit required files and support checking for the school.","textPreview":"Master Teacher focus: submit required files and support checking for the school.","textChars":80,"textLines":1,"bbox":[80,150,1050,64]}
+{"kind":"shape","id":"sh/k36lgz65","slide":10,"bbox":[88,280,16,16]}
+{"kind":"textbox","id":"sh/z2xk7u5k","slide":10,"text":"Uploads DLL, ISP, or ISR when assigned","textPreview":"Uploads DLL, ISP, or ISR when assigned","textChars":38,"textLines":1,"bbox":[122,272,800,38]}
+{"kind":"shape","id":"sh/y1o3epoz","slide":10,"bbox":[88,350,16,16]}
+{"kind":"textbox","id":"sh/50jml8nu","slide":10,"text":"Uses Archive to review files and add remarks","textPreview":"Uses Archive to review files and add remarks","textChars":44,"textLines":1,"bbox":[122,342,800,38]}
+{"kind":"shape","id":"sh/4zals369","slide":10,"bbox":[88,420,16,16]}
+{"kind":"textbox","id":"sh/yl0bqpsf","slide":10,"text":"Uses Compliance to find missing or unchecked DLLs","textPreview":"Uses Compliance to find missing or unchecked DLLs","textChars":49,"textLines":1,"bbox":[122,412,800,38]}
+{"kind":"shape","id":"sh/jm9cja90","slide":10,"bbox":[88,490,16,16]}
+{"kind":"textbox","id":"sh/knitsfq5","slide":10,"text":"Uses pattern groups to identify teachers needing support","textPreview":"Uses pattern groups to identify teachers needing support","textChars":56,"textLines":1,"bbox":[122,482,800,38]}
+{"kind":"shape","id":"sh/lobulkrq","slide":10,"bbox":[856,278,300,250]}
+{"kind":"shape","id":"sh/ax0bm5s3","slide":10,"bbox":[874,296,264,48]}
+{"kind":"textbox","id":"sh/bi9sfa9o","slide":10,"text":"Master Teacher Archive or Compliance screenshot","textPreview":"Master Teacher Archive or Compliance screenshot","textChars":47,"textLines":1,"bbox":[890,308,232,24]}
+{"kind":"shape","id":"sh/wjitofa9","slide":10,"bbox":[874,360,264,144]}
+{"kind":"textbox","id":"sh/xkrahkru","slide":10,"text":"ADD EXACT\nSYSTEM PICTURE","textPreview":"ADD EXACT | SYSTEM PICTURE","textChars":24,"textLines":2,"bbox":[898,349,216,78]}
+{"kind":"textbox","id":"sh/utkbi98n","slide":10,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/fetcru98","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/b6t0r6ho","slide":10,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/xwchdx","slide":10,"text":"Master Teacher role explanation with a screenshot placeholder.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/yudpt8","slide":11,"title":"CEDIMS SYSTEM GUIDE","textShapes":11}
+{"kind":"textbox","id":"sh/kr29ofi5","slide":11,"text":"CEDIMS SYSTEM GUIDE","textPreview":"CEDIMS SYSTEM GUIDE","textChars":19,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/jq98fa1k","slide":11,"text":"School Head role","textPreview":"School Head role","textChars":16,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"textbox","id":"sh/xorqd0ju","slide":11,"text":"School Head focus: monitor the school, follow up overdue files, and confirm checking work.","textPreview":"School Head focus: monitor the school, follow up overdue files, and confirm checking work.","textChars":90,"textLines":1,"bbox":[80,150,1050,64]}
+{"kind":"shape","id":"sh/wnipkvi9","slide":11,"bbox":[88,280,16,16]}
+{"kind":"textbox","id":"sh/vm98ba1o","slide":11,"text":"Views school-level overdue and for checking counts","textPreview":"Views school-level overdue and for checking counts","textChars":50,"textLines":1,"bbox":[122,272,800,38]}
+{"kind":"shape","id":"sh/al07i503","slide":11,"bbox":[88,350,16,16]}
+{"kind":"textbox","id":"sh/hkvqp4jy","slide":11,"text":"Opens teacher or subject action lists","textPreview":"Opens teacher or subject action lists","textChars":37,"textLines":1,"bbox":[122,342,800,38]}
+{"kind":"shape","id":"sh/gjm9wzid","slide":11,"bbox":[88,420,16,16]}
+{"kind":"textbox","id":"sh/29kru1k3","slide":11,"text":"Uses K-means groups to target support","textPreview":"Uses K-means groups to target support","textChars":37,"textLines":1,"bbox":[122,412,800,38]}
+{"kind":"shape","id":"sh/3utsnmlo","slide":11,"bbox":[88,490,16,16]}
+{"kind":"textbox","id":"sh/4v29wr29","slide":11,"text":"Exports period reports for meetings and monitoring","textPreview":"Exports period reports for meetings and monitoring","textChars":50,"textLines":1,"bbox":[122,482,800,38]}
+{"kind":"shape","id":"sh/pwbapwju","slide":11,"bbox":[856,278,300,250]}
+{"kind":"shape","id":"sh/u50rqhk7","slide":11,"bbox":[874,296,264,48]}
+{"kind":"textbox","id":"sh/f698jmls","slide":11,"text":"School Head Compliance screenshot","textPreview":"School Head Compliance screenshot","textChars":33,"textLines":1,"bbox":[890,308,232,24]}
+{"kind":"shape","id":"sh/g729sr2d","slide":11,"bbox":[874,360,264,144]}
+{"kind":"textbox","id":"sh/h8bqlw3i","slide":11,"text":"ADD EXACT\nSYSTEM PICTURE","textPreview":"ADD EXACT | SYSTEM PICTURE","textChars":24,"textLines":2,"bbox":[898,349,216,78]}
+{"kind":"textbox","id":"sh/e14r2lkb","slide":11,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/z2dsvq1w","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/za5ojihk","slide":11,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/yudpt8","slide":11,"text":"School Head role explanation with a screenshot placeholder.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/zhisww","slide":12,"title":"CEDIMS SYSTEM GUIDE","textShapes":24}
+{"kind":"textbox","id":"sh/i9sja5g7","slide":12,"text":"CEDIMS SYSTEM GUIDE","textPreview":"CEDIMS SYSTEM GUIDE","textChars":19,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/5c3ilkzy","slide":12,"text":"Role access at a glance","textPreview":"Role access at a glance","textChars":23,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"shape","id":"sh/v610fqhw","slide":12,"bbox":[74,162,260,78]}
+{"kind":"textbox","id":"sh/a5sz65gb","slide":12,"text":"Feature","textPreview":"Feature","textChars":7,"textLines":1,"bbox":[88,186,232,30]}
+{"kind":"shape","id":"sh/x8jih0zm","slide":12,"bbox":[334,162,278,78]}
+{"kind":"textbox","id":"sh/w7ah8vyh","slide":12,"text":"Teacher","textPreview":"Teacher","textChars":7,"textLines":1,"bbox":[348,186,250,30]}
+{"kind":"shape","id":"sh/nih0bqhk","slide":12,"bbox":[612,162,318,78]}
+{"kind":"textbox","id":"sh/mh8z2l0z","slide":12,"text":"Master Teacher","textPreview":"Master Teacher","textChars":14,"textLines":1,"bbox":[626,186,290,30]}
+{"kind":"shape","id":"sh/ofe54jyl","slide":12,"bbox":[930,162,318,78]}
+{"kind":"textbox","id":"sh/pgn6dof6","slide":12,"text":"School Head","textPreview":"School Head","textChars":11,"textLines":1,"bbox":[944,186,290,30]}
+{"kind":"shape","id":"sh/2dwn29gv","slide":12,"bbox":[74,240,260,78]}
+{"kind":"textbox","id":"sh/3e5obeh0","slide":12,"text":"Tracker","textPreview":"Tracker","textChars":7,"textLines":1,"bbox":[90,263,228,30]}
+{"kind":"shape","id":"sh/gbe50jyp","slide":12,"bbox":[334,240,278,78]}
+{"kind":"textbox","id":"sh/1cn69oza","slide":12,"text":"Own status","textPreview":"Own status","textChars":10,"textLines":1,"bbox":[350,263,246,30]}
+{"kind":"shape","id":"sh/e9cny9gj","slide":12,"bbox":[612,240,318,78]}
+{"kind":"textbox","id":"sh/falo7eh4","slide":12,"text":"Own and review items","textPreview":"Own and review items","textChars":20,"textLines":1,"bbox":[628,263,286,30]}
+{"kind":"shape","id":"sh/k7ypc3yt","slide":12,"bbox":[930,240,318,78]}
+{"kind":"textbox","id":"sh/l876l8fe","slide":12,"text":"School status","textPreview":"School status","textChars":13,"textLines":1,"bbox":[946,263,286,30]}
+{"kind":"shape","id":"sh/to36p87i","slide":12,"bbox":[74,318,260,78]}
+{"kind":"textbox","id":"sh/8nu5w3qx","slide":12,"text":"Upload","textPreview":"Upload","textChars":6,"textLines":1,"bbox":[90,341,228,30]}
+{"kind":"shape","id":"sh/72lonypc","slide":12,"bbox":[334,318,278,78]}
+{"kind":"textbox","id":"sh/61cnut87","slide":12,"text":"DLL","textPreview":"DLL","textChars":3,"textLines":1,"bbox":[350,341,246,30]}
+{"kind":"shape","id":"sh/l036lo7m","slide":12,"bbox":[612,318,318,78]}
+{"kind":"textbox","id":"sh/kzu5sjq1","slide":12,"text":"DLL, ISP, ISR","textPreview":"DLL, ISP, ISR","textChars":13,"textLines":1,"bbox":[628,341,286,30]}
+{"kind":"shape","id":"sh/zylojypg","slide":12,"bbox":[930,318,318,78]}
+{"kind":"textbox","id":"sh/yxsnqt8v","slide":12,"text":"ISP, ISR","textPreview":"ISP, ISR","textChars":8,"textLines":1,"bbox":[946,341,286,30]}
+{"kind":"shape","id":"sh/xwjmho7a","slide":12,"bbox":[74,396,260,78]}
+{"kind":"textbox","id":"sh/cva5ojqp","slide":12,"text":"Archive","textPreview":"Archive","textChars":7,"textLines":1,"bbox":[90,419,228,30]}
+{"kind":"shape","id":"sh/2183ypon","slide":12,"bbox":[334,396,278,78]}
+{"kind":"textbox","id":"sh/n2hkru58","slide":12,"text":"Own files","textPreview":"Own files","textChars":9,"textLines":1,"bbox":[350,419,246,30]}
+{"kind":"shape","id":"sh/o3ql0z6t","slide":12,"bbox":[612,396,318,78]}
+{"kind":"textbox","id":"sh/p4z2tkne","slide":12,"text":"School review files","textPreview":"School review files","textChars":19,"textLines":1,"bbox":[628,419,286,30]}
+{"kind":"shape","id":"sh/exo3u5or","slide":12,"bbox":[930,396,318,78]}
+{"kind":"textbox","id":"sh/fyxkna5c","slide":12,"text":"School files","textPreview":"School files","textChars":12,"textLines":1,"bbox":[946,419,286,30]}
+{"kind":"shape","id":"sh/0zqlwf6h","slide":12,"bbox":[74,474,260,78]}
+{"kind":"textbox","id":"sh/10z2pkn2","slide":12,"text":"Compliance","textPreview":"Compliance","textChars":10,"textLines":1,"bbox":[90,497,228,30]}
+{"kind":"shape","id":"sh/q9ojq5of","slide":12,"bbox":[334,474,278,78]}
+{"kind":"textbox","id":"sh/raxkja50","slide":12,"text":"Personal view","textPreview":"Personal view","textChars":13,"textLines":1,"bbox":[350,497,246,30]}
+{"kind":"shape","id":"sh/jmhgv69w","slide":12,"bbox":[612,474,318,78]}
+{"kind":"textbox","id":"sh/il8z21sb","slide":12,"text":"Teacher follow-up","textPreview":"Teacher follow-up","textChars":17,"textLines":1,"bbox":[628,497,286,30]}
+{"kind":"shape","id":"sh/5ozyxgrm","slide":12,"bbox":[930,474,318,78]}
+{"kind":"textbox","id":"sh/4nqh4bah","slide":12,"text":"School follow-up","textPreview":"School follow-up","textChars":16,"textLines":1,"bbox":[946,497,286,30]}
+{"kind":"textbox","id":"sh/vyxgr69k","slide":12,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/uxozy1sz","slide":12,"text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/58v6pc76","slide":12,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"notes","id":"nt/zhisww","slide":12,"text":"Large role access table for easy viewing.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/f42hhy","slide":13,"title":"CEDIMS SYSTEM GUIDE","textShapes":14}
+{"kind":"textbox","id":"sh/fupwbqhk","slide":13,"text":"CEDIMS SYSTEM GUIDE","textPreview":"CEDIMS SYSTEM GUIDE","textChars":19,"textLines":1,"bbox":[64,34,640,26]}
+{"kind":"textbox","id":"sh/gvyd4vy5","slide":13,"text":"Demo picture checklist","textPreview":"Demo picture checklist","textChars":22,"textLines":1,"bbox":[64,68,940,60]}
+{"kind":"shape","id":"sh/6pwvel0n","slide":13,"bbox":[82,150,1030,58]}
+{"kind":"textbox","id":"sh/7q5w7qh8","slide":13,"text":"Tracker","textPreview":"Tracker","textChars":7,"textLines":1,"bbox":[112,164,220,28]}
+{"kind":"textbox","id":"sh/sred0vit","slide":13,"text":"dashboard with status cards","textPreview":"dashboard with status cards","textChars":27,"textLines":1,"bbox":[352,164,720,28]}
+{"kind":"shape","id":"sh/tsne9gze","slide":13,"bbox":[82,238,1030,58]}
+{"kind":"textbox","id":"sh/ql0fa5g7","slide":13,"text":"Upload","textPreview":"Upload","textChars":6,"textLines":1,"bbox":[112,252,220,28]}
+{"kind":"textbox","id":"sh/bm9wjahs","slide":13,"text":"detected load, term, week, and confirm button","textPreview":"detected load, term, week, and confirm button","textChars":45,"textLines":1,"bbox":[352,252,720,28]}
+{"kind":"shape","id":"sh/7qpovqtg","slide":13,"bbox":[82,326,1030,58]}
+{"kind":"textbox","id":"sh/6pgnmlsb","slide":13,"text":"Archive","textPreview":"Archive","textChars":7,"textLines":1,"bbox":[112,340,220,28]}
+{"kind":"textbox","id":"sh/ts76x0bm","slide":13,"text":"term and week folders plus remarks","textPreview":"term and week folders plus remarks","textChars":34,"textLines":1,"bbox":[352,340,720,28]}
+{"kind":"shape","id":"sh/8ry5ova1","slide":13,"bbox":[82,414,1030,58]}
+{"kind":"textbox","id":"sh/vupozq9s","slide":13,"text":"Compliance","textPreview":"Compliance","textChars":10,"textLines":1,"bbox":[112,428,220,28]}
+{"kind":"textbox","id":"sh/utgnq5s7","slide":13,"text":"overdue, for checking, K-means groups, and action list","textPreview":"overdue, for checking, K-means groups, and action list","textChars":54,"textLines":1,"bbox":[352,428,720,28]}
+{"kind":"shape","id":"sh/hgr610ry","slide":13,"bbox":[82,502,1030,58]}
+{"kind":"textbox","id":"sh/gfy5svad","slide":13,"text":"Loads","textPreview":"Loads","textChars":5,"textLines":1,"bbox":[112,516,220,28]}
+{"kind":"textbox","id":"sh/3i9o3a9o","slide":13,"text":"teaching load assignment screen","textPreview":"teaching load assignment screen","textChars":31,"textLines":1,"bbox":[352,516,720,28]}
+{"kind":"textbox","id":"sh/edkrm9cb","slide":13,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/fet8vetw","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/03e90bqt","slide":13,"name":"","alt":"CEDIMS app icon","bbox":[1140,36,58,58]}
+{"kind":"image","id":"im/h4vq9076","slide":13,"name":"","alt":"Gabay chatbot mascot","bbox":[1118,550,74,74]}
+{"kind":"notes","id":"nt/f42hhy","slide":13,"text":"Use this slide as the checklist for replacing placeholders with final screenshots.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
+{"kind":"slide","id":"sl/zp50py","slide":14,"title":"One-minute explanation","textShapes":5}
+{"kind":"textbox","id":"sh/d4vytsr6","slide":14,"text":"One-minute explanation","textPreview":"One-minute explanation","textChars":22,"textLines":1,"bbox":[86,214,880,62]}
+{"kind":"textbox","id":"sh/c3mh0na1","slide":14,"text":"Teachers submit and track. Master Teachers review and support. School Heads monitor and follow up. Archive keeps the evidence. Compliance shows where action is needed.","textPreview":"Teachers submit and track. Master Teachers review and support. School Heads monitor and follow up. Archive keeps the evidence. Compliance...","textChars":167,"textLines":1,"bbox":[90,314,1040,112]}
+{"kind":"shape","id":"sh/3ydgni94","slide":14,"bbox":[90,500,1010,76]}
+{"kind":"textbox","id":"sh/2xkzudsj","slide":14,"text":"Goal: fewer missing DLLs, faster checking, and clearer weekly documentation.","textPreview":"Goal: fewer missing DLLs, faster checking, and clearer weekly documentation.","textChars":76,"textLines":1,"bbox":[126,520,940,34]}
+{"kind":"textbox","id":"sh/p0vyp8ra","slide":14,"text":"Calapan East District Instructional Monitoring System","textPreview":"Calapan East District Instructional Monitoring System","textChars":53,"textLines":1,"bbox":[64,676,650,24]}
+{"kind":"textbox","id":"sh/4zmhwnap","slide":14,"text":"14","textPreview":"14","textChars":2,"textLines":1,"bbox":[1170,676,46,24]}
+{"kind":"image","id":"im/vah4f6p4","slide":14,"name":"","alt":"CEDIMS app icon","bbox":[86,82,96,96]}
+{"kind":"notes","id":"nt/zp50py","slide":14,"text":"Closing script for the presenter.\n\nSources: docs/UserManual_Concise.md; src/lib/config/navigation.ts; src/lib/config/walkthroughSteps.ts; static/manifest.json."}
