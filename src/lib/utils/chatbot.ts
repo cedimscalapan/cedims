@@ -1228,71 +1228,67 @@ async function querySchoolCompare(
     const { data: teachers } = await db
         .from('profiles')
         .select('id, school_id')
-        .eq('role', 'Teacher')
+        .in('role', ['Teacher', 'Master Teacher'])
         .in('school_id', schoolIds);
 
     if (!teachers || teachers.length === 0) {
         return lang === 'tl' ? 'Walang nahanap na guro sa mga paaralang ito.' : 'No teachers found in these schools.';
     }
 
-    // Exclude NC placeholders from the submissions query
+    // Match ComplianceWorkspace: current-year DLL/DLP requirements, not raw
+    // uploaded-file totals.
     const teacherIds = (teachers as any[]).map((t: any) => t.id);
-    const { data: submissions } = await db
-        .from('submissions')
-        .select('user_id, compliance_status')
-        .in('user_id', teacherIds)
-        .not('file_hash', 'like', 'nc_%');
+    const schoolYear = getDynamicSchoolYear();
+    const [{ data: loads }, { data: calendar }, { data: submissions }] = await Promise.all([
+        db.from('teaching_loads').select('id, user_id, subject, grade_level, is_active')
+            .eq('is_active', true).in('user_id', teacherIds),
+        db.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active')
+            .eq('school_year', schoolYear).eq('is_active', true),
+        db.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at')
+            .in('user_id', teacherIds).eq('school_year', schoolYear).in('doc_type', ['DLL', 'DLP'])
+            .not('file_hash', 'like', 'nc_%'),
+    ]);
 
-    // Build teacher → school mapping
-    const teacherSchool = new Map<string, string>();
-    for (const t of teachers as any[]) {
-        teacherSchool.set(t.id, t.school_id);
-    }
-
-    // Aggregate per school
-    const schoolMap = new Map<string, { total: number; compliant: number }>();
+    const schoolMap = new Map<string, { expected: number; submitted: number; missing: number; rate: number | null }>();
+    const scoped = scopedCalendar((calendar || []) as CalendarSlot[], effectiveDistrictId);
     for (const school of schools as any[]) {
-        schoolMap.set(school.name, { total: 0, compliant: 0 });
-    }
-
-    for (const s of (submissions || []) as any[]) {
-        const schoolId = teacherSchool.get(s.user_id);
-        if (!schoolId) continue;
-        const school = (schools as any[]).find((sc: any) => sc.id === schoolId);
-        if (!school) continue;
-        const entry = schoolMap.get(school.name)!;
-        entry.total++;
-        if (isCompliant(s.compliance_status)) {
-            entry.compliant++;
-        }
+        const schoolTeachers = (teachers as any[]).filter(t => t.school_id === school.id);
+        const schoolRequirements = schoolTeachers.flatMap(t => buildRequirements(
+            ((loads || []) as ComplianceLoad[]).filter(l => l.user_id === t.id),
+            scoped,
+            ((submissions || []) as ComplianceSubmission[]).filter(s => s.user_id === t.id),
+        ));
+        const summary = summarizeRequirements(schoolRequirements);
+        schoolMap.set(school.name, { expected: summary.expected, submitted: summary.submitted, missing: summary.missing, rate: summary.rate });
     }
 
     const sorted = [...schoolMap.entries()]
         .map(([name, stats]) => ({
             name,
-            rate: stats.total > 0 ? Math.round((stats.compliant / stats.total) * 100) : 0,
-            total: stats.total,
-            compliant: stats.compliant
+            rate: stats.rate,
+            expected: stats.expected,
+            submitted: stats.submitted,
+            missing: stats.missing,
         }))
-        .sort((a, b) => b.rate - a.rate);
+        .sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1));
 
-    if (sorted.length === 0 || sorted.every(s => s.total === 0)) {
+    if (sorted.length === 0 || sorted.every(s => s.expected === 0)) {
         return lang === 'tl' ? 'Wala pang available na submission data para sa paghahambing ng paaralan.' : 'No submission data available for school comparison yet.';
     }
 
     if (slots.school) {
         const match = sorted[0];
-        if (match.total > 0) {
+        if (match.expected > 0) {
             return lang === 'tl'
-                ? `Ang compliance para sa ${slots.school} ay ${match.rate}% (${match.compliant} sa ${match.total} submissions).`
-                : `Compliance for ${slots.school} is ${match.rate}% (${match.compliant} out of ${match.total} submissions).`;
+                ? `Ang compliance para sa ${slots.school} ay ${match.rate}% (${match.submitted} sa ${match.expected} na inaasahang DLL). Missing: ${match.missing}.`
+                : `Compliance for ${slots.school} is ${match.rate}% (${match.submitted} out of ${match.expected} expected DLLs). Missing: ${match.missing}.`;
         }
         return lang === 'tl' ? `Walang nahanap na submission data para sa ${slots.school}.` : `I could not find submission data for ${slots.school}.`;
     }
 
     const lines = sorted.map((s, i) => {
         const rank = i === 0 ? '(1st)' : i === 1 ? '(2nd)' : i === 2 ? '(3rd)' : '';
-        return `${rank ? rank + ' ' : ''}${s.name}: ${s.rate}% (${s.compliant} out of ${s.total})`;
+        return `${rank ? rank + ' ' : ''}${s.name}: ${s.rate === null ? 'N/A' : `${s.rate}%`} (${s.submitted} out of ${s.expected} expected DLLs, ${s.missing} missing)`;
     });
 
     return lang === 'tl'
