@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name TEXT NOT NULL,
     email TEXT,
-    role TEXT NOT NULL CHECK (role IN ('Teacher', 'School Head', 'Master Teacher', 'District Supervisor')),
+    role TEXT NOT NULL CHECK (role IN ('Admin', 'Teacher', 'School Head', 'Master Teacher', 'District Supervisor')),
     school_id UUID REFERENCES schools(id),
     district_id UUID REFERENCES districts(id),
     avatar_url TEXT,
@@ -350,14 +350,15 @@ CREATE POLICY "Users can update own profile"
     ON profiles FOR UPDATE USING (auth.uid() = id);
 
 DROP POLICY IF EXISTS "Supervisors can manage all profiles" ON profiles;
-CREATE POLICY "Supervisors can manage all profiles"
+CREATE POLICY "Admins can manage all profiles"
     ON profiles FOR UPDATE TO authenticated
     USING (
         EXISTS (
             SELECT 1 FROM profiles p
-            WHERE p.id = auth.uid() AND p.role = 'District Supervisor'
+            WHERE p.id = auth.uid() AND p.role = 'Admin'
         )
-    );
+    )
+    WITH CHECK (true);
 
 -- ── Submissions ──
 DROP POLICY IF EXISTS "Teachers can manage own submissions" ON submissions;

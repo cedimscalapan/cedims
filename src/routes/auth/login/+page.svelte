@@ -6,6 +6,8 @@
         authLoading,
     } from "$lib/utils/auth";
     import { addToast } from "$lib/stores/toast";
+    import { supabase } from "$lib/utils/supabase";
+    import { logAudit } from "$lib/utils/audit";
     import { goto } from "$app/navigation";
     import { onMount } from "svelte";
     import { env } from "$env/dynamic/public";
@@ -148,6 +150,10 @@
             resetCaptcha();
         } else {
             addToast("success", "Welcome to CEDIMS.");
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (sessionData.session?.user?.id) {
+                void logAudit(sessionData.session.user.id, "auth.login", "session", sessionData.session.user.id, { method: "password" });
+            }
         }
 
         loading = false;

@@ -69,6 +69,9 @@
     let termNumber = $state<number | undefined>();
     let weekNumber = $state<number | undefined>();
     let teachingLoadId = $state<string>("");
+    let targetConfirmed = $state(false);
+    let confirmArchiveOpen = $state(false);
+    let uploadConfirmed = $state(false);
     let teachingLoads = $state<TeachingLoad[]>([]);
     let loadingTeachingLoads = $state(true);
     let currentPhase = $state<PipelinePhase>("transcoding");
@@ -674,6 +677,7 @@
         }
 
         selectedFile = file;
+        targetConfirmed = false;
         result = null;
         ocrConfidence = null;
         fileSizeWarning =
@@ -691,19 +695,18 @@
             detectedMetadata = metadata;
             scanProgress = 92;
 
-            if (metadata.docType !== "Unknown") {
-                docType = metadata.docType;
-            }
+            // OCR may update the suggested target, but the final archive
+            // destination is not committed until the confirmation form.
+            if (metadata.docType !== "Unknown") docType = metadata.docType;
 
             // Only auto-fill week number and teaching load for DLL documents
             if (docType === "DLL") {
-                if (metadata.termNumber) {
-                    termNumber = metadata.termNumber;
-                }
+                if (metadata.termNumber) termNumber = metadata.termNumber;
                 if (metadata.weekNumber) {
                     weekNumber = metadata.weekNumber;
                     termNumber = metadata.termNumber || Math.min(3, Math.max(1, Math.ceil(metadata.weekNumber / 13)));
-                } else if (metadata.date && $profile?.district_id) {
+                }
+                if (metadata.date && $profile?.district_id) {
                     const docDate = parseDocDate(metadata.date);
                     if (docDate) {
                         const derivedWeek = await lookupWeekByDate(
@@ -783,6 +786,15 @@
         });
     }
     async function handleUpload() {
+        if (!uploadConfirmed) {
+            confirmArchiveOpen = true;
+            return;
+        }
+        uploadConfirmed = false;
+        if (docType === 'DLL' && !targetConfirmed) {
+            addToast('error', 'Select and confirm the teaching load, term, and week before uploading. Scanner results are suggestions only.');
+            return;
+        }
         if ($settings.maintenance_mode) {
             addToast(
                 "error",
@@ -1598,6 +1610,29 @@
     </div>
 </div>
 
+{#if confirmArchiveOpen}
+    <div class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-black/60" role="presentation">
+        <div class="w-full max-w-lg bg-surface-white rounded-2xl shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-label="Confirm archive target">
+            <div class="px-6 py-4 border-b border-border-subtle"><p class="text-xs font-bold text-gov-blue uppercase tracking-wide">Final confirmation</p><h2 class="text-xl font-bold text-text-primary">Confirm archive destination</h2></div>
+            <div class="px-6 py-5 space-y-3">
+                <p class="text-sm text-text-secondary">OCR may have suggested these values. Review them carefully before the file is archived.</p>
+                <div class="rounded-xl border border-border-subtle bg-surface-muted p-4 space-y-2 text-sm">
+                    <p><strong>Teaching Load:</strong> {teachingLoads.find((load) => load.id === teachingLoadId)?.subject || "Not selected"} · Grade {teachingLoads.find((load) => load.id === teachingLoadId)?.grade_level || "—"}</p>
+                    <p><strong>Document Type:</strong> {docType}</p>
+                    <p><strong>Term:</strong> {termNumber || "Not selected"}</p>
+                    <p><strong>Week:</strong> {weekNumber || "Not selected"}</p>
+                    <p><strong>File:</strong> {selectedFile?.name || "—"}</p>
+                </div>
+                {#if mismatchAlert}<p class="rounded-xl border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm text-gov-gold-dark">Scanner mismatch detected. Confirm only if the selected target is correct.</p>{/if}
+            </div>
+            <div class="px-6 py-4 bg-surface-muted border-t border-border-subtle flex justify-end gap-3">
+                <button onclick={() => (confirmArchiveOpen = false)} class="min-h-11 px-4 rounded-xl border border-border-subtle bg-surface-white text-sm font-bold">Review again</button>
+                <button onclick={() => { confirmArchiveOpen = false; uploadConfirmed = true; handleUpload(); }} class="min-h-11 px-4 rounded-xl bg-gov-blue text-white text-sm font-bold">Confirm & Archive</button>
+            </div>
+        </div>
+    </div>
+{/if}
+
 <!-- Selection Modals -->
 {#if showLoadPicker}
     <div
@@ -1655,6 +1690,7 @@
                         <button
                             onclick={() => {
                                 teachingLoadId = load.id;
+                                targetConfirmed = false;
                                 showLoadPicker = false;
                             }}
                             class="w-full p-4 rounded-md text-left transition-colors flex items-center justify-between group {teachingLoadId ===
@@ -1766,6 +1802,7 @@
                     <button
                         onclick={() => {
                             weekNumber = wk;
+                            targetConfirmed = !!teachingLoadId && !!termNumber;
                             termNumber = calendarEntries.find((w) => w.week_number === wk)?.term || termNumber;
                             showWeekPicker = false;
                         }}
@@ -1832,6 +1869,7 @@
                     <button
                         onclick={() => {
                             termNumber = term.value;
+                            targetConfirmed = false;
                             if (weekNumber && !calendarEntries.some((w) => w.week_number === weekNumber && w.term === term.value)) {
                                 weekNumber = undefined;
                             }

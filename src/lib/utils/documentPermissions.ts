@@ -45,7 +45,7 @@ export function requiresTeachingLoadSelection(role: string, docType: string): bo
 export function canViewArchivedDocument(role: string, docType: string): boolean {
   // DLL documents: visible to all roles who can access archive
   if (docType === 'DLL') {
-    return role === 'Teacher' || role === 'Master Teacher' || role === 'School Head' || role === 'District Supervisor';
+    return role === 'Teacher' || role === 'Master Teacher' || role === 'School Head' || role === 'District Supervisor' || role === 'Admin';
   }
 
   // ISP/ISR: special rules via canViewUploadedISPISR
@@ -130,6 +130,8 @@ export function canViewUploadedISPISR(
   if (currentUserId === documentUploaderId) {
     return true;
   }
+
+  if (currentUserRole === 'Admin') return true;
 
   // Master Teacher ISP/ISR visibility
   if (uploaderRole === 'Master Teacher') {

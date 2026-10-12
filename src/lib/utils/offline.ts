@@ -9,6 +9,7 @@ import { writable } from 'svelte/store';
 import { supabase } from './supabase';
 import { withTimeout } from './pipeline';
 import { getCurrentSchoolYear } from './schoolYear';
+import { logAudit } from './audit';
 import { env } from '$env/dynamic/public';
 
 export const pendingSyncCount = writable<number>(0);
@@ -777,6 +778,15 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 }
 
                 // ── Success: clean up ──
+                void logAudit(item.options.userId, 'upload.created', 'submission', undefined, {
+                    file_name: item.fileName,
+                    doc_type: item.options.docType || 'Unknown',
+                    teaching_load_id: item.options.teachingLoadId || null,
+                    term_number: item.options.termNumber || null,
+                    week_number: item.options.weekNumber || null,
+                    school_year: item.options.schoolYear || getCurrentSchoolYear(),
+                    source: 'offline-sync'
+                });
                 await del(key);
                 await updatePendingCount();
                 await markSynced(item.fileHash);

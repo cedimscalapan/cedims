@@ -28,6 +28,7 @@
         X,
         ArrowLeft,
         ArrowUpDown,
+        ArrowRightLeft,
     } from "lucide-svelte";
     import { cacheMetadata, getCachedMetadata } from "$lib/utils/offline";
     import EmptyState from "$lib/components/EmptyState.svelte";
@@ -35,6 +36,7 @@
     import { focusTrap } from "$lib/actions/focusTrap";
     import { getDocumentLabel } from "$lib/utils/documentLabels";
     import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
+    import { logAudit } from "$lib/utils/audit";
 
     // â"€â"€ Types â"€â"€
     interface Submission {
@@ -108,6 +110,13 @@
     let deleteModalOpen = $state(false);
     let deleteTarget = $state<Submission | null>(null);
     let deletingSubmissionId = $state<string | null>(null);
+    let moveTarget = $state<Submission | null>(null);
+    let moveLoads = $state<any[]>([]);
+    let moveLoadId = $state("");
+    let moveTerm = $state<number | null>(null);
+    let moveWeek = $state<number | null>(null);
+    let moveCalendarEntries = $state<any[]>([]);
+    let movingSubmission = $state(false);
     let requestedReview = $state<string | null>(null);
     let fromCompliance = $state(false);
     $effect(() => {
@@ -171,6 +180,69 @@
         return sub.user_id === $profile.id && ($profile.role === "Teacher" || $profile.role === "Master Teacher");
     }
 
+    function canMoveSubmission(sub: Submission): boolean {
+        return $profile?.role === "Admin" && isLessonPlanDoc(sub.doc_type);
+    }
+
+    async function openMoveModal(sub: Submission) {
+        if (!canMoveSubmission(sub)) return;
+        const { data: loads } = await supabase
+            .from("teaching_loads")
+            .select("id, user_id, subject, grade_level, is_active")
+            .eq("user_id", sub.user_id)
+            .eq("is_active", true)
+            .order("grade_level")
+            .order("subject");
+        const { data: calendar } = await supabase
+            .from("academic_calendar")
+            .select("id, term, week_number, deadline_date, is_active, school_year")
+            .eq("school_year", getCurrentSchoolYear())
+            .eq("is_active", true)
+            .order("term")
+            .order("week_number");
+        moveTarget = sub;
+        moveLoads = loads || [];
+        moveCalendarEntries = calendar || [];
+        moveLoadId = sub.teaching_load_id || "";
+        moveTerm = sub.term_number;
+        moveWeek = sub.week_number;
+    }
+
+    function closeMoveModal() {
+        if (movingSubmission) return;
+        moveTarget = null;
+        moveLoads = [];
+        moveLoadId = "";
+        moveCalendarEntries = [];
+    }
+
+    async function confirmMove() {
+        if (!moveTarget || $profile?.role !== "Admin") return;
+        const load = moveLoads.find((item) => item.id === moveLoadId);
+        const calendar = moveCalendarEntries.find((item) => item.term === moveTerm && item.week_number === moveWeek);
+        if (!load || !moveTerm || !moveWeek || !calendar) {
+            addToast("error", "Choose a valid teaching load, term, and open week.");
+            return;
+        }
+        movingSubmission = true;
+        const { data, error } = await supabase.rpc("admin_move_submission", {
+            p_submission_id: moveTarget.id,
+            p_teaching_load_id: load.id,
+            p_term_number: moveTerm,
+            p_week_number: moveWeek,
+            p_calendar_id: calendar.id,
+        });
+        if (error) {
+            addToast("error", error.message || "Could not move the archive file.");
+        } else {
+            const updated = { ...moveTarget, teaching_load_id: load.id, subject: load.subject, grade_level: load.grade_level, term_number: moveTerm, week_number: moveWeek };
+            allSubmissions = allSubmissions.map((item) => item.id === updated.id ? updated : item);
+            addToast("success", "Archive file moved. Original file, QR code, uploader, upload time, and remarks were preserved.");
+            closeMoveModal();
+        }
+        movingSubmission = false;
+    }
+
     function openDeleteModal(sub: Submission) {
         if (!canDeleteSubmission(sub) || deletingSubmissionId) return;
         deleteTarget = sub;
@@ -225,6 +297,7 @@
                 reviewer_name: $profile.full_name || "Checker",
             };
             addToast("success", "Remark saved successfully");
+            void logAudit($profile!.id, "remark.created", "submission", remarkTarget.id, { document_type: remarkTarget.doc_type });
             closeRemarkModal();
         }
     }
@@ -373,15 +446,16 @@
                 ));
             console.log('[archive] School Head loaded', allSubmissions.length, 'submissions:', allSubmissions.map(s => ({ id: s.id, docType: s.doc_type, userId: s.user_id })));
             teachersMap = buildTeachersMap(allSubmissions);
-        } else if (role === "District Supervisor") {
+        } else if (role === "District Supervisor" || role === "Admin") {
             // District-scoped: fetch submissions from all schools in district
-            if (!userProfile.district_id) return;
+            if (role === "District Supervisor" && !userProfile.district_id) return;
 
             // First get all schools in the district
-            const { data: schoolsData } = await supabase
+            let schoolsQuery = supabase
                 .from("schools")
-                .select("id, name, avatar_url")
-                .eq("district_id", userProfile.district_id);
+                .select("id, name, avatar_url");
+            if (role === "District Supervisor") schoolsQuery = schoolsQuery.eq("district_id", userProfile.district_id);
+            const { data: schoolsData } = await schoolsQuery;
             if (runId !== loadRun) return;
 
             const schools = schoolsData || [];
@@ -696,7 +770,7 @@
             return [];
         }
 
-        if (role === "Master Teacher" || role === "School Head" || role === "District Supervisor") {
+        if (role === "Master Teacher" || role === "School Head" || role === "District Supervisor" || role === "Admin") {
             if (depth === 1) return getDocTypeFolders(filteredByPath);
             if (depth === 2) return getSchoolFolders(filteredByPath);
             if (depth === 3) return getTeacherFolders(filteredByPath);
@@ -1042,6 +1116,7 @@
             allSubmissions = allSubmissions.filter((s) => s.id !== target.id);
             const { [target.id]: _deleted, ...remainingReviews } = reviewsMap;
             reviewsMap = remainingReviews;
+            void logAudit($profile!.id, "archive.deleted", "submission", target.id, { file_name: target.file_name, original_uploader: target.user_id });
             addToast("success", "Uploaded file deleted from Archives.");
             deleteModalOpen = false;
             deleteTarget = null;
@@ -1392,6 +1467,16 @@
                             >
                                 <Share2 size={16} />
                             </button>
+                            {#if canMoveSubmission(sub)}
+                                <button
+                                    onclick={(e) => { e.stopPropagation(); openMoveModal(sub); }}
+                                    class="w-8 h-8 flex items-center justify-center text-text-muted hover:text-gov-blue hover:bg-gov-blue/10 rounded-lg transition-colors"
+                                    title="Move archive file"
+                                    aria-label={`Move ${sub.file_name}`}
+                                >
+                                    <ArrowRightLeft size={16} />
+                                </button>
+                            {/if}
                             {#if canDeleteSubmission(sub)}
                                 <button
                                     onclick={(e) => {
@@ -1439,6 +1524,49 @@
         </div>
     {/if}
 </div>
+
+{#if moveTarget}
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="presentation">
+        <div class="w-full max-w-lg mx-4 rounded-2xl bg-surface-white shadow-2xl border border-border-subtle overflow-hidden" role="dialog" aria-modal="true" aria-label="Move archive file" use:focusTrap>
+            <div class="px-6 py-4 border-b border-border-subtle flex items-center justify-between">
+                <div><p class="text-xs font-bold text-gov-blue uppercase tracking-wide">Admin correction</p><h3 class="text-lg font-bold text-text-primary">Move archive file</h3></div>
+                <button onclick={closeMoveModal} class="w-9 h-9 rounded-lg hover:bg-surface-muted flex items-center justify-center text-text-muted" aria-label="Close move dialog" disabled={movingSubmission}><X size={18} /></button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-sm text-text-secondary">Only the archive target will change. The original file, QR code, upload time, uploader, file hash, and remarks will remain unchanged.</p>
+                <p class="text-sm font-bold text-text-primary break-words">{moveTarget.file_name}</p>
+                <label class="block text-sm font-semibold text-text-primary">Teaching load
+                    <select bind:value={moveLoadId} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
+                        <option value="">Select teaching load</option>
+                        {#each moveLoads as load}<option value={load.id}>Grade {load.grade_level} · {load.subject}</option>{/each}
+                    </select>
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="block text-sm font-semibold text-text-primary">Term
+                        <select bind:value={moveTerm} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
+                            <option value={null}>Select term</option>
+                            {#each [...new Set(moveCalendarEntries.map((entry) => entry.term))] as term}<option value={term}>Term {term}</option>{/each}
+                        </select>
+                    </label>
+                    <label class="block text-sm font-semibold text-text-primary">Week
+                        <select bind:value={moveWeek} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
+                            <option value={null}>Select week</option>
+                            {#each moveCalendarEntries.filter((entry) => !moveTerm || entry.term === Number(moveTerm)) as entry}<option value={entry.week_number}>Week {entry.week_number}</option>{/each}
+                        </select>
+                    </label>
+                </div>
+                {#if moveLoadId && moveTerm && moveWeek}
+                    {@const selectedLoad = moveLoads.find((load) => load.id === moveLoadId)}
+                    <div class="rounded-xl border border-gov-blue/20 bg-gov-blue/5 px-4 py-3 text-sm text-text-primary">New archive path: <strong>Grade {selectedLoad?.grade_level} · {selectedLoad?.subject} · Term {moveTerm} · Week {moveWeek}</strong></div>
+                {/if}
+            </div>
+            <div class="px-6 py-4 bg-surface-muted border-t border-border-subtle flex justify-end gap-3">
+                <button onclick={closeMoveModal} class="min-h-11 px-4 rounded-xl border border-border-subtle bg-surface-white text-sm font-bold" disabled={movingSubmission}>Cancel</button>
+                <button onclick={confirmMove} class="min-h-11 px-4 rounded-xl bg-gov-blue text-white text-sm font-bold disabled:opacity-60" disabled={movingSubmission || !moveLoadId || !moveTerm || !moveWeek}>{movingSubmission ? "Moving..." : "Move file"}</button>
+            </div>
+        </div>
+    </div>
+{/if}
 
 <!-- Delete Confirmation Modal -->
 {#if deleteModalOpen && deleteTarget}

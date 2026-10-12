@@ -4,6 +4,7 @@
     import { profile } from "$lib/utils/auth";
     import { addToast } from "$lib/stores/toast";
     import { getDocumentLabel } from "$lib/utils/documentLabels";
+    import { logAudit } from "$lib/utils/audit";
 
     export let items: any[] = [];
     export let title = "Review Tracker";
@@ -113,6 +114,7 @@
         }
         remarkTarget.reviewer_comment = remarkText.trim();
         remarkTarget.reviewer_name = $profile.full_name || "Checker";
+        void logAudit($profile.id, "remark.created", "submission", remarkTarget.id, { document_type: remarkTarget.doc_type });
         addToast("success", "Remark saved");
         remarkTarget = null;
         remarkText = "";

@@ -18,6 +18,7 @@ import { env } from '$env/dynamic/public';
 import { createNotification } from './notificationSystem';
 import { getCurrentSchoolYear } from './schoolYear';
 import { isMobileDevice } from './device';
+import { logAudit } from './audit';
 import type { PipelineEvent, PipelineOptions } from '$lib/types/pipeline';
 export type { PipelinePhase, PipelineResult } from '$lib/types/pipeline';
 
@@ -249,9 +250,11 @@ async function* runPipelineCore(
         [compressedBytes.buffer, qrBytes.buffer]
     );
 
-    const activeWeekNumber = options.weekNumber || detectedMetadata?.weekNumber;
-    const activeTermNumber = resolveTermNumber(options.termNumber || detectedMetadata?.termNumber, activeWeekNumber);
-    const activeDocType = options.docType || detectedMetadata?.docType || 'DLL';
+    // The selected upload target is authoritative. OCR remains available for
+    // mismatch warnings, but it must never silently redirect the archive slot.
+    const activeWeekNumber = options.weekNumber;
+    const activeTermNumber = resolveTermNumber(options.termNumber, activeWeekNumber);
+    const activeDocType = options.docType || 'DLL';
     const rawText = options.rawText || detectedMetadata?.rawText || '';
     const fileName = file.name.replace(/\.\w+$/, '.pdf');
     const sanitizedFileName = (fileName || 'document').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
@@ -521,6 +524,15 @@ async function* runOnlinePipelineResilient(
         }
         throw new Error(`DB Error: ${dbError.message}`);
     }
+
+    void logAudit(options.userId, 'upload.created', 'submission', undefined, {
+        file_name: fileName,
+        doc_type: activeDocType,
+        teaching_load_id: options.teachingLoadId || null,
+        term_number: activeTermNumber,
+        week_number: activeWeekNumber,
+        school_year: options.schoolYear || getCurrentSchoolYear(),
+    });
 
     // Success bookkeeping
     if (options.teachingLoadId && activeWeekNumber) {
