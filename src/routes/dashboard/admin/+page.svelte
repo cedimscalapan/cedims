@@ -5,6 +5,7 @@
     import { logAudit } from "$lib/utils/audit";
     import { onMount } from "svelte";
     import { goto } from "$app/navigation";
+    import { page } from "$app/stores";
     import { addToast } from "$lib/stores/toast";
     import { fly, fade, slide } from "svelte/transition";
     import {
@@ -66,6 +67,15 @@
     let schools = $state<any[]>([]);
     let districts = $state<any[]>([]);
     let creating = $state(false);
+
+    $effect(() => {
+        const requestedTab = $page.url.searchParams.get("tab");
+        if (requestedTab === "settings" || requestedTab === "users" || requestedTab === "calendar" || requestedTab === "logs") {
+            activeTab = requestedTab;
+        } else {
+            activeTab = "settings";
+        }
+    });
 
     const ROLES = [
         "Admin",

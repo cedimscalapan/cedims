@@ -24,6 +24,9 @@
     function isActive(href: string): boolean {
         const currentPath = $page.url.pathname;
         if (href === "/dashboard") return currentPath === "/dashboard";
+        if (href.startsWith("/dashboard/admin?")) {
+            return currentPath === "/dashboard/admin" && $page.url.search === href.slice(href.indexOf("?"));
+        }
         return currentPath.startsWith(href);
     }
 
