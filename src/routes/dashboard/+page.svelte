@@ -400,7 +400,7 @@
                     fixQuery = fixQuery.in("user_id", teacherIds.map((t) => t.id));
                 }
             }
-        } else if (role === "District Supervisor" && userProfile.district_id) {
+        } else if ((role === "District Supervisor" || role === "Admin") && userProfile.district_id) {
             const { data: schoolIds } = await supabase
                 .from("schools")
                 .select("id")
@@ -606,7 +606,7 @@
         // different number. These are derived from the same already-fetched
         // rows rather than re-querying.
 
-        if (role === "Master Teacher" || role === "School Head" || role === "District Supervisor") {
+        if (role === "Master Teacher" || role === "School Head" || role === "District Supervisor" || role === "Admin") {
             const subIds = allSubs.map((s: any) => s.id).filter(Boolean);
             if (subIds.length > 0) {
                 const { data: reviews } = await supabase
@@ -648,7 +648,7 @@
             }
         }
 
-        if (role === "District Supervisor") {
+        if (role === "District Supervisor" || role === "Admin") {
             // District works at school altitude, not teacher altitude — the
             // per-teacher breakdown belongs on the Schools tab. Roll the same
             // teacher rows up into one entry per school.
@@ -918,7 +918,7 @@
                 <!-- This whole block lives in the non-Teacher branch, so only
                      School Head / Master Teacher / District Supervisor reach
                      it; a Teacher has no Recent Activity section at all. -->
-                {$profile?.role === "District Supervisor"
+                {$profile?.role === "District Supervisor" || $profile?.role === "Admin"
                     ? "Recent District Activity"
                     : "Recent School Activity"}
             </h2>

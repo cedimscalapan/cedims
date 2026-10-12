@@ -1153,7 +1153,7 @@
         const role = $profile?.role;
         if (role === "Teacher")
             return "Find, review, download, and share your archived submissions";
-        if (role === "District Supervisor")
+        if (role === "District Supervisor" || role === "Admin")
             return "Review and export district archives";
         return "Review and export school archives";
     }
