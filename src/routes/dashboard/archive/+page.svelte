@@ -115,6 +115,7 @@
     let moveLoadId = $state("");
     let moveTerm = $state<number | null>(null);
     let moveWeek = $state<number | null>(null);
+    let moveStatus = $state<"compliant" | "supplementary">("compliant");
     let moveCalendarEntries = $state<any[]>([]);
     let movingSubmission = $state(false);
     let requestedReview = $state<string | null>(null);
@@ -206,6 +207,7 @@
         moveLoadId = sub.teaching_load_id || "";
         moveTerm = sub.term_number;
         moveWeek = sub.week_number;
+        moveStatus = sub.compliance_status === "supplementary" ? "supplementary" : "compliant";
     }
 
     function closeMoveModal() {
@@ -214,6 +216,7 @@
         moveLoads = [];
         moveLoadId = "";
         moveCalendarEntries = [];
+        moveStatus = "compliant";
     }
 
     async function confirmMove() {
@@ -231,11 +234,12 @@
             p_term_number: moveTerm,
             p_week_number: moveWeek,
             p_calendar_id: calendar.id,
+            p_compliance_status: moveStatus,
         });
         if (error) {
             addToast("error", error.message || "Could not move the archive file.");
         } else {
-            const updated = { ...moveTarget, teaching_load_id: load.id, subject: load.subject, grade_level: load.grade_level, term_number: moveTerm, week_number: moveWeek };
+            const updated = { ...moveTarget, teaching_load_id: load.id, subject: load.subject, grade_level: load.grade_level, term_number: moveTerm, week_number: moveWeek, compliance_status: moveStatus };
             allSubmissions = allSubmissions.map((item) => item.id === updated.id ? updated : item);
             addToast("success", "Archive file moved. Original file, QR code, uploader, upload time, and remarks were preserved.");
             closeMoveModal();
@@ -1564,6 +1568,12 @@
                         </select>
                     </label>
                 </div>
+                <label class="block text-sm font-semibold text-text-primary">Archive status
+                    <select bind:value={moveStatus} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
+                        <option value="compliant">Compliant</option>
+                        <option value="supplementary">Supplementary</option>
+                    </select>
+                </label>
                 {#if moveLoadId && moveTerm && moveWeek}
                     {@const selectedLoad = moveLoads.find((load) => load.id === moveLoadId)}
                     <div class="rounded-xl border border-gov-blue/20 bg-gov-blue/5 px-4 py-3 text-sm text-text-primary">New archive path: <strong>{selectedLoad?.grade_level} · {selectedLoad?.subject} · Term {moveTerm} · Week {moveWeek}</strong></div>
