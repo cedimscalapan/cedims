@@ -1547,7 +1547,7 @@
                 <label class="block text-sm font-semibold text-text-primary">Teaching load
                     <select bind:value={moveLoadId} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
                         <option value="">Select teaching load</option>
-                        {#each moveLoads as load}<option value={load.id}>Grade {load.grade_level} · {load.subject}</option>{/each}
+                        {#each moveLoads as load}<option value={load.id}>{load.grade_level} · {load.subject}</option>{/each}
                     </select>
                 </label>
                 <div class="grid grid-cols-2 gap-3">
@@ -1566,7 +1566,7 @@
                 </div>
                 {#if moveLoadId && moveTerm && moveWeek}
                     {@const selectedLoad = moveLoads.find((load) => load.id === moveLoadId)}
-                    <div class="rounded-xl border border-gov-blue/20 bg-gov-blue/5 px-4 py-3 text-sm text-text-primary">New archive path: <strong>Grade {selectedLoad?.grade_level} · {selectedLoad?.subject} · Term {moveTerm} · Week {moveWeek}</strong></div>
+                    <div class="rounded-xl border border-gov-blue/20 bg-gov-blue/5 px-4 py-3 text-sm text-text-primary">New archive path: <strong>{selectedLoad?.grade_level} · {selectedLoad?.subject} · Term {moveTerm} · Week {moveWeek}</strong></div>
                 {/if}
             </div>
             <div class="px-6 py-4 bg-surface-muted border-t border-border-subtle flex justify-end gap-3">
