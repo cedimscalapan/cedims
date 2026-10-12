@@ -130,21 +130,53 @@ export function predictSubject(text: string): FuzzyPrediction {
         : { value: null, confidence: 0 };
 }
 
+function romanToNumber(value: string): number | null {
+    const roman = normalize(value).toUpperCase();
+    const map: Record<string, number> = {
+        I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6
+    };
+    return map[roman] || null;
+}
+
+function gradeFromToken(value: string): FuzzyPrediction {
+    const raw = value.trim();
+    const digit = raw.match(/\b([1-6])\b/);
+    if (digit) return { value: `Grade ${digit[1]}`, confidence: 100 };
+
+    const roman = raw.match(/\b(I|II|III|IV|V|VI)\b/i);
+    if (roman) {
+        const num = romanToNumber(roman[1]);
+        if (num) return { value: `Grade ${num}`, confidence: 100 };
+    }
+
+    const words: Record<string, number> = {
+        one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+        una: 1, isa: 1, dalawa: 2, ikalawa: 2, tatlo: 3, ikatlo: 3,
+        apat: 4, ikaapat: 4, lima: 5, ikalima: 5, anim: 6, ikaanim: 6
+    };
+    const word = normalize(raw).split(' ').find(token => words[token]);
+    return word ? { value: `Grade ${words[word]}`, confidence: 95 } : { value: null, confidence: 0 };
+}
+
 export function predictGradeLevel(text: string): FuzzyPrediction {
-    // Try an explicit "Grade Level"/"Baitang" field, then a bare "GRADE X" pattern, then fuzzy matching.
-    const gradeField = text.match(/(?:GRADE\s*(?:LEVEL)?|BAITANG)\s*[:\t]*\s*(\d+|[IVX]+)/i);
+    // Prefer explicit header/file-name grade labels. Avoid broad fuzzy matches
+    // because lesson content often contains many unrelated grade references.
+    const gradeField = text.match(/(?:GRADE\s*(?:LEVEL)?|GR\.?|BAITANG|ANTAS)\s*(?:\/\s*(?:LEVEL|ANTAS))?\s*[:#\-\t ]+\s*([1-6]|VI|IV|III|II|I|V|one|two|three|four|five|six|isa|dalawa|tatlo|apat|lima|anim)/i);
     if (gradeField) {
-        const num = parseInt(gradeField[1]);
-        if (num >= 1 && num <= 6) return { value: `Grade ${num}`, confidence: 100 };
+        const parsed = gradeFromToken(gradeField[1]);
+        if (parsed.value) return parsed;
     }
 
-    const gradeAnywhere = text.match(/\bGRADE\s*(\d+)\b/i);
+    const compact = text.match(/\b(?:G|GR|GRADE)[_\-\s]*([1-6])\b/i);
+    if (compact) return { value: `Grade ${compact[1]}`, confidence: 95 };
+
+    const gradeAnywhere = text.match(/\b(?:GRADE|BAITANG)\s*([1-6]|VI|IV|III|II|I|V)\b/i);
     if (gradeAnywhere) {
-        const num = parseInt(gradeAnywhere[1]);
-        if (num >= 1 && num <= 6) return { value: `Grade ${num}`, confidence: 100 };
+        const parsed = gradeFromToken(gradeAnywhere[1]);
+        if (parsed.value) return parsed;
     }
 
-    const result = fuzzyMatchAny(text, GRADE_LEVELS);
+    const result = bestMatch(text, GRADE_LEVELS, 0.75);
     return result.value
         ? { value: result.value, confidence: result.score }
         : { value: null, confidence: 0 };

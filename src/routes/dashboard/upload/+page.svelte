@@ -29,7 +29,7 @@
     import { onMount, untrack } from "svelte";
     import { fade } from "svelte/transition";
     import { extractMetadata, type DocMetadata } from "$lib/utils/ocr";
-    import { predictLoad, validateSelection } from "$lib/utils/copilot";
+    import { validateSelection } from "$lib/utils/copilot";
     import {
         canUploadDocument,
         getAllowedUploadDocTypes,
@@ -555,39 +555,62 @@
         if (runId === initialDataRun) loadingTeachingLoads = false;
     }
 
+    function normalizeGradeLevel(value?: string | null): string {
+        const match = String(value || "").match(/\d+/);
+        return match ? match[0] : "";
+    }
+
+    function subjectsMatch(loadSubject: string, detectedSubject: string): boolean {
+        const loadSub = loadSubject.toUpperCase();
+        const sub = detectedSubject.toUpperCase();
+
+        if (sub === "GMRC" || sub.includes("PAGPAPAKATAO")) {
+            return (
+                loadSub === "GMRC" ||
+                loadSub.includes("ESP") ||
+                loadSub.includes("VALUES")
+            );
+        }
+        if (sub === "AP" || sub.includes("PANLIPUNAN")) {
+            return loadSub === "AP" || loadSub.includes("SOCIAL");
+        }
+        return loadSub.includes(sub) || sub.includes(loadSub);
+    }
+
     function mapTeachingLoad(metadata: Partial<DocMetadata>): string {
         if (!metadata.subject) return teachingLoadId;
 
         const sub = metadata.subject.toUpperCase();
-        const grade = metadata.gradeLevel;
+        const grade = normalizeGradeLevel(metadata.gradeLevel);
 
-        // Try exact subject match first
-        const exactMatch = teachingLoads.find(
-            (l) =>
-                l.subject.toUpperCase() === sub &&
-                (!grade || l.grade_level === grade),
+        const subjectMatches = teachingLoads.filter((l) =>
+            subjectsMatch(l.subject, sub),
         );
-        if (exactMatch) return exactMatch.id;
 
-        // Try subject name contains or common mappings
-        const fuzzyMatch = teachingLoads.find((l) => {
-            const loadSub = l.subject.toUpperCase();
-            // GMRC / EsP mapping
-            if (sub === "GMRC" || sub.includes("PAGPAPAKATAO")) {
-                return (
-                    loadSub === "GMRC" ||
-                    loadSub.includes("ESP") ||
-                    loadSub.includes("VALUES")
-                );
-            }
-            // AP mapping
-            if (sub === "AP" || sub.includes("PANLIPUNAN")) {
-                return loadSub === "AP" || loadSub.includes("SOCIAL");
-            }
-            return loadSub.includes(sub) || sub.includes(loadSub);
-        });
+        if (subjectMatches.length === 0) return "";
+        if (subjectMatches.length === 1) return subjectMatches[0].id;
 
-        return fuzzyMatch ? fuzzyMatch.id : "";
+        if (!grade) {
+            addToast(
+                "info",
+                `Scanner detected ${metadata.subject}, but could not confirm the grade. Please choose the correct grade before uploading.`,
+            );
+            return "";
+        }
+
+        const gradeMatch = subjectMatches.find(
+            (l) => normalizeGradeLevel(l.grade_level) === grade,
+        );
+
+        if (!gradeMatch) {
+            addToast(
+                "warning",
+                `Scanner detected ${metadata.subject} Grade ${grade}, but it did not match an active teaching load. Please verify the selected load.`,
+            );
+            return "";
+        }
+
+        return gradeMatch.id;
     }
 
     function parseDocDate(dateStr: string | null): Date | null {
@@ -724,9 +747,7 @@
                     }
                 }
 
-                const mappedId =
-                    predictLoad(metadata.rawText, teachingLoads) ||
-                    mapTeachingLoad(metadata);
+                const mappedId = mapTeachingLoad(metadata);
                 if (mappedId) teachingLoadId = mappedId;
             }
 

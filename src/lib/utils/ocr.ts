@@ -27,6 +27,7 @@ export interface DocMetadata {
     school: string | null;
     teacher: string | null;
     date: string | null;
+    day: string | null;
     dateRange: DateRange | null;
     weekSource?: 'calendar' | 'header-date' | 'regex' | 'none';
 }
@@ -105,17 +106,17 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             const page = await pdf.getPage(1);
             const textContent = await page.getTextContent();
-            const text = textContent.items.map((item: any) => item.str).join(' ');
+            const text = textContentToLines(textContent.items);
             console.log(`[ocr] PDF text extracted (${text.length} chars):`, text.substring(0, 200) + '...');
 
             // If text is too short, fallback to raster OCR
             if (text.length < 50) {
                 console.warn('[ocr] PDF text too sparse. Falling back to raster OCR...');
-                return await extractRasterMetadata(page, pdfjsLib);
+                return await extractRasterMetadata(page, pdfjsLib, file.name);
             }
 
-            const metadata = parseMetadata(text);
-            return { ...metadata, rawText: text, confidence: 100, language: 'Unknown' };
+            const metadata = parseMetadata(text, file.name);
+            return { ...metadata, rawText: text, confidence: 100, language: detectLanguage(text) };
         } catch (err) {
             console.error('[ocr] PDF extraction failed:', err);
             return createDefaultMetadata();
@@ -143,7 +144,7 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
 
             // Post-process language detection from result
             const language = detectLanguage(text);
-            const metadata = parseMetadata(text);
+            const metadata = parseMetadata(text, file.name);
 
             console.log(`[ocr] Optimized single-pass OCR results (Language: ${language}, Confidence: ${confidence}%)`);
             return { ...metadata, confidence, language };
@@ -173,12 +174,34 @@ function createDefaultMetadata(): DocMetadata {
         school: null,
         teacher: null,
         date: null,
+        day: null,
         dateRange: null,
         weekSource: 'none'
     };
 }
 
-async function extractRasterMetadata(page: any, pdfjsLib: any): Promise<DocMetadata> {
+function textContentToLines(items: any[]): string {
+    const rows = new Map<number, { x: number; text: string }[]>();
+
+    for (const item of items) {
+        const value = String(item.str || '').trim();
+        if (!value) continue;
+
+        const transform = Array.isArray(item.transform) ? item.transform : [];
+        const y = Math.round(Number(transform[5] || 0) / 3) * 3;
+        const x = Number(transform[4] || 0);
+
+        if (!rows.has(y)) rows.set(y, []);
+        rows.get(y)!.push({ x, text: value });
+    }
+
+    return Array.from(rows.entries())
+        .sort((a, b) => b[0] - a[0])
+        .map(([, row]) => row.sort((a, b) => a.x - b.x).map(item => item.text).join(' '))
+        .join('\n');
+}
+
+async function extractRasterMetadata(page: any, pdfjsLib: any, fileName: string = ''): Promise<DocMetadata> {
     try {
         console.log('[ocr] Starting raster OCR fallback...');
 
@@ -223,7 +246,7 @@ async function extractRasterMetadata(page: any, pdfjsLib: any): Promise<DocMetad
                 try {
                     const { data: { text, confidence } } = await worker.recognize(blobUrl);
                     console.log(`[ocr] Raster OCR complete (${text.length} chars), scale: ${scale}, confidence:`, confidence);
-                    const metadata = parseMetadata(text);
+                    const metadata = parseMetadata(text, fileName);
                     resolve({ ...metadata, rawText: text, confidence, language: detectLanguage(text) });
                 } catch (e) {
                     reject(e);
@@ -274,8 +297,17 @@ function detectLanguage(text: string): 'English' | 'Filipino' | 'Unknown' {
     return 'Unknown';
 }
 
-export function parseMetadata(text: string): Omit<DocMetadata, 'confidence' | 'language'> {
+export function parseMetadata(text: string, fileName: string = ''): Omit<DocMetadata, 'confidence' | 'language'> {
     const upper = text.toUpperCase();
+    const filenameText = fileName
+        .replace(/\.[^.]+$/, '')
+        .replace(/[_\-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const headerText = getHeaderText(text);
+    const headerUpper = headerText.toUpperCase();
+    const headerAndFilename = [headerText, filenameText].filter(Boolean).join('\n');
+    const headerAndFilenameUpper = headerAndFilename.toUpperCase();
 
     // Helper to convert Roman numerals to numbers
     const romanToNum = (roman: string): string => {
@@ -315,7 +347,7 @@ export function parseMetadata(text: string): Omit<DocMetadata, 'confidence' | 'l
     let weekSource: 'calendar' | 'header-date' | 'regex' | 'none' = 'none';
 
     if (docType === 'DLL') {
-        const explicitSubjectMatch = upper.match(/(?:ASIGNATURA|SUBJECT|LEARNING\s*AREA(?:\s*[\/]\s*ASIGNATURA)?)\s*[:\t]*\s*([^\n\t|]{3,20})/i);
+        const explicitSubjectMatch = headerAndFilenameUpper.match(/(?:ASIGNATURA|SUBJECT|LEARNING\s*AREA(?:\s*[\/]\s*ASIGNATURA)?)\s*[:\t\-]*\s*([^\n\t|]{3,30})/i);
         if (explicitSubjectMatch) {
             const candidate = explicitSubjectMatch[1].trim();
             const subjectPatterns = buildSubjectPatterns(true);
@@ -330,7 +362,7 @@ export function parseMetadata(text: string): Omit<DocMetadata, 'confidence' | 'l
         }
 
         if (!subject) {
-            const fuzzy = predictSubject(text);
+            const fuzzy = predictSubject(headerAndFilename);
             subject = fuzzy.value;
             subjectConfidence = fuzzy.confidence;
             if (subject) console.log(`[ocr] Fuzzy matched subject as ${subject} (confidence: ${fuzzy.confidence}%)`);
@@ -340,38 +372,38 @@ export function parseMetadata(text: string): Omit<DocMetadata, 'confidence' | 'l
             const subjectPatterns = buildSubjectPatterns(false);
 
             for (const p of subjectPatterns) {
-                if (p.regex.test(upper)) {
+                if (p.regex.test(headerAndFilenameUpper)) {
                     subject = p.name;
                     break;
                 }
             }
         }
 
-        // Detect Grade/Level
-        const gradeMatch = upper.match(/(?:GRADE|GR\.?|BAITANG|ANTAS)\s*[/]?\s*(?:LEVEL|ANTAS)?\s*[:\t]*\s*([IVX1-9]+)/i);
-        gradeLevel = gradeMatch ? gradeMatch[1].trim() : null;
-        if (gradeLevel && isNaN(parseInt(gradeLevel))) {
-            gradeLevel = romanToNum(gradeLevel);
+        const grade = predictGradeLevel(headerAndFilename);
+        if (grade.value && grade.confidence >= 75) {
+            gradeLevel = grade.value.replace(/^Grade\s*/i, '');
+            console.log(`[ocr] Matched grade from header/file name as Grade ${gradeLevel} (confidence: ${grade.confidence}%)`);
         }
 
         if (!gradeLevel) {
-            const fuzzy = predictGradeLevel(text);
-            if (fuzzy.value) {
-                gradeLevel = fuzzy.value;
-                console.log(`[ocr] Fuzzy matched grade as ${gradeLevel} (confidence: ${fuzzy.confidence}%)`);
+            const gradeMatch = headerAndFilenameUpper.match(/(?:GRADE|GR\.?|BAITANG|ANTAS)\s*[/]?\s*(?:LEVEL|ANTAS)?\s*[:\t\- ]*\s*(VI|IV|III|II|I|V|[1-6])/i);
+            gradeLevel = gradeMatch ? gradeMatch[1].trim() : null;
+            if (gradeLevel && isNaN(parseInt(gradeLevel))) {
+                gradeLevel = romanToNum(gradeLevel);
             }
         }
 
-        const term = predictTermNumber(text);
+        const term = predictTermNumber(headerAndFilename);
         if (term.value) {
             termNumber = term.value;
             console.log(`[ocr] Matched term as Term ${termNumber} (confidence: ${term.confidence}%)`);
         }
 
-        // Extract week number
-        const weekMatch = upper.match(/(?:WEEK|LINGGO)\s*[#:]*\s*(\d+)/i) ||
-            upper.match(/IKA-\s*(\d+)\s*LINGGO/i);
+        const weekMatch = headerAndFilenameUpper.match(/(?:WEEK|LINGGO|LINGGUH?AN)\s*[#:\-\s]*\s*(\d{1,2})/i) ||
+            headerAndFilenameUpper.match(/IKA-\s*(\d{1,2})\s*LINGGO/i) ||
+            headerAndFilenameUpper.match(/\bW(?:K|EEK)?[_\-\s]*(\d{1,2})\b/i);
         weekNumber = weekMatch ? parseInt(weekMatch[1], 10) : null;
+        if (weekNumber && (weekNumber < 1 || weekNumber > 39)) weekNumber = null;
         weekSource = weekNumber ? 'regex' : 'none';
         if (!termNumber && weekNumber) {
             termNumber = Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
@@ -379,24 +411,23 @@ export function parseMetadata(text: string): Omit<DocMetadata, 'confidence' | 'l
     }
 
     // Extract school year
-    const syMatch = text.match(/S\.?Y\.?\s*(\d{4}\s*[-–]\s*\d{4})/i) ||
-        text.match(/(\d{4}\s*[-–]\s*\d{4})/);
+    const syMatch = headerAndFilename.match(/S\.?Y\.?\s*(\d{4}\s*[-–]\s*\d{4})/i) ||
+        headerAndFilename.match(/(\d{4}\s*[-–]\s*\d{4})/);
     const schoolYear = syMatch ? syMatch[1].replace(/\s/g, '') : null;
 
     // Extract school name (Filipino: Paaralan, English: School)
-    const schoolMatch = text.match(/(?:SCHOOL|PAARALAN)\s*[:\t]*\s*([^\n\t|]+)/i);
+    const schoolMatch = headerText.match(/(?:SCHOOL|PAARALAN)\s*[:\t\-]*\s*([^\n\t|]+)/i);
     const school = schoolMatch ? schoolMatch[1].trim() : null;
 
     // Extract teacher name (Filipino: Guro, English: Teacher)
-    const teacherMatch = text.match(/(?:TEACHER|GURO|EDUCATOR)\s*[:\t]*\s*([^\n\t|]+)/i);
+    const teacherMatch = headerText.match(/(?:TEACHER|GURO|EDUCATOR)\s*[:\t\-]*\s*([^\n\t|]+)/i);
     const teacher = teacherMatch ? teacherMatch[1].trim() : null;
 
-    // Extract date string (Filipino: Petsa, English: Date)
-    const dateMatch = text.match(/(?:Teaching\s*Dates?(?:\s*and\s*Time)?|DATE|PETSA(?:\s*(?:at|[/|])\s*(?:ORAS|DATE))?(?:\s*ng\s*Pagtuturo)?)\s*[:\t\-\s]*\s*([^\n\t|]{5,})/i);
+    const dateMatch = headerAndFilename.match(/(?:Teaching\s*Dates?(?:\s*and\s*Time)?|DATE|PETSA(?:\s*(?:at|[/|])\s*(?:ORAS|DATE))?(?:\s*ng\s*Pagtuturo)?)\s*[:\t\-\s]*\s*([^\n\t|]{5,})/i);
     const date = dateMatch ? dateMatch[1].trim() : null;
+    const day = extractDay(headerAndFilename);
 
-    // Tier 0: Parse date range from header for calendar-based resolution
-    const dateRange = parseDateRange(text);
+    const dateRange = parseDateRange(headerAndFilename);
     if (dateRange && !weekNumber) {
         weekSource = 'header-date';
         console.log(`[ocr] Parsed date range: ${dateRange.start.toDateString()} - ${dateRange.end.toDateString()}`);
@@ -417,9 +448,45 @@ export function parseMetadata(text: string): Omit<DocMetadata, 'confidence' | 'l
         school,
         teacher,
         date,
+        day,
         dateRange,
         weekSource
     };
+}
+
+function getHeaderText(text: string): string {
+    const normalized = text.replace(/\r/g, '\n');
+    const lines = normalized
+        .split('\n')
+        .map(line => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+
+    if (lines.length <= 35) return lines.join('\n');
+
+    const headerEnd = lines.findIndex((line, index) =>
+        index > 8 && /OBJECTIVES|LAYUNIN|CONTENT\s+STANDARD|PAMANTAYAN|PROCEDURES|PAMAMARAAN|LEARNING\s+COMPETENC/i.test(line)
+    );
+
+    return lines.slice(0, headerEnd > 0 ? Math.min(headerEnd, 35) : 35).join('\n');
+}
+
+function extractDay(text: string): string | null {
+    const match = text.match(/\b(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|LUNES|MARTES|MIYERKULES|MIERKULES|HUWEBES|BIYERNES|SABADO|LINGGO)\b/i);
+    if (!match) return null;
+
+    const normalized = match[1].toUpperCase();
+    const map: Record<string, string> = {
+        LUNES: 'Monday',
+        MARTES: 'Tuesday',
+        MIYERKULES: 'Wednesday',
+        MIERKULES: 'Wednesday',
+        HUWEBES: 'Thursday',
+        BIYERNES: 'Friday',
+        SABADO: 'Saturday',
+        LINGGO: 'Sunday'
+    };
+
+    return map[normalized] || normalized.charAt(0) + normalized.slice(1).toLowerCase();
 }
 
 /**

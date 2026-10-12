@@ -9,7 +9,7 @@
  */
 
 import copilotConfig from '../models/copilot_model.json';
-import { predictSubject } from './fuzzyClassifier';
+import { predictGradeLevel, predictSubject } from './fuzzyClassifier';
 
 export type SuggestionType = 'missing' | 'recommendation' | 'deadline' | 'duplicate' | 'tip' | 'mismatch';
 export type SuggestionPriority = 'high' | 'medium' | 'low';
@@ -311,16 +311,39 @@ function generateTips(ctx: CopilotContext, startId: number): CopilotSuggestion[]
 export function predictLoad(ocrText: string, teachingLoads: any[]): string | null {
     if (!ocrText || teachingLoads.length === 0) return null;
 
-    const prediction = predictSubject(ocrText);
-    if (!prediction.value || prediction.confidence < 40) return null;
+    const subjectPrediction = predictSubject(ocrText);
+    if (!subjectPrediction.value || subjectPrediction.confidence < 40) return null;
 
-    // Match prediction (e.g., "Mathematics") to teaching loads
-    const match = teachingLoads.find(l =>
-        l.subject.toLowerCase().includes(prediction.value!.toLowerCase()) ||
-        prediction.value!.toLowerCase().includes(l.subject.toLowerCase())
-    );
+    const matches = teachingLoads.filter(l => subjectsMatch(l.subject, subjectPrediction.value!));
 
-    return match ? match.id : null;
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0].id;
+
+    const gradePrediction = predictGradeLevel(ocrText);
+    if (!gradePrediction.value || gradePrediction.confidence < 60) return null;
+
+    const detectedGrade = normalizeGradeLevel(gradePrediction.value);
+    const gradeMatch = matches.find(l => normalizeGradeLevel(l.grade_level) === detectedGrade);
+
+    return gradeMatch ? gradeMatch.id : null;
+}
+
+function normalizeGradeLevel(value?: string | null): string {
+    const match = String(value || '').match(/\d+/);
+    return match ? match[0] : '';
+}
+
+function subjectsMatch(loadSubject: string, detectedSubject: string): boolean {
+    const loadSub = loadSubject.toUpperCase();
+    const sub = detectedSubject.toUpperCase();
+
+    if (sub === 'GMRC' || sub.includes('PAGPAPAKATAO')) {
+        return loadSub === 'GMRC' || loadSub.includes('ESP') || loadSub.includes('VALUES');
+    }
+    if (sub === 'AP' || sub.includes('PANLIPUNAN')) {
+        return loadSub === 'AP' || loadSub.includes('SOCIAL');
+    }
+    return loadSub.includes(sub) || sub.includes(loadSub);
 }
 
 /**
