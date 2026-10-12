@@ -601,8 +601,9 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 const { url: presignedUrl } = await presignResponse.json();
 
                 // 2a. Try server-side upload first (CORS-safe, avoids B2 preflight)
-                const MAX_SERVER = 10 * 1024 * 1024;
+                const MAX_SERVER = 4.2 * 1024 * 1024;
                 let uploadSuccess = false;
+                let serverRejectedLargeFile = false;
 
                 if ((item.pdfBytes as Blob).size <= MAX_SERVER) {
                     try {
@@ -624,16 +625,24 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                         if (serverResponse.ok) {
                             console.log('[sync] ✅ Server-side upload succeeded in offline sync');
                             uploadSuccess = true;
+                        } else if (serverResponse.status === 413) {
+                            serverRejectedLargeFile = true;
+                            throw new Error('Queued PDF is too large for the upload server. Please compress it below 4.2MB and upload again.');
                         } else {
                             console.warn('[sync] Server upload failed, trying B2 presigned URL...');
                         }
                     } catch (err) {
                         console.warn('[sync] Server upload error, falling back to B2...', (err as Error).message);
                     }
+                } else {
+                    serverRejectedLargeFile = true;
                 }
 
                 // 2b. Fallback to direct PUT -> B2 if server upload failed or file too large
                 if (!uploadSuccess) {
+                    if (serverRejectedLargeFile) {
+                        throw new Error('Queued PDF is too large for the upload server. Please compress it below 4.2MB and upload again.');
+                    }
                     const putResponse = await withTimeout(
                         fetch(presignedUrl, {
                             method: 'PUT',

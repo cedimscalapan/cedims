@@ -22,8 +22,9 @@ import { logAudit } from './audit';
 import type { PipelineEvent, PipelineOptions } from '$lib/types/pipeline';
 export type { PipelinePhase, PipelineResult } from '$lib/types/pipeline';
 
-const MAX_UPLOAD_SIZE_MB = 10;
+const MAX_UPLOAD_SIZE_MB = 4.2;
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+const SERVER_UPLOAD_LIMIT_BYTES = MAX_UPLOAD_BYTES;
 
 interface CoreResult {
     stampedBytes: Uint8Array;
@@ -410,6 +411,9 @@ async function* runOnlinePipelineResilient(
 
     const contentType = 'application/pdf';
     const fileBlob = new Blob([stampedBytes as BlobPart], { type: contentType });
+    if (fileBlob.size > SERVER_UPLOAD_LIMIT_BYTES) {
+        throw new Error(`This PDF is ${(fileBlob.size / 1024 / 1024).toFixed(1)}MB after stamping. Please compress it below ${MAX_UPLOAD_SIZE_MB}MB before uploading.`);
+    }
     yield { phase: 'uploading', progress: 50, message: 'Uploading...' };
     let uploadResponse: { ok: boolean; status: number; body?: string } | null = null;
     let lastUploadError: any = null;
@@ -441,6 +445,9 @@ async function* runOnlinePipelineResilient(
     }
 
     if (!uploadResponse?.ok) {
+        if (uploadResponse?.status === 413 || lastUploadError?.message?.includes('(413)')) {
+            throw new Error(`This PDF is too large for the upload server. Please compress it below ${MAX_UPLOAD_SIZE_MB}MB before uploading.`);
+        }
         console.warn('[pipeline] Server upload failed, trying direct B2 upload:', lastUploadError?.message);
         for (let attempt = 0; attempt < 3; attempt += 1) {
             try {
