@@ -428,7 +428,7 @@
                         {#if subjectOpen}
                             <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
                             <div
-                                class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-y-auto max-h-48"
+                                class="subject-options absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg max-h-48 overflow-y-scroll overscroll-contain"
                                 onclick={(e) => e.stopPropagation()}
                                 onkeydown={() => {}}
                                 role="listbox" tabindex="-1"
@@ -470,3 +470,25 @@
         </div>
     </div>
 {/if}
+
+<style>
+    .subject-options {
+        scrollbar-width: thin;
+        scrollbar-color: #64748b #e2e8f0;
+    }
+
+    .subject-options::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    .subject-options::-webkit-scrollbar-track {
+        background: #e2e8f0;
+        border-radius: 999px;
+    }
+
+    .subject-options::-webkit-scrollbar-thumb {
+        background: #64748b;
+        border: 2px solid #e2e8f0;
+        border-radius: 999px;
+    }
+</style>

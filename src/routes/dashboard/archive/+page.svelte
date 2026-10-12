@@ -472,19 +472,23 @@
             }
             schoolsMap = sMap;
 
-            const schoolIds = schools.map((s) => s.id);
-            if (schoolIds.length === 0) return;
-
             // Fetch all submissions from teachers in those schools
-            const { data } = await supabase
+            let submissionsQuery = supabase
                 .from("submissions")
                 .select(
                     "*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)",
                 )
-                .in("profiles.school_id", schoolIds)
                 .eq("school_year", currentSchoolYear)
                 .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
                 .order("created_at", { ascending: false });
+            if (role === "District Supervisor" || role === "Admin") {
+                if (userProfile.district_id) {
+                    submissionsQuery = submissionsQuery.eq("profiles.district_id", userProfile.district_id);
+                } else if (role === "District Supervisor") {
+                    return;
+                }
+            }
+            const { data } = await submissionsQuery;
             if (runId !== loadRun) return;
 
             allSubmissions = getRows<Submission>(data).map((s) => {
