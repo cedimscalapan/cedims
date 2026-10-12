@@ -562,14 +562,15 @@
                 .in("user_id", userIdsWithMissingLoadDetails)
                 .eq("is_active", true);
             if (userLoads) {
-                const userLoadMap: Record<string, { subject: string | null; grade_level: string | null }> = {};
+                const userLoadMap: Record<string, { subject: string | null; grade_level: string | null }[]> = {};
                 for (const l of userLoads) {
-                    if (!userLoadMap[l.user_id]) {
-                        userLoadMap[l.user_id] = { subject: l.subject, grade_level: l.grade_level };
-                    }
+                    (userLoadMap[l.user_id] ||= []).push({ subject: l.subject, grade_level: l.grade_level });
                 }
                 for (const s of allSubmissions) {
-                    const load = s.user_id ? userLoadMap[s.user_id] : null;
+                    const loadsForUser = s.user_id ? userLoadMap[s.user_id] || [] : [];
+                    const load = loadsForUser.find((item) =>
+                        item.subject && s.subject && item.subject.trim().toLowerCase() === s.subject.trim().toLowerCase(),
+                    ) || (loadsForUser.length === 1 ? loadsForUser[0] : null);
                     if (!load || s.teaching_load_id) continue;
                     if (!s.subject && load.subject) {
                         s.subject = load.subject;
