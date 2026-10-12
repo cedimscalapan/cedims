@@ -791,7 +791,7 @@
             return;
         }
         uploadConfirmed = false;
-        if (docType === 'DLL' && !targetConfirmed) {
+        if (docType === 'DLL' && (!teachingLoadId || !termNumber || !weekNumber)) {
             addToast('error', 'Select and confirm the teaching load, term, and week before uploading. Scanner results are suggestions only.');
             return;
         }
@@ -1802,8 +1802,8 @@
                     <button
                         onclick={() => {
                             weekNumber = wk;
-                            targetConfirmed = !!teachingLoadId && !!termNumber;
                             termNumber = calendarEntries.find((w) => w.week_number === wk)?.term || termNumber;
+                            targetConfirmed = !!teachingLoadId && !!termNumber && !!wk;
                             showWeekPicker = false;
                         }}
                         class="p-6 rounded-md text-center transition-colors flex flex-col items-center justify-center gap-1 group {weekNumber ===
