@@ -410,14 +410,40 @@ async function* runOnlinePipelineResilient(
 
     const contentType = 'application/pdf';
     const fileBlob = new Blob([stampedBytes as BlobPart], { type: contentType });
-    // Upload directly to B2 so burst uploads do not occupy Vercel memory or
-    // pass the document body through a serverless function. The presign route
-    // remains lightweight and each file retries with backoff independently.
     yield { phase: 'uploading', progress: 50, message: 'Uploading...' };
     let uploadResponse: { ok: boolean; status: number; body?: string } | null = null;
     let lastUploadError: any = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
+            const formData = new FormData();
+            formData.append('file', fileBlob, fileName);
+            formData.append('key', filePath);
+
+            uploadResponse = await xhrUpload('/api/storage/upload', formData, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                onProgress: options.onTransferProgress,
+                stallMs: 120000
+            });
+
+            if (uploadResponse.ok) break;
+            if (uploadResponse.status === 401 || uploadResponse.status === 403) {
+                throw new Error('You have been signed out. Please sign in again and retry.');
+            }
+            throw new Error(`Server upload failed (${uploadResponse.status})`);
+        } catch (err: any) {
+            lastUploadError = err;
+            if (attempt < 2) {
+                const delay = 750 * 2 ** attempt + Math.floor(Math.random() * 250);
+                await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+        }
+    }
+
+    if (!uploadResponse?.ok) {
+        console.warn('[pipeline] Server upload failed, trying direct B2 upload:', lastUploadError?.message);
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+            try {
             const presignResponse = await withTimeout(
                 fetch('/api/storage/presign', {
                     method: 'POST',
@@ -447,11 +473,12 @@ async function* runOnlinePipelineResilient(
 
             if (uploadResponse.ok) break;
             throw new Error(`B2 upload failed (${uploadResponse.status})`);
-        } catch (err: any) {
-            lastUploadError = err;
-            if (attempt < 2) {
-                const delay = 750 * 2 ** attempt + Math.floor(Math.random() * 250);
-                await new Promise((resolve) => setTimeout(resolve, delay));
+            } catch (err: any) {
+                lastUploadError = err;
+                if (attempt < 2) {
+                    const delay = 750 * 2 ** attempt + Math.floor(Math.random() * 250);
+                    await new Promise((resolve) => setTimeout(resolve, delay));
+                }
             }
         }
     }

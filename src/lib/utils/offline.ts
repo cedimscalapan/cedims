@@ -601,7 +601,7 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 const { url: presignedUrl } = await presignResponse.json();
 
                 // 2a. Try server-side upload first (CORS-safe, avoids B2 preflight)
-                const MAX_SERVER = 4.4 * 1024 * 1024;
+                const MAX_SERVER = 10 * 1024 * 1024;
                 let uploadSuccess = false;
 
                 if ((item.pdfBytes as Blob).size <= MAX_SERVER) {

@@ -5,7 +5,6 @@
     import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import { onMount } from "svelte";
     import { Edit, Trash2, Plus, BookOpen, Layers } from "lucide-svelte";
-    import { fly } from "svelte/transition";
 
     interface TeachingLoad {
         id: string;
@@ -70,7 +69,23 @@
             return;
         }
 
-        loads = (data as TeachingLoad[]) || [];
+        const fetchedLoads = (data as TeachingLoad[]) || [];
+        const inactiveIds = fetchedLoads
+            .filter((load) => load.is_active === false)
+            .map((load) => load.id);
+
+        if (inactiveIds.length > 0) {
+            const { error: activateError } = await supabase
+                .from("teaching_loads")
+                .update({ is_active: true })
+                .in("id", inactiveIds);
+
+            if (activateError) {
+                console.warn("[load] Failed to restore inactive teaching loads:", activateError.message);
+            }
+        }
+
+        loads = fetchedLoads.map((load) => ({ ...load, is_active: true }));
     }
 
     function openAdd() {
@@ -102,7 +117,7 @@
         if (editingId) {
             const { error } = await supabase
                 .from("teaching_loads")
-                .update({ grade_level: gradeLevel, subject: subject.trim() })
+                .update({ grade_level: gradeLevel, subject: subject.trim(), is_active: true })
                 .eq("id", editingId);
             if (error) {
                 addToast("error", error.message);
@@ -119,6 +134,7 @@
                 user_id: user.id,
                 grade_level: gradeLevel,
                 subject: subject.trim(),
+                is_active: true,
             });
             if (error) {
                 addToast("error", error.message);
@@ -130,19 +146,6 @@
         showModal = false;
         gradeOpen = false;
         subjectOpen = false;
-        await loadTeachingLoads();
-    }
-
-    async function toggleActive(load: TeachingLoad) {
-        const { error } = await supabase
-            .from("teaching_loads")
-            .update({ is_active: !load.is_active })
-            .eq("id", load.id);
-        if (error) {
-            addToast("error", `Failed to update teaching load: ${error.message}`);
-            return;
-        }
-        addToast("success", `${load.subject} is now ${!load.is_active ? "active" : "inactive"}`);
         await loadTeachingLoads();
     }
 
@@ -244,25 +247,7 @@
                 <div
                     class="bg-surface-white border border-border-subtle rounded-xl p-6 shadow-sm hover:border-border-strong hover:border-gov-blue/20 transition-colors group relative flex flex-col h-full min-h-[220px]"
                 >
-                    <!-- Status Badge -->
-                    <div class="absolute top-4 right-4">
-                        <button
-                            onclick={() => toggleActive(load)}
-                            class="w-11 h-6 rounded-full relative transition-colors shadow-inner overflow-hidden {load.is_active
-                                ? 'bg-gov-green'
-                                : 'bg-surface-muted'}"
-                            aria-label="Toggle active status"
-                            title={load.is_active ? "Active" : "Inactive"}
-                        >
-                            <span
-                                class="absolute left-0.5 top-0.5 transition-transform w-5 h-5 rounded-full bg-surface-white shadow-sm {load.is_active
-                                    ? 'translate-x-5'
-                                    : 'translate-x-0.5'}"
-                            ></span>
-                        </button>
-                    </div>
-
-                    <div class="mb-4 pr-12">
+                    <div class="mb-4">
                         <div class="flex items-center gap-2 mb-3">
                             <Layers size={14} class="text-gov-blue" />
                             <span
