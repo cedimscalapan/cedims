@@ -29,7 +29,7 @@ begin
     if exists (select 1 from public.submissions s where s.id <> v_submission.id and s.user_id = v_submission.user_id and s.teaching_load_id = p_teaching_load_id and s.school_year = v_submission.school_year and s.term_number = p_term_number and s.week_number = p_week_number and s.doc_type in ('DLL','DLP') and s.compliance_status in ('compliant','late')) then
         raise exception 'A counted upload already exists for this teaching load, term, and week';
     end if;
-    update public.submissions set teaching_load_id = p_teaching_load_id, subject = v_load.subject, grade_level = v_load.grade_level, term_number = p_term_number, week_number = p_week_number, calendar_id = p_calendar_id where id = v_submission.id returning * into v_submission;
+    update public.submissions set teaching_load_id = p_teaching_load_id, subject = v_load.subject, term_number = p_term_number, week_number = p_week_number, calendar_id = p_calendar_id where id = v_submission.id returning * into v_submission;
     insert into public.audit_logs(actor_id, action, entity_type, entity_id, metadata) values (auth.uid(), 'archive.moved', 'submission', v_submission.id::text, jsonb_build_object('original_uploader', v_submission.user_id, 'teaching_load_id', p_teaching_load_id, 'term_number', p_term_number, 'week_number', p_week_number));
     return v_submission;
 end;
