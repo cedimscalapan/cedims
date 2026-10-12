@@ -476,7 +476,7 @@
                 );
                 leaveQuery = leaveQuery.eq("school_id", userProfile.school_id);
             }
-        } else if (role === "District Supervisor") {
+        } else if (role === "District Supervisor" || role === "Admin") {
             if (userProfile.district_id) {
                 teacherQuery = teacherQuery.eq(
                     "district_id",

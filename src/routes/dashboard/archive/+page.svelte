@@ -454,7 +454,11 @@
             let schoolsQuery = supabase
                 .from("schools")
                 .select("id, name, avatar_url");
-            if (role === "District Supervisor") schoolsQuery = schoolsQuery.eq("district_id", userProfile.district_id);
+            if (role === "District Supervisor" || role === "Admin") {
+                if (userProfile.district_id) {
+                    schoolsQuery = schoolsQuery.eq("district_id", userProfile.district_id);
+                }
+            }
             const { data: schoolsData } = await schoolsQuery;
             if (runId !== loadRun) return;
 
