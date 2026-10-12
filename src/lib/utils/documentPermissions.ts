@@ -44,7 +44,7 @@ export function requiresTeachingLoadSelection(role: string, docType: string): bo
 
 export function canViewArchivedDocument(role: string, docType: string): boolean {
   // DLL documents: visible to all roles who can access archive
-  if (docType === 'DLL') {
+  if (docType === 'DLL' || docType === 'DLP') {
     return role === 'Teacher' || role === 'Master Teacher' || role === 'School Head' || role === 'District Supervisor' || role === 'Admin';
   }
 
