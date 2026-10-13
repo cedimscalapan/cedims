@@ -518,12 +518,12 @@ const KNOWLEDGE_BASE: KnowledgeEntry[] = [
         keywords: ['notification', 'notifications', 'alert me', 'bell icon'],
         answers: {
             en: [
-                'You’ll get a notification whenever a deadline is updated or a new week opens for submissions. Check the bell icon in the header for your recent alerts.',
-                'Notifications fire mainly around deadline changes: a supervisor opens or updates a week, and everyone affected gets pinged.'
+                'You’ll get a notification when a new week opens for submissions. Check the bell icon in the header for recent deadline alerts.',
+                'Notifications are focused on newly opened submission deadlines, so upload success messages do not fill the notification list.'
             ],
             tl: [
-                'May notification kayo kapag na-update ang deadline o may bagong linggo na bumukas para sa submissions. Tingnan ang bell icon sa taas para sa mga alerto ninyo.',
-                'Karaniwang tumutunog ang notification kapag may binago sa deadline: nag-o-open o nag-a-update ang supervisor ng linggo, at nade-notify ang lahat ng apektado.'
+                'May notification kayo kapag may bagong linggo na binuksan para sa submissions. Tingnan ang bell icon sa taas para sa deadline alerts.',
+                'Nakatuon ang notifications sa bagong bukas na submission deadlines, kaya hindi napupuno ang listahan ng upload success messages.'
             ]
         }
     },

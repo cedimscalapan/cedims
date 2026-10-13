@@ -44,31 +44,3 @@ export async function createNotification(
     }
 }
 
-/**
- * Specialized utility for Compliance Alerts (District/School level)
- */
-export async function alertComplianceRisk(
-    districtId: string | undefined,
-    schoolName: string,
-    riskLevel: 'high' | 'medium',
-    details: string
-) {
-    const role = districtId ? 'District Supervisor' : 'School Head';
-
-    let query = supabase.from('profiles').select('id').eq('role', role);
-    if (districtId) query = query.eq('district_id', districtId);
-
-    const { data: targets } = await query;
-
-    if (targets && targets.length > 0) {
-        await Promise.all(targets.map(target =>
-            createNotification(
-                target.id,
-                `Institutional Risk: ${schoolName}`,
-                details,
-                riskLevel === 'high' ? 'error' : 'warning',
-                '/dashboard/monitoring/district'
-            )
-        ));
-    }
-}

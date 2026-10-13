@@ -14,7 +14,6 @@
 import PdfWorker from './pdf.worker?worker';
 import { supabase } from './supabase';
 import { env } from '$env/dynamic/public';
-import { createNotification } from './notificationSystem';
 import { getCurrentSchoolYear } from './schoolYear';
 import { isMobileDevice } from './device';
 import { logAudit } from './audit';
@@ -589,12 +588,6 @@ async function* runOnlinePipelineResilient(
     }
     await cacheVerifiedDoc(fileHash, { file_name: fileName, doc_type: activeDocType, week_number: activeWeekNumber });
 
-    // Same reasoning as the queued path: the file is uploaded and the row is
-    // inserted by this point, so a convenience notification — two more un-timed
-    // network calls — must not hold back the success the teacher is waiting on.
-    createNotification(options.userId, 'Archival Successful', `Securely archived ${activeDocType} - Week ${activeWeekNumber}.`, 'success')
-        .catch(() => {});
-
     yield {
         phase: 'done',
         progress: 100,
@@ -671,21 +664,6 @@ async function* runOfflinePipelineResilient(
     }
 
     await cacheVerifiedDoc(fileHash, { file_name: fileName, doc_type: activeDocType, week_number: activeWeekNumber, pending_sync: true });
-
-    // Reported exactly as the direct-upload path reports it. The submission is
-    // recorded, stamped and queued, and syncs on its own with the original
-    // timestamp preserved — so from the teacher's side this genuinely is the
-    // same outcome, and surfacing a different one only caused confusion about
-    // whether the document had actually been submitted.
-    //
-    // NOT awaited. createNotification() makes two un-timed network calls
-    // (auth.getUser, then the notifications insert), so awaiting it here parked
-    // this path on the network at 80% "Finalizing submission record..." — in a
-    // path whose entire purpose is never to wait on the network. The document
-    // is already queued and safe by this point; a convenience notification must
-    // never gate reporting that.
-    createNotification(options.userId, 'Archival Successful', `Securely archived ${activeDocType} - Week ${activeWeekNumber}.`, 'success')
-        .catch(() => {});
 
     // Start pushing to the server right away rather than waiting for the 60s
     // heartbeat. Deliberately not awaited: the transfer is the slow part on a

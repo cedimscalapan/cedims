@@ -60,7 +60,7 @@
         <section id="workflow" class="section">
             <div class="section-heading"><p class="eyebrow">01 / The workflow</p><h2>From a submitted file<br />to a reviewed record.</h2></div>
             <ol class="steps">{#each steps as step, i}<li><span class="number">0{i + 1}</span><div><h3>{step[0]}</h3><p>{step[1]}</p></div></li>{/each}</ol>
-            <div class="tools"><h3>Tools for the work around it</h3><p><strong>Archives</strong> for documents and remarks. <strong>Notifications</strong> for submission activity and deadlines. <strong>QR verification</strong> for document records. <strong>Gabay</strong> for CEDIMS questions, record lookups, and compliance reports for School Heads and District Supervisors.</p></div>
+            <div class="tools"><h3>Tools for the work around it</h3><p><strong>Archives</strong> for documents and remarks. <strong>Notifications</strong> for newly opened deadlines. <strong>QR verification</strong> for document records. <strong>Gabay</strong> for CEDIMS questions, record lookups, and compliance reports for School Heads and District Supervisors.</p></div>
         </section>
 
         <section id="roles" class="section">

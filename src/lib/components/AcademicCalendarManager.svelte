@@ -198,30 +198,6 @@
             if (data && data[0]) {
                 weekData.id = data[0].id;
                 addToast("success", `Week ${weekData.week_number} deadline saved successfully`);
-
-                // Notify all teachers in the district about the new deadline
-                const { createNotification } = await import(
-                    "$lib/utils/notificationSystem"
-                );
-                const { data: teachers } = await supabase
-                    .from("profiles")
-                    .select("id")
-                    .eq("district_id", resolvedDistrictId)
-                    .eq("role", "Teacher");
-
-                if (teachers) {
-                    await Promise.all(
-                        teachers.map((t) =>
-                            createNotification(
-                                t.id,
-                                "Deadline Updated",
-                                `The submission deadline for Week ${weekData.week_number} has been updated to ${new Date(weekData.deadline_date).toLocaleDateString()}.`,
-                                "info",
-                                "/dashboard/calendar",
-                            ),
-                        ),
-                    );
-                }
             }
         }
     }

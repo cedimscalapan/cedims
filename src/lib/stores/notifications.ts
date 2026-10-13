@@ -44,21 +44,6 @@ function createNotificationStore() {
             if (!error && data) {
                 if (data.length === 0) {
                     set([]); // Clear loading state even if empty
-
-                    // Only attempt welcome notification if online and not already sent this session
-                    const welcomeSent = localStorage.getItem(`welcome_sent_${userId}`);
-                    if (navigator.onLine && !welcomeSent) {
-                        const { createNotification } = await import('$lib/utils/notificationSystem');
-                        const success = await createNotification(
-                            userId,
-                            'Welcome to CEDIMS',
-                            'Your instructional supervision dashboard is ready. All your archivals and alerts will appear here.',
-                            'info'
-                        );
-                        if (success) {
-                            localStorage.setItem(`welcome_sent_${userId}`, 'true');
-                        }
-                    }
                 } else {
                     set(data);
                     // Also update cache for next time

@@ -728,17 +728,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 archivedLabels.push(
                     `${item.options.docType || 'DLL'}${item.options.weekNumber ? ` - Week ${item.options.weekNumber}` : ''}`
                 );
-                // Trigger native local notification. Skipped on mobile for the
-                // same reason as the toasts above: the teacher was already told
-                // the document was archived when they submitted it, so a later
-                // "offline archival ... synced" notice only casts doubt on a
-                // result that was already final from their point of view.
-                if (!isMobileDevice()) {
-                    import('./notifications').then(m => {
-                        m.sendLocalNotification('Sync Successful', `Offline archival for ${item.fileName} has been synced to the cloud.`);
-                    });
-                }
-
             } catch (err: any) {
                 failed++;
             }

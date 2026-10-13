@@ -135,7 +135,7 @@ export const walkthroughGuides: Record<string, WalkthroughGuide> = {
 export const walkthroughHeaderSteps: WalkthroughStep[] = [
     {
         title: "Notifications",
-        content: "Real-time alerts for new submissions, remarks, and upcoming deadlines land here.",
+        content: "Deadline alerts land here when a new week opens for submissions.",
         target: "notifications",
     },
     {
