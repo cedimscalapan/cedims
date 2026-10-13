@@ -235,7 +235,7 @@
             // Just the import is often enough to trigger Service Worker caching
             debugLog("[upload] Tesseract.js pre-warmed.");
         } catch (e) {
-            console.warn("[upload] Pre-warm failed:", e);
+            debugLog("[upload] Pre-warm skipped:", e);
         }
     }
 
@@ -390,10 +390,7 @@
                 loads = data;
                 cacheMetadata(`teaching_loads_${userProfile.id}`, data);
             } else if (error) {
-                console.error(
-                    "[upload] Online fetch teaching loads error:",
-                    error.message,
-                );
+                debugLog("[upload] Online fetch teaching loads skipped:", error.message);
             }
         }
 
@@ -455,10 +452,7 @@
                     calendarEntries = loadedCalendarEntries;
                     cacheMetadata(cacheKey, data);
                 } else if (error) {
-                    console.error(
-                        "[upload] Online fetch calendar error:",
-                        error.message,
-                    );
+                    debugLog("[upload] Online fetch calendar skipped:", error.message);
                 }
             }
 
@@ -500,7 +494,7 @@
                 await syncLedgerFromServer(userProfile.id);
 
             } catch (err) {
-                console.warn("[upload] Sync context fetch error:", err);
+                debugLog("[upload] Sync context fetch skipped:", err);
             }
         }
 
@@ -593,7 +587,7 @@
             const d = new Date(finalDateStr);
             return isNaN(d.getTime()) ? null : d;
         } catch (e) {
-            console.error("[upload] Date parse error:", e);
+            debugLog("[upload] Date parse skipped:", e);
             return null;
         }
     }
@@ -623,7 +617,7 @@
             .maybeSingle();
 
         if (error) {
-            console.error("[upload] Calendar lookup error:", error);
+            debugLog("[upload] Calendar lookup skipped:", error);
             return null;
         }
 
@@ -717,7 +711,7 @@
             speak("Smart detection complete. Fields updated.");
             scanProgress = 100;
         } catch (err) {
-            console.error("[upload] OCR error:", err);
+            debugLog("[upload] OCR skipped:", err);
         } finally {
             scanProgress = 100;
             detectingMetadata = false;
@@ -734,7 +728,7 @@
             debugLog("[upload] Early hash calculation complete:", fileHash);
             // checkExistingSubmission is triggered via $effect
         } catch (hashErr) {
-            console.warn("[upload] Early hash calculation failed:", hashErr);
+            debugLog("[upload] Early hash calculation skipped:", hashErr);
         }
     }
 

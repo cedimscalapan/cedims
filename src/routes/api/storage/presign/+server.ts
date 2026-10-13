@@ -12,7 +12,6 @@ export async function POST({ request }) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-        console.error('[presign] Auth error:', authError);
         throw error(401, 'Unauthorized');
     }
 
@@ -43,8 +42,8 @@ export async function POST({ request }) {
         return json({ url });
     } catch (err: any) {
         const detail = err?.body?.message || err?.message || err?.name || 'Unknown storage signing error';
-        console.error('[presign] Generation error:', detail, err);
         if (err?.status && err?.body) throw err;
+        console.error('[presign] Generation error:', detail, err);
         throw error(500, `Failed to generate pre-signed URL: ${detail}`);
     }
 }

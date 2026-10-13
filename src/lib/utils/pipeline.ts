@@ -296,8 +296,9 @@ async function* runOnlinePipelineResilient(
                 calendarId = calEntry.id;
                 if (calEntry.deadline_date) deadlineDate = new Date(calEntry.deadline_date);
             }
-        } catch (err: any) {
-            console.warn('[pipeline] Calendar lookup failed/timed out, continuing without a deadline:', err?.message);
+        } catch {
+            // Calendar lookup is optional metadata. Expected network misses stay quiet
+            // so upload attempts do not add noise to browser or provider logs.
         }
     }
 

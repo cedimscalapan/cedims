@@ -25,7 +25,6 @@ export async function POST({ request }) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-        console.error('[upload-api] Auth error:', authError);
         throw error(401, 'Unauthorized');
     }
 
@@ -41,7 +40,7 @@ export async function POST({ request }) {
         throw error(415, 'Only PDF uploads are accepted.');
     }
 
-    const MAX_SIZE_MB = 4.2;
+    const MAX_SIZE_MB = 4;
     const MAX_SIZE = MAX_SIZE_MB * 1024 * 1024;
     if (file.size > MAX_SIZE) {
         throw error(413, `File exceeds the ${MAX_SIZE_MB}MB upload limit. Please compress your PDF.`);

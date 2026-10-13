@@ -122,7 +122,7 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
             const metadata = parseMetadata(text, file.name);
             return { ...metadata, rawText: text, confidence: 100, language: detectLanguage(text) };
         } catch (err) {
-            console.error('[ocr] PDF extraction failed:', err);
+            debugWarn('[ocr] PDF extraction skipped:', err);
             return createDefaultMetadata();
         }
     }
@@ -139,7 +139,7 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
         // so as long as it runs once while online, it keeps working offline.
         const worker = await createWorker('eng+fil', 1, {
             logger: (m: any) => debugLog(m),
-            errorHandler: (err: any) => console.error('[ocr] Tesseract Worker Error:', err)
+            errorHandler: (err: any) => debugWarn('[ocr] Tesseract worker skipped:', err)
         });
 
         try {
@@ -156,7 +156,7 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
             await worker.terminate();
         }
     } catch (err) {
-        console.error('[ocr] Optimized Image OCR failed:', err);
+        debugWarn('[ocr] Optimized image OCR skipped:', err);
         return createDefaultMetadata();
     } finally {
         URL.revokeObjectURL(objectUrl);
@@ -261,7 +261,7 @@ async function extractRasterMetadata(page: any, pdfjsLib: any, fileName: string 
             }, 'image/png');
         });
     } catch (err) {
-        console.error('[ocr] Raster fallback failed:', err);
+        debugWarn('[ocr] Raster fallback skipped:', err);
         return createDefaultMetadata();
     }
 }

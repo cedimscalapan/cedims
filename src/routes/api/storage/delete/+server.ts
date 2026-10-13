@@ -10,7 +10,6 @@ export async function POST({ request }) {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-        console.error('[delete-storage] Auth error:', authError);
         throw error(401, 'Unauthorized');
     }
 
