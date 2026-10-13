@@ -25,6 +25,7 @@
         const currentPath = $page.url.pathname;
         if (href === "/dashboard") return currentPath === "/dashboard";
         if (href.startsWith("/dashboard/admin?")) {
+            if (href.endsWith("tab=settings") && currentPath === "/dashboard/admin" && !$page.url.search) return true;
             return currentPath === "/dashboard/admin" && $page.url.search === href.slice(href.indexOf("?"));
         }
         return currentPath.startsWith(href);

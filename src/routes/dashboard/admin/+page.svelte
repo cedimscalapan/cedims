@@ -9,7 +9,6 @@
     import { addToast } from "$lib/stores/toast";
     import { fly, fade, slide } from "svelte/transition";
     import {
-        Settings,
         Users,
         Shield,
         UserCheck,
@@ -19,7 +18,6 @@
         RefreshCw,
         Eye,
         EyeOff,
-        CalendarDays,
     } from "lucide-svelte";
     import AcademicCalendarManager from "$lib/components/AcademicCalendarManager.svelte";
 
@@ -401,57 +399,7 @@
 </svelte:head>
 
 <div class="max-w-5xl mx-auto">
-    <PageHeader title="Administration" description="Manage user accounts, submission settings, and the academic calendar." />
-
-    <!-- Tab Navigation -->
-    <div
-        class="flex gap-1 p-1 bg-surface-muted rounded-md mb-8 max-w-md"
-        role="tablist"
-        aria-label="Admin sections"
-    >
-        <button
-            onclick={() => (activeTab = "settings")}
-            class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-colors {activeTab ===
-            'settings'
-                ? 'bg-surface-white text-gov-blue shadow-sm'
-                : 'text-text-muted hover:text-text-primary'}"
-            role="tab"
-            aria-selected={activeTab === "settings"}
-            aria-controls="settings-panel"
-            aria-label="Settings"
-        >
-            <Settings size={18} />
-            <span class="hidden sm:inline">Settings</span>
-        </button>
-        <button
-            onclick={() => (activeTab = "users")}
-            class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-colors {activeTab ===
-            'users'
-                ? 'bg-surface-white text-gov-blue shadow-sm'
-                : 'text-text-muted hover:text-text-primary'}"
-            role="tab"
-            aria-selected={activeTab === "users"}
-            aria-controls="users-panel"
-            aria-label="Users"
-        >
-            <Users size={18} />
-            <span class="hidden sm:inline">Users</span>
-        </button>
-        <button
-            onclick={() => (activeTab = "calendar")}
-            class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-colors {activeTab ===
-            'calendar'
-                ? 'bg-surface-white text-gov-blue shadow-sm'
-                : 'text-text-muted hover:text-text-primary'}"
-            role="tab"
-            aria-selected={activeTab === "calendar"}
-            aria-controls="calendar-panel"
-            aria-label="Calendar"
-        >
-            <CalendarDays size={18} />
-            <span class="hidden sm:inline">Calendar</span>
-        </button>
-    </div>
+    <PageHeader title={activeTab === "settings" ? "Settings" : activeTab === "users" ? "Users" : "Calendar"} description={activeTab === "settings" ? "Manage system-wide upload and review options." : activeTab === "users" ? "Create accounts, update roles, and manage school assignments." : "Manage academic weeks and submission deadlines."} />
 
     <!-- Settings Tab -->
     {#if activeTab === "settings"}
