@@ -61,6 +61,7 @@
 
     const MAX_SELECTED_PDF_SIZE_MB = 4;
     const MAX_SELECTED_PDF_BYTES = MAX_SELECTED_PDF_SIZE_MB * 1024 * 1024;
+    const PDF_COMPRESSOR_URL = "https://www.ilovepdf.com/compress_pdf";
     const UPLOAD_DEBUG = false;
     const debugLog = (...args: any[]) => { if (UPLOAD_DEBUG) console.log(...args); };
 
@@ -646,7 +647,7 @@
         }
         if (file.size > MAX_SELECTED_PDF_BYTES) {
             selectedFile = null;
-            addToast("error", `File too large. Please compress the PDF below ${MAX_SELECTED_PDF_SIZE_MB}MB before uploading.`);
+            addToast("error", `File too large. Compress the PDF below ${MAX_SELECTED_PDF_SIZE_MB}MB first: ${PDF_COMPRESSOR_URL}`);
             return;
         }
 
@@ -783,7 +784,7 @@
         }
 
         if (selectedFile.size > MAX_SELECTED_PDF_BYTES) {
-            addToast("error", `File too large. Please compress the PDF below ${MAX_SELECTED_PDF_SIZE_MB}MB before uploading.`);
+            addToast("error", `File too large. Compress the PDF below ${MAX_SELECTED_PDF_SIZE_MB}MB first: ${PDF_COMPRESSOR_URL}`);
             return;
         }
 
@@ -1073,6 +1074,7 @@
                 accept=".pdf,application/pdf"
                 maxSizeMb={MAX_SELECTED_PDF_SIZE_MB}
                 supportedText="PDF only. Compress files below 4MB before uploading."
+                oversizedHelpUrl={PDF_COMPRESSOR_URL}
             />
 
             {#if $settings.maintenance_mode}

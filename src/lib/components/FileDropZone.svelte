@@ -7,6 +7,7 @@
         disabled?: boolean;
         maxSizeMb?: number;
         supportedText?: string;
+        oversizedHelpUrl?: string;
     }
 
     let {
@@ -15,6 +16,7 @@
         disabled = false,
         maxSizeMb = 500,
         supportedText = "PDF, DOCX, DOC, JPG, JPEG, PNG",
+        oversizedHelpUrl,
     }: Props = $props();
 
     let dragOver = $state(false);
@@ -49,7 +51,7 @@
 
     function selectFile(file: File) {
         if (maxSizeMb && file.size > maxSizeMb * 1024 * 1024) {
-            errorMessage = `File too large. Maximum size is ${maxSizeMb}MB.`;
+            errorMessage = `File too large. Compress it below ${maxSizeMb}MB before uploading.`;
             selectedFile = null;
             return;
         }
@@ -151,9 +153,22 @@
 
                 <!-- Error or Info -->
                 {#if errorMessage}
-                    <div role="alert" class="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gov-red/10 border border-gov-red/30">
+                    <div role="alert" class="flex flex-col items-center justify-center gap-1 px-3 py-2.5 rounded-lg bg-gov-red/10 border border-gov-red/30">
+                        <div class="flex items-center justify-center gap-2">
                         <AlertCircle size={18} class="text-gov-red flex-shrink-0" strokeWidth={2} />
                         <p class="text-sm font-bold text-gov-red">{errorMessage}</p>
+                        </div>
+                        {#if oversizedHelpUrl}
+                            <a
+                                href={oversizedHelpUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                class="text-xs font-bold text-gov-blue underline underline-offset-2"
+                                onclick={(e) => e.stopPropagation()}
+                            >
+                                Open PDF compressor
+                            </a>
+                        {/if}
                     </div>
                 {:else}
                     <p class="text-xs text-text-muted font-medium pt-2">
