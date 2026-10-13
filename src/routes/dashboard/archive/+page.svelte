@@ -228,7 +228,7 @@
             return;
         }
         movingSubmission = true;
-        const { data, error } = await supabase.rpc("admin_move_submission", {
+        let { data, error } = await supabase.rpc("admin_move_submission", {
             p_submission_id: moveTarget.id,
             p_teaching_load_id: load.id,
             p_term_number: moveTerm,
@@ -236,6 +236,17 @@
             p_calendar_id: calendar.id,
             p_compliance_status: moveStatus,
         });
+        if (error?.code === "PGRST202" || error?.message?.includes("schema cache")) {
+            const fallback = await supabase.rpc("admin_move_submission", {
+                p_submission_id: moveTarget.id,
+                p_teaching_load_id: load.id,
+                p_term_number: moveTerm,
+                p_week_number: moveWeek,
+                p_calendar_id: calendar.id,
+            });
+            data = fallback.data;
+            error = fallback.error;
+        }
         if (error) {
             addToast("error", error.message || "Could not move the archive file.");
         } else {
