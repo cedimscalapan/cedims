@@ -83,6 +83,8 @@
     // skip reloading while we are the ones applying a fix.
     let applyingFix = $state(false);
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastReloadAt = 0;
+    let inFlightLoad: Promise<void> | null = null;
     let loadRun = 0;
     let loadedFromCache = $state(false);
 
@@ -149,8 +151,10 @@
     function scheduleReload() {
         if (reloadTimer) clearTimeout(reloadTimer);
         reloadTimer = setTimeout(() => {
+            if (Date.now() - lastReloadAt < 30000) return;
+            lastReloadAt = Date.now();
             loadDashboard({ background: true }).catch((err) => console.error("[dashboard] Realtime refresh failed:", err));
-        }, 500);
+        }, 1500);
     }
 
     function setupRealtime() {
@@ -230,8 +234,10 @@
     }
 
     async function loadDashboard(options: { useCache?: boolean; background?: boolean } = {}) {
+        if (inFlightLoad && options.background) return inFlightLoad;
         const userProfile = $profile;
         if (!userProfile) return;
+        inFlightLoad = (async () => {
         const role = userProfile.role;
         const runId = ++loadRun;
         const cacheKey = dashboardCacheKey(userProfile);
@@ -268,7 +274,10 @@
             }
         } finally {
             if (runId === loadRun) loading = false;
+            inFlightLoad = null;
         }
+        })();
+        return inFlightLoad;
     }
 
     async function loadTeacherDashboard(userProfile: any) {

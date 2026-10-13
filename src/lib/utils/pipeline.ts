@@ -21,7 +21,6 @@ export type { PipelinePhase, PipelineResult } from '$lib/types/pipeline';
 
 const MAX_UPLOAD_SIZE_MB = 4;
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
-const SERVER_UPLOAD_LIMIT_BYTES = MAX_UPLOAD_BYTES;
 
 interface CoreResult {
     stampedBytes: Uint8Array;
@@ -338,7 +337,7 @@ async function* runOnlinePipelineResilient(
 
     const contentType = 'application/pdf';
     const fileBlob = new Blob([stampedBytes as BlobPart], { type: contentType });
-    if (fileBlob.size > SERVER_UPLOAD_LIMIT_BYTES) {
+    if (fileBlob.size > MAX_UPLOAD_BYTES) {
         throw new Error(`This PDF is ${(fileBlob.size / 1024 / 1024).toFixed(1)}MB after stamping. Please compress it below ${MAX_UPLOAD_SIZE_MB}MB before uploading.`);
     }
     yield { phase: 'uploading', progress: 50, message: 'Uploading...' };
@@ -346,37 +345,6 @@ async function* runOnlinePipelineResilient(
     let lastUploadError: any = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
-            const formData = new FormData();
-            formData.append('file', fileBlob, fileName);
-            formData.append('key', filePath);
-
-            uploadResponse = await xhrUpload('/api/storage/upload', formData, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                onProgress: options.onTransferProgress,
-                stallMs: 120000
-            });
-
-            if (uploadResponse.ok) break;
-            if (uploadResponse.status === 401 || uploadResponse.status === 403) {
-                throw new Error('You have been signed out. Please sign in again and retry.');
-            }
-            throw new Error(`Server upload failed (${uploadResponse.status})`);
-        } catch (err: any) {
-            lastUploadError = err;
-            if (attempt < 2) {
-                const delay = 750 * 2 ** attempt + Math.floor(Math.random() * 250);
-                await new Promise((resolve) => setTimeout(resolve, delay));
-            }
-        }
-    }
-
-    if (!uploadResponse?.ok) {
-        if (uploadResponse?.status === 413 || lastUploadError?.message?.includes('(413)')) {
-            throw new Error(`This PDF is too large for the upload server. Please compress it below ${MAX_UPLOAD_SIZE_MB}MB before uploading.`);
-        }
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-            try {
             const presignResponse = await withTimeout(
                 fetch('/api/storage/presign', {
                     method: 'POST',
@@ -405,13 +373,15 @@ async function* runOnlinePipelineResilient(
             });
 
             if (uploadResponse.ok) break;
+            if (uploadResponse.status === 401 || uploadResponse.status === 403) {
+                throw new Error('You have been signed out. Please sign in again and retry.');
+            }
             throw new Error(`B2 upload failed (${uploadResponse.status})`);
-            } catch (err: any) {
-                lastUploadError = err;
-                if (attempt < 2) {
-                    const delay = 750 * 2 ** attempt + Math.floor(Math.random() * 250);
-                    await new Promise((resolve) => setTimeout(resolve, delay));
-                }
+        } catch (err: any) {
+            lastUploadError = err;
+            if (attempt < 2) {
+                const delay = 750 * 2 ** attempt + Math.floor(Math.random() * 250);
+                await new Promise((resolve) => setTimeout(resolve, delay));
             }
         }
     }

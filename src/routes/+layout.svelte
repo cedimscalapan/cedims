@@ -1,7 +1,6 @@
 <script lang="ts">
 	import "../app.css";
 	import Toast from "$lib/components/Toast.svelte";
-	import ChatBot from "$lib/components/ChatBot.svelte";
 	import LoadingScreen from "$components/LoadingScreen.svelte";
 	import { showQRScanner } from "$lib/stores/ui";
 	import { hideLoading } from "$stores/loadingStore";
@@ -23,6 +22,7 @@
 	// exactly the "preloaded but not used" warning browsers logged on pages
 	// that never open it.
 	let QRScannerComponent = $state<typeof import("$lib/components/QRScanner.svelte").default | null>(null);
+	let ChatBotComponent = $state<typeof import("$lib/components/ChatBot.svelte").default | null>(null);
 	$effect(() => {
 		if ($showQRScanner && !QRScannerComponent) {
 			import("$lib/components/QRScanner.svelte").then((m) => {
@@ -108,6 +108,19 @@
 			// Hide loading screen once app is initialized
 			hideLoading();
 
+			const loadChatBot = () => {
+				if (!ChatBotComponent) {
+					import("$lib/components/ChatBot.svelte").then((m) => {
+						ChatBotComponent = m.default;
+					});
+				}
+			};
+			if ("requestIdleCallback" in window) {
+				(window as any).requestIdleCallback(loadChatBot, { timeout: 3000 });
+			} else {
+				setTimeout(loadChatBot, 1500);
+			}
+
 			if ("serviceWorker" in navigator && import.meta.env.PROD) {
 				(async () => {
 					try {
@@ -192,6 +205,8 @@
 	<QRScannerComponent onScan={handleScan} onClose={() => showQRScanner.set(false)} />
 {/if}
 
-<ChatBot />
+{#if ChatBotComponent}
+	<ChatBotComponent />
+{/if}
 
 {@render children()}

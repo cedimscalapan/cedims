@@ -25,6 +25,8 @@
     };
     let data = $state<Snapshot | null>(null);
     let run = 0;
+    let inFlightLoad: Promise<void> | null = null;
+    let lastRealtimeRefreshAt = 0;
     const allowed = $derived(['Master Teacher', 'School Head', 'District Supervisor'].includes($profile?.role || ''));
     const yearOptions = $derived(Array.from({ length: 6 }, (_, i) => {
         const start = Number(getCurrentSchoolYear().slice(0, 4)) + 1 - i;
@@ -40,6 +42,8 @@
     }
 
     async function load() {
+        if (inFlightLoad) return inFlightLoad;
+        inFlightLoad = (async () => {
         if (!$profile || !allowed) { loading = false; return; }
         const request = ++run;
         const user = $profile;
@@ -83,7 +87,10 @@
             console.error('[compliance]', e);
         } finally {
             if (request === run) { loading = false; refreshing = false; }
+            inFlightLoad = null;
         }
+        })();
+        return inFlightLoad;
     }
     onMount(() => {
         try {
@@ -96,9 +103,16 @@
         window.addEventListener('online', updateConnection);
         void load();
         let timer: ReturnType<typeof setTimeout>;
-        const refresh = () => { clearTimeout(timer); timer = setTimeout(() => void load(), 400); };
+        const refresh = () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                if (Date.now() - lastRealtimeRefreshAt < 30000) return;
+                lastRealtimeRefreshAt = Date.now();
+                void load();
+            }, 1500);
+        };
         const channel = supabase.channel('compliance-workspace');
-        for (const table of ['submissions', 'dll_reviews', 'teaching_loads', 'academic_calendar', 'profiles', 'schools', 'submission_leave_requests']) {
+        for (const table of ['submissions', 'dll_reviews', 'submission_leave_requests']) {
             channel.on('postgres_changes', { event: '*', schema: 'public', table }, refresh);
         }
         channel.subscribe();

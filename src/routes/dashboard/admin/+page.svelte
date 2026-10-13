@@ -20,7 +20,6 @@
         Eye,
         EyeOff,
         CalendarDays,
-        ClipboardList,
     } from "lucide-svelte";
     import AcademicCalendarManager from "$lib/components/AcademicCalendarManager.svelte";
 
@@ -36,10 +35,7 @@
     let users = $state<any[]>([]);
     let loadingUsers = $state(true);
     let userSearch = $state("");
-    let activeTab = $state<"settings" | "users" | "calendar" | "logs">("settings");
-    let auditLogs = $state<any[]>([]);
-    let loadingAuditLogs = $state(false);
-    let auditSearch = $state("");
+    let activeTab = $state<"settings" | "users" | "calendar">("settings");
     let roleChangeModal = $state<{
         open: boolean;
         user: any;
@@ -70,7 +66,7 @@
 
     $effect(() => {
         const requestedTab = $page.url.searchParams.get("tab");
-        if (requestedTab === "settings" || requestedTab === "users" || requestedTab === "calendar" || requestedTab === "logs") {
+        if (requestedTab === "settings" || requestedTab === "users" || requestedTab === "calendar") {
             activeTab = requestedTab;
         } else {
             activeTab = "settings";
@@ -84,6 +80,12 @@
         "Master Teacher",
         "District Supervisor",
     ];
+    let userReloadTimer: ReturnType<typeof setTimeout> | null = null;
+    let settingsReloadTimer: ReturnType<typeof setTimeout> | null = null;
+    function debounceReload(timer: ReturnType<typeof setTimeout> | null, fn: () => void) {
+        if (timer) clearTimeout(timer);
+        return setTimeout(fn, 1500);
+    }
 
     // Guard: administration is a separate Admin-only interface. Runs
     // reactively so a profile that loads after mount is also protected.
@@ -106,8 +108,6 @@
             loading = false;
             loadingUsers = false;
         });
-        loadAuditLogs();
-
         // â”€â”€ Real-time Subscriptions (WBS 15.1/19.1) â”€â”€
         const profileSubscription = supabase
             .channel("admin-profiles")
@@ -119,7 +119,7 @@
                     table: "profiles",
                 },
                 () => {
-                    loadUsers(); // Refresh on any profile change
+                    userReloadTimer = debounceReload(userReloadTimer, () => void loadUsers());
                 },
             )
             .subscribe();
@@ -134,61 +134,18 @@
                     table: "system_settings",
                 },
                 () => {
-                    loadSettings(); // Refresh on any setting change
+                    settingsReloadTimer = debounceReload(settingsReloadTimer, () => void loadSettings());
                 },
-            )
-            .subscribe();
-
-        const auditSubscription = supabase
-            .channel("admin-audit-logs")
-            .on(
-                "postgres_changes",
-                { event: "INSERT", schema: "public", table: "audit_logs" },
-                () => loadAuditLogs(),
             )
             .subscribe();
 
         return () => {
             profileSubscription.unsubscribe();
             settingsSubscription.unsubscribe();
-            auditSubscription.unsubscribe();
+            if (userReloadTimer) clearTimeout(userReloadTimer);
+            if (settingsReloadTimer) clearTimeout(settingsReloadTimer);
         };
     });
-
-    async function loadAuditLogs() {
-        if ($profile?.role !== "Admin") return;
-        loadingAuditLogs = true;
-        const { data, error } = await supabase
-            .from("audit_logs")
-            .select("id, actor_id, action, entity_type, entity_id, metadata, created_at, actor:profiles(full_name, email, role)")
-            .order("created_at", { ascending: false })
-            .limit(500);
-        if (!error) auditLogs = data || [];
-        else console.error("[admin] Failed to load system logs:", error);
-        loadingAuditLogs = false;
-    }
-
-    function filteredAuditLogs() {
-        const query = auditSearch.trim().toLowerCase();
-        if (!query) return auditLogs;
-        return auditLogs.filter((entry) => {
-            const actor = Array.isArray(entry.actor) ? entry.actor[0] : entry.actor;
-            return [entry.action, entry.entity_type, entry.entity_id, actor?.full_name, actor?.email]
-                .filter(Boolean)
-                .some((value) => String(value).toLowerCase().includes(query));
-        });
-    }
-
-    function formatAuditAction(action: string) {
-        return action.replace(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-    }
-
-    function formatAuditMetadata(metadata: unknown) {
-        if (!metadata || typeof metadata !== "object") return "—";
-        return Object.entries(metadata as Record<string, unknown>)
-            .map(([key, value]) => `${key}: ${typeof value === "object" ? JSON.stringify(value) : String(value)}`)
-            .join(" · ") || "—";
-    }
 
     // â”€â”€ Settings Functions â”€â”€
     async function loadSettings() {
@@ -481,17 +438,6 @@
             <span class="hidden sm:inline">Users</span>
         </button>
         <button
-            onclick={() => (activeTab = "logs")}
-            class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-colors {activeTab === 'logs' ? 'bg-surface-white text-gov-blue shadow-sm' : 'text-text-muted hover:text-text-primary'}"
-            role="tab"
-            aria-selected={activeTab === "logs"}
-            aria-controls="logs-panel"
-            aria-label="System logs"
-        >
-            <ClipboardList size={18} />
-            <span class="hidden sm:inline">System Logs</span>
-        </button>
-        <button
             onclick={() => (activeTab = "calendar")}
             class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-bold transition-colors {activeTab ===
             'calendar'
@@ -506,56 +452,6 @@
             <span class="hidden sm:inline">Calendar</span>
         </button>
     </div>
-
-    {#if activeTab === "logs"}
-        <div id="logs-panel" role="tabpanel" aria-labelledby="logs-tab">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="relative flex-1 max-w-xl">
-                    <Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-                    <input type="search" bind:value={auditSearch} placeholder="Search actions, users, entities..." class="w-full pl-10 pr-4 py-2.5 text-sm bg-surface-white/60 border border-border-subtle rounded-xl outline-none focus:ring-2 focus:ring-gov-blue/20 min-h-[44px]" aria-label="Search system logs" />
-                </div>
-                <button onclick={loadAuditLogs} class="p-2.5 rounded-xl bg-surface-white/60 border border-border-subtle text-text-muted hover:text-gov-blue hover:border-gov-blue/30 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Refresh system logs">
-                    <RefreshCw size={16} class={loadingAuditLogs ? "animate-spin" : ""} />
-                </button>
-            </div>
-            <div class="gov-card-static overflow-hidden">
-                <div class="px-5 py-4 border-b border-border-subtle flex items-center justify-between">
-                    <div>
-                        <h2 class="font-bold text-text-primary">System Activity</h2>
-                        <p class="text-xs text-text-muted mt-1">Administrative actions recorded across CEDIMS.</p>
-                    </div>
-                    <span class="text-xs font-bold text-text-muted">{filteredAuditLogs().length} events</span>
-                </div>
-                <div class="max-h-[65vh] overflow-auto">
-                    <table class="w-full text-sm" aria-label="System activity log">
-                        <thead class="sticky top-0 bg-surface-muted border-b border-border-subtle">
-                            <tr class="text-left">
-                                <th class="px-5 py-3 text-xs uppercase tracking-wider text-text-muted">Date and time</th>
-                                <th class="px-4 py-3 text-xs uppercase tracking-wider text-text-muted">User</th>
-                                <th class="px-4 py-3 text-xs uppercase tracking-wider text-text-muted">Action</th>
-                                <th class="px-4 py-3 text-xs uppercase tracking-wider text-text-muted">Entity</th>
-                                <th class="px-5 py-3 text-xs uppercase tracking-wider text-text-muted">Details</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-border-subtle">
-                            {#each filteredAuditLogs() as entry (entry.id)}
-                                {@const actor = Array.isArray(entry.actor) ? entry.actor[0] : entry.actor}
-                                <tr class="hover:bg-surface-muted/50 align-top">
-                                    <td class="px-5 py-3 whitespace-nowrap text-xs text-text-muted">{new Date(entry.created_at).toLocaleString("en-PH")}</td>
-                                    <td class="px-4 py-3 min-w-[12rem]"><p class="font-semibold text-text-primary">{actor?.full_name || "Unknown user"}</p><p class="text-xs text-text-muted">{actor?.email || "—"}</p></td>
-                                    <td class="px-4 py-3"><span class="inline-flex rounded-md bg-gov-blue/10 px-2 py-1 text-xs font-bold text-gov-blue">{formatAuditAction(entry.action)}</span></td>
-                                    <td class="px-4 py-3 text-xs text-text-secondary">{entry.entity_type}{entry.entity_id ? ` · ${entry.entity_id}` : ""}</td>
-                                    <td class="px-5 py-3 text-xs text-text-secondary break-words min-w-[16rem]">{formatAuditMetadata(entry.metadata)}</td>
-                                </tr>
-                            {:else}
-                                <tr><td colspan="5" class="px-5 py-12 text-center text-sm text-text-muted">{loadingAuditLogs ? "Loading system logs..." : "No system activity matches your search."}</td></tr>
-                            {/each}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    {/if}
 
     <!-- Settings Tab -->
     {#if activeTab === "settings"}

@@ -28,12 +28,16 @@
     // WBS 20.3 & 20.4 — Proactive caching for full offline functionality
     let prefetchDone = false;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastRouteRefreshAt = 0;
+    const ROUTE_REFRESH_COOLDOWN_MS = 60000;
 
     function requestVisibleRouteRefresh(reason: "focus" | "visible" | "navigate") {
         if (typeof window === "undefined") return;
         if (!navigator.onLine && reason !== "navigate") return;
+        if (reason !== "navigate" && Date.now() - lastRouteRefreshAt < ROUTE_REFRESH_COOLDOWN_MS) return;
         if (refreshTimer) clearTimeout(refreshTimer);
         refreshTimer = setTimeout(() => {
+            lastRouteRefreshAt = Date.now();
             window.dispatchEvent(
                 new CustomEvent("cedims:refresh-visible-route", {
                     detail: { reason, requestedAt: Date.now() },

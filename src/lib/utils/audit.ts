@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { env } from '$env/dynamic/public';
 
 export async function logAudit(
     actorId: string,
@@ -7,6 +8,8 @@ export async function logAudit(
     entityId?: string,
     metadata?: Record<string, unknown>
 ) {
+    if (env.PUBLIC_ENABLE_AUDIT_LOGS !== 'true') return;
+
     try {
         await supabase.from('audit_logs').insert({
             actor_id: actorId,

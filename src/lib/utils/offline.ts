@@ -18,6 +18,8 @@ export const pendingSyncCount = writable<number>(0);
 const CACHE_PREFIX_DOCS = 'cached_docs_';
 const CACHE_PREFIX_HISTORY = 'cached_history_';
 const CACHE_PREFIX_METADATA = 'cached_metadata_';
+const METADATA_REFRESH_MS = 10 * 60 * 1000;
+const HASH_REFRESH_MS = 30 * 60 * 1000;
 
 /**
  * Cache a verified document hash locally for offline verification.
@@ -85,6 +87,11 @@ export async function prefetchOfflineMetadata(userId: string, districtId?: strin
     if (!navigator.onLine) return;
 
     try {
+        const stampKey = `offline_metadata_prefetch_${userId}_${districtId || 'none'}`;
+        const lastPrefetch = Number(sessionStorage.getItem(stampKey) || 0);
+        if (Date.now() - lastPrefetch < METADATA_REFRESH_MS) return;
+        sessionStorage.setItem(stampKey, String(Date.now()));
+
         // 1. Fetch ALL Teaching Loads for the user
         const { data: loads, error: loadsErr } = await supabase
             .from('teaching_loads')
@@ -210,6 +217,10 @@ export async function preloadVerificationHashes(userId?: string): Promise<number
     try {
         // Check if we're online
         if (!navigator.onLine) return 0;
+        const stampKey = `verification_hash_preload_${userId || 'all'}`;
+        const lastPreload = Number(sessionStorage.getItem(stampKey) || 0);
+        if (Date.now() - lastPreload < HASH_REFRESH_MS) return 0;
+        sessionStorage.setItem(stampKey, String(Date.now()));
 
         let query = supabase
             .from('submissions')
@@ -393,6 +404,8 @@ function syncToast(type: 'info' | 'success' | 'warning' | 'error', message: stri
 }
 
 let isSyncing = false;
+let lastSyncAttempt = 0;
+const SYNC_COOLDOWN_MS = 30000;
 
 // ... (getQueueSize, getQueueItems remain same)
 
@@ -420,6 +433,11 @@ async function checkConnection(): Promise<boolean> {
 }
 
 export async function processQueue(force = false): Promise<{ success: number; failed: number }> {
+    if (!force && Date.now() - lastSyncAttempt < SYNC_COOLDOWN_MS) {
+        return { success: 0, failed: 0 };
+    }
+    lastSyncAttempt = Date.now();
+
     // If not forcing, check connection status first
     const isOnline = force ? true : await checkConnection();
 
@@ -543,65 +561,25 @@ export async function processQueue(force = false): Promise<{ success: number; fa
 
                 const { url: presignedUrl } = await presignResponse.json();
 
-                // 2a. Try server-side upload first (CORS-safe, avoids B2 preflight)
-                const MAX_SERVER = 4 * 1024 * 1024;
-                let uploadSuccess = false;
-                let serverRejectedLargeFile = false;
+                const putResponse = await withTimeout(
+                    fetch(presignedUrl, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': contentType },
+                        body: item.pdfBytes as Blob
+                    }),
+                    120000,
+                    'B2 sync archive upload timed out'
+                ).catch(err => {
+                    throw err;
+                });
 
-                if ((item.pdfBytes as Blob).size <= MAX_SERVER) {
+                if (!putResponse.ok) {
+                    let errStr = putResponse.statusText;
                     try {
-                        const serverForm = new FormData();
-                        serverForm.append('file', item.pdfBytes as Blob, 'document.pdf');
-                        serverForm.append('key', sanitizedPath);
-
-                        const serverResponse = await withTimeout(
-                            fetch('/api/storage/upload', {
-                                method: 'POST',
-                                headers: { 'Authorization': `Bearer ${accessToken}` },
-                                body: serverForm
-                            }),
-                            120000,
-                            'Server sync upload timed out'
-                        );
-
-                        if (serverResponse.ok) {
-                            uploadSuccess = true;
-                        } else if (serverResponse.status === 413) {
-                            serverRejectedLargeFile = true;
-                            throw new Error('Queued PDF is too large for the upload server. Please compress it below 4MB and upload again.');
-                        }
-                    } catch (err) {
-                        // Direct B2 upload below is the intended fallback.
-                    }
-                } else {
-                    serverRejectedLargeFile = true;
-                }
-
-                // 2b. Fallback to direct PUT -> B2 if server upload failed or file too large
-                if (!uploadSuccess) {
-                    if (serverRejectedLargeFile) {
-                        throw new Error('Queued PDF is too large for the upload server. Please compress it below 4MB and upload again.');
-                    }
-                    const putResponse = await withTimeout(
-                        fetch(presignedUrl, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': contentType },
-                            body: item.pdfBytes as Blob
-                        }),
-                        120000,
-                        'B2 sync archive upload timed out'
-                    ).catch(err => {
-                        throw err;
-                    });
-
-                    if (!putResponse.ok) {
-                        let errStr = putResponse.statusText;
-                        try {
-                            const errJson = await putResponse.json();
-                            errStr = errJson.message || errStr;
-                        } catch { /* ignore */ }
-                        throw new Error(`B2 Archive upload failed (${putResponse.status}): ${errStr}`);
-                    }
+                        const errJson = await putResponse.json();
+                        errStr = errJson.message || errStr;
+                    } catch { /* ignore */ }
+                    throw new Error(`B2 Archive upload failed (${putResponse.status}): ${errStr}`);
                 }
 
                 // ── Fetch deadline for compliance + calendar_id ──
@@ -800,12 +778,13 @@ export function initOfflineSync(): void {
         }, 3000);
     });
 
-    // 2. Periodic "Heartbeat" (every 60s — battery-friendly for mobile)
+    // 2. Periodic heartbeat. Keep it sparse so idle dashboards do not create
+    // background app and provider traffic while still syncing automatically.
     setInterval(() => {
         if (navigator.onLine) {
             processQueue();
         }
-    }, 60000);
+    }, 300000);
 
     // 3. Initial check on load
     updatePendingCount();
