@@ -59,8 +59,9 @@
         is_active?: boolean;
     }
 
-    const MAX_UPLOAD_SIZE_MB = 4.2;
-    const MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+    const MAX_SELECTED_PDF_SIZE_MB = 100;
+    const MAX_SELECTED_PDF_BYTES = MAX_SELECTED_PDF_SIZE_MB * 1024 * 1024;
+    const COMPRESSION_TRIGGER_BYTES = 4 * 1024 * 1024;
     const UPLOAD_DEBUG = false;
     const debugLog = (...args: any[]) => { if (UPLOAD_DEBUG) console.log(...args); };
 
@@ -695,9 +696,9 @@
             addToast("error", "Only PDF files can be uploaded. Please export or save the document as PDF first.");
             return;
         }
-        if (file.size > MAX_UPLOAD_BYTES) {
+        if (file.size > MAX_SELECTED_PDF_BYTES) {
             selectedFile = null;
-            addToast("error", `File too large. Maximum upload size is ${MAX_UPLOAD_SIZE_MB}MB.`);
+            addToast("error", `File too large. Maximum file size is ${MAX_SELECTED_PDF_SIZE_MB}MB.`);
             return;
         }
 
@@ -706,7 +707,10 @@
         result = null;
         ocrConfidence = null;
         fileSizeWarning =
-            file.size > MAX_UPLOAD_BYTES;
+            file.size > COMPRESSION_TRIGGER_BYTES;
+        if (fileSizeWarning) {
+            addToast("info", "Large PDF detected. The system will compress it before upload.");
+        }
 
         // Runs OCR-based metadata detection: doc type, week number, and teaching load auto-fill
         detectingMetadata = true;
@@ -836,8 +840,8 @@
             return;
         }
 
-        if (selectedFile.size > MAX_UPLOAD_BYTES) {
-            addToast("error", `File too large. Maximum upload size is ${MAX_UPLOAD_SIZE_MB}MB.`);
+        if (selectedFile.size > MAX_SELECTED_PDF_BYTES) {
+            addToast("error", `File too large. Maximum file size is ${MAX_SELECTED_PDF_SIZE_MB}MB.`);
             return;
         }
 
@@ -1125,8 +1129,8 @@
                 onfileselected={onFileSelected}
                 disabled={processing || $settings.maintenance_mode}
                 accept=".pdf,application/pdf"
-                maxSizeMb={MAX_UPLOAD_SIZE_MB}
-                supportedText="PDF only"
+                maxSizeMb={MAX_SELECTED_PDF_SIZE_MB}
+                supportedText="PDF only. Large PDFs are compressed automatically."
             />
 
             {#if $settings.maintenance_mode}
