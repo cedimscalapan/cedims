@@ -16,7 +16,6 @@
         { id: "protection", title: "How it is protected" },
         { id: "retention", title: "How long it is kept" },
         { id: "your-rights", title: "Your rights" },
-        { id: "recaptcha", title: "Security verification" },
         { id: "contact", title: "Contact and complaints" },
     ];
 </script>
@@ -200,17 +199,8 @@
                     </p>
                 </section>
 
-                <section id="recaptcha" class="scroll-mt-6">
-                    <h2 class="mb-2 text-base font-bold text-text-primary">7. Security verification</h2>
-                    <p>
-                        The sign-in page uses Google reCAPTCHA to distinguish real users from
-                        automated attempts. Google may process device and usage signals for this
-                        purpose, subject to Google's own privacy policy and terms.
-                    </p>
-                </section>
-
                 <section id="contact" class="scroll-mt-6">
-                    <h2 class="mb-2 text-base font-bold text-text-primary">8. Contact and complaints</h2>
+                    <h2 class="mb-2 text-base font-bold text-text-primary">7. Contact and complaints</h2>
                     <p class="mb-2">
                         Questions about this notice, and requests to exercise the rights above,
                         should be addressed to the Data Protection Officer of the Calapan East
