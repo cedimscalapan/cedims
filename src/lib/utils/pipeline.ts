@@ -153,18 +153,44 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
         .join('');
 }
 
+async function sha256TextHex(value: string): Promise<string> {
+    return sha256Hex(new TextEncoder().encode(value));
+}
+
+function randomHex(byteLength = 16): string {
+    const bytes = new Uint8Array(byteLength);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+async function createSubmissionHash(originalBytes: Uint8Array, options: PipelineOptions): Promise<string> {
+    const contentHash = await sha256Hex(originalBytes);
+    const nonce = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : randomHex(16);
+    return sha256TextHex([
+        contentHash,
+        options.userId,
+        options.docType || 'Unknown',
+        options.teachingLoadId || '',
+        options.termNumber || '',
+        options.weekNumber || '',
+        Date.now(),
+        nonce
+    ].join(':'));
+}
+
 async function* runPipelineCore(
     file: File,
     options: PipelineOptions,
     worker: Worker
 ): AsyncGenerator<PipelineEvent & { _core?: CoreResult }> {
 
-    // Hash the bytes the teacher actually picked, before transcode/compress touch them —
-    // those steps stamp new PDF dates or re-encode content on every run, so hashing
-    // post-transform meant the same document got a different hash on every upload and
-    // duplicate detection never fired.
+    // The verification hash identifies this archive event, not just the PDF
+    // bytes. That keeps every QR code unique even when a teacher submits the
+    // exact same file name and contents again.
     const originalBytes = new Uint8Array(await file.arrayBuffer());
-    const fileHash = await sha256Hex(originalBytes);
+    const fileHash = await createSubmissionHash(originalBytes, options);
 
     const ext = file.name.split('.').pop()?.toLowerCase();
     if (file.type !== 'application/pdf' && ext !== 'pdf') {

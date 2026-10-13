@@ -544,7 +544,7 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 const { url: presignedUrl } = await presignResponse.json();
 
                 // 2a. Try server-side upload first (CORS-safe, avoids B2 preflight)
-                const MAX_SERVER = 4.2 * 1024 * 1024;
+                const MAX_SERVER = 4 * 1024 * 1024;
                 let uploadSuccess = false;
                 let serverRejectedLargeFile = false;
 
@@ -568,7 +568,7 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                             uploadSuccess = true;
                         } else if (serverResponse.status === 413) {
                             serverRejectedLargeFile = true;
-                            throw new Error('Queued PDF is too large for the upload server. Please compress it below 4.2MB and upload again.');
+                            throw new Error('Queued PDF is too large for the upload server. Please compress it below 4MB and upload again.');
                         }
                     } catch (err) {
                         // Direct B2 upload below is the intended fallback.
@@ -580,7 +580,7 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 // 2b. Fallback to direct PUT -> B2 if server upload failed or file too large
                 if (!uploadSuccess) {
                     if (serverRejectedLargeFile) {
-                        throw new Error('Queued PDF is too large for the upload server. Please compress it below 4.2MB and upload again.');
+                        throw new Error('Queued PDF is too large for the upload server. Please compress it below 4MB and upload again.');
                     }
                     const putResponse = await withTimeout(
                         fetch(presignedUrl, {

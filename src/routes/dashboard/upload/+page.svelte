@@ -94,7 +94,6 @@
     let detectingMetadata = $state(false);
     let scanProgress = $state(0);
     let detectedMetadata = $state<any>(null);
-    let fileHash = $state<string>("");
     let isOnline = $state(
         typeof navigator !== "undefined" ? navigator.onLine : true,
     );
@@ -129,8 +128,6 @@
     // Watch for changes that could invalidate uniqueness
     $effect(() => {
         if (teachingLoadId && weekNumber && docType && $profile) {
-            checkExistingSubmission();
-        } else if (fileHash) {
             checkExistingSubmission();
         } else {
             submissionAlreadyExists = false;
@@ -717,19 +714,6 @@
             detectingMetadata = false;
         }
 
-        // Hash calculation for early duplicate detection.
-        try {
-            const buffer = await file.arrayBuffer();
-            const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            fileHash = hashArray
-                .map((b) => b.toString(16).padStart(2, "0"))
-                .join("");
-            debugLog("[upload] Early hash calculation complete:", fileHash);
-            // checkExistingSubmission is triggered via $effect
-        } catch (hashErr) {
-            debugLog("[upload] Early hash calculation skipped:", hashErr);
-        }
     }
 
     /** Auto-wait for profile + teaching loads to finish loading (polls every 200ms) */
@@ -907,7 +891,6 @@
         result = null;
         detectedMetadata = null;
         ocrConfidence = null;
-        fileHash = "";
     }
 
     function handleViewArchive() {
