@@ -37,8 +37,6 @@
 			{@const MobileIcon = item.icon}
                 <a
                     href={item.href}
-                    data-sveltekit-preload-data="hover"
-                    data-sveltekit-preload-code="hover"
 				class="mobile-nav-item {isActive(item.href) ? 'active' : ''}"
 				aria-current={isActive(item.href) ? "page" : undefined}
 				aria-label={item.label}
