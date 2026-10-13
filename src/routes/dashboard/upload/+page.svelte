@@ -59,9 +59,8 @@
         is_active?: boolean;
     }
 
-    const MAX_SELECTED_PDF_SIZE_MB = 100;
+    const MAX_SELECTED_PDF_SIZE_MB = 4;
     const MAX_SELECTED_PDF_BYTES = MAX_SELECTED_PDF_SIZE_MB * 1024 * 1024;
-    const COMPRESSION_TRIGGER_BYTES = 4 * 1024 * 1024;
     const UPLOAD_DEBUG = false;
     const debugLog = (...args: any[]) => { if (UPLOAD_DEBUG) console.log(...args); };
 
@@ -91,7 +90,6 @@
     let slotAlreadyCovered = $state(false);
     let slotNotice = $state("");
     let ocrConfidence = $state<number | null>(null);
-    let fileSizeWarning = $state(false);
     let detectingMetadata = $state(false);
     let scanProgress = $state(0);
     let detectedMetadata = $state<any>(null);
@@ -648,7 +646,7 @@
         }
         if (file.size > MAX_SELECTED_PDF_BYTES) {
             selectedFile = null;
-            addToast("error", `File too large. Maximum file size is ${MAX_SELECTED_PDF_SIZE_MB}MB.`);
+            addToast("error", `File too large. Please compress the PDF below ${MAX_SELECTED_PDF_SIZE_MB}MB before uploading.`);
             return;
         }
 
@@ -656,12 +654,6 @@
         targetConfirmed = false;
         result = null;
         ocrConfidence = null;
-        fileSizeWarning =
-            file.size > COMPRESSION_TRIGGER_BYTES;
-        if (fileSizeWarning) {
-            addToast("info", "Large PDF detected. The system will compress it before upload.");
-        }
-
         // Runs OCR-based metadata detection: doc type, week number, and teaching load auto-fill
         detectingMetadata = true;
         scanProgress = 5;
@@ -791,7 +783,7 @@
         }
 
         if (selectedFile.size > MAX_SELECTED_PDF_BYTES) {
-            addToast("error", `File too large. Maximum file size is ${MAX_SELECTED_PDF_SIZE_MB}MB.`);
+            addToast("error", `File too large. Please compress the PDF below ${MAX_SELECTED_PDF_SIZE_MB}MB before uploading.`);
             return;
         }
 
@@ -1080,7 +1072,7 @@
                 disabled={processing || $settings.maintenance_mode}
                 accept=".pdf,application/pdf"
                 maxSizeMb={MAX_SELECTED_PDF_SIZE_MB}
-                supportedText="PDF only. Large PDFs are compressed automatically."
+                supportedText="PDF only. Compress files below 4MB before uploading."
             />
 
             {#if $settings.maintenance_mode}

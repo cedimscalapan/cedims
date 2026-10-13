@@ -13,17 +13,15 @@
 
 import PdfWorker from './pdf.worker?worker';
 import { supabase } from './supabase';
-import { env } from '$env/dynamic/public';
 import { getCurrentSchoolYear } from './schoolYear';
 import { isMobileDevice } from './device';
 import { logAudit } from './audit';
 import type { PipelineEvent, PipelineOptions } from '$lib/types/pipeline';
 export type { PipelinePhase, PipelineResult } from '$lib/types/pipeline';
 
-const MAX_UPLOAD_SIZE_MB = 4.2;
+const MAX_UPLOAD_SIZE_MB = 4;
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 const SERVER_UPLOAD_LIMIT_BYTES = MAX_UPLOAD_BYTES;
-const ILOVE_COMPRESS_THRESHOLD_BYTES = 4 * 1024 * 1024;
 
 interface CoreResult {
     stampedBytes: Uint8Array;
@@ -155,105 +153,6 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
         .join('');
 }
 
-async function compressLargePdfWithIlove(
-    pdfBytes: Uint8Array,
-    fileName: string,
-    token: string | undefined
-): Promise<Uint8Array> {
-    if (pdfBytes.byteLength <= ILOVE_COMPRESS_THRESHOLD_BYTES) {
-        return pdfBytes;
-    }
-    if (!token) {
-        throw new Error('You have been signed out. Please sign in again and retry.');
-    }
-
-    const startResponse = await withTimeout(
-        fetch('/api/pdf/compress/start', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` }
-        }),
-        30000,
-        'Could not start PDF compression. Please try again.'
-    );
-
-    if (!startResponse.ok) {
-        let message = 'PDF compression failed. Please try again with a smaller PDF.';
-        try {
-            const body = await startResponse.json();
-            if (body?.message) message = body.message;
-        } catch {
-            const text = await startResponse.text().catch(() => '');
-            if (text) message = text;
-        }
-        throw new Error(message);
-    }
-
-    const taskInfo = await startResponse.json();
-    const iloveToken = taskInfo?.token;
-    const task = taskInfo?.task;
-    const baseUrl = taskInfo?.baseUrl;
-    if (!iloveToken || !task || !baseUrl) {
-        throw new Error('PDF compression could not be started. Please try again.');
-    }
-
-    const uploadData = new FormData();
-    uploadData.append('task', task);
-    uploadData.append('file', new Blob([pdfBytes as BlobPart], { type: 'application/pdf' }), fileName);
-
-    const uploadResponse = await withTimeout(
-        fetch(`${baseUrl}/upload`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${iloveToken}` },
-            body: uploadData
-        }),
-        180000,
-        'PDF compression upload timed out. Please try again with a smaller PDF.'
-    );
-    if (!uploadResponse.ok) {
-        throw new Error('Could not send the PDF to the compression service. Please try again.');
-    }
-    const uploadBody = await uploadResponse.json();
-    const serverFilename = uploadBody?.server_filename;
-    if (!serverFilename) {
-        throw new Error('The compression service did not accept the PDF. Please try again.');
-    }
-
-    const processResponse = await withTimeout(
-        fetch(`${baseUrl}/process`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${iloveToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                task,
-                tool: 'compress',
-                files: [{ server_filename: serverFilename, filename: fileName }],
-                compression_level: 'extreme'
-            })
-        }),
-        180000,
-        'PDF compression timed out. Please try again with a smaller PDF.'
-    );
-    if (!processResponse.ok) {
-        throw new Error('The compression service could not compress this PDF. Please try another file.');
-    }
-
-    const downloadResponse = await withTimeout(
-        fetch(`${baseUrl}/download/${task}`, {
-            method: 'GET',
-            headers: { Authorization: `Bearer ${iloveToken}` }
-        }),
-        180000,
-        'Compressed PDF download timed out. Please try again.'
-    );
-    if (!downloadResponse.ok) {
-        throw new Error('Could not download the compressed PDF. Please try again.');
-    }
-
-    return new Uint8Array(await downloadResponse.arrayBuffer());
-}
-
 async function* runPipelineCore(
     file: File,
     options: PipelineOptions,
@@ -281,19 +180,7 @@ async function* runPipelineCore(
     const hasPreDetected = options.preDetectedMetadata?.docType && options.preDetectedMetadata?.docType !== 'Unknown' && options.preDetectedMetadata?.rawText;
     const detectedMetadata = hasPreDetected ? options.preDetectedMetadata : await extractMetadata(ocrFile);
 
-    yield {
-        phase: 'compressing',
-        progress: 50,
-        message: pdfBytes.byteLength > ILOVE_COMPRESS_THRESHOLD_BYTES
-            ? 'Compressing large PDF...'
-            : 'Securing your file...'
-    };
-    const session = await supabase.auth.getSession();
-    pdfBytes = await compressLargePdfWithIlove(
-        pdfBytes,
-        file.name.replace(/\.\w+$/, '.pdf'),
-        session.data.session?.access_token
-    );
+    yield { phase: 'compressing', progress: 50, message: 'Securing your file...' };
 
     // Stamping
     yield { phase: 'stamping', progress: 70, message: 'Adding verification code...' };
