@@ -12,7 +12,6 @@
  */
 
 import PdfWorker from './pdf.worker?worker';
-import { compressFile } from './compress';
 import { supabase } from './supabase';
 import { env } from '$env/dynamic/public';
 import { createNotification } from './notificationSystem';
@@ -25,6 +24,7 @@ export type { PipelinePhase, PipelineResult } from '$lib/types/pipeline';
 const MAX_UPLOAD_SIZE_MB = 4.2;
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 const SERVER_UPLOAD_LIMIT_BYTES = MAX_UPLOAD_BYTES;
+const ILOVE_COMPRESS_THRESHOLD_BYTES = 4 * 1024 * 1024;
 
 interface CoreResult {
     stampedBytes: Uint8Array;
@@ -174,6 +174,46 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
         .join('');
 }
 
+async function compressLargePdfWithIlove(
+    pdfBytes: Uint8Array,
+    fileName: string,
+    token: string | undefined
+): Promise<Uint8Array> {
+    if (pdfBytes.byteLength <= ILOVE_COMPRESS_THRESHOLD_BYTES) {
+        return pdfBytes;
+    }
+    if (!token) {
+        throw new Error('You have been signed out. Please sign in again and retry.');
+    }
+
+    const formData = new FormData();
+    formData.append('file', new Blob([pdfBytes as BlobPart], { type: 'application/pdf' }), fileName);
+
+    const response = await withTimeout(
+        fetch('/api/pdf/compress', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData
+        }),
+        120000,
+        'PDF compression timed out. Please try again with a smaller PDF.'
+    );
+
+    if (!response.ok) {
+        let message = 'PDF compression failed. Please try again with a smaller PDF.';
+        try {
+            const body = await response.json();
+            if (body?.message) message = body.message;
+        } catch {
+            const text = await response.text().catch(() => '');
+            if (text) message = text;
+        }
+        throw new Error(message);
+    }
+
+    return new Uint8Array(await response.arrayBuffer());
+}
+
 async function* runPipelineCore(
     file: File,
     options: PipelineOptions,
@@ -191,34 +231,8 @@ async function* runPipelineCore(
     if (file.type !== 'application/pdf' && ext !== 'pdf') {
         throw new Error('Only PDF files can be uploaded. Please export or save the document as PDF first.');
     }
-    if (file.size > MAX_UPLOAD_BYTES) {
-        throw new Error(`File too large. Maximum upload size is ${MAX_UPLOAD_SIZE_MB}MB.`);
-    }
-
     yield { phase: 'transcoding', progress: 10, message: 'Preparing PDF...' };
     let pdfBytes: Uint8Array = new Uint8Array(originalBytes);
-
-    // Detect a low-power/slow-connection state and skip heavy compression if the
-    // file is already small, to save CPU/battery on mobile.
-    // effectiveType is one of 'slow-2g' | '2g' | '3g' | '4g'. Matching only
-    // '2g' missed 'slow-2g' entirely — the very slowest class, i.e. exactly
-    // the connection this branch exists to protect — and also treated a
-    // crawling '3g' link as if it were fine.
-    const effectiveType = (navigator as any).connection?.effectiveType;
-    const isSlowConnection =
-        effectiveType === 'slow-2g' ||
-        effectiveType === '2g' ||
-        effectiveType === '3g' ||
-        (navigator as any).connection?.saveData === true;
-    const isSmallEnough = pdfBytes.byteLength < 2 * 1024 * 1024; // 2MB
-
-    if (isSlowConnection && isSmallEnough) {
-        console.log('[pipeline] Low-power/Slow-connection detected. Skipping non-essential compression.');
-        yield { phase: 'compressing', progress: 30, message: 'Preparing your file...' };
-    } else {
-        yield { phase: 'compressing', progress: 30, message: 'Preparing your file...' };
-        pdfBytes = new Uint8Array(await compressFile(pdfBytes));
-    }
 
     // Analyzing (OCR): uses the converted PDF bytes, not the original file.
     yield { phase: 'analyzing', progress: 30, message: 'Reading your document...' };
@@ -227,17 +241,18 @@ async function* runPipelineCore(
     const hasPreDetected = options.preDetectedMetadata?.docType && options.preDetectedMetadata?.docType !== 'Unknown' && options.preDetectedMetadata?.rawText;
     const detectedMetadata = hasPreDetected ? options.preDetectedMetadata : await extractMetadata(ocrFile);
 
-    // Compress & hash
-    yield { phase: 'compressing', progress: 50, message: 'Securing your file...' };
-    // Only the compressed bytes are taken from here. The worker also returns a
-    // hash of what it was given, but that is post-processing bytes — the very
-    // thing that made duplicate detection unreliable — so fileHash above,
-    // taken from the original upload, is what identifies the document.
-    const { compressedBytes } = await runWorkerTask(
-        worker,
-        'COMPRESS_AND_HASH',
-        { pdfBytes },
-        [pdfBytes.buffer]
+    yield {
+        phase: 'compressing',
+        progress: 50,
+        message: pdfBytes.byteLength > ILOVE_COMPRESS_THRESHOLD_BYTES
+            ? 'Compressing large PDF...'
+            : 'Securing your file...'
+    };
+    const session = await supabase.auth.getSession();
+    pdfBytes = await compressLargePdfWithIlove(
+        pdfBytes,
+        file.name.replace(/\.\w+$/, '.pdf'),
+        session.data.session?.access_token
     );
 
     // Stamping
@@ -247,8 +262,8 @@ async function* runPipelineCore(
     const { stampedBytes } = await runWorkerTask(
         worker,
         'STAMP_QR',
-        { compressedBytes, qrBytes, fileHash },
-        [compressedBytes.buffer, qrBytes.buffer]
+        { compressedBytes: pdfBytes, qrBytes, fileHash },
+        [pdfBytes.buffer, qrBytes.buffer]
     );
 
     // The selected upload target is authoritative. OCR remains available for
@@ -503,7 +518,7 @@ async function* runOnlinePipelineResilient(
     // Detect whether this is an ADDITIONAL DLL for an already-covered slot
     // (same teaching load + week + doc type). If so, mark it 'supplementary'
     // so it is archived but does not affect compliance / missing / late / rate.
-    let complianceStatus: 'compliant' | 'late' | 'supplementary' = calculateComplianceStatus(new Date(), deadlineDate);
+    let complianceStatus: 'compliant' | 'late' | 'supplementary' = calculateComplianceStatus(new Date(), deadlineDate, options.subject);
     if (options.teachingLoadId && activeWeekNumber) {
       try {
         const { data: slotMatch } = await withTimeout(

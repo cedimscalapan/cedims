@@ -29,7 +29,7 @@ function normalize(s: string): string {
 }
 
 const SUBJECTS = [
-    'GMRC', 'Mathematics', 'Math', 'Filipino', 'MAPEH', 'English',
+    'GMRC', 'HGP', 'Mathematics', 'Math', 'Filipino', 'MAPEH', 'English',
     'Science', 'Makabansa', 'AP', 'EPP', 'Language',
     'Reading and Literacy', 'Numeracy', 'Arts and Music',
     'Physical Development', 'Language Literacy and Communication',
@@ -114,6 +114,10 @@ export interface FuzzyPrediction {
 }
 
 export function predictSubject(text: string): FuzzyPrediction {
+    if (/\bH\.?G\.?P\.?\b|HOMEROOM\s+GUIDANCE(?:\s+PROGRAM)?/i.test(text)) {
+        return { value: 'HGP', confidence: 100 };
+    }
+
     // Look for an explicit header field first, falling back to a fuzzy scan of the whole text.
     const header = text.match(/(?:ASIGNATURA|SUBJECT|LEARNING\s*AREA(?:\s*[\/]\s*ASIGNATURA)?)\s*[:\t]*\s*([^\n\t|]{3,30})/i);
     if (header) {

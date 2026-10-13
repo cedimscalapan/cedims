@@ -61,6 +61,8 @@
 
     const MAX_UPLOAD_SIZE_MB = 4.2;
     const MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+    const UPLOAD_DEBUG = false;
+    const debugLog = (...args: any[]) => { if (UPLOAD_DEBUG) console.log(...args); };
 
     let selectedFile = $state<File | null>(null);
     let docType = $state("DLL");
@@ -253,7 +255,7 @@
             );
             if (entry) {
                 currentDeadline = entry;
-                console.log("[upload] Using cached deadline for week", wk);
+                debugLog("[upload] Using cached deadline for week", wk);
             }
         }
     }
@@ -262,17 +264,17 @@
     // Hides the 2-5s loading delay of heavy workers on mobile
     async function preWarmLibraries() {
         if (typeof window === "undefined") return;
-        console.log("[upload] Pre-warming heavy libraries...");
+        debugLog("[upload] Pre-warming heavy libraries...");
 
         // PDF.js: pre-load from CDN so OCR can use it immediately
         if (!(window as any).pdfjsLib) {
-            console.log("[upload] Fetching PDF.js...");
+            debugLog("[upload] Fetching PDF.js...");
             const script = document.createElement("script");
             script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js";
             script.onload = () => {
                 (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
                     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js";
-                console.log("[upload] PDF.js loaded.");
+                debugLog("[upload] PDF.js loaded.");
             };
             document.head.appendChild(script);
         }
@@ -281,7 +283,7 @@
         try {
             const { createWorker } = await import("tesseract.js");
             // Just the import is often enough to trigger Service Worker caching
-            console.log("[upload] Tesseract.js pre-warmed.");
+            debugLog("[upload] Tesseract.js pre-warmed.");
         } catch (e) {
             console.warn("[upload] Pre-warm failed:", e);
         }
@@ -452,7 +454,7 @@
             if (cached?.data) {
                 if (runId !== initialDataRun) return;
                 loads = cached.data;
-                console.log("[upload] Using cached teaching loads");
+                debugLog("[upload] Using cached teaching loads");
             }
         }
 
@@ -485,7 +487,7 @@
                     (w) => w.is_active === true,
                 );
                 calendarEntries = loadedCalendarEntries;
-                console.log("[upload] Loaded calendar from cache");
+                debugLog("[upload] Loaded calendar from cache");
             }
 
             // Sync with online if possible
@@ -616,14 +618,14 @@
     function parseDocDate(dateStr: string | null): Date | null {
         if (!dateStr) return null;
         try {
-            console.log("[upload] Attempting to parse date from:", dateStr);
+            debugLog("[upload] Attempting to parse date from:", dateStr);
             // Extract the month and day part using regex to ignore any surrounding garbage
             const match = dateStr.match(
                 /(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[a-zA-Z]*\s+\d{1,2}/i,
             );
 
             if (!match) {
-                console.log(
+                debugLog(
                     "[upload] Could not find Month Day pattern in string",
                 );
                 return null;
@@ -636,7 +638,7 @@
                 : new Date().getFullYear().toString();
 
             const finalDateStr = `${cleaned}, ${year}`;
-            console.log("[upload] Parsed clean date string:", finalDateStr);
+            debugLog("[upload] Parsed clean date string:", finalDateStr);
 
             const d = new Date(finalDateStr);
             return isNaN(d.getTime()) ? null : d;
@@ -655,7 +657,7 @@
         endDate.setDate(endDate.getDate() + 10);
         const isoEndDate = endDate.toISOString();
 
-        console.log(
+        debugLog(
             `[upload] Looking up week between: ${isoDate} and ${isoEndDate}, district: ${districtId}`,
         );
 
@@ -675,7 +677,7 @@
             return null;
         }
 
-        console.log(`[upload] Lookup result:`, data);
+        debugLog(`[upload] Lookup result:`, data);
         return data ? data.week_number : null;
     }
 
@@ -714,7 +716,7 @@
             scanProgress = Math.max(scanProgress, 55);
             const metadata = await extractMetadata(ocrTarget);
             scanProgress = 82;
-            console.log("[upload] OCR metadata result:", metadata);
+            debugLog("[upload] OCR metadata result:", metadata);
             detectedMetadata = metadata;
             scanProgress = 92;
 
@@ -740,7 +742,7 @@
                             weekNumber = derivedWeek;
                             const entry = calendarEntries.find((w) => w.week_number === derivedWeek);
                             termNumber = entry?.term || Math.min(3, Math.max(1, Math.ceil(derivedWeek / 13)));
-                            console.log(
+                            debugLog(
                                 `[upload] Derived week ${weekNumber} from date ${metadata.date}`,
                             );
                         }
@@ -782,7 +784,7 @@
             fileHash = hashArray
                 .map((b) => b.toString(16).padStart(2, "0"))
                 .join("");
-            console.log("[upload] Early hash calculation complete:", fileHash);
+            debugLog("[upload] Early hash calculation complete:", fileHash);
             // checkExistingSubmission is triggered via $effect
         } catch (hashErr) {
             console.warn("[upload] Early hash calculation failed:", hashErr);

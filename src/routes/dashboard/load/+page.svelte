@@ -332,7 +332,7 @@
     >
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <div
-            class="gov-card-static p-8 w-full max-w-md animate-slide-up"
+            class="gov-card-static p-8 w-full max-w-2xl animate-slide-up"
             onclick={(e) => e.stopPropagation()}
             onkeydown={() => {}}
             role="document"
@@ -367,7 +367,7 @@
                         {#if gradeOpen}
                             <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
                             <div
-                                class="absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg overflow-y-auto"
+                                class="grade-options absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg p-2"
                                 onclick={(e) => e.stopPropagation()}
                                 onkeydown={() => {}}
                                 role="listbox" tabindex="-1"
@@ -376,7 +376,7 @@
                                     <button
                                         type="button"
                                         onclick={() => { gradeLevel = gl; subject = ""; gradeOpen = false; loadSubjectsByGrade(gl); }}
-                                        class="w-full text-left px-4 py-3 text-sm hover:bg-gov-blue/5 transition-colors {gradeLevel === gl ? 'bg-gov-blue/10 font-bold text-gov-blue' : 'text-text-primary'}"
+                                        class="choice-pill px-3 py-2.5 text-sm hover:bg-gov-blue/5 transition-colors {gradeLevel === gl ? 'bg-gov-blue/10 font-bold text-gov-blue border-gov-blue/20' : 'text-text-primary border-transparent'}"
                                         role="option"
                                         aria-selected={gradeLevel === gl}
                                     >
@@ -413,7 +413,7 @@
                         {#if subjectOpen}
                             <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
                             <div
-                                class="subject-options absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg max-h-48 overflow-y-scroll overscroll-contain"
+                                class="subject-options absolute z-50 mt-1 w-full bg-surface-white border border-border-subtle rounded-xl shadow-lg max-h-56 overflow-y-auto overscroll-contain p-2"
                                 onclick={(e) => e.stopPropagation()}
                                 onkeydown={() => {}}
                                 role="listbox" tabindex="-1"
@@ -422,7 +422,7 @@
                                     <button
                                         type="button"
                                         onclick={() => { subject = s; subjectOpen = false; }}
-                                        class="w-full text-left px-4 py-3 text-sm hover:bg-gov-blue/5 transition-colors {subject === s ? 'bg-gov-blue/10 font-bold text-gov-blue' : 'text-text-primary'}"
+                                        class="choice-pill px-3 py-2.5 text-sm hover:bg-gov-blue/5 transition-colors {subject === s ? 'bg-gov-blue/10 font-bold text-gov-blue border-gov-blue/20' : 'text-text-primary border-transparent'}"
                                         role="option"
                                         aria-selected={subject === s}
                                     >
@@ -457,9 +457,24 @@
 {/if}
 
 <style>
+    .grade-options,
     .subject-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 0.5rem;
         scrollbar-width: thin;
         scrollbar-color: #64748b #e2e8f0;
+    }
+
+    .choice-pill {
+        min-height: 44px;
+        border-width: 1px;
+        border-radius: 0.75rem;
+        text-align: left;
+        line-height: 1.2;
+        display: flex;
+        align-items: center;
+        overflow-wrap: anywhere;
     }
 
     .subject-options::-webkit-scrollbar {

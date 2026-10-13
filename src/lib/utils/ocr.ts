@@ -7,6 +7,10 @@ import { predictSubject, predictGradeLevel, predictDocType, predictTermNumber } 
 import { createWorker } from 'tesseract.js';
 import { PDFJS_VERSION } from './pdfjsVersion';
 
+const OCR_DEBUG = false;
+const debugLog = (...args: any[]) => { if (OCR_DEBUG) console.log(...args); };
+const debugWarn = (...args: any[]) => { if (OCR_DEBUG) console.warn(...args); };
+
 export interface DateRange {
     start: Date;
     end: Date;
@@ -80,11 +84,11 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
         try {
             let pdfjsLib = (window as any)['pdfjsLib'];
             if (!pdfjsLib) {
-                console.warn('[ocr] PDF.js not loaded. Loading from CDN...');
+                debugWarn('[ocr] PDF.js not loaded. Loading from CDN...');
                 await loadPdfJs();
                 pdfjsLib = (window as any)['pdfjsLib'];
                 if (!pdfjsLib) {
-                    console.warn('[ocr] Failed to load PDF.js. Using default metadata.');
+                    debugWarn('[ocr] Failed to load PDF.js. Using default metadata.');
                     return createDefaultMetadata();
                 }
             }
@@ -107,11 +111,11 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
             const page = await pdf.getPage(1);
             const textContent = await page.getTextContent();
             const text = textContentToLines(textContent.items);
-            console.log(`[ocr] PDF text extracted (${text.length} chars):`, text.substring(0, 200) + '...');
+            debugLog(`[ocr] PDF text extracted (${text.length} chars):`, text.substring(0, 200) + '...');
 
             // If text is too short, fallback to raster OCR
             if (text.length < 50) {
-                console.warn('[ocr] PDF text too sparse. Falling back to raster OCR...');
+                debugWarn('[ocr] PDF text too sparse. Falling back to raster OCR...');
                 return await extractRasterMetadata(page, pdfjsLib, file.name);
             }
 
@@ -134,7 +138,7 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
         // Tesseract.js automatically caches the worker and language data in IndexedDB,
         // so as long as it runs once while online, it keeps working offline.
         const worker = await createWorker('eng+fil', 1, {
-            logger: (m: any) => console.log(m),
+            logger: (m: any) => debugLog(m),
             errorHandler: (err: any) => console.error('[ocr] Tesseract Worker Error:', err)
         });
 
@@ -146,7 +150,7 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
             const language = detectLanguage(text);
             const metadata = parseMetadata(text, file.name);
 
-            console.log(`[ocr] Optimized single-pass OCR results (Language: ${language}, Confidence: ${confidence}%)`);
+            debugLog(`[ocr] Optimized single-pass OCR results (Language: ${language}, Confidence: ${confidence}%)`);
             return { ...metadata, confidence, language };
         } finally {
             await worker.terminate();
@@ -203,7 +207,7 @@ function textContentToLines(items: any[]): string {
 
 async function extractRasterMetadata(page: any, pdfjsLib: any, fileName: string = ''): Promise<DocMetadata> {
     try {
-        console.log('[ocr] Starting raster OCR fallback...');
+        debugLog('[ocr] Starting raster OCR fallback...');
 
         // Force a lower render scale on mobile to save CPU/RAM.
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -245,7 +249,7 @@ async function extractRasterMetadata(page: any, pdfjsLib: any, fileName: string 
                 
                 try {
                     const { data: { text, confidence } } = await worker.recognize(blobUrl);
-                    console.log(`[ocr] Raster OCR complete (${text.length} chars), scale: ${scale}, confidence:`, confidence);
+                    debugLog(`[ocr] Raster OCR complete (${text.length} chars), scale: ${scale}, confidence:`, confidence);
                     const metadata = parseMetadata(text, fileName);
                     resolve({ ...metadata, rawText: text, confidence, language: detectLanguage(text) });
                 } catch (e) {
@@ -334,7 +338,7 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
         const fuzzyDt = predictDocType(text);
         if (fuzzyDt.value) {
             docType = fuzzyDt.value as 'DLL' | 'ISP' | 'ISR';
-            console.log(`[ocr] Fuzzy matched doc type as ${docType} (confidence: ${fuzzyDt.confidence}%)`);
+            debugLog(`[ocr] Fuzzy matched doc type as ${docType} (confidence: ${fuzzyDt.confidence}%)`);
         }
     }
 
@@ -365,7 +369,7 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
             const fuzzy = predictSubject(headerAndFilename);
             subject = fuzzy.value;
             subjectConfidence = fuzzy.confidence;
-            if (subject) console.log(`[ocr] Fuzzy matched subject as ${subject} (confidence: ${fuzzy.confidence}%)`);
+            if (subject) debugLog(`[ocr] Fuzzy matched subject as ${subject} (confidence: ${fuzzy.confidence}%)`);
         }
 
         if (!subject) {
@@ -382,7 +386,7 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
         const grade = predictGradeLevel(headerAndFilename);
         if (grade.value && grade.confidence >= 75) {
             gradeLevel = grade.value.replace(/^Grade\s*/i, '');
-            console.log(`[ocr] Matched grade from header/file name as Grade ${gradeLevel} (confidence: ${grade.confidence}%)`);
+            debugLog(`[ocr] Matched grade from header/file name as Grade ${gradeLevel} (confidence: ${grade.confidence}%)`);
         }
 
         if (!gradeLevel) {
@@ -396,7 +400,7 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
         const term = predictTermNumber(headerAndFilename);
         if (term.value) {
             termNumber = term.value;
-            console.log(`[ocr] Matched term as Term ${termNumber} (confidence: ${term.confidence}%)`);
+            debugLog(`[ocr] Matched term as Term ${termNumber} (confidence: ${term.confidence}%)`);
         }
 
         const weekMatch = headerAndFilenameUpper.match(/(?:WEEK|LINGGO|LINGGUH?AN)\s*[#:\-\s]*\s*(\d{1,2})/i) ||
@@ -430,11 +434,11 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
     const dateRange = parseDateRange(headerAndFilename);
     if (dateRange && !weekNumber) {
         weekSource = 'header-date';
-        console.log(`[ocr] Parsed date range: ${dateRange.start.toDateString()} - ${dateRange.end.toDateString()}`);
+        debugLog(`[ocr] Parsed date range: ${dateRange.start.toDateString()} - ${dateRange.end.toDateString()}`);
     }
 
-    console.log('[ocr] Extracted date raw:', dateMatch ? dateMatch[0] : 'NONE');
-    console.log('[ocr] Week detection source:', weekSource);
+    debugLog('[ocr] Extracted date raw:', dateMatch ? dateMatch[0] : 'NONE');
+    debugLog('[ocr] Week detection source:', weekSource);
 
     return {
         docType,
@@ -495,6 +499,7 @@ function extractDay(text: string): string | null {
 function buildSubjectPatterns(_forHeader: boolean): { name: string; regex: RegExp }[] {
     return [
         { name: 'Makabansa', regex: /MAKABANSA/i },
+        { name: 'HGP', regex: /\bH\.?G\.?P\.?\b|HOMEROOM\s+GUIDANCE(?:\s+PROGRAM)?/i },
         { name: 'English', regex: /ENGLISH|(?<!WIKANG\s)WIKA(?!NG\s*PILIPINO)/i },
         { name: 'Filipino', regex: /FILIPINO|TAGALOG|WIKANG\s*PILIPINO/i },
         { name: 'Mathematics', regex: /MATHEMATICS|MATH|MATEMATIKA/i },
@@ -611,7 +616,7 @@ export function resolveWeekFromDates(
 
             // Check if document dates overlap with this week window
             if (docStart <= deadline && docEnd >= weekStart) {
-                console.log(`[ocr] Date range matched calendar Week ${week.week_number} (deadline: ${week.deadline_date})`);
+                debugLog(`[ocr] Date range matched calendar Week ${week.week_number} (deadline: ${week.deadline_date})`);
                 return { weekNumber: week.week_number, calendarId: week.id };
             }
         }
@@ -631,7 +636,7 @@ export function resolveWeekFromDates(
 
     // Only accept closest match if within 7 days
     if (closest && closest.distance <= 7 * 24 * 60 * 60 * 1000) {
-        console.log(`[ocr] Date range closest-matched to calendar Week ${closest.weekNumber} (${Math.round(closest.distance / 86400000)}d distance to deadline)`);
+        debugLog(`[ocr] Date range closest-matched to calendar Week ${closest.weekNumber} (${Math.round(closest.distance / 86400000)}d distance to deadline)`);
         return { weekNumber: closest.weekNumber, calendarId: closest.calendarId };
     }
 

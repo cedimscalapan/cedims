@@ -9,6 +9,7 @@ import { writable } from 'svelte/store';
 import { supabase } from './supabase';
 import { withTimeout } from './pipeline';
 import { getCurrentSchoolYear } from './schoolYear';
+import { deadlineAtTenAM, effectiveDeadlineForSubject } from './deadlineRules';
 import { logAudit } from './audit';
 import { env } from '$env/dynamic/public';
 
@@ -706,7 +707,7 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 // this queue silently, that would have the app report success
                 // and then quietly mark the submission late.
                 let complianceStatus: 'compliant' | 'late' | 'supplementary' =
-                    calculateComplianceStatus(new Date(item.timestamp), deadlineDate);
+                    calculateComplianceStatus(new Date(item.timestamp), deadlineDate, item.options.subject);
                 if (item.options.teachingLoadId && item.options.weekNumber) {
                     try {
 	                        let slotQuery = supabase
@@ -860,12 +861,13 @@ export async function processQueue(force = false): Promise<{ success: number; fa
  */
 export function calculateComplianceStatus(
     submissionDate: Date,
-    deadlineDate?: Date
+    deadlineDate?: Date,
+    subject?: string | null
 ): 'compliant' | 'late' {
     const now = submissionDate;
 
     if (deadlineDate) {
-        const deadline = deadlineAtTenAM(deadlineDate);
+        const deadline = effectiveDeadlineForSubject(deadlineDate, subject);
 
         // Submitted on or before 10:00 AM on the due date -> compliant;
         // after that exact cutoff -> late.
@@ -877,12 +879,7 @@ export function calculateComplianceStatus(
     // Default to 'compliant' — uploaded means compliant.
     return 'compliant';
 }
-
-export function deadlineAtTenAM(deadlineDate: Date | string): Date {
-    const deadline = new Date(deadlineDate);
-    deadline.setHours(10, 0, 0, 0);
-    return deadline;
-}
+export { deadlineAtTenAM };
 
 // Auto-resume when online + Periodic Check
 export function initOfflineSync(): void {
