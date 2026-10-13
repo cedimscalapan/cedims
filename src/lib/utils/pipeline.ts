@@ -345,30 +345,13 @@ async function* runOnlinePipelineResilient(
     let lastUploadError: any = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
-            const presignResponse = await withTimeout(
-                fetch('/api/storage/presign', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ key: filePath, contentType, intent: 'upload' })
-                }),
-                30000,
-                'Pre-signed URL request timed out.'
-            );
+            const formData = new FormData();
+            formData.set('file', fileBlob, fileName);
+            formData.set('key', filePath);
 
-            if (!presignResponse.ok) {
-                if (presignResponse.status === 401 || presignResponse.status === 403) {
-                    throw new Error('You have been signed out. Please sign in again and retry.');
-                }
-                throw new Error(`Pre-signed URL failed (${presignResponse.status})`);
-            }
-
-            const { url: presignedUrl } = await presignResponse.json();
-            uploadResponse = await xhrUpload(presignedUrl, fileBlob, {
-                method: 'PUT',
-                headers: { 'Content-Type': contentType },
+            uploadResponse = await xhrUpload('/api/storage/upload', formData, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
                 onProgress: options.onTransferProgress
             });
 
@@ -388,9 +371,6 @@ async function* runOnlinePipelineResilient(
 
     if (!uploadResponse?.ok) {
         const message = lastUploadError?.message || 'Upload could not be completed.';
-        if (message.includes('CORS') || message.includes('Access')) {
-            throw new Error('Could not reach the storage service. Please try again.');
-        }
         throw new Error('Upload could not be completed after 3 attempts. Please try again.');
     }
 

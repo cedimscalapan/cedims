@@ -46,6 +46,13 @@ export async function POST({ request }) {
         throw error(413, `File exceeds the ${MAX_SIZE_MB}MB upload limit. Please compress your PDF.`);
     }
 
+    const missing = ['B2_ENDPOINT', 'B2_BUCKET_NAME', 'B2_APPLICATION_KEY_ID', 'B2_APPLICATION_KEY']
+        .filter((name) => !env[name as keyof typeof env]);
+    if (missing.length > 0) {
+        console.error('[upload-api] Missing B2 environment variables:', missing.join(', '));
+        throw error(500, `Cloud storage is not configured: missing ${missing.join(', ')}`);
+    }
+
     try {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);

@@ -523,63 +523,39 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                     }
                 }
 
-                // ── Upload to Backblaze B2 via Pre-signed URL ──
+                // ── Upload to Backblaze B2 through our server ──
                 const { data: sessionData } = await supabase.auth.getSession();
                 const accessToken = sessionData?.session?.access_token;
                 if (!accessToken) throw new Error('Not authenticated for background sync');
 
                 const sanitizedPath = item.filePath.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9./_-]/g, '');
-                const contentType = 'application/pdf';
 
-                // 1. Get a pre-signed PUT url from our API (signing never hits B2 CORS)
-                const presignResponse = await withTimeout(
-                    fetch('/api/storage/presign', {
+                const formData = new FormData();
+                formData.set('file', item.pdfBytes as Blob, item.fileName);
+                formData.set('key', sanitizedPath);
+
+                const uploadResponse = await withTimeout(
+                    fetch('/api/storage/upload', {
                         method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${accessToken}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ key: sanitizedPath, contentType, intent: 'upload' })
-                    }),
-                    20000,
-                    'Pre-signed URL request timed out'
-                ).catch(err => {
-                    throw err;
-                });
-
-                if (!presignResponse.ok) {
-                    let errStr = presignResponse.statusText;
-                    try {
-                        const errJson = await presignResponse.json();
-                        errStr = errJson.message || errStr;
-                    } catch { /* ignore */ }
-                    if (presignResponse.status === 401 || presignResponse.status === 403) {
-                        throw new Error('Not authenticated for background sync. Please sign in again.');
-                    }
-                    throw new Error(`Pre-signed URL failed (${presignResponse.status}): ${errStr}`);
-                }
-
-                const { url: presignedUrl } = await presignResponse.json();
-
-                const putResponse = await withTimeout(
-                    fetch(presignedUrl, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': contentType },
-                        body: item.pdfBytes as Blob
+                        headers: { 'Authorization': `Bearer ${accessToken}` },
+                        body: formData
                     }),
                     120000,
-                    'B2 sync archive upload timed out'
+                    'Archive upload timed out'
                 ).catch(err => {
                     throw err;
                 });
 
-                if (!putResponse.ok) {
-                    let errStr = putResponse.statusText;
+                if (!uploadResponse.ok) {
+                    let errStr = uploadResponse.statusText;
                     try {
-                        const errJson = await putResponse.json();
+                        const errJson = await uploadResponse.json();
                         errStr = errJson.message || errStr;
                     } catch { /* ignore */ }
-                    throw new Error(`B2 Archive upload failed (${putResponse.status}): ${errStr}`);
+                    if (uploadResponse.status === 401 || uploadResponse.status === 403) {
+                        throw new Error('Not authenticated for background sync. Please sign in again.');
+                    }
+                    throw new Error(`Archive upload failed (${uploadResponse.status}): ${errStr}`);
                 }
 
                 // ── Fetch deadline for compliance + calendar_id ──
