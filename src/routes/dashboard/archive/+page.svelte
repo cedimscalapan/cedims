@@ -350,8 +350,6 @@
 
         const role = userProfile.role;
         const currentSchoolYear = getCurrentSchoolYear();
-        console.log('[archive] Loading with role:', role, 'userId:', userProfile.id, 'schoolId:', userProfile.school_id, 'districtId:', userProfile.district_id);
-
         // Offline: restore cached archive view
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
             const cached = await getCachedMetadata(`archive_state_${role}_${userProfile.id}`);
@@ -361,7 +359,6 @@
                 schoolsMap = cached.data.schoolsMap || {};
                 teachersMap = cached.data.teachersMap || {};
                 reviewsMap = cached.data.reviewsMap || {};
-                console.log("[archive] Loaded archive from offline cache");
                 return;
             }
             allSubmissions = [];
@@ -420,7 +417,6 @@
                     userProfile.district_id,
                     s.uploader?.district_id || null
                 ));
-            console.log('[archive] Master Teacher loaded', allSubmissions.length, 'submissions:', allSubmissions.map(s => ({ id: s.id, docType: s.doc_type, userId: s.user_id })));
             teachersMap = buildTeachersMap(allSubmissions);
         } else if (role === "School Head") {
             if (!userProfile.school_id) return;
@@ -448,7 +444,6 @@
                     userProfile.district_id,
                     s.uploader?.district_id || null
                 ));
-            console.log('[archive] School Head loaded', allSubmissions.length, 'submissions:', allSubmissions.map(s => ({ id: s.id, docType: s.doc_type, userId: s.user_id })));
             teachersMap = buildTeachersMap(allSubmissions);
         } else if (role === "District Supervisor" || role === "Admin") {
             // District-scoped: fetch submissions from all schools in district
@@ -504,8 +499,6 @@
                     school_avatar: schoolInfo?.avatar_url || null
                 };
             });
-            console.log('[archive] District Supervisor loaded', allSubmissions.length, 'submissions from', schools.length, 'schools:', allSubmissions.map(s => ({ id: s.id, docType: s.doc_type, userId: s.user_id })));
-
             teachersMap = buildTeachersMap(allSubmissions);
         }
 
@@ -702,12 +695,8 @@
                 $profile?.district_id || null,
                 s.uploader?.district_id || null
             );
-            if (!canView) {
-                console.log('[archive] Filtered out', s.id, s.doc_type, '- document visibility rules returned false (userId:', s.user_id, 'currentUserId:', userId, ')');
-            }
             return canView;
         });
-        console.log('[archive] After visibility filter:', filtered.length, 'submissions remain, docTypes:', [...new Set(filtered.map(s => s.doc_type))].join(', '));
         for (const seg of currentPath) {
             if (seg.type === "docType") {
                 filtered = filtered.filter((s) => getArchiveDocTypeId(s.doc_type) === seg.id);
@@ -848,7 +837,6 @@
             count: grouped.get(dt) || 0,
             type: "docType" as const,
         }));
-        console.log('[archive] getDocTypeFolders created', result.length, 'folders:', result.map(f => `${f.label} (${f.count})`).join(', '));
         return result;
     }
 

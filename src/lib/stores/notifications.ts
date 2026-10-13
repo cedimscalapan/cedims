@@ -32,7 +32,6 @@ function createNotificationStore() {
             const cached = await getCachedMetadata(getCacheKey(userId));
             if (cached?.data) {
                 set(cached.data);
-                console.log('[notifications] Loaded from offline cache');
             }
 
             const { data, error } = await supabase

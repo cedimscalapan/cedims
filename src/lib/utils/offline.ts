@@ -85,8 +85,6 @@ export async function prefetchOfflineMetadata(userId: string, districtId?: strin
     if (!navigator.onLine) return;
 
     try {
-        console.log('[offline] Pre-fetching metadata for offline upload...');
-
         // 1. Fetch ALL Teaching Loads for the user
         const { data: loads, error: loadsErr } = await supabase
             .from('teaching_loads')
@@ -99,7 +97,6 @@ export async function prefetchOfflineMetadata(userId: string, districtId?: strin
 
         if (!loadsErr && loads) {
             await cacheMetadata(`teaching_loads_${userId}`, loads);
-            console.log(`[offline] Cached ${loads.length} teaching loads`);
         }
 
         // 2. Fetch ALL Academic Calendar weeks for the district (for week resolution)
@@ -115,7 +112,6 @@ export async function prefetchOfflineMetadata(userId: string, districtId?: strin
                 calendarData = calendar;
                 await cacheMetadata(`calendar_${districtId}`, calendar);
                 await cacheMetadata(`calendar_open_${districtId}`, calendar);
-                console.log(`[offline] Cached ${calendar.length} calendar weeks for district ${districtId}`);
             }
         }
 
@@ -134,7 +130,6 @@ export async function prefetchOfflineMetadata(userId: string, districtId?: strin
                     await cacheMetadata(`calendar_${districtId}`, globalCal);
                     await cacheMetadata(`calendar_open_${districtId}`, globalCal);
                 }
-                console.log(`[offline] Cached ${globalCal.length} global calendar weeks (fallback)`);
             }
         }
 
@@ -149,16 +144,14 @@ export async function prefetchOfflineMetadata(userId: string, districtId?: strin
 
         if (!subsErr && subs) {
             await cacheMetadata(`submission_history_${userId}`, subs);
-            console.log(`[offline] Cached ${subs.length} submission history records`);
         }
 
         // 4. Cache current year settings
         const currentYear = getCurrentSchoolYear();
         await cacheMetadata('current_school_year', currentYear);
 
-        console.log('[offline] Offline metadata pre-fetch complete.');
     } catch (err) {
-        console.warn('[offline] prefetchOfflineMetadata error:', err);
+        // Offline metadata is a convenience cache; failures should stay quiet.
     }
 }
 
@@ -262,10 +255,8 @@ export async function preloadVerificationHashes(userId?: string): Promise<number
             cached++;
         }
 
-        console.log(`[offline] Pre-cached ${cached} document hashes for offline verification`);
         return cached;
     } catch (err) {
-        console.warn('[offline] preloadVerificationHashes error:', err);
         return 0;
     }
 }
@@ -300,10 +291,6 @@ export interface QueuedUploadSummary {
 export async function enqueue(item: QueueItem): Promise<void> {
     const shortHash = item.fileHash.slice(0, 8);
 
-    // Local queue duplicates are allowed so a teacher can retry a stuck upload
-    // from the same device. Server-side duplicate checks still protect the
-    // final archive record when the queue syncs.
-
     // Resilience: Workers often return SharedArrayBuffer which CANNOT be stored in IndexedDB.
     // We MUST copy it to a plain Uint8Array (backed by a real ArrayBuffer) first.
     let pdfBlobPart: any = item.pdfBytes;
@@ -326,7 +313,6 @@ export async function enqueue(item: QueueItem): Promise<void> {
     // NOTE: No auto-sync here. The sync engine handles sync separately
     // via initOfflineSync listeners (online event, visibility change, etc.)
     // This prevents unnecessary sync attempts while offline.
-    console.log(`[offline] Enqueued: ${item.fileName} (sync deferred)`);
 }
 
 export async function getQueueSize(): Promise<number> {
@@ -380,7 +366,7 @@ export async function cancelQueuedUpload(queueKey: string): Promise<void> {
             const { removeLedgerEntry } = await import('./offlineSubmissionLedger');
             await removeLedgerEntry(item.fileHash);
         } catch (err) {
-            console.warn('[offline] Could not remove cancelled upload from ledger:', err);
+            // Ledger cleanup is best-effort.
         }
     }
     await updatePendingCount();
@@ -429,7 +415,6 @@ async function checkConnection(): Promise<boolean> {
         clearTimeout(timeoutId);
         return res.ok || res.status === 405; // 405 is fine (method not allowed), just means server responded
     } catch (e) {
-        console.warn('[offline] Connection check failed:', e);
         return false;
     }
 }
@@ -443,7 +428,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
     }
 
     if (isSyncing && !force) {
-        console.log('[offline] processQueue skipped: Already syncing');
         return { success: 0, failed: 0 };
     }
 
@@ -454,7 +438,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
         return { success: 0, failed: 0 };
     }
 
-    console.log(`[offline] Found ${queueKeys.length} items to sync...`);
     isSyncing = true;
     let success = 0;
     let failed = 0;
@@ -472,7 +455,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
         for (const key of queueKeys) {
             // Re-check connection before each item
             if (!force && !(await checkConnection())) {
-                console.log('[offline] Connection lost during sync. Pausing...');
                 break;
             }
 
@@ -480,15 +462,12 @@ export async function processQueue(force = false): Promise<{ success: number; fa
 
             // Handle corrupted/missing data
             if (!item) {
-                console.warn(`[offline] Found ghost key ${key}, removing...`);
                 await del(key);
                 await updatePendingCount();
                 continue;
             }
 
-            // Set when the server already holds a document for this slot, or
-            // this exact content. Either makes the item an additional copy, so
-            // it is archived and marked supplementary rather than discarded.
+            // Set when the server already holds a document for this slot.
             let forceSupplementary = false;
 
             try {
@@ -522,42 +501,8 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                         // has one is archived as supplementary, not discarded.
                         // This used to del() the queued item and report it as
                         // synced, which threw the teacher's second DLL away.
-                        console.info(`[offline] Slot already covered — filing as supplementary: ${item.fileName}`);
                         forceSupplementary = true;
                     }
-                }
-
-                // 2. Strict File Hash Check (No identical content) — cross-teacher,
-                // so it goes through a narrow RPC rather than a direct table
-                // select (see migrations/20260910_*.sql).
-                //
-                // Plain array request rather than .maybeSingle(): PostgREST
-                // only 406s when a singular representation is requested and
-                // 0 rows come back — routine here, not a real failure.
-                const hashCheckPromise = supabase
-                    .rpc('check_duplicate_submission_hash', { p_hash: item.fileHash });
-
-                const { data: hashMatches } = await withTimeout(
-                    hashCheckPromise as any,
-                    20000,
-                    'Hash check timed out'
-                ) as { data: any[] };
-                const existing = hashMatches?.[0];
-
-                if (existing) {
-                    // The identical document is already archived on the server.
-                    // UNIQUE (file_hash) means this row cannot be inserted, and
-                    // retrying forever would never succeed — but nothing is lost
-                    // by clearing it, because the very same bytes are already on
-                    // file. Uploads are refused up front for this reason, so
-                    // reaching here means the copy was archived from another
-                    // device while this one sat queued.
-                    console.info(`[offline] Identical document already archived on server, clearing queued copy: ${item.fileName}`);
-                    await del(key);
-                    await updatePendingCount();
-                    await markSynced(item.fileHash);
-                    success++;
-                    continue;
                 }
 
                 // ── Upload to Backblaze B2 via Pre-signed URL ──
@@ -567,8 +512,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
 
                 const sanitizedPath = item.filePath.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9./_-]/g, '');
                 const contentType = 'application/pdf';
-
-                console.log(`[sync] Requesting pre-signed B2 upload URL for: ${item.fileName}`);
 
                 // 1. Get a pre-signed PUT url from our API (signing never hits B2 CORS)
                 const presignResponse = await withTimeout(
@@ -583,7 +526,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                     20000,
                     'Pre-signed URL request timed out'
                 ).catch(err => {
-                    console.error('[sync] Fetch error during pre-signed URL request.', err);
                     throw err;
                 });
 
@@ -608,7 +550,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
 
                 if ((item.pdfBytes as Blob).size <= MAX_SERVER) {
                     try {
-                        console.log('[sync] Attempting server-side upload (CORS-safe)...');
                         const serverForm = new FormData();
                         serverForm.append('file', item.pdfBytes as Blob, 'document.pdf');
                         serverForm.append('key', sanitizedPath);
@@ -624,16 +565,13 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                         );
 
                         if (serverResponse.ok) {
-                            console.log('[sync] ✅ Server-side upload succeeded in offline sync');
                             uploadSuccess = true;
                         } else if (serverResponse.status === 413) {
                             serverRejectedLargeFile = true;
                             throw new Error('Queued PDF is too large for the upload server. Please compress it below 4.2MB and upload again.');
-                        } else {
-                            console.warn('[sync] Server upload failed, trying B2 presigned URL...');
                         }
                     } catch (err) {
-                        console.warn('[sync] Server upload error, falling back to B2...', (err as Error).message);
+                        // Direct B2 upload below is the intended fallback.
                     }
                 } else {
                     serverRejectedLargeFile = true;
@@ -653,7 +591,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                         120000,
                         'B2 sync archive upload timed out'
                     ).catch(err => {
-                        console.error('[sync] Fetch error during B2 upload fallback.', err);
                         throw err;
                     });
 
@@ -732,12 +669,9 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                             complianceStatus = 'supplementary';
                         }
                     } catch (e) {
-                        console.warn('[sync] Duplicate slot check failed, continuing as normal:', e);
+                        // Slot classification is advisory; continue quietly.
                     }
                 }
-                // Established earlier from the slot/content re-validation, which
-                // also covers documents with no teaching load (ISP/ISR) that the
-                // slot check above can't evaluate.
                 if (forceSupplementary) complianceStatus = 'supplementary';
 
                 const insertPromise = supabase.from('submissions').insert({
@@ -764,26 +698,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 ) as { error: any };
 
                 if (dbError) {
-                    console.error('[sync] DB insert error:', dbError);
-
-                    // 23505 = unique_violation on file_hash: the identical
-                    // document is already archived, so this row can never be
-                    // inserted and retrying forever would not help. Nothing is
-                    // lost — the same bytes are on file. An additional DLL for
-                    // an existing week/subject never lands here: different file,
-                    // different hash, inserted above as 'supplementary'.
-                    if (dbError.code === '23505' || dbError.message?.includes('unique_submission_per_load_week')) {
-                        console.info(
-                            `[sync] Identical document already archived (${dbError.message}); clearing queued copy: ${item.fileName}`
-                        );
-                        await del(key);
-                        await updatePendingCount();
-                        await markSynced(item.fileHash);
-                        syncToast('warning', `Already archived: ${item.fileName}`);
-                        success++;
-                        continue;
-                    }
-
                     throw new Error(`DB Insert failed: ${dbError.message}`);
                 }
 
@@ -814,8 +728,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 archivedLabels.push(
                     `${item.options.docType || 'DLL'}${item.options.weekNumber ? ` - Week ${item.options.weekNumber}` : ''}`
                 );
-                console.log(`[sync] Successfully synced: ${item.fileName}`);
-
                 // Trigger native local notification. Skipped on mobile for the
                 // same reason as the toasts above: the teacher was already told
                 // the document was archived when they submitted it, so a later
@@ -828,7 +740,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 }
 
             } catch (err: any) {
-                console.error(`[sync] Failed to sync ${item.fileName}:`, err);
                 failed++;
             }
         }
@@ -892,17 +803,11 @@ export function initOfflineSync(): void {
 
     // 1. Event Listener for Network Status
     window.addEventListener('online', () => {
-        console.log('[offline] Network "online" event detected.');
         syncToast('info', 'Connection restored. Syncing pending uploads...');
 
         // Wait a moment for connection to stabilize
         setTimeout(() => {
             processQueue();
-            // Also sync the ledger from server for consistency
-            import('./offlineSubmissionLedger').then(({ syncLedgerFromServer }) => {
-                // We don't have userId here, but the sync will happen via the profile store
-                console.log('[offline] Ledger server sync triggered on reconnect');
-            });
         }, 3000);
     });
 
@@ -917,7 +822,6 @@ export function initOfflineSync(): void {
     updatePendingCount();
     if (navigator.onLine) {
         setTimeout(() => {
-            console.log('[offline] Initial load check...');
             processQueue();
         }, 5000);
     }

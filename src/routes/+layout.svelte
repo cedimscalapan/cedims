@@ -40,7 +40,7 @@
 			}
 		} else {
 			// Fallback for non-verify QR codes
-			console.log(`[QR] Scanned data:`, data);
+			showQRScanner.set(false);
 		}
 	}
 
@@ -153,10 +153,6 @@
 								"/service-worker.js",
 								{ updateViaCache: "none" },
 							);
-						console.log(
-							"Service Worker registered:",
-							registration,
-						);
 
 						activateWaitingServiceWorker(registration);
 						registration.addEventListener("updatefound", () => {

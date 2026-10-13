@@ -90,7 +90,6 @@ self.addEventListener('install', (event) => {
             if (rootResponse.ok && rootResponse.type !== 'opaqueredirect') {
                 await cache.put('/', rootResponse);
             }
-            console.log('[SW] Pre-cached app shell (/)');
         } catch (e) {
             console.warn('[SW] Failed to pre-cache app shell after retries:', e);
         }

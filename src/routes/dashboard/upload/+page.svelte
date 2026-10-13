@@ -143,56 +143,6 @@
         slotAlreadyCovered = false;
         slotNotice = "";
 
-        // Check 1: Hash uniqueness (highest priority - blocks content regardless of slot)
-        if (fileHash) {
-            const { hasHash } = await import(
-                "$lib/utils/offlineSubmissionLedger"
-            );
-            const localMatch = await hasHash(fileHash);
-            if (localMatch && localMatch.status !== "pending") {
-                submissionAlreadyExists = true;
-                submissionBlockReason = `Duplicate content: This file was already archived as "${localMatch.fileName}" (${getDocumentLabel(localMatch.docType)}, Week ${localMatch.weekNumber})`;
-                return;
-            }
-
-            if (navigator.onLine) {
-                // Cross-teacher duplicate check — needs to see whether ANY
-                // user already archived this hash, not just the current
-                // uploader's own rows, so it goes through a narrow RPC rather
-                // than a direct table select (see migrations/20260910_*.sql).
-                //
-                // Plain array request rather than .maybeSingle(): PostgREST
-                // only 406s when a singular representation is requested and
-                // 0 rows come back — routine here, not a real failure.
-                const { data: hashMatches } = (await supabase.rpc(
-                    "check_duplicate_submission_hash",
-                    { p_hash: fileHash },
-                )) as {
-                    data: { id: string; file_name: string; doc_type: string; week_number: number | null }[] | null;
-                };
-                const serverHashMatch = hashMatches?.[0];
-
-                if (serverHashMatch) {
-                    submissionAlreadyExists = true;
-                    // Check whether the archived file has already been approved
-                    const { data: review } = await supabase
-                        .from("dll_reviews")
-                        .select("status")
-                        .eq("submission_id", serverHashMatch.id)
-                        .maybeSingle();
-
-                    if (review?.status === "approved") {
-                        submissionBlockReason = `Already approved (Checked): This file was approved as "${serverHashMatch.file_name}" (${getDocumentLabel(serverHashMatch.doc_type)}, Week ${serverHashMatch.week_number}). It has already been checked and approved, so it should not be re-uploaded.`;
-                    } else if (review?.status === "returned") {
-                        submissionBlockReason = `Duplicate content: This file was already archived and returned as "${serverHashMatch.file_name}" (${getDocumentLabel(serverHashMatch.doc_type)}, Week ${serverHashMatch.week_number}).`;
-                    } else {
-                        submissionBlockReason = `Duplicate content: Already archived on server as "${serverHashMatch.file_name}" (${getDocumentLabel(serverHashMatch.doc_type)}, Week ${serverHashMatch.week_number}).`;
-                    }
-                    return;
-                }
-            }
-        }
-
         if (teachingLoadId && weekNumber && docType === "DLL" && $profile) {
             const selectedLoad = teachingLoads.find((load) => load.id === teachingLoadId);
             const resolvedTerm = termNumber || calendarEntries.find((w) => w.week_number === weekNumber)?.term || Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
@@ -1487,39 +1437,12 @@
 
                     <!-- Action Button -->
                     {#if !detectingMetadata}
-                        {#if submissionAlreadyExists}
-                            <div
-                                class="mt-4 p-3 bg-gov-red/10 border border-gov-red/30 rounded-xl text-gov-red text-sm font-semibold flex flex-col items-center justify-center gap-2"
-                            >
-                                <div class="flex items-center gap-2">
-                                    <svg
-                                        class="w-4 h-4"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                        ><path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                                        /></svg
-                                    >
-                                    {submissionBlockReason ||
-                                        `Already archived for Week ${weekNumber}`}
-                                </div>
+                        {#if slotAlreadyCovered}
+                            <div class="mt-4 rounded-md border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm font-semibold text-gov-gold-dark">
+                                {slotNotice}
                             </div>
-                            <p
-                                class="mt-2 text-xs text-text-muted text-center uppercase tracking-normal font-bold"
-                            >
-                                This exact file has already been uploaded.
-                            </p>
-                        {:else}
-                            {#if slotAlreadyCovered}
-                                <div class="mt-4 rounded-md border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm font-semibold text-gov-gold-dark">
-                                    {slotNotice}
-                                </div>
-                            {/if}
-                            <button
+                        {/if}
+                        <button
                                 onclick={handleUpload}
                                 disabled={!canUploadDocument($profile?.role || '', docType) ||
                                     (requiresTeachingLoadSelection($profile?.role || '', docType) && !teachingLoadId) ||
@@ -1566,8 +1489,7 @@
                                         ? "Confirm & Archive"
                                         : "Save Offline"}
                                 {/if}
-                            </button>
-                        {/if}
+                        </button>
                     {/if}
                 </div>
             {/if}

@@ -59,7 +59,6 @@ export async function POST({ request }) {
         });
 
         await b2.send(command);
-        console.log(`[upload-api] Successfully proxied upload for: ${key}`);
         
         return json({ success: true, key });
     } catch (err: any) {

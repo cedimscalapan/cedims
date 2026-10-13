@@ -15,11 +15,6 @@ export async function createNotification(
 ) {
     try {
         const { data: { user } } = await supabase.auth.getUser();
-        console.log('[Notification System] Attempting insert:', {
-            targetUserId: userId,
-            sessionUserId: user?.id,
-            match: userId === user?.id
-        });
 
         const { error } = await supabase
             .from('notifications')

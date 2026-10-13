@@ -65,7 +65,6 @@ async function performAuthInit(): Promise<void> {
                 // Set a minimal user object so dashboard layout guard ($user) passes
                 user.set({ id: lastUserId } as any);
                 hasCachedProfile = true;
-                console.log('[v0] Auth: Instant profile + user set from cache');
             }
         } catch (e) {
             console.error('[v0] Error loading cached profile:', e);
@@ -79,7 +78,6 @@ async function performAuthInit(): Promise<void> {
 
     try {
         const timeout = navigator.onLine ? 8000 : 3000;
-        console.log('[v0] Auth: starting session check...');
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Session check timeout')), timeout)
@@ -127,7 +125,6 @@ async function fetchProfile(userId: string): Promise<void> {
         try {
             const parsed = JSON.parse(cached);
             profile.set(parsed);
-            console.log('[v0] Auth: loaded profile from cache');
         } catch (e) {
             console.error('[v0] Error parsing cached profile:', e);
         }
@@ -152,7 +149,7 @@ async function fetchProfile(userId: string): Promise<void> {
             localStorage.setItem(LAST_USER_KEY, userId);
         }
     } catch (err) {
-        console.warn('[v0] Auth: fetchProfile failed (ignoring if offline):', err);
+        if (navigator.onLine) console.warn('[v0] Auth: fetchProfile failed:', err);
     }
 }
 

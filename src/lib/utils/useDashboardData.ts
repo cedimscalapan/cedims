@@ -369,8 +369,6 @@ export async function markNonCompliantSubmissions(
   let marked = 0;
 
   try {
-    console.log('[NC] markNonCompliantSubmissions called with:', { schoolYear, districtId, userId, schoolId });
-
     // Weeks from the academic calendar
     let calQuery = supabase
       .from('academic_calendar')

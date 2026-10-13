@@ -31,7 +31,6 @@ export async function checkUpcomingDeadlines(userId: string, districtId: string)
 
                 await sendLocalNotification('Deadline Approaching', message);
                 localStorage.setItem(cacheKey, new Date().toISOString());
-                console.log(`[Deadline Notifier] Alerted for Week ${deadline.week_number}`);
             }
         }
     } catch (err) {

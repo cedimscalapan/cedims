@@ -324,9 +324,6 @@
     heatmapCells = s.heatmapCells || [];
     trendLabels = s.trendLabels || [];
     trendDatasets = s.trendDatasets || [];
-    console.log(
-      "[district-monitor] Restored monitoring snapshot from offline cache",
-    );
   }
 
   function buildHeatmap(calendar: any[], currentWeek: number) {

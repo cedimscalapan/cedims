@@ -1985,7 +1985,6 @@ export async function loadDllDocumentsFromSupabase(db: SupabaseClient, schoolYea
       }));
 
       dllSearchEngine.setDocuments(docs);
-      console.log(`[chatbot] Loaded ${docs.length} documents into search engine`);
       return docs.length;
     })();
 

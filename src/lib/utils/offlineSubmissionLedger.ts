@@ -2,8 +2,8 @@
  * Offline Submission Ledger — IndexedDB-backed
  * 
  * Tracks all submissions (online + offline) for strict enforcement:
- * - One upload per teaching load per week per doc type (no duplicates)
- * - SHA-256 hash deduplication (no identical content)
+ * - Tracks one counted upload per teaching load/week/doc type.
+ * - Tracks hashes for verification/history, but identical content is allowed.
  * - Survives browser refresh, cache clear, and offline periods
  * - Syncs with server when online for ground-truth consistency
  * 
@@ -19,7 +19,7 @@ import { getCurrentSchoolYear } from './schoolYear';
 /** Tracks (teachingLoadId + weekNumber + schoolYear + docType) → submission info */
 const SLOT_PREFIX = 'ledger_slot_';
 
-/** Tracks fileHash → submission info (content deduplication) */
+/** Tracks fileHash → submission info for local verification/history. */
 const HASH_PREFIX = 'ledger_hash_';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -61,8 +61,6 @@ export async function recordSubmission(entry: LedgerEntry): Promise<void> {
         set(slot, entry),
         set(hash, entry)
     ]);
-
-    console.log(`[ledger] Recorded: ${entry.docType} Week ${entry.weekNumber} (${entry.status})`);
 }
 
 /**
@@ -87,7 +85,7 @@ export async function hasSubmission(
  * Check if a file hash already exists in the ledger.
  * Returns the existing entry if found, null otherwise.
  * 
- * This enforces: NO identical document content (even across different weeks).
+ * This is informational only. Identical content is allowed.
  */
 export async function hasHash(fileHash: string): Promise<LedgerEntry | null> {
     const entry = await get<LedgerEntry>(hashKey(fileHash));
@@ -102,7 +100,6 @@ export async function markSynced(fileHash: string): Promise<void> {
     if (entry) {
         entry.status = 'synced';
         await recordSubmission(entry);
-        console.log(`[ledger] Marked synced: ${entry.fileName}`);
     }
 }
 
@@ -118,7 +115,6 @@ export async function removeLedgerEntry(fileHash: string): Promise<void> {
             del(slot),
             del(hashKey(fileHash))
         ]);
-        console.log(`[ledger] Removed: ${entry.fileName}`);
     }
 }
 
@@ -161,10 +157,7 @@ export async function syncLedgerFromServer(userId: string): Promise<number> {
             .order('created_at', { ascending: false })
             .limit(200);
 
-        if (error || !data) {
-            console.warn('[ledger] Server sync failed:', error?.message);
-            return 0;
-        }
+        if (error || !data) return 0;
 
         let synced = 0;
         for (const row of data) {
@@ -184,10 +177,8 @@ export async function syncLedgerFromServer(userId: string): Promise<number> {
             synced++;
         }
 
-        console.log(`[ledger] Synced ${synced} entries from server`);
         return synced;
     } catch (err) {
-        console.warn('[ledger] syncLedgerFromServer error:', err);
         return 0;
     }
 }
@@ -204,17 +195,15 @@ export async function requestPersistentStorage(): Promise<boolean> {
     try {
         if (navigator.storage && navigator.storage.persist) {
             const granted = await navigator.storage.persist();
-            console.log(`[ledger] Persistent storage ${granted ? 'GRANTED' : 'denied'}`);
             return granted;
         }
     } catch (err) {
-        console.warn('[ledger] requestPersistentStorage error:', err);
     }
     return false;
 }
 
 /**
- * Full integrity check: validates both slot uniqueness and content hash uniqueness.
+ * Full integrity check: validates slot status only.
  * Returns a detailed result object for the UI to display.
  */
 export async function validateUploadIntegrity(
@@ -228,7 +217,7 @@ export async function validateUploadIntegrity(
     allowed: boolean;
     reason?: string;
     existingEntry?: LedgerEntry;
-    blockType?: 'slot_taken' | 'duplicate_content';
+    blockType?: 'slot_taken';
 }> {
     // Check 1: Slot uniqueness (one per teaching load per week per doc type)
     const slotEntry = await hasSubmission(teachingLoadId, weekNumber, schoolYear, docType, termNumber);
@@ -238,17 +227,6 @@ export async function validateUploadIntegrity(
             reason: `A ${docType} document for Week ${weekNumber} has already been ${slotEntry.status === 'synced' ? 'archived' : 'queued for upload'}.`,
             existingEntry: slotEntry,
             blockType: 'slot_taken'
-        };
-    }
-
-    // Check 2: Content hash uniqueness (no identical documents)
-    const hashEntry = await hasHash(fileHash);
-    if (hashEntry) {
-        return {
-            allowed: false,
-            reason: `This exact document has already been submitted as "${hashEntry.fileName}" (${hashEntry.docType}, Week ${hashEntry.weekNumber}).`,
-            existingEntry: hashEntry,
-            blockType: 'duplicate_content'
         };
     }
 

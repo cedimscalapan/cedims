@@ -80,24 +80,6 @@ export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, err
     }
 }
 
-// A single transient blip (brief signal drop, one dropped packet) on a bad
-// mobile connection shouldn't fail the whole upload after already getting
-// this far. Used only for calls whose failure is meant to be a hard stop
-// (unlike the calendar lookups, which fail soft) — it retries the same
-// bounded attempt once more before giving up for real.
-async function withRetry<T>(fn: () => Promise<T>, attempts: number, delayMs: number): Promise<T> {
-    let lastErr: unknown;
-    for (let i = 0; i < attempts; i++) {
-        try {
-            return await fn();
-        } catch (err) {
-            lastErr = err;
-            if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs));
-        }
-    }
-    throw lastErr;
-}
-
 interface XhrUploadResult {
     ok: boolean;
     status: number;
@@ -368,7 +350,7 @@ async function* runOnlinePipelineResilient(
 
     yield { phase: 'uploading', progress: 10, message: 'Checking your document...' };
 
-    const { lookupOfflineDoc, cacheVerifiedDoc, calculateComplianceStatus } = await import('./offline');
+    const { cacheVerifiedDoc, calculateComplianceStatus } = await import('./offline');
     const { recordSubmission } = await import('./offlineSubmissionLedger');
 
     // Look up calendar_id + deadline from academic_calendar using detected week number.
@@ -433,49 +415,7 @@ async function* runOnlinePipelineResilient(
         }
     }
 
-    yield { phase: 'uploading', progress: 20, message: 'Checking for duplicates...' };
-
-    // Two different things, deliberately handled differently:
-    //
-    //   Same DOCUMENT (identical file hash) -> rejected only once it is known
-    //   to be archived on the server. A pending local/offline copy is allowed
-    //   through so the teacher can retry a stuck upload from this device.
-    //
-    //   Same SLOT (another DLL for a week/subject that already has one) ->
-    //   accepted and marked 'supplementary' by the slot check further down.
-    //   That's a legitimate additional document, and supplementary is excluded
-    //   from compliance rate, upload totals and "missing" checks, so it can't
-    //   distort any figure.
-    const localDoc = await lookupOfflineDoc(fileHash);
-    if (localDoc && !localDoc.pending_sync) {
-        throw new Error('This exact document has already been uploaded. Choose a different file, or check My Files.');
-    }
-
-    // Cross-teacher check, via a narrow RPC rather than a direct table select
-    // (see migrations/20260910_*.sql). A positive result rejects; a timeout is
-    // advisory only and must not fail an upload the phone has already done
-    // minutes of work for — UNIQUE (file_hash) still backstops it at insert.
-    try {
-        // Plain array request rather than .maybeSingle(): PostgREST only
-        // returns 406 when a singular representation is requested (the
-        // Accept header .maybeSingle()/.single() set) and 0 rows come back —
-        // a routine, expected outcome here, not an error worth a red network
-        // failure in the console on every non-duplicate upload.
-        const { data: matches } = await withRetry(
-            () => withTimeout(
-                supabase.rpc('check_duplicate_submission_hash', { p_hash: fileHash }) as any,
-                15000,
-                'Server integrity check timed out.'
-            ) as Promise<{ data: any[] }>,
-            2,
-            1500
-        );
-        const hashMatch = matches?.[0];
-        if (hashMatch) throw new Error(`This exact document has already been uploaded (${hashMatch.file_name}).`);
-    } catch (err: any) {
-        if (err?.message?.startsWith('This exact document')) throw err;
-        console.warn('[pipeline] Duplicate pre-check unavailable, continuing:', err?.message);
-    }
+    yield { phase: 'uploading', progress: 20, message: 'Preparing upload...' };
 
     yield { phase: 'uploading', progress: 40, message: 'Uploading...' };
     const session = await supabase.auth.getSession();
@@ -522,7 +462,6 @@ async function* runOnlinePipelineResilient(
         if (uploadResponse?.status === 413 || lastUploadError?.message?.includes('(413)')) {
             throw new Error(`This PDF is too large for the upload server. Please compress it below ${MAX_UPLOAD_SIZE_MB}MB before uploading.`);
         }
-        console.warn('[pipeline] Server upload failed, trying direct B2 upload:', lastUploadError?.message);
         for (let attempt = 0; attempt < 3; attempt += 1) {
             try {
             const presignResponse = await withTimeout(
@@ -598,7 +537,7 @@ async function* runOnlinePipelineResilient(
           complianceStatus = 'supplementary';
         }
       } catch (e) {
-        console.warn('[pipeline] Duplicate slot check failed, continuing as normal:', e);
+        // Slot classification is advisory; upload should continue quietly.
       }
     }
     const { error: dbError } = await withTimeout(
@@ -621,15 +560,7 @@ async function* runOnlinePipelineResilient(
         30000,
         'Database record timed out.'
     ) as { error: any };
-    // 23505 = unique_violation on file_hash — the backstop for the same
-    // document being submitted twice when the pre-checks above couldn't reach
-    // the server. Note this cannot fire for an additional DLL on an existing
-    // week/subject: that's a different file, so a different hash, and it is
-    // archived as supplementary.
     if (dbError) {
-        if (dbError.code === '23505') {
-            throw new Error('This exact document has already been uploaded. Choose a different file, or check My Files.');
-        }
         throw new Error(`DB Error: ${dbError.message}`);
     }
 
@@ -662,7 +593,7 @@ async function* runOnlinePipelineResilient(
     // inserted by this point, so a convenience notification — two more un-timed
     // network calls — must not hold back the success the teacher is waiting on.
     createNotification(options.userId, 'Archival Successful', `Securely archived ${activeDocType} - Week ${activeWeekNumber}.`, 'success')
-        .catch((e) => console.warn('[pipeline] Notification write failed:', e));
+        .catch(() => {});
 
     yield {
         phase: 'done',
@@ -685,17 +616,10 @@ async function* runOfflinePipelineResilient(
     // each step rather than claiming a server round-trip that hasn't run yet.
     yield { phase: 'uploading', progress: 10, message: 'Checking your document...' };
 
-    const { enqueue, cacheVerifiedDoc, lookupOfflineDoc } = await import('./offline');
+    const { enqueue, cacheVerifiedDoc } = await import('./offline');
     const { recordSubmission } = await import('./offlineSubmissionLedger');
 
-    // Matches the direct path: server-confirmed local cache entries are refused,
-    // but pending local/offline entries are allowed so a stuck upload can be
-    // retried from the same device.
-    yield { phase: 'uploading', progress: 20, message: 'Checking for duplicates...' };
-    const localDoc = await lookupOfflineDoc(fileHash);
-    if (localDoc && !localDoc.pending_sync) {
-        throw new Error('This exact document has already been uploaded. Choose a different file, or check My Files.');
-    }
+    yield { phase: 'uploading', progress: 20, message: 'Preparing upload...' };
 
     // No calendar lookup here. This path exists so the teacher never waits on
     // the network, and resolving calendar_id took up to three queries — on a
@@ -761,7 +685,7 @@ async function* runOfflinePipelineResilient(
     // is already queued and safe by this point; a convenience notification must
     // never gate reporting that.
     createNotification(options.userId, 'Archival Successful', `Securely archived ${activeDocType} - Week ${activeWeekNumber}.`, 'success')
-        .catch((e) => console.warn('[pipeline] Notification write failed:', e));
+        .catch(() => {});
 
     // Start pushing to the server right away rather than waiting for the 60s
     // heartbeat. Deliberately not awaited: the transfer is the slow part on a
@@ -771,7 +695,7 @@ async function* runOfflinePipelineResilient(
     if (typeof navigator !== 'undefined' && navigator.onLine) {
         import('./offline')
             .then(({ processQueue }) => processQueue())
-            .catch((e) => console.warn('[pipeline] Background sync kickoff failed:', e));
+            .catch(() => {});
     }
 
     yield {
@@ -823,12 +747,8 @@ export async function* runPipeline(
                 // Queuing can't fix either of these: the same document will be
                 // refused whenever it syncs, and a missing session leaves the
                 // background sync with nothing to authenticate with.
-                const isTerminal =
-                    msg.includes('already been uploaded') ||
-                    msg.includes('signed out');
+                const isTerminal = msg.includes('signed out');
                 if (isTerminal) throw err;
-
-                console.warn('[pipeline] Direct upload failed, falling back to background sync:', msg);
             }
         }
 

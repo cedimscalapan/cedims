@@ -40,7 +40,6 @@ export async function POST({ request }) {
             url = await getPresignedUploadUrl(key, contentType);
         }
         
-        console.log(`[presign] Generated URL for ${key}: ${url.split('?')[0]}...`);
         return json({ url });
     } catch (err: any) {
         const detail = err?.body?.message || err?.message || err?.name || 'Unknown storage signing error';
