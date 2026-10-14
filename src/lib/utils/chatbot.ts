@@ -1,7 +1,7 @@
 import intentModel from '../models/intent_classifier_model.json';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentSchoolYear as getDynamicSchoolYear } from './schoolYear';
-import { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, filterSubmissionsByPeriod, isReviewableSubmission, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type ComplianceReview } from './compliance';
+import { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, filterSubmissionsByPeriod, isReviewableSubmission, fetchRowsForIds, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type ComplianceReview } from './compliance';
 
 // Text Normalization
 // Makes the bot robust to typos, wrong grammar, repeated characters, emojis,
@@ -1012,8 +1012,10 @@ async function queryCompliance(
     const reviewIds = submissions.map(s => s.id);
     let reviews: ComplianceReview[] = [];
     if (reviewIds.length) {
-        const { data: reviewRows } = await db.from('dll_reviews').select('submission_id, status, reviewer_comment').in('submission_id', reviewIds);
-        reviews = (reviewRows || []) as ComplianceReview[];
+        reviews = await fetchRowsForIds<ComplianceReview>(reviewIds, batch => db
+            .from('dll_reviews')
+            .select('submission_id, status, reviewer_comment')
+            .in('submission_id', batch));
     }
 
     const periodTerm = slots.term || 'all';

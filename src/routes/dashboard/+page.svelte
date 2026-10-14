@@ -41,6 +41,8 @@
         writeLocalData,
     } from "$lib/utils/localDataCache";
     import { getDocumentLabel } from "$lib/utils/documentLabels";
+    import { logOnce, shouldUseRealtime } from "$lib/utils/noise";
+    import { fetchRowsForIds } from "$lib/utils/compliance";
     const { isOnline: onlineStatus } = connectivity;
 
     let submissions = $state<any[]>([]);
@@ -153,11 +155,12 @@
         reloadTimer = setTimeout(() => {
             if (Date.now() - lastReloadAt < 30000) return;
             lastReloadAt = Date.now();
-            loadDashboard({ background: true }).catch((err) => console.error("[dashboard] Realtime refresh failed:", err));
+            loadDashboard({ background: true }).catch((err) => logOnce("dashboard-refresh-failed", "error", "[dashboard] Refresh failed.", err));
         }, 1500);
     }
 
     function setupRealtime() {
+        if (!shouldUseRealtime()) return;
         channel = supabase
             .channel("dashboard-changes")
             .on(
@@ -264,7 +267,7 @@
             loadedFromCache = false;
             await writeLocalData(cacheKey, snapshotDashboard());
         } catch (err) {
-            console.error("[dashboard] Failed to load dashboard:", err);
+            logOnce("dashboard-load-failed", "error", "[dashboard] Failed to load dashboard.", err);
             if (runId === loadRun && submissions.length === 0) {
                 const cached = await readLocalData<DashboardSnapshot>(cacheKey, Number.POSITIVE_INFINITY);
                 if (cached?.data) {
@@ -330,13 +333,12 @@
 
         const rawSubmissions = subsResult.data || [];
         const submissionIds = rawSubmissions.map((submission: any) => submission.id);
-        const reviewResult = submissionIds.length > 0
-            ? await supabase
+        const reviews = submissionIds.length > 0
+            ? await fetchRowsForIds<any>(submissionIds, batch => supabase
                 .from("dll_reviews")
                 .select("submission_id, reviewer_id, reviewer_comment")
-                .in("submission_id", submissionIds)
-            : { data: [] };
-        const reviews = reviewResult.data || [];
+                .in("submission_id", batch))
+            : [];
         const reviewerIds = [...new Set(reviews.map((review: any) => review.reviewer_id).filter(Boolean))];
         const reviewerResult = reviewerIds.length > 0
             ? await supabase.from("profiles").select("id, full_name, email").in("id", reviewerIds)
@@ -618,10 +620,10 @@
         if (role === "Master Teacher" || role === "School Head" || role === "District Supervisor" || role === "Admin") {
             const subIds = allSubs.map((s: any) => s.id).filter(Boolean);
             if (subIds.length > 0) {
-                const { data: reviews } = await supabase
+                const reviews = await fetchRowsForIds<any>(subIds, batch => supabase
                     .from("dll_reviews")
                     .select("submission_id, reviewer_id, reviewer_comment")
-                    .in("submission_id", subIds);
+                    .in("submission_id", batch));
                 const reviewById: Record<string, string> = {};
                 const reviewerById: Record<string, string> = {};
                 const reviewReviewerBySubmission: Record<string, string> = {};
