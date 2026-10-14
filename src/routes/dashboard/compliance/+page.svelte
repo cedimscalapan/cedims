@@ -8,6 +8,7 @@
     import PageHeader from '$lib/components/PageHeader.svelte';
     import SkeletonLoader from '$lib/components/SkeletonLoader.svelte';
     import { makeScopedCacheKey, readLocalData, writeLocalData } from '$lib/utils/localDataCache';
+    import { logOnce, shouldUseRealtime } from '$lib/utils/noise';
 
     let year = $state(getCurrentSchoolYear());
     let loading = $state(true);
@@ -71,8 +72,9 @@
                 fetchRowsForIds<LeaveRequest>(submissionUserIds, batch => supabase.from('submission_leave_requests').select('*').in('user_id', batch).eq('school_year', selectedYear).order('created_at', { ascending: false })),
             ]);
             const reviews: Snapshot['reviews'] = [];
-            for (let i = 0; i < submissions.length; i += 100) {
-                reviews.push(...await fetchAllRows<Snapshot['reviews'][number]>(() => supabase.from('dll_reviews').select('submission_id, status, reviewer_comment').in('submission_id', submissions.slice(i, i + 100).map(s => s.id)).order('id')));
+            const reviewBatchSize = 25;
+            for (let i = 0; i < submissions.length; i += reviewBatchSize) {
+                reviews.push(...await fetchAllRows<Snapshot['reviews'][number]>(() => supabase.from('dll_reviews').select('submission_id, status, reviewer_comment').in('submission_id', submissions.slice(i, i + reviewBatchSize).map(s => s.id)).order('id')));
             }
             if (request !== run) return;
             data = { schools, teachers, submissionUsers, loads, submissions, calendar, leaveRequests, reviews, savedAt: new Date().toISOString() };
@@ -84,7 +86,7 @@
             if (request !== run) return;
             if (cached?.data) { data = cached.data; cachedAt = cached.data.savedAt; }
             else { data = null; error = 'Unable to load compliance. Check your connection and confirm the submission term migration has been applied.'; }
-            console.error('[compliance]', e);
+            logOnce('compliance-load-failed', 'error', '[compliance] Load failed.', e);
         } finally {
             if (request === run) { loading = false; refreshing = false; }
             inFlightLoad = null;
@@ -111,14 +113,17 @@
                 void load();
             }, 1500);
         };
-        const channel = supabase.channel('compliance-workspace');
-        for (const table of ['submissions', 'dll_reviews', 'submission_leave_requests']) {
-            channel.on('postgres_changes', { event: '*', schema: 'public', table }, refresh);
+        let channel: ReturnType<typeof supabase.channel> | null = null;
+        if (shouldUseRealtime()) {
+            channel = supabase.channel('compliance-workspace');
+            for (const table of ['submissions', 'dll_reviews', 'submission_leave_requests']) {
+                channel.on('postgres_changes', { event: '*', schema: 'public', table }, refresh);
+            }
+            channel.subscribe();
         }
-        channel.subscribe();
         window.addEventListener('online', refresh);
         window.addEventListener('cedims:refresh-visible-route', refresh);
-        return () => { run++; clearTimeout(timer); void supabase.removeChannel(channel); window.removeEventListener('offline', updateConnection); window.removeEventListener('online', updateConnection); window.removeEventListener('online', refresh); window.removeEventListener('cedims:refresh-visible-route', refresh); };
+        return () => { run++; clearTimeout(timer); if (channel) void supabase.removeChannel(channel); window.removeEventListener('offline', updateConnection); window.removeEventListener('online', updateConnection); window.removeEventListener('online', refresh); window.removeEventListener('cedims:refresh-visible-route', refresh); };
     });
 </script>
 

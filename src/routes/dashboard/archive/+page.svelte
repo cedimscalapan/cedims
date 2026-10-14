@@ -621,10 +621,16 @@
         // Fetch dll_reviews for all loaded submissions
         const ids = allSubmissions.map((s) => s.id);
         if (ids.length > 0) {
-            const { data: reviews } = await supabase
-                .from("dll_reviews")
-                .select("submission_id, reviewer_id, reviewer_comment, status, return_reason")
-                .in("submission_id", ids);
+            const reviews: any[] = [];
+            const reviewBatchSize = 25;
+            for (let i = 0; i < ids.length; i += reviewBatchSize) {
+                const { data, error } = await supabase
+                    .from("dll_reviews")
+                    .select("submission_id, reviewer_id, reviewer_comment, status, return_reason")
+                    .in("submission_id", ids.slice(i, i + reviewBatchSize));
+                if (error) throw error;
+                reviews.push(...(data || []));
+            }
             if (reviews) {
                 const reviewerIds = [...new Set(reviews.map((r: any) => r.reviewer_id).filter(Boolean))];
                 const reviewerNames: Record<string, string> = {};

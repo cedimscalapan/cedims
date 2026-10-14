@@ -25,7 +25,7 @@ export interface LeaveRequest {
 export interface Requirement {
     key: string; teacherId: string; load: ComplianceLoad; calendar: CalendarSlot;
     submission?: ComplianceSubmission; leaveRequest?: LeaveRequest;
-    status: 'on-time' | 'late' | 'missing' | 'upcoming' | 'leave-requested' | 'on-leave' | 'leave-rejected';
+    status: 'on-time' | 'late' | 'missing' | 'upcoming' | 'on-leave';
     review: 'checked' | 'for-checking' | 'none';
 }
 
@@ -115,10 +115,10 @@ export function buildRequirements(
 ): Requirement[] {
     const reviewMap = new Map(reviews.map(r => [r.submission_id, r]));
     const leaveMap = new Map<string, LeaveRequest>();
-    for (const request of leaveRequests.filter(r => r.status !== 'cancelled')) {
+    for (const request of leaveRequests.filter(r => r.status === 'approved')) {
         const key = `${request.teaching_load_id}|${request.school_year}|${request.term_number}|${request.week_number}`;
         const current = leaveMap.get(key);
-        if (!current || request.status === 'approved' || current.status === 'rejected') leaveMap.set(key, request);
+        if (!current) leaveMap.set(key, request);
     }
     const candidates = new Map<string, ComplianceSubmission[]>();
     for (const s of submissions) {
@@ -143,9 +143,7 @@ export function buildRequirements(
         const effectiveDeadline = effectiveDeadlineForSubject(c.deadline_date, load.subject);
         const status = submission ? (submission.compliance_status === 'late' ? 'late' : 'on-time')
             : leaveRequest?.status === 'approved' ? 'on-leave'
-                : leaveRequest?.status === 'pending' ? 'leave-requested'
-                    : leaveRequest?.status === 'rejected' ? 'leave-rejected'
-                        : (effectiveDeadline.getTime() <= now ? 'missing' : 'upcoming');
+                : (effectiveDeadline.getTime() <= now ? 'missing' : 'upcoming');
         return {
             key: `${load.id}|${c.school_year}|${c.term}|${c.week_number}`, teacherId: load.user_id, load, calendar: c, submission, leaveRequest,
             status,
@@ -157,7 +155,7 @@ export function buildRequirements(
 export function summarizeRequirements(rows: Requirement[], now = Date.now(), countOpenAsMissing = false) {
     const countedRows = rows.filter(r => r.status !== 'on-leave');
     const submitted = countedRows.filter(r => r.submission).length;
-    const missing = countedRows.filter(r => r.status === 'missing' || (countOpenAsMissing && !r.submission && r.status !== 'leave-requested' && r.status !== 'upcoming')).length;
+    const missing = countedRows.filter(r => r.status === 'missing' || (countOpenAsMissing && !r.submission && r.status !== 'upcoming')).length;
     const upcoming = countedRows.filter(r => r.status === 'upcoming').length;
     const expected = countedRows.length;
     const due = countedRows.filter(r => effectiveDeadlineForSubject(r.calendar.deadline_date, r.load.subject).getTime() <= now).length;
@@ -165,8 +163,8 @@ export function summarizeRequirements(rows: Requirement[], now = Date.now(), cou
     return {
         expected, submitted, missing, upcoming,
         onLeave: rows.filter(r => r.status === 'on-leave').length,
-        leavePending: rows.filter(r => r.status === 'leave-requested').length,
-        leaveRejected: rows.filter(r => r.status === 'leave-rejected').length,
+        leavePending: 0,
+        leaveRejected: 0,
         onTime: countedRows.filter(r => r.status === 'on-time').length,
         late: countedRows.filter(r => r.status === 'late').length,
         forChecking: countedRows.filter(r => r.review === 'for-checking').length,
@@ -228,8 +226,6 @@ export function riskReason(rows: Requirement[]): string {
     const weeks = new Set(missing.map(r => `${r.calendar.term}|${r.calendar.week_number}`));
     if (weeks.size >= 2) return `Missing in ${weeks.size} weeks`;
     if (missing.length) return `${missing.length} missing requirement${missing.length === 1 ? '' : 's'}`;
-    const pendingLeave = rows.filter(r => r.status === 'leave-requested').length;
-    if (pendingLeave) return `${pendingLeave} leave request${pendingLeave === 1 ? '' : 's'} pending`;
     if (rows.some(r => r.review === 'for-checking')) {
         const count = rows.filter(r => r.review === 'for-checking').length;
         return `${count} file${count === 1 ? '' : 's'} waiting for remarks`;
@@ -251,8 +247,10 @@ export async function fetchAllRows<T>(query: () => any): Promise<T[]> {
 export async function fetchRowsForIds<T>(ids: string[], query: (batch: string[]) => any): Promise<T[]> {
     const rows: T[] = [];
     const uniqueIds = [...new Set(ids)];
-    for (let i = 0; i < uniqueIds.length; i += 100) {
-        rows.push(...await fetchAllRows<T>(() => query(uniqueIds.slice(i, i + 100))));
+    // Keep PostgREST URLs small enough for self-hosted gateways and proxies.
+    const batchSize = 25;
+    for (let i = 0; i < uniqueIds.length; i += batchSize) {
+        rows.push(...await fetchAllRows<T>(() => query(uniqueIds.slice(i, i + batchSize))));
     }
     return rows;
 }
