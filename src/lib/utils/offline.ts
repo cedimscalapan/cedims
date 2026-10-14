@@ -11,7 +11,7 @@ import { withTimeout } from './pipeline';
 import { getCurrentSchoolYear } from './schoolYear';
 import { deadlineAtTenAM, effectiveDeadlineForSubject } from './deadlineRules';
 import { logAudit } from './audit';
-import { env } from '$env/dynamic/public';
+import { logOnce } from './noise';
 
 export const pendingSyncCount = writable<number>(0);
 
@@ -438,6 +438,13 @@ export async function processQueue(force = false): Promise<{ success: number; fa
     }
     lastSyncAttempt = Date.now();
 
+    const allKeys = await keys();
+    const queueKeys = allKeys.filter((k: any) => String(k).startsWith(QUEUE_PREFIX));
+
+    if (queueKeys.length === 0) {
+        return { success: 0, failed: 0 };
+    }
+
     // If not forcing, check connection status first
     const isOnline = force ? true : await checkConnection();
 
@@ -445,14 +452,10 @@ export async function processQueue(force = false): Promise<{ success: number; fa
         return { success: 0, failed: 0 };
     }
 
-    if (isSyncing && !force) {
-        return { success: 0, failed: 0 };
-    }
-
-    const allKeys = await keys();
-    const queueKeys = allKeys.filter((k: any) => String(k).startsWith(QUEUE_PREFIX));
-
-    if (queueKeys.length === 0) {
+    // Never allow overlapping queue processors. Manual "Sync Now" uses
+    // force=true, but it must not bypass this lock or the same file can be
+    // uploaded more than once by a button click plus a background trigger.
+    if (isSyncing) {
         return { success: 0, failed: 0 };
     }
 
@@ -683,6 +686,7 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                     `${item.options.docType || 'DLL'}${item.options.weekNumber ? ` - Week ${item.options.weekNumber}` : ''}`
                 );
             } catch (err: any) {
+                logOnce('offline-sync-item-failed', 'warn', '[offline] Pending upload sync failed; it will retry later.', err);
                 failed++;
             }
         }
@@ -738,6 +742,8 @@ export { deadlineAtTenAM };
 // Auto-resume when online + Periodic Check
 export function initOfflineSync(): void {
     if (typeof window === 'undefined') return;
+    if ((window as any).__cedimsOfflineSyncInitialized) return;
+    (window as any).__cedimsOfflineSyncInitialized = true;
 
     // 0. Request persistent storage (prevents browser from evicting IndexedDB)
     import('./offlineSubmissionLedger').then(({ requestPersistentStorage }) => {
@@ -760,7 +766,7 @@ export function initOfflineSync(): void {
         if (navigator.onLine) {
             processQueue();
         }
-    }, 300000);
+    }, 900000);
 
     // 3. Initial check on load
     updatePendingCount();
