@@ -28,7 +28,7 @@
     import { goto } from "$app/navigation";
     import { onMount, untrack } from "svelte";
     import { fade } from "svelte/transition";
-    import { extractMetadata, type DocMetadata } from "$lib/utils/ocr";
+    import { extractMetadata, resolveWeekFromDates, type DocMetadata } from "$lib/utils/ocr";
     import { validateSelection } from "$lib/utils/copilot";
     import {
         canUploadDocument,
@@ -503,20 +503,22 @@
         return match ? match[0] : "";
     }
 
-    function subjectsMatch(loadSubject: string, detectedSubject: string): boolean {
-        const loadSub = loadSubject.toUpperCase();
-        const sub = detectedSubject.toUpperCase();
+    function normalizeSubjectKey(value?: string | null): string {
+        const subject = String(value || "").toUpperCase().replace(/[^A-Z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+        if (/\bH\s*G\s*P\b/.test(subject) || subject.includes("HOMEROOM GUIDANCE")) return "HGP";
+        if (subject === "MATH" || subject.includes("MATHEMATICS") || subject.includes("MATEMATIKA")) return "MATHEMATICS";
+        if (subject === "AP" || subject.includes("ARALING PANLIPUNAN") || subject.includes("SOCIAL STUDIES")) return "AP";
+        if (subject === "GMRC" || subject.includes("PAGPAPAKATAO") || subject.includes("VALUES") || subject.includes("ESP")) return "GMRC";
+        return subject;
+    }
 
-        if (sub === "GMRC" || sub.includes("PAGPAPAKATAO")) {
-            return (
-                loadSub === "GMRC" ||
-                loadSub.includes("ESP") ||
-                loadSub.includes("VALUES")
-            );
-        }
-        if (sub === "AP" || sub.includes("PANLIPUNAN")) {
-            return loadSub === "AP" || loadSub.includes("SOCIAL");
-        }
+    function subjectsMatch(loadSubject: string, detectedSubject: string): boolean {
+        const loadSub = normalizeSubjectKey(loadSubject);
+        const sub = normalizeSubjectKey(detectedSubject);
+
+        if (sub === "HGP") return loadSub === "HGP";
+        if (sub === "GMRC") return loadSub === "GMRC";
+        if (sub === "AP") return loadSub === "AP";
         return loadSub.includes(sub) || sub.includes(loadSub);
     }
 
@@ -669,7 +671,23 @@
                     weekNumber = metadata.weekNumber;
                     termNumber = metadata.termNumber || Math.min(3, Math.max(1, Math.ceil(metadata.weekNumber / 13)));
                 }
-                if (metadata.date && $profile?.district_id) {
+                if (metadata.dateRange && calendarEntries.length > 0) {
+                    const resolved = resolveWeekFromDates(
+                        metadata.dateRange,
+                        calendarEntries.map((entry) => ({
+                            week_number: entry.week_number,
+                            deadline_date: entry.deadline_date || undefined,
+                        })),
+                    );
+                    if (resolved) {
+                        weekNumber = resolved.weekNumber;
+                        const entry = calendarEntries.find((w) => w.week_number === resolved.weekNumber);
+                        termNumber = entry?.term || metadata.termNumber || Math.min(3, Math.max(1, Math.ceil(resolved.weekNumber / 13)));
+                        debugLog(
+                            `[upload] Derived week ${weekNumber} from document header dates ${metadata.dateRange.raw}`,
+                        );
+                    }
+                } else if (metadata.date && $profile?.district_id) {
                     const docDate = parseDocDate(metadata.date);
                     if (docDate) {
                         const derivedWeek = await lookupWeekByDate(

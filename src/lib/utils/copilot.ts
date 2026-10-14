@@ -333,16 +333,22 @@ function normalizeGradeLevel(value?: string | null): string {
     return match ? match[0] : '';
 }
 
-function subjectsMatch(loadSubject: string, detectedSubject: string): boolean {
-    const loadSub = loadSubject.toUpperCase();
-    const sub = detectedSubject.toUpperCase();
+function normalizeSubjectKey(value?: string | null): string {
+    const subject = String(value || '').toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/\bH\s*G\s*P\b/.test(subject) || subject.includes('HOMEROOM GUIDANCE')) return 'HGP';
+    if (subject === 'MATH' || subject.includes('MATHEMATICS') || subject.includes('MATEMATIKA')) return 'MATHEMATICS';
+    if (subject === 'AP' || subject.includes('ARALING PANLIPUNAN') || subject.includes('SOCIAL STUDIES')) return 'AP';
+    if (subject === 'GMRC' || subject.includes('PAGPAPAKATAO') || subject.includes('VALUES') || subject.includes('ESP')) return 'GMRC';
+    return subject;
+}
 
-    if (sub === 'GMRC' || sub.includes('PAGPAPAKATAO')) {
-        return loadSub === 'GMRC' || loadSub.includes('ESP') || loadSub.includes('VALUES');
-    }
-    if (sub === 'AP' || sub.includes('PANLIPUNAN')) {
-        return loadSub === 'AP' || loadSub.includes('SOCIAL');
-    }
+function subjectsMatch(loadSubject: string, detectedSubject: string): boolean {
+    const loadSub = normalizeSubjectKey(loadSubject);
+    const sub = normalizeSubjectKey(detectedSubject);
+
+    if (sub === 'HGP') return loadSub === 'HGP';
+    if (sub === 'GMRC') return loadSub === 'GMRC';
+    if (sub === 'AP') return loadSub === 'AP';
     return loadSub.includes(sub) || sub.includes(loadSub);
 }
 
@@ -368,8 +374,7 @@ export function validateSelection(selectedLoadId: string, ocrText: string, teach
     const prediction = predictSubject(ocrText);
     if (!prediction.value || prediction.confidence < 60) return null;
 
-    const isMatch = selectedLoad.subject.toLowerCase().includes(prediction.value.toLowerCase()) ||
-        prediction.value.toLowerCase().includes(selectedLoad.subject.toLowerCase());
+    const isMatch = subjectsMatch(selectedLoad.subject, prediction.value);
 
     if (!isMatch) {
         return {

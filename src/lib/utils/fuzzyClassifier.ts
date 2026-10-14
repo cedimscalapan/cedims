@@ -29,7 +29,7 @@ function normalize(s: string): string {
 }
 
 const SUBJECTS = [
-    'GMRC', 'HGP', 'Mathematics', 'Math', 'Filipino', 'MAPEH', 'English',
+    'GMRC', 'HGP', 'Homeroom Guidance', 'Homeroom Guidance Program', 'Mathematics', 'Math', 'Filipino', 'MAPEH', 'English',
     'Science', 'Makabansa', 'AP', 'EPP', 'Language',
     'Reading and Literacy', 'Numeracy', 'Arts and Music',
     'Physical Development', 'Language Literacy and Communication',
