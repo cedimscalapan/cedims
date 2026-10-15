@@ -37,6 +37,7 @@
     import { getDocumentLabel } from "$lib/utils/documentLabels";
     import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
     import { logAudit } from "$lib/utils/audit";
+import { fetchAllRows } from "$lib/utils/compliance";
 
     // â"€â"€ Types â"€â"€
     interface Submission {
@@ -637,12 +638,11 @@
             const reviews: any[] = [];
             const reviewBatchSize = 25;
             for (let i = 0; i < ids.length; i += reviewBatchSize) {
-                const { data, error } = await supabase
+                const data = await fetchAllRows<any>(() => supabase
                     .from("dll_reviews")
                     .select("submission_id, reviewer_id, reviewer_comment, status, return_reason")
-                    .in("submission_id", ids.slice(i, i + reviewBatchSize));
-                if (error) throw error;
-                reviews.push(...(data || []));
+                    .in("submission_id", ids.slice(i, i + reviewBatchSize)));
+                reviews.push(...data);
             }
             if (reviews) {
                 const reviewerIds = [...new Set(reviews.map((r: any) => r.reviewer_id).filter(Boolean))];

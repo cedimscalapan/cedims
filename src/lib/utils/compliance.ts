@@ -237,8 +237,18 @@ export function riskReason(rows: Requirement[]): string {
 export async function fetchAllRows<T>(query: () => any): Promise<T[]> {
     const result: T[] = [];
     for (let start = 0; ; start += 500) {
-        const { data, error } = await query().range(start, start + 499);
-        if (error) throw error;
+        let data: T[] | null = null;
+        let error: any = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const response = await query().range(start, start + 499);
+            data = response.data || null;
+            error = response.error || null;
+            if (!error) break;
+            const status = Number(error.status || error.code || 0);
+            const transient = status >= 500 || status === 429 || /fetch|network|offline|timeout/i.test(error.message || '');
+            if (!transient || attempt === 2) throw error;
+            await new Promise(resolve => setTimeout(resolve, 400 * (attempt + 1)));
+        }
         result.push(...(data || []));
         if (!data || data.length < 500) return result;
     }
