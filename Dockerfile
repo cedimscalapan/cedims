@@ -9,13 +9,17 @@ ENV PUBLIC_SUPABASE_URL=$PUBLIC_SUPABASE_URL
 ENV PUBLIC_SUPABASE_ANON_KEY=$PUBLIC_SUPABASE_ANON_KEY
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 # Production builds use Vite's compiler. Type-checking remains available via
 # `npm run check`, but existing unrelated leave-status diagnostics should not
 # prevent the live image from being rebuilt for a verified production build.
 RUN npm run build
+
+# Keep the runtime image lean on the VPS. The build has already completed, so
+# development-only packages are no longer required by the running server.
+RUN npm prune --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app

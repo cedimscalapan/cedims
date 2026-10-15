@@ -25,7 +25,7 @@ export interface LeaveRequest {
 export interface Requirement {
     key: string; teacherId: string; load: ComplianceLoad; calendar: CalendarSlot;
     submission?: ComplianceSubmission; leaveRequest?: LeaveRequest;
-    status: 'on-time' | 'late' | 'missing' | 'upcoming' | 'on-leave';
+    status: 'on-time' | 'late' | 'missing' | 'upcoming' | 'on-leave' | 'leave-requested' | 'leave-rejected';
     review: 'checked' | 'for-checking' | 'none';
 }
 
@@ -115,7 +115,7 @@ export function buildRequirements(
 ): Requirement[] {
     const reviewMap = new Map(reviews.map(r => [r.submission_id, r]));
     const leaveMap = new Map<string, LeaveRequest>();
-    for (const request of leaveRequests.filter(r => r.status === 'approved')) {
+    for (const request of leaveRequests) {
         const key = `${request.teaching_load_id}|${request.school_year}|${request.term_number}|${request.week_number}`;
         const current = leaveMap.get(key);
         if (!current) leaveMap.set(key, request);
@@ -143,6 +143,8 @@ export function buildRequirements(
         const effectiveDeadline = effectiveDeadlineForSubject(c.deadline_date, load.subject);
         const status = submission ? (submission.compliance_status === 'late' ? 'late' : 'on-time')
             : leaveRequest?.status === 'approved' ? 'on-leave'
+                : leaveRequest?.status === 'pending' ? 'leave-requested'
+                    : leaveRequest?.status === 'rejected' ? 'leave-rejected'
                 : (effectiveDeadline.getTime() <= now ? 'missing' : 'upcoming');
         return {
             key: `${load.id}|${c.school_year}|${c.term}|${c.week_number}`, teacherId: load.user_id, load, calendar: c, submission, leaveRequest,
@@ -153,7 +155,7 @@ export function buildRequirements(
 }
 
 export function summarizeRequirements(rows: Requirement[], now = Date.now(), countOpenAsMissing = false) {
-    const countedRows = rows.filter(r => r.status !== 'on-leave');
+    const countedRows = rows.filter(r => r.status !== 'on-leave' && r.status !== 'leave-requested');
     const submitted = countedRows.filter(r => r.submission).length;
     const missing = countedRows.filter(r => r.status === 'missing' || (countOpenAsMissing && !r.submission && r.status !== 'upcoming')).length;
     const upcoming = countedRows.filter(r => r.status === 'upcoming').length;
