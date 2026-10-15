@@ -19,7 +19,6 @@
     let filterTeacher = "";
     let filterGrade = "";
     let filterSubject = "";
-    let filterType = "";
     let currentPage = 1;
     const pageSize = 5;
     let remarkTarget: any = null;
@@ -31,7 +30,6 @@
         "GMRC", "EPP", "MAPEH", "Music", "Arts", "Physical Education", "Health",
         "Makabansa", "HGP", "TLE",
     ];
-    const documentTypeOptions = ["DLP", "ISR", "ISP"];
 
     function elementaryGradeRank(value: unknown): number {
         const match = String(value || "").match(/(?:grade|gr\.?|baitang)?\s*([1-6])\b/i);
@@ -80,7 +78,6 @@
         filterTeacher = "";
         filterGrade = "";
         filterSubject = "";
-        filterType = "";
         currentPage = 1;
     }
 
@@ -92,8 +89,7 @@
         const matchesDate = !filterDate || dateKey(item.created_at) === filterDate;
         const matchesTeacher = !filterTeacher || String(item.teacher_name || "").trim() === filterTeacher;
         const matchesSubject = !filterSubject || normalizeSubject(item.subject).toLowerCase() === filterSubject.toLowerCase();
-        const matchesType = !filterType || normalizeDocumentType(item.doc_type || "DLP") === filterType;
-        if (!matchesElementaryGrade || !matchesDate || !matchesTeacher || !matchesSubject || !matchesType) return false;
+        if (!matchesElementaryGrade || !matchesDate || !matchesTeacher || !matchesSubject) return false;
         if (pendingOnly || filterStatus === "forChecking") return !hasRemark(item);
         if (filterStatus === "checked") return hasRemark(item);
         return true;
@@ -208,7 +204,7 @@
             {/if}
             <div class="w-full">
                 <div class="mb-2 text-xs font-bold uppercase tracking-normal text-text-muted">Filter by</div>
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div class="min-w-0">
                         <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-date">Date</label>
                         <input id="review-filter-date" type="date" value={filterDate} onchange={(event) => { filterDate = (event.currentTarget as HTMLInputElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20" />
@@ -244,18 +240,9 @@
                         </select>
                     </div>
 
-                    <div class="min-w-0">
-                        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-type">Document Type</label>
-                        <select id="review-filter-type" value={filterType} onchange={(event) => { filterType = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
-                            <option value="">All document types</option>
-                            {#each documentTypeOptions as documentType}
-                                <option value={documentType}>{documentType}</option>
-                            {/each}
-                        </select>
-                    </div>
                 </div>
 
-                {#if filterDate || filterTeacher || filterGrade || filterSubject || filterType}
+                {#if filterDate || filterTeacher || filterGrade || filterSubject}
                     <button type="button" onclick={clearFilters} class="mt-3 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-xs font-bold text-text-muted hover:border-gov-blue hover:text-gov-blue transition-colors">Clear filters</button>
                 {/if}
             </div>
