@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { ArrowUpDown, Eye, FileText, MessageSquare, X } from "lucide-svelte";
+    import { Eye, FileText, MessageSquare, X } from "lucide-svelte";
     import { supabase } from "$lib/utils/supabase";
     import { profile } from "$lib/utils/auth";
     import { addToast } from "$lib/stores/toast";
@@ -14,11 +14,12 @@
         new Date(date).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
 
     type FilterStatus = "all" | "forChecking" | "checked";
-    type SortField = "date" | "teacher" | "grade" | "subject" | "type";
-
     let filterStatus: FilterStatus = pendingOnly ? "forChecking" : "all";
-    let sortField: SortField = "date";
-    let sortDir: "asc" | "desc" = "desc";
+    let filterDate = "";
+    let filterTeacher = "";
+    let filterGrade = "";
+    let filterSubject = "";
+    let filterType = "";
     let currentPage = 1;
     const pageSize = 5;
     let remarkTarget: any = null;
@@ -30,6 +31,7 @@
         "GMRC", "EPP", "MAPEH", "Music", "Arts", "Physical Education", "Health",
         "Makabansa", "Homeroom Guidance", "HGP", "TLE",
     ];
+    const documentTypeOptions = ["DLL", "DLP", "ISP", "ISR"];
 
     function elementaryGradeRank(value: unknown): number {
         const match = String(value || "").match(/(?:grade|gr\.?|baitang)?\s*([1-6])\b/i);
@@ -48,41 +50,50 @@
             ["compliant", "on-time", "late", "supplementary", "extra"].includes(status);
     });
 
+    $: teacherOptions = [...new Set(reviewItems.map((item) => String(item.teacher_name || "").trim()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b));
+    $: subjectOptions = [
+        ...elementarySubjectOrder,
+        ...reviewItems.map((item) => String(item.subject || "").trim()).filter(Boolean),
+    ].filter((subject, index, subjects) => subjects.findIndex((value) => value.toLowerCase() === subject.toLowerCase()) === index);
+
+    function dateKey(value: unknown): string {
+        if (!value) return "";
+        const date = new Date(String(value));
+        if (Number.isNaN(date.getTime())) return "";
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+
+    function clearFilters() {
+        filterDate = "";
+        filterTeacher = "";
+        filterGrade = "";
+        filterSubject = "";
+        filterType = "";
+        currentPage = 1;
+    }
+
     const hasRemark = (item: any) => !!item.reviewer_comment?.trim();
 
     $: filteredItems = reviewItems.filter((item) => {
+        const itemGrade = elementaryGradeRank(item.grade_level);
+        const matchesElementaryGrade = !filterGrade || itemGrade === Number(filterGrade);
+        const matchesDate = !filterDate || dateKey(item.created_at) === filterDate;
+        const matchesTeacher = !filterTeacher || String(item.teacher_name || "").trim() === filterTeacher;
+        const matchesSubject = !filterSubject || String(item.subject || "").trim().toLowerCase() === filterSubject.toLowerCase();
+        const matchesType = !filterType || String(item.doc_type || "DLL").toUpperCase() === filterType;
+        if (!matchesElementaryGrade || !matchesDate || !matchesTeacher || !matchesSubject || !matchesType) return false;
         if (pendingOnly || filterStatus === "forChecking") return !hasRemark(item);
         if (filterStatus === "checked") return hasRemark(item);
         return true;
     });
-    $: sortedItems = [...filteredItems].sort((a, b) => {
-        let cmp = 0;
-        if (sortField === "date") cmp = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
-        if (sortField === "teacher") cmp = (a.teacher_name || "").localeCompare(b.teacher_name || "");
-        if (sortField === "grade") {
-            cmp = elementaryGradeRank(a.grade_level) - elementaryGradeRank(b.grade_level) ||
-                String(a.grade_level || "").localeCompare(String(b.grade_level || ""));
-        }
-        if (sortField === "subject") {
-            cmp = elementarySubjectRank(a.subject) - elementarySubjectRank(b.subject) ||
-                String(a.subject || "").localeCompare(String(b.subject || ""));
-        }
-        if (sortField === "type") cmp = (a.doc_type || "").localeCompare(b.doc_type || "");
-        return sortDir === "asc" ? cmp : -cmp;
-    });
+    $: sortedItems = [...filteredItems].sort((a, b) =>
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
     $: totalPages = Math.max(1, Math.ceil(sortedItems.length / pageSize));
     $: if (currentPage > totalPages) currentPage = totalPages;
     $: pageItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     $: forCheckingCount = reviewItems.filter((item) => !hasRemark(item)).length;
-
-    function setSort(field: SortField) {
-        if (sortField === field) sortDir = sortDir === "asc" ? "desc" : "asc";
-        else {
-            sortField = field;
-            sortDir = field === "date" ? "desc" : "asc";
-        }
-        currentPage = 1;
-    }
 
     async function getSignedUrl(path: string): Promise<string | null> {
         try {
@@ -184,32 +195,47 @@
             {#if !pendingOnly}
                 <button onclick={() => { filterStatus = "checked"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'checked' ? 'border-gov-green bg-gov-green text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">Checked</button>
             {/if}
-            <label class="sr-only" for="review-sort-field">Sort review tracker by</label>
-            <select
-                id="review-sort-field"
-                value={sortField}
-                onchange={(event) => {
-                    sortField = (event.currentTarget as HTMLSelectElement).value as SortField;
-                    sortDir = sortField === "date" ? "desc" : "asc";
-                    currentPage = 1;
-                }}
-                class="rounded-lg border border-gov-blue bg-gov-blue/10 px-3 py-2 text-xs font-bold uppercase tracking-normal text-gov-blue outline-none focus:ring-2 focus:ring-gov-blue/30"
-            >
-                <option value="date">Date</option>
-                <option value="teacher">Teacher</option>
-                <option value="grade">Grade Level</option>
-                <option value="subject">Subject</option>
-                <option value="type">Type</option>
-            </select>
-            <button
-                type="button"
-                onclick={() => setSort(sortField)}
-                aria-label={`Sort ${sortDir === "asc" ? "descending" : "ascending"}`}
-                title={`Sort ${sortDir === "asc" ? "descending" : "ascending"}`}
-                class="inline-flex items-center justify-center rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-text-muted hover:border-gov-blue hover:text-gov-blue transition-colors"
-            >
-                <ArrowUpDown size={14} class={sortDir === 'desc' ? 'scale-y-[-1]' : ''} />
-            </button>
+            <div class="flex items-center gap-2 flex-wrap w-full">
+                <span class="text-xs font-bold uppercase tracking-normal text-text-muted">Filter by</span>
+                <label class="sr-only" for="review-filter-date">Date</label>
+                <input id="review-filter-date" type="date" value={filterDate} onchange={(event) => { filterDate = (event.currentTarget as HTMLInputElement).value; currentPage = 1; }} class="rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20" />
+
+                <label class="sr-only" for="review-filter-teacher">Teacher</label>
+                <select id="review-filter-teacher" value={filterTeacher} onchange={(event) => { filterTeacher = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
+                    <option value="">All teachers</option>
+                    {#each teacherOptions as teacher}
+                        <option value={teacher}>{teacher}</option>
+                    {/each}
+                </select>
+
+                <label class="sr-only" for="review-filter-grade">Grade Level</label>
+                <select id="review-filter-grade" value={filterGrade} onchange={(event) => { filterGrade = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
+                    <option value="">All grade levels</option>
+                    {#each [1, 2, 3, 4, 5, 6] as grade}
+                        <option value={grade}>Grade {grade}</option>
+                    {/each}
+                </select>
+
+                <label class="sr-only" for="review-filter-subject">Subject</label>
+                <select id="review-filter-subject" value={filterSubject} onchange={(event) => { filterSubject = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
+                    <option value="">All subjects</option>
+                    {#each subjectOptions as subject}
+                        <option value={subject}>{subject}</option>
+                    {/each}
+                </select>
+
+                <label class="sr-only" for="review-filter-type">Document Type</label>
+                <select id="review-filter-type" value={filterType} onchange={(event) => { filterType = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
+                    <option value="">All document types</option>
+                    {#each documentTypeOptions as documentType}
+                        <option value={documentType}>{documentType}</option>
+                    {/each}
+                </select>
+
+                {#if filterDate || filterTeacher || filterGrade || filterSubject || filterType}
+                    <button type="button" onclick={clearFilters} class="rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-xs font-bold text-text-muted hover:border-gov-blue hover:text-gov-blue transition-colors">Clear filters</button>
+                {/if}
+            </div>
         </div>
         <p class="text-xs font-semibold text-text-muted">
             Showing {sortedItems.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedItems.length)} of {sortedItems.length}
