@@ -207,7 +207,9 @@
     };
 
     function dashboardCacheKey(userProfile: any) {
-        return makeScopedCacheKey("dashboard_state", userProfile.role, userProfile.id);
+        // Bump this whenever dashboard aggregation rules change so an older
+        // role-specific snapshot cannot remain visible after deployment.
+        return makeScopedCacheKey("dashboard_state_v3", userProfile.role, userProfile.id);
     }
 
     function snapshotDashboard(): DashboardSnapshot {

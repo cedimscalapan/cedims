@@ -55,7 +55,7 @@
         try {
             const schools = await fetchAllRows<Snapshot['schools'][number]>(() => {
                 let q = supabase.from('schools').select('id, name, district_id').order('id');
-                if (user.role !== 'District Supervisor') q = q.eq('id', user.school_id || '00000000-0000-0000-0000-000000000000');
+                if (user.role !== 'District Supervisor' && user.role !== 'Admin') q = q.eq('id', user.school_id || '00000000-0000-0000-0000-000000000000');
                 else if (user.district_id) q = q.eq('district_id', user.district_id);
                 return q;
             });
