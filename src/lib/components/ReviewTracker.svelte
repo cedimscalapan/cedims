@@ -193,16 +193,17 @@
         </div>
     </div>
 
-    <div class="px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle">
-        <div class="flex items-center gap-2 flex-wrap">
+    <div class="px-4 py-3 grid grid-cols-1 items-end gap-4 border-b border-border-subtle lg:grid-cols-5">
+        <div class="flex items-end gap-2 flex-wrap lg:col-span-1">
             {#if !pendingOnly}
             <button onclick={() => { filterStatus = "all"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'all' ? 'border-gov-blue bg-gov-blue text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">All</button>
             {/if}
-            <button onclick={() => { filterStatus = "forChecking"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'forChecking' ? 'border-gov-gold bg-gov-gold text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">For Checking</button>
+            <button onclick={() => { filterStatus = "forChecking"; currentPage = 1; }} class="min-h-[42px] flex-1 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'forChecking' ? 'border-gov-gold bg-gov-gold text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">For Checking</button>
             {#if !pendingOnly}
                 <button onclick={() => { filterStatus = "checked"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'checked' ? 'border-gov-green bg-gov-green text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">Checked</button>
             {/if}
-            <div class="w-full">
+        </div>
+        <div class="w-full lg:col-span-4">
                 <div class="mb-2 text-xs font-bold uppercase tracking-normal text-text-muted">Filter by</div>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div class="min-w-0">
@@ -245,9 +246,8 @@
                 {#if filterDate || filterTeacher || filterGrade || filterSubject}
                     <button type="button" onclick={clearFilters} class="mt-3 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-xs font-bold text-text-muted hover:border-gov-blue hover:text-gov-blue transition-colors">Clear filters</button>
                 {/if}
-            </div>
         </div>
-        <p class="text-xs font-semibold text-text-muted">
+        <p class="text-xs font-semibold text-text-muted lg:col-span-5 lg:justify-self-end">
             Showing {sortedItems.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedItems.length)} of {sortedItems.length}
         </p>
     </div>
