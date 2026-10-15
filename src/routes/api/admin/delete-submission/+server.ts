@@ -15,7 +15,14 @@ export async function POST({ request }) {
     const serviceRoleKey = privateEnv.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) throw error(500, 'Server misconfigured: missing SUPABASE_SERVICE_ROLE_KEY');
     const adminDb = createClient(publicEnv.PUBLIC_SUPABASE_URL || '', serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data: adminProfile } = await adminDb.from('profiles').select('role').eq('id', user.id).single();
+    let { data: adminProfile } = await adminDb.from('profiles').select('role, email').eq('id', user.id).maybeSingle();
+    // Some legacy accounts were provisioned with a profile UUID that differs
+    // from the Auth UUID. Resolve the already-authenticated account by email
+    // as a safe fallback; the email comes from Supabase Auth, not the client.
+    if (!adminProfile && user.email) {
+        const result = await adminDb.from('profiles').select('role, email').ilike('email', user.email).maybeSingle();
+        adminProfile = result.data;
+    }
     const profileRole = String(adminProfile?.role || '').trim().toLowerCase();
     const appRole = String(user.app_metadata?.role || '').trim().toLowerCase();
     const isAdmin = profileRole === 'admin' || profileRole === 'administrator' || appRole === 'admin' || appRole === 'administrator';

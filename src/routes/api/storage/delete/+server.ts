@@ -16,11 +16,15 @@ export async function POST({ request }) {
     const { key } = await request.json();
     if (!key || typeof key !== 'string') throw error(400, 'Missing key');
 
-    const { data: requesterProfile } = await supabase
+    let { data: requesterProfile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, email')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
+    if (!requesterProfile && user.email) {
+        const fallback = await supabase.from('profiles').select('role, email').ilike('email', user.email).maybeSingle();
+        requesterProfile = fallback.data;
+    }
     const profileRole = String(requesterProfile?.role || '').trim().toLowerCase();
     const appRole = String(user.app_metadata?.role || '').trim().toLowerCase();
     const isAdmin = ['admin', 'administrator'].includes(profileRole) || ['admin', 'administrator'].includes(appRole);
