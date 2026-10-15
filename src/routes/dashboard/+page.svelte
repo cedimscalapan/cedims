@@ -42,7 +42,15 @@
     } from "$lib/utils/localDataCache";
     import { getDocumentLabel } from "$lib/utils/documentLabels";
     import { logOnce, shouldUseRealtime } from "$lib/utils/noise";
-    import { fetchRowsForIds } from "$lib/utils/compliance";
+    import {
+        buildRequirements,
+        currentCompliancePeriod,
+        filterSubmissionsByPeriod,
+        isRemarkRequiredSubmission,
+        scopedCalendar,
+        summarizeRequirements,
+        fetchRowsForIds,
+    } from "$lib/utils/compliance";
     const { isOnline: onlineStatus } = connectivity;
 
     let submissions = $state<any[]>([]);
@@ -624,6 +632,28 @@
                     .from("dll_reviews")
                     .select("submission_id, reviewer_id, reviewer_comment")
                     .in("submission_id", batch));
+                // Tracker and Compliance must answer the same question for
+                // the same active period. Previously Tracker counted every
+                // school-year archive while Compliance counted the selected
+                // term/week, which produced different totals.
+                const sharedCalendar = scopedCalendar(calendarArr as any, userProfile.district_id);
+                const sharedPeriod = currentCompliancePeriod(sharedCalendar as any);
+                const sharedRows = buildRequirements(
+                    loads as any,
+                    sharedCalendar.filter((c: any) =>
+                        String(c.term) === sharedPeriod.term && String(c.week_number) === sharedPeriod.week,
+                    ) as any,
+                    complianceSubs as any,
+                    reviews as any,
+                    Date.now(),
+                    leaveRequests as any,
+                );
+                const sharedRequirementSummary = summarizeRequirements(sharedRows);
+                const sharedPeriodSubmissions = filterSubmissionsByPeriod(
+                    allSubs as any,
+                    sharedPeriod.term,
+                    sharedPeriod.week,
+                );
                 const reviewById: Record<string, string> = {};
                 const reviewerById: Record<string, string> = {};
                 const reviewReviewerBySubmission: Record<string, string> = {};
@@ -643,17 +673,22 @@
                 }
                 const nameById: Record<string, string> = {};
                 for (const t of teachersWithNames) nameById[t.id] = t.full_name;
-                awaitingReview = allSubs
-                    .filter((s: any) => {
-                        const docType = (s.doc_type || "DLL").toUpperCase();
-                        return docType === "DLL" || docType === "DLP";
-                    })
+                const sharedReviewSubmissions = sharedPeriodSubmissions.filter((s: any) => isRemarkRequiredSubmission(s as any));
+                awaitingReview = sharedReviewSubmissions
                     .map((s: any) => ({
                         ...s,
                         teacher_name: nameById[s.user_id] || "Unknown teacher",
                         reviewer_comment: reviewById[s.id] || null,
                         reviewer_name: reviewerById[reviewReviewerBySubmission[s.id]] || null,
                     }));
+
+                // These are the exact Compliance metrics for the same
+                // district, school year, term, and week.
+                stats.totalUploads = sharedPeriodSubmissions.length;
+                stats.compliantCount = sharedRequirementSummary.onTime;
+                stats.lateCount = sharedRequirementSummary.late;
+                stats.nonCompliantCount = sharedRequirementSummary.missing;
+                stats.compliantRate = sharedRequirementSummary.rate || 0;
             } else {
                 awaitingReview = [];
             }
