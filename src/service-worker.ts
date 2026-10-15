@@ -143,6 +143,12 @@ self.addEventListener('fetch', (event) => {
         url.hostname.includes('fonts.gstatic.com') ||
         url.hostname.includes('unpkg.com');
 
+    // Never replace external API failures (especially Supabase) with the
+    // service worker's synthetic 503 Offline response. Let the browser and
+    // Supabase client receive the real network response so retries and error
+    // handling can work correctly.
+    if (!isLocal && !isCriticalThirdParty) return;
+
     async function respond(): Promise<Response> {
         const cache = await caches.open(CACHE);
 
