@@ -308,6 +308,7 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
         .replace(/[_\-]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+    const filenameUpper = filenameText.toUpperCase();
     const headerText = getHeaderText(text);
     const headerUpper = headerText.toUpperCase();
     const headerAndFilename = [headerText, filenameText].filter(Boolean).join('\n');
@@ -351,6 +352,19 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
     let weekSource: 'calendar' | 'header-date' | 'regex' | 'none' = 'none';
 
     if (docType === 'DLL') {
+        // Filenames used by schools are often more reliable than OCR for the
+        // short metadata tokens: MAPEH-T2-DAY 5, AP-T2-LESSON-PLAN-DAY 5.
+        // Read the filename layout first, then let document text fill gaps.
+        const filenameSubject = filenameText.match(/^([A-Z][A-Z0-9& ]{1,24}?)(?=\s*T(?:ERM)?\s*[-_ ]?\s*[1-3]|\s*[-_]\s*T[1-3]|\s+DAY\s*\d|$)/i);
+        if (filenameSubject) {
+            const candidate = filenameSubject[1].trim();
+            const predicted = predictSubject(candidate);
+            if (predicted.value) {
+                subject = predicted.value;
+                subjectConfidence = Math.max(95, predicted.confidence);
+            }
+        }
+
         const explicitSubjectMatch = headerAndFilenameUpper.match(/(?:ASIGNATURA|SUBJECT|LEARNING\s*AREA(?:\s*[\/]\s*ASIGNATURA)?)\s*[:\t\-]*\s*([^\n\t|]{3,30})/i);
         if (explicitSubjectMatch) {
             const candidate = explicitSubjectMatch[1].trim();
@@ -397,7 +411,10 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
             }
         }
 
-        const term = predictTermNumber(headerAndFilename);
+        const filenameTerm = filenameUpper.match(/(?:^|[\s_-])T(?:ERM)?\s*[-_ ]?\s*([1-3])(?:$|[\s_-])/i);
+        const term = filenameTerm
+            ? { value: Number(filenameTerm[1]), confidence: 100 }
+            : predictTermNumber(headerAndFilename);
         if (term.value) {
             termNumber = term.value;
             debugLog(`[ocr] Matched term as Term ${termNumber} (confidence: ${term.confidence}%)`);

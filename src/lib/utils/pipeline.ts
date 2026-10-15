@@ -274,13 +274,15 @@ async function* runOnlinePipelineResilient(
     // submission.
     let calendarId = options.calendarId || null;
     let deadlineDate: Date | undefined;
+    let calendarIsOpen = false;
     if (!calendarId && activeWeekNumber) {
         try {
             let calendarQuery = supabase
                 .from('academic_calendar')
-                .select('id, deadline_date')
+                .select('id, deadline_date, is_active')
                 .eq('school_year', options.schoolYear || getCurrentSchoolYear())
-                .eq('week_number', activeWeekNumber);
+                .eq('week_number', activeWeekNumber)
+                .eq('is_active', true);
             if (activeTermNumber) calendarQuery = calendarQuery.eq('term', activeTermNumber);
 
             const { data: calEntry } = await withTimeout(
@@ -302,9 +304,10 @@ async function* runOnlinePipelineResilient(
                 if (profileData?.district_id) {
                     let districtCalendarQuery = supabase
                         .from('academic_calendar')
-                        .select('id, deadline_date')
+                        .select('id, deadline_date, is_active')
                         .eq('district_id', profileData.district_id)
-                        .eq('week_number', activeWeekNumber);
+                        .eq('week_number', activeWeekNumber)
+                        .eq('is_active', true);
                     if (activeTermNumber) districtCalendarQuery = districtCalendarQuery.eq('term', activeTermNumber);
 
                     const { data: calByDistrict } = await withTimeout(
@@ -314,17 +317,23 @@ async function* runOnlinePipelineResilient(
                     ) as { data: any };
                     if (calByDistrict) {
                         calendarId = calByDistrict.id;
+                        calendarIsOpen = calByDistrict.is_active === true;
                         if (calByDistrict.deadline_date) deadlineDate = new Date(calByDistrict.deadline_date);
                     }
                 }
             } else {
                 calendarId = calEntry.id;
+                calendarIsOpen = calEntry.is_active === true;
                 if (calEntry.deadline_date) deadlineDate = new Date(calEntry.deadline_date);
             }
         } catch {
             // Calendar lookup is optional metadata. Expected network misses stay quiet
             // so upload attempts do not add noise to browser or provider logs.
         }
+    }
+
+    if ((activeDocType === 'DLL' || activeDocType === 'DLP') && (!calendarId || !calendarIsOpen)) {
+        throw new Error(`Week ${activeWeekNumber || 'selected'} is closed for submissions. Uploads are locked after the Friday 11:59 PM deadline.`);
     }
 
     yield { phase: 'uploading', progress: 20, message: 'Preparing upload...' };
