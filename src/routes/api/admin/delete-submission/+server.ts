@@ -16,8 +16,10 @@ export async function POST({ request }) {
     if (!serviceRoleKey) throw error(500, 'Server misconfigured: missing SUPABASE_SERVICE_ROLE_KEY');
     const adminDb = createClient(publicEnv.PUBLIC_SUPABASE_URL || '', serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: adminProfile } = await adminDb.from('profiles').select('role').eq('id', user.id).single();
-    const requesterRole = String(adminProfile?.role || '').trim().toLowerCase();
-    if (requesterRole !== 'admin') throw error(403, 'Only Admin users can delete another user’s archive file.');
+    const profileRole = String(adminProfile?.role || '').trim().toLowerCase();
+    const appRole = String(user.app_metadata?.role || '').trim().toLowerCase();
+    const isAdmin = profileRole === 'admin' || profileRole === 'administrator' || appRole === 'admin' || appRole === 'administrator';
+    if (!isAdmin) throw error(403, 'Only Admin users can delete another user’s archive file.');
 
     const { submissionId } = await request.json();
     if (!submissionId || typeof submissionId !== 'string') throw error(400, 'Missing submissionId');

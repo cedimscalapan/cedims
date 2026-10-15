@@ -21,7 +21,9 @@ export async function POST({ request }) {
         .select('role')
         .eq('id', user.id)
         .single();
-    const isAdmin = String(requesterProfile?.role || '').trim().toLowerCase() === 'admin';
+    const profileRole = String(requesterProfile?.role || '').trim().toLowerCase();
+    const appRole = String(user.app_metadata?.role || '').trim().toLowerCase();
+    const isAdmin = ['admin', 'administrator'].includes(profileRole) || ['admin', 'administrator'].includes(appRole);
     const ownPrefix = `submissions/${user.id}/`;
     if (!isAdmin && !key.startsWith(ownPrefix)) {
         throw error(403, 'You can only delete your own uploaded files.');
