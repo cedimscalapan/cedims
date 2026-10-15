@@ -184,12 +184,32 @@
             {#if !pendingOnly}
                 <button onclick={() => { filterStatus = "checked"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'checked' ? 'border-gov-green bg-gov-green text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">Checked</button>
             {/if}
-            {#each [{ field: "date", label: "Date" }, { field: "teacher", label: "Teacher" }, { field: "grade", label: "Grade Level" }, { field: "subject", label: "Subject" }, { field: "type", label: "Type" }] as option}
-                <button onclick={() => setSort(option.field as SortField)} class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {sortField === option.field ? 'border-gov-blue bg-gov-blue/10 text-gov-blue' : 'border-border-subtle bg-surface-muted text-text-muted'}">
-                    {option.label}
-                    <ArrowUpDown size={12} class={sortField === option.field && sortDir === 'desc' ? 'scale-y-[-1]' : ''} />
-                </button>
-            {/each}
+            <label class="sr-only" for="review-sort-field">Sort review tracker by</label>
+            <select
+                id="review-sort-field"
+                value={sortField}
+                onchange={(event) => {
+                    sortField = (event.currentTarget as HTMLSelectElement).value as SortField;
+                    sortDir = sortField === "date" ? "desc" : "asc";
+                    currentPage = 1;
+                }}
+                class="rounded-lg border border-gov-blue bg-gov-blue/10 px-3 py-2 text-xs font-bold uppercase tracking-normal text-gov-blue outline-none focus:ring-2 focus:ring-gov-blue/30"
+            >
+                <option value="date">Date</option>
+                <option value="teacher">Teacher</option>
+                <option value="grade">Grade Level</option>
+                <option value="subject">Subject</option>
+                <option value="type">Type</option>
+            </select>
+            <button
+                type="button"
+                onclick={() => setSort(sortField)}
+                aria-label={`Sort ${sortDir === "asc" ? "descending" : "ascending"}`}
+                title={`Sort ${sortDir === "asc" ? "descending" : "ascending"}`}
+                class="inline-flex items-center justify-center rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-text-muted hover:border-gov-blue hover:text-gov-blue transition-colors"
+            >
+                <ArrowUpDown size={14} class={sortDir === 'desc' ? 'scale-y-[-1]' : ''} />
+            </button>
         </div>
         <p class="text-xs font-semibold text-text-muted">
             Showing {sortedItems.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedItems.length)} of {sortedItems.length}
