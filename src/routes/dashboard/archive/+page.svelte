@@ -192,7 +192,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
 
     function canDeleteSubmission(sub: Submission): boolean {
         if (!$profile) return false;
-        return sub.user_id === $profile.id && ($profile.role === "Teacher" || $profile.role === "Master Teacher");
+        return $profile.role === "Admin" || (sub.user_id === $profile.id && ($profile.role === "Teacher" || $profile.role === "Master Teacher"));
     }
 
     function canMoveSubmission(sub: Submission): boolean {
@@ -1135,15 +1135,19 @@ import { fetchAllRows } from "$lib/utils/compliance";
         if (!target || !canDeleteSubmission(target)) return;
         deletingSubmissionId = target.id;
         try {
-            await deleteStorageObject(target);
-            const { data: deletedRows, error: deleteError } = await supabase
-                .from("submissions")
-                .delete()
-                .eq("id", target.id)
-                .eq("user_id", $profile?.id || "")
-                .select("id");
-            if (deleteError) throw deleteError;
-            if (!deletedRows?.length) throw new Error("No archive record was deleted. Please refresh and try again.");
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("You have been signed out. Please sign in again.");
+            let deletedRows: { id: string }[] | null = null;
+            if ($profile?.role === "Admin") {
+                const response = await fetch('/api/admin/delete-submission', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ submissionId: target.id }) });
+                if (!response.ok) throw new Error(await response.text() || "Admin deletion failed.");
+            } else {
+                await deleteStorageObject(target);
+                const result = await supabase.from("submissions").delete().eq("id", target.id).eq("user_id", $profile?.id || "").select("id");
+                if (result.error) throw result.error;
+                deletedRows = result.data;
+                if (!deletedRows?.length) throw new Error("No archive record was deleted. Please refresh and try again.");
+            }
 
             allSubmissions = allSubmissions.filter((s) => s.id !== target.id);
             const { [target.id]: _deleted, ...remainingReviews } = reviewsMap;
@@ -1639,7 +1643,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
 
             <div class="px-6 py-4 space-y-3">
                 <p class="text-sm text-text-primary">
-                    This will delete <strong>{deleteTarget.file_name}</strong> from your Archives and remove it from compliance tracking.
+                    This will permanently delete <strong>{deleteTarget.file_name}</strong> from the Archives and remove it from compliance tracking for all users.
                 </p>
                 <p class="rounded-xl border border-gov-red/20 bg-gov-red/5 px-3 py-2 text-sm font-medium text-gov-red">
                     Use this only when the file was uploaded with the wrong subject, teaching load, week, or document.

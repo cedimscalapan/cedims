@@ -16,8 +16,14 @@ export async function POST({ request }) {
     const { key } = await request.json();
     if (!key || typeof key !== 'string') throw error(400, 'Missing key');
 
+    const { data: requesterProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+    const isAdmin = requesterProfile?.role === 'Admin';
     const ownPrefix = `submissions/${user.id}/`;
-    if (!key.startsWith(ownPrefix)) {
+    if (!isAdmin && !key.startsWith(ownPrefix)) {
         throw error(403, 'You can only delete your own uploaded files.');
     }
 

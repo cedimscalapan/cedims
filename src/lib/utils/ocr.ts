@@ -355,7 +355,8 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
         // Filenames used by schools are often more reliable than OCR for the
         // short metadata tokens: MAPEH-T2-DAY 5, AP-T2-LESSON-PLAN-DAY 5.
         // Read the filename layout first, then let document text fill gaps.
-        const filenameSubject = filenameText.match(/^([A-Z][A-Z0-9& ]{1,24}?)(?=\s*T(?:ERM)?\s*[-_ ]?\s*[1-3]|\s*[-_]\s*T[1-3]|\s+DAY\s*\d|$)/i);
+        const filenameSubject = filenameText.match(/^([A-Z][A-Z0-9& ]{1,24}?)(?=\s*T(?:ERM)?\s*[-_ ]?\s*[1-3]|\s*[-_]\s*T[1-3]|\s+DAY\s*\d|$)/i)
+            || filenameUpper.match(/\b(MAPEH|GMRC|HGP|AP|EPP|TLE|MATH|MATHEMATICS|SCIENCE|ENGLISH|FILIPINO)\b/i);
         if (filenameSubject) {
             const candidate = filenameSubject[1].trim();
             const predicted = predictSubject(candidate);
@@ -411,7 +412,7 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
             }
         }
 
-        const filenameTerm = filenameUpper.match(/(?:^|[\s_-])T(?:ERM)?\s*[-_ ]?\s*([1-3])(?:$|[\s_-])/i);
+        const filenameTerm = filenameUpper.match(/(?:^|[\s_-])(?:T|TERM|Q|QUARTER)\s*[-_ ]?\s*([1-3])(?:$|[\s_-])/i);
         const term = filenameTerm
             ? { value: Number(filenameTerm[1]), confidence: 100 }
             : predictTermNumber(headerAndFilename);
