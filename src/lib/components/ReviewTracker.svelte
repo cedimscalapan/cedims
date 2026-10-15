@@ -44,13 +44,18 @@
         return subject;
     }
 
+    function normalizeDocumentType(value: unknown): string {
+        const docType = String(value || "").trim().toUpperCase();
+        return docType === "DLL" ? "DLP" : docType;
+    }
+
     function elementarySubjectRank(value: unknown): number {
         const subject = normalizeSubject(value).toLowerCase();
         const rank = elementarySubjectOrder.findIndex((item) => item.toLowerCase() === subject);
         return rank >= 0 ? rank : 99;
     }
     $: reviewItems = items.filter((item) => {
-        const docType = (item.doc_type || "DLL").toUpperCase();
+        const docType = normalizeDocumentType(item.doc_type || "DLP");
         const status = (item.compliance_status || "").toLowerCase();
         return ["DLP", "ISP", "ISR"].includes(docType) &&
             ["compliant", "on-time", "late", "supplementary", "extra"].includes(status);
@@ -87,7 +92,7 @@
         const matchesDate = !filterDate || dateKey(item.created_at) === filterDate;
         const matchesTeacher = !filterTeacher || String(item.teacher_name || "").trim() === filterTeacher;
         const matchesSubject = !filterSubject || normalizeSubject(item.subject).toLowerCase() === filterSubject.toLowerCase();
-        const matchesType = !filterType || String(item.doc_type || "DLL").toUpperCase() === filterType;
+        const matchesType = !filterType || normalizeDocumentType(item.doc_type || "DLP") === filterType;
         if (!matchesElementaryGrade || !matchesDate || !matchesTeacher || !matchesSubject || !matchesType) return false;
         if (pendingOnly || filterStatus === "forChecking") return !hasRemark(item);
         if (filterStatus === "checked") return hasRemark(item);
@@ -273,7 +278,7 @@
                     </div>
                     <div class="min-w-0">
                         <p class="text-sm font-bold text-text-primary truncate" title={item.file_name}>{item.file_name}</p>
-                        <p class="text-xs text-text-muted font-medium truncate">{item.teacher_name || "Unknown teacher"} · {item.grade_level ? `Grade ${String(item.grade_level).replace(/^Grade\s*/i, "")}` : "Grade —"} · {normalizeSubject(item.subject) || "Unassigned"} · {getDocumentLabel(item.doc_type || "DLP")} {item.week_number ? `· Week ${item.week_number}` : ""} · {formatDate(item.created_at)}</p>
+                        <p class="text-xs text-text-muted font-medium truncate">{item.teacher_name || "Unknown teacher"} · {item.grade_level ? `Grade ${String(item.grade_level).replace(/^Grade\s*/i, "")}` : "Grade —"} · {normalizeSubject(item.subject) || "Unassigned"} · {getDocumentLabel(normalizeDocumentType(item.doc_type || "DLP"))} {item.week_number ? `· Week ${item.week_number}` : ""} · {formatDate(item.created_at)}</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button onclick={() => viewDocument(item)} disabled={openingId !== null} class="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-2 text-xs font-bold text-text-primary hover:bg-gov-blue/10 hover:text-gov-blue transition-colors">
