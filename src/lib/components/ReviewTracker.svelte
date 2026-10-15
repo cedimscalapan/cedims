@@ -25,6 +25,22 @@
     let remarkText = "";
     let savingRemark = false;
     let openingId: string | null = null;
+    const elementarySubjectOrder = [
+        "English", "Filipino", "Mathematics", "Science", "Araling Panlipunan", "AP",
+        "GMRC", "EPP", "MAPEH", "Music", "Arts", "Physical Education", "Health",
+        "Makabansa", "Homeroom Guidance", "HGP", "TLE",
+    ];
+
+    function elementaryGradeRank(value: unknown): number {
+        const match = String(value || "").match(/(?:grade|gr\.?|baitang)?\s*([1-6])\b/i);
+        return match ? Number(match[1]) : 99;
+    }
+
+    function elementarySubjectRank(value: unknown): number {
+        const subject = String(value || "").trim().toLowerCase();
+        const rank = elementarySubjectOrder.findIndex((item) => item.toLowerCase() === subject);
+        return rank >= 0 ? rank : 99;
+    }
     $: reviewItems = items.filter((item) => {
         const docType = (item.doc_type || "DLL").toUpperCase();
         const status = (item.compliance_status || "").toLowerCase();
@@ -44,11 +60,13 @@
         if (sortField === "date") cmp = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
         if (sortField === "teacher") cmp = (a.teacher_name || "").localeCompare(b.teacher_name || "");
         if (sortField === "grade") {
-            const gradeA = Number(String(a.grade_level || "").match(/\d+/)?.[0] || 999);
-            const gradeB = Number(String(b.grade_level || "").match(/\d+/)?.[0] || 999);
-            cmp = gradeA - gradeB || String(a.grade_level || "").localeCompare(String(b.grade_level || ""));
+            cmp = elementaryGradeRank(a.grade_level) - elementaryGradeRank(b.grade_level) ||
+                String(a.grade_level || "").localeCompare(String(b.grade_level || ""));
         }
-        if (sortField === "subject") cmp = String(a.subject || "").localeCompare(String(b.subject || ""));
+        if (sortField === "subject") {
+            cmp = elementarySubjectRank(a.subject) - elementarySubjectRank(b.subject) ||
+                String(a.subject || "").localeCompare(String(b.subject || ""));
+        }
         if (sortField === "type") cmp = (a.doc_type || "").localeCompare(b.doc_type || "");
         return sortDir === "asc" ? cmp : -cmp;
     });
