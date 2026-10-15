@@ -19,9 +19,10 @@ export async function POST({ request }) {
     // Some legacy accounts were provisioned with a profile UUID that differs
     // from the Auth UUID. Resolve the already-authenticated account by email
     // as a safe fallback; the email comes from Supabase Auth, not the client.
-    if (!adminProfile && user.email) {
+    const idRole = String(adminProfile?.role || '').trim().toLowerCase();
+    if (!['admin', 'administrator'].includes(idRole) && user.email) {
         const result = await adminDb.from('profiles').select('role, email').ilike('email', user.email).maybeSingle();
-        adminProfile = result.data;
+        if (result.data) adminProfile = result.data;
     }
     const profileRole = String(adminProfile?.role || '').trim().toLowerCase();
     const appRole = String(user.app_metadata?.role || '').trim().toLowerCase();

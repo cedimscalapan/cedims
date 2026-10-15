@@ -21,9 +21,10 @@ export async function POST({ request }) {
         .select('role, email')
         .eq('id', user.id)
         .maybeSingle();
-    if (!requesterProfile && user.email) {
+    const idRole = String(requesterProfile?.role || '').trim().toLowerCase();
+    if (!['admin', 'administrator'].includes(idRole) && user.email) {
         const fallback = await supabase.from('profiles').select('role, email').ilike('email', user.email).maybeSingle();
-        requesterProfile = fallback.data;
+        if (fallback.data) requesterProfile = fallback.data;
     }
     const profileRole = String(requesterProfile?.role || '').trim().toLowerCase();
     const appRole = String(user.app_metadata?.role || '').trim().toLowerCase();
