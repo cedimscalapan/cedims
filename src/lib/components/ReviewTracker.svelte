@@ -29,24 +29,30 @@
     const elementarySubjectOrder = [
         "English", "Filipino", "Mathematics", "Science", "Araling Panlipunan", "AP",
         "GMRC", "EPP", "MAPEH", "Music", "Arts", "Physical Education", "Health",
-        "Makabansa", "Homeroom Guidance", "HGP", "TLE",
+        "Makabansa", "HGP", "TLE",
     ];
-    const documentTypeOptions = ["DLL", "DLP", "ISP", "ISR"];
+    const documentTypeOptions = ["DLP", "ISR", "ISP"];
 
     function elementaryGradeRank(value: unknown): number {
         const match = String(value || "").match(/(?:grade|gr\.?|baitang)?\s*([1-6])\b/i);
         return match ? Number(match[1]) : 99;
     }
 
+    function normalizeSubject(value: unknown): string {
+        const subject = String(value || "").trim();
+        if (/^(homeroom guidance|homeroom|hgp)$/i.test(subject)) return "HGP";
+        return subject;
+    }
+
     function elementarySubjectRank(value: unknown): number {
-        const subject = String(value || "").trim().toLowerCase();
+        const subject = normalizeSubject(value).toLowerCase();
         const rank = elementarySubjectOrder.findIndex((item) => item.toLowerCase() === subject);
         return rank >= 0 ? rank : 99;
     }
     $: reviewItems = items.filter((item) => {
         const docType = (item.doc_type || "DLL").toUpperCase();
         const status = (item.compliance_status || "").toLowerCase();
-        return ["DLL", "DLP", "ISP", "ISR"].includes(docType) &&
+        return ["DLP", "ISP", "ISR"].includes(docType) &&
             ["compliant", "on-time", "late", "supplementary", "extra"].includes(status);
     });
 
@@ -54,7 +60,7 @@
         .sort((a, b) => a.localeCompare(b));
     $: subjectOptions = [
         ...elementarySubjectOrder,
-        ...reviewItems.map((item) => String(item.subject || "").trim()).filter(Boolean),
+        ...reviewItems.map((item) => normalizeSubject(item.subject)).filter(Boolean),
     ].filter((subject, index, subjects) => subjects.findIndex((value) => value.toLowerCase() === subject.toLowerCase()) === index);
 
     function dateKey(value: unknown): string {
@@ -80,7 +86,7 @@
         const matchesElementaryGrade = !filterGrade || itemGrade === Number(filterGrade);
         const matchesDate = !filterDate || dateKey(item.created_at) === filterDate;
         const matchesTeacher = !filterTeacher || String(item.teacher_name || "").trim() === filterTeacher;
-        const matchesSubject = !filterSubject || String(item.subject || "").trim().toLowerCase() === filterSubject.toLowerCase();
+        const matchesSubject = !filterSubject || normalizeSubject(item.subject).toLowerCase() === filterSubject.toLowerCase();
         const matchesType = !filterType || String(item.doc_type || "DLL").toUpperCase() === filterType;
         if (!matchesElementaryGrade || !matchesDate || !matchesTeacher || !matchesSubject || !matchesType) return false;
         if (pendingOnly || filterStatus === "forChecking") return !hasRemark(item);
@@ -195,45 +201,57 @@
             {#if !pendingOnly}
                 <button onclick={() => { filterStatus = "checked"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'checked' ? 'border-gov-green bg-gov-green text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">Checked</button>
             {/if}
-            <div class="flex items-center gap-2 flex-wrap w-full">
-                <span class="text-xs font-bold uppercase tracking-normal text-text-muted">Filter by</span>
-                <label class="sr-only" for="review-filter-date">Date</label>
-                <input id="review-filter-date" type="date" value={filterDate} onchange={(event) => { filterDate = (event.currentTarget as HTMLInputElement).value; currentPage = 1; }} class="rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20" />
+            <div class="w-full">
+                <div class="mb-2 text-xs font-bold uppercase tracking-normal text-text-muted">Filter by</div>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                    <div class="min-w-0">
+                        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-date">Date</label>
+                        <input id="review-filter-date" type="date" value={filterDate} onchange={(event) => { filterDate = (event.currentTarget as HTMLInputElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20" />
+                    </div>
 
-                <label class="sr-only" for="review-filter-teacher">Teacher</label>
-                <select id="review-filter-teacher" value={filterTeacher} onchange={(event) => { filterTeacher = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
-                    <option value="">All teachers</option>
-                    {#each teacherOptions as teacher}
-                        <option value={teacher}>{teacher}</option>
-                    {/each}
-                </select>
+                    <div class="min-w-0">
+                        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-teacher">Teacher</label>
+                        <select id="review-filter-teacher" value={filterTeacher} onchange={(event) => { filterTeacher = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
+                            <option value="">All teachers</option>
+                            {#each teacherOptions as teacher}
+                                <option value={teacher}>{teacher}</option>
+                            {/each}
+                        </select>
+                    </div>
 
-                <label class="sr-only" for="review-filter-grade">Grade Level</label>
-                <select id="review-filter-grade" value={filterGrade} onchange={(event) => { filterGrade = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
-                    <option value="">All grade levels</option>
-                    {#each [1, 2, 3, 4, 5, 6] as grade}
-                        <option value={grade}>Grade {grade}</option>
-                    {/each}
-                </select>
+                    <div class="min-w-0">
+                        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-grade">Grade Level</label>
+                        <select id="review-filter-grade" value={filterGrade} onchange={(event) => { filterGrade = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
+                            <option value="">All grade levels</option>
+                            {#each [1, 2, 3, 4, 5, 6] as grade}
+                                <option value={grade}>Grade {grade}</option>
+                            {/each}
+                        </select>
+                    </div>
 
-                <label class="sr-only" for="review-filter-subject">Subject</label>
-                <select id="review-filter-subject" value={filterSubject} onchange={(event) => { filterSubject = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
-                    <option value="">All subjects</option>
-                    {#each subjectOptions as subject}
-                        <option value={subject}>{subject}</option>
-                    {/each}
-                </select>
+                    <div class="min-w-0">
+                        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-subject">Subject</label>
+                        <select id="review-filter-subject" value={filterSubject} onchange={(event) => { filterSubject = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
+                            <option value="">All subjects</option>
+                            {#each subjectOptions as subject}
+                                <option value={subject}>{subject}</option>
+                            {/each}
+                        </select>
+                    </div>
 
-                <label class="sr-only" for="review-filter-type">Document Type</label>
-                <select id="review-filter-type" value={filterType} onchange={(event) => { filterType = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
-                    <option value="">All document types</option>
-                    {#each documentTypeOptions as documentType}
-                        <option value={documentType}>{documentType}</option>
-                    {/each}
-                </select>
+                    <div class="min-w-0">
+                        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-type">Document Type</label>
+                        <select id="review-filter-type" value={filterType} onchange={(event) => { filterType = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
+                            <option value="">All document types</option>
+                            {#each documentTypeOptions as documentType}
+                                <option value={documentType}>{documentType}</option>
+                            {/each}
+                        </select>
+                    </div>
+                </div>
 
                 {#if filterDate || filterTeacher || filterGrade || filterSubject || filterType}
-                    <button type="button" onclick={clearFilters} class="rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-xs font-bold text-text-muted hover:border-gov-blue hover:text-gov-blue transition-colors">Clear filters</button>
+                    <button type="button" onclick={clearFilters} class="mt-3 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-xs font-bold text-text-muted hover:border-gov-blue hover:text-gov-blue transition-colors">Clear filters</button>
                 {/if}
             </div>
         </div>
@@ -255,7 +273,7 @@
                     </div>
                     <div class="min-w-0">
                         <p class="text-sm font-bold text-text-primary truncate" title={item.file_name}>{item.file_name}</p>
-                        <p class="text-xs text-text-muted font-medium truncate">{item.teacher_name || "Unknown teacher"} · {item.grade_level ? `Grade ${String(item.grade_level).replace(/^Grade\s*/i, "")}` : "Grade —"} · {item.subject || "Unassigned"} · {getDocumentLabel(item.doc_type || "DLL")} {item.week_number ? `· Week ${item.week_number}` : ""} · {formatDate(item.created_at)}</p>
+                        <p class="text-xs text-text-muted font-medium truncate">{item.teacher_name || "Unknown teacher"} · {item.grade_level ? `Grade ${String(item.grade_level).replace(/^Grade\s*/i, "")}` : "Grade —"} · {normalizeSubject(item.subject) || "Unassigned"} · {getDocumentLabel(item.doc_type || "DLP")} {item.week_number ? `· Week ${item.week_number}` : ""} · {formatDate(item.created_at)}</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button onclick={() => viewDocument(item)} disabled={openingId !== null} class="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-2 text-xs font-bold text-text-primary hover:bg-gov-blue/10 hover:text-gov-blue transition-colors">
