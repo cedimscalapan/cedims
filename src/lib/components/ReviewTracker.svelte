@@ -27,12 +27,16 @@
     let openingId: string | null = null;
     $: reviewItems = items.filter((item) => {
         const docType = (item.doc_type || "DLL").toUpperCase();
-        return docType === "DLL" || docType === "DLP";
+        const status = (item.compliance_status || "").toLowerCase();
+        return (docType === "DLL" || docType === "DLP") &&
+            ["compliant", "on-time", "late", "supplementary", "extra"].includes(status);
     });
 
+    const hasRemark = (item: any) => !!item.reviewer_comment?.trim();
+
     $: filteredItems = reviewItems.filter((item) => {
-        if (pendingOnly || filterStatus === "forChecking") return !item.reviewer_comment;
-        if (filterStatus === "checked") return !!item.reviewer_comment;
+        if (pendingOnly || filterStatus === "forChecking") return !hasRemark(item);
+        if (filterStatus === "checked") return hasRemark(item);
         return true;
     });
     $: sortedItems = [...filteredItems].sort((a, b) => {
@@ -45,7 +49,7 @@
     $: totalPages = Math.max(1, Math.ceil(sortedItems.length / pageSize));
     $: if (currentPage > totalPages) currentPage = totalPages;
     $: pageItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-    $: forCheckingCount = reviewItems.filter((item) => !item.reviewer_comment).length;
+    $: forCheckingCount = reviewItems.filter((item) => !hasRemark(item)).length;
 
     function setSort(field: SortField) {
         if (sortField === field) sortDir = sortDir === "asc" ? "desc" : "asc";

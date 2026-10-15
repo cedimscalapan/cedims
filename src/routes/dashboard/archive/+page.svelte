@@ -176,6 +176,19 @@
         return canAddRemarkToSubmission(sub);
     }
 
+    // Keep Archive review filters aligned with Compliance and the Review Tracker.
+    // ISP/ISR and missing/unsubmitted records are not part of the DLL review queue.
+    function isReviewQueueSubmission(sub: Submission): boolean {
+        const docType = (sub.doc_type || "").toUpperCase();
+        const status = (sub.compliance_status || "").toLowerCase();
+        return (docType === "DLL" || docType === "DLP") &&
+            ["compliant", "on-time", "late", "supplementary", "extra"].includes(status);
+    }
+
+    function hasReviewRemark(submissionId: string): boolean {
+        return !!reviewsMap[submissionId]?.reviewer_comment?.trim();
+    }
+
     function canDeleteSubmission(sub: Submission): boolean {
         if (!$profile) return false;
         return sub.user_id === $profile.id && ($profile.role === "Teacher" || $profile.role === "Master Teacher");
@@ -751,7 +764,8 @@
         // Status filter (for DLL review status)
         if (statusFilter !== "all") {
             filtered = filtered.filter((s) => {
-                const isChecked = !!reviewsMap[s.id]?.reviewer_comment;
+                if (!isReviewQueueSubmission(s)) return false;
+                const isChecked = hasReviewRemark(s.id);
                 return statusFilter === "checked" ? isChecked : !isChecked;
             });
         }
