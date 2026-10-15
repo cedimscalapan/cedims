@@ -7,6 +7,7 @@ import {
     Settings,
     Users,
     CalendarDays,
+    ScrollText,
     QrCode,
     type Icon,
 } from "lucide-svelte";
@@ -186,6 +187,15 @@ export const navItems: NavItem[] = [
         mobileNav: true,
         priority: 7,
         navKey: "admin-calendar",
+        roles: ["Admin"],
+    },
+    {
+        href: "/dashboard/admin?tab=logs",
+        label: "System Logs",
+        icon: ScrollText,
+        mobileNav: true,
+        priority: 8,
+        navKey: "admin-logs",
         roles: ["Admin"],
     },
     {

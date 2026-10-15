@@ -33,7 +33,12 @@
     let users = $state<any[]>([]);
     let loadingUsers = $state(true);
     let userSearch = $state("");
-    let activeTab = $state<"settings" | "users" | "calendar">("settings");
+    let activeTab = $state<"settings" | "users" | "calendar" | "logs">("settings");
+    let systemLogs = $state<any[]>([]);
+    let loadingLogs = $state(false);
+    let logSearch = $state('');
+    let logPage = $state(1);
+    const logPageSize = 20;
     let roleChangeModal = $state<{
         open: boolean;
         user: any;
@@ -64,7 +69,7 @@
 
     $effect(() => {
         const requestedTab = $page.url.searchParams.get("tab");
-        if (requestedTab === "settings" || requestedTab === "users" || requestedTab === "calendar") {
+        if (requestedTab === "settings" || requestedTab === "users" || requestedTab === "calendar" || requestedTab === "logs") {
             activeTab = requestedTab;
         } else {
             activeTab = "settings";
@@ -102,6 +107,7 @@
     onMount(() => {
         // Initial Load
         loadSettings();
+        loadSystemLogs();
         loadSchoolsAndDistricts().then(() => loadUsers()).then(() => {
             loading = false;
             loadingUsers = false;
@@ -144,6 +150,26 @@
             if (settingsReloadTimer) clearTimeout(settingsReloadTimer);
         };
     });
+
+    async function loadSystemLogs() {
+        loadingLogs = true;
+        const { data, error } = await supabase
+            .from('audit_logs')
+            .select('id, actor_id, action, entity_type, entity_id, metadata, created_at')
+            .order('created_at', { ascending: false })
+            .limit(500);
+        if (!error) systemLogs = data || [];
+        loadingLogs = false;
+    }
+
+    const filteredSystemLogs = $derived(() => {
+        const query = logSearch.trim().toLowerCase();
+        if (!query) return systemLogs;
+        return systemLogs.filter((log) => [log.action, log.entity_type, log.entity_id, log.actor_id, JSON.stringify(log.metadata || {})]
+            .some((value) => String(value || '').toLowerCase().includes(query)));
+    });
+    const logPages = $derived(Math.max(1, Math.ceil(filteredSystemLogs().length / logPageSize)));
+    const visibleSystemLogs = $derived(filteredSystemLogs().slice((logPage - 1) * logPageSize, logPage * logPageSize));
 
     // â”€â”€ Settings Functions â”€â”€
     async function loadSettings() {
@@ -399,7 +425,7 @@
 </svelte:head>
 
 <div class="max-w-5xl mx-auto">
-    <PageHeader title={activeTab === "settings" ? "Settings" : activeTab === "users" ? "Users" : "Calendar"} description={activeTab === "settings" ? "Manage system-wide upload and review options." : activeTab === "users" ? "Create accounts, update roles, and manage school assignments." : "Manage academic weeks and submission deadlines."} />
+    <PageHeader title={activeTab === "settings" ? "Settings" : activeTab === "users" ? "Users" : activeTab === "logs" ? "System Logs" : "Calendar"} description={activeTab === "settings" ? "Manage system-wide upload and review options." : activeTab === "users" ? "Create accounts, update roles, and manage school assignments." : activeTab === "logs" ? "Review administrator activity and system audit events." : "Manage academic weeks and submission deadlines."} />
 
     <!-- Settings Tab -->
     {#if activeTab === "settings"}
@@ -955,6 +981,27 @@
 {/if}
 
 <!-- Calendar Tab -->
+{#if activeTab === "logs"}
+    <div id="logs-panel" role="tabpanel" class="space-y-5">
+        <div class="gov-card-static p-5 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+            <div>
+                <h2 class="text-lg font-bold text-text-primary">Administrative audit trail</h2>
+                <p class="text-sm text-text-muted">Admin-only activity records from authentication, settings, users, archives, and reviews.</p>
+            </div>
+            <div class="flex gap-2 items-center">
+                <input class="input-control" aria-label="Search system logs" placeholder="Search logs..." bind:value={logSearch} oninput={() => logPage = 1} />
+                <button class="icon-button" type="button" aria-label="Refresh system logs" title="Refresh system logs" onclick={loadSystemLogs} disabled={loadingLogs}><RefreshCw size={18} class={loadingLogs ? 'animate-spin' : ''} /></button>
+            </div>
+        </div>
+        <div class="gov-card-static overflow-hidden">
+            {#if loadingLogs}<div class="p-8 text-center text-text-muted">Loading system logs...</div>
+            {:else if visibleSystemLogs.length === 0}<div class="p-8 text-center text-text-muted">No system logs match this search.</div>
+            {:else}<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-surface-muted text-text-muted"><tr><th class="px-4 py-3">Time</th><th class="px-4 py-3">Action</th><th class="px-4 py-3">Entity</th><th class="px-4 py-3">Actor ID</th><th class="px-4 py-3">Details</th></tr></thead><tbody class="divide-y divide-border-subtle">{#each visibleSystemLogs as log}<tr><td class="px-4 py-3 whitespace-nowrap">{new Date(log.created_at).toLocaleString('en-PH')}</td><td class="px-4 py-3 font-semibold">{log.action}</td><td class="px-4 py-3">{log.entity_type}{log.entity_id ? ` · ${log.entity_id}` : ''}</td><td class="px-4 py-3 font-mono text-xs">{log.actor_id}</td><td class="px-4 py-3 max-w-sm truncate" title={JSON.stringify(log.metadata || {})}>{JSON.stringify(log.metadata || {})}</td></tr>{/each}</tbody></table></div>{/if}
+            <div class="px-4 py-3 border-t border-border-subtle flex justify-between items-center text-sm text-text-muted"><span>{filteredSystemLogs().length} log entries</span><div class="flex gap-2 items-center"><button class="text-action" type="button" disabled={logPage === 1} onclick={() => logPage--}>Previous</button><span>{logPage} / {logPages}</span><button class="text-action" type="button" disabled={logPage === logPages} onclick={() => logPage++}>Next</button></div></div>
+        </div>
+    </div>
+{/if}
+
 {#if activeTab === "calendar"}
     <div id="calendar-panel" role="tabpanel">
         <AcademicCalendarManager />
