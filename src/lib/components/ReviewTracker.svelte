@@ -46,7 +46,7 @@
     $: reviewItems = items.filter((item) => {
         const docType = (item.doc_type || "DLL").toUpperCase();
         const status = (item.compliance_status || "").toLowerCase();
-        return (docType === "DLL" || docType === "DLP") &&
+        return ["DLL", "DLP", "ISP", "ISR"].includes(docType) &&
             ["compliant", "on-time", "late", "supplementary", "extra"].includes(status);
     });
 
