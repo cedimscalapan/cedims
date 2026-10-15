@@ -675,10 +675,13 @@
                 }
                 const nameById: Record<string, string> = {};
                 for (const t of teachersWithNames) nameById[t.id] = t.full_name;
+                const loadById = new Map(loads.map((load: any) => [load.id, load]));
                 const sharedReviewSubmissions = sharedPeriodSubmissions.filter((s: any) => isRemarkRequiredSubmission(s as any));
                 awaitingReview = sharedReviewSubmissions
                     .map((s: any) => ({
                         ...s,
+                        subject: s.subject || loadById.get(s.teaching_load_id)?.subject || "Unassigned",
+                        grade_level: s.grade_level || loadById.get(s.teaching_load_id)?.grade_level || "",
                         teacher_name: nameById[s.user_id] || "Unknown teacher",
                         reviewer_comment: reviewById[s.id] || null,
                         reviewer_name: reviewerById[reviewReviewerBySubmission[s.id]] || null,

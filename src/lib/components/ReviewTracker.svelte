@@ -14,7 +14,7 @@
         new Date(date).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
 
     type FilterStatus = "all" | "forChecking" | "checked";
-    type SortField = "date" | "teacher" | "type";
+    type SortField = "date" | "teacher" | "grade" | "subject" | "type";
 
     let filterStatus: FilterStatus = pendingOnly ? "forChecking" : "all";
     let sortField: SortField = "date";
@@ -43,6 +43,12 @@
         let cmp = 0;
         if (sortField === "date") cmp = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
         if (sortField === "teacher") cmp = (a.teacher_name || "").localeCompare(b.teacher_name || "");
+        if (sortField === "grade") {
+            const gradeA = Number(String(a.grade_level || "").match(/\d+/)?.[0] || 999);
+            const gradeB = Number(String(b.grade_level || "").match(/\d+/)?.[0] || 999);
+            cmp = gradeA - gradeB || String(a.grade_level || "").localeCompare(String(b.grade_level || ""));
+        }
+        if (sortField === "subject") cmp = String(a.subject || "").localeCompare(String(b.subject || ""));
         if (sortField === "type") cmp = (a.doc_type || "").localeCompare(b.doc_type || "");
         return sortDir === "asc" ? cmp : -cmp;
     });
@@ -160,7 +166,7 @@
             {#if !pendingOnly}
                 <button onclick={() => { filterStatus = "checked"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'checked' ? 'border-gov-green bg-gov-green text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">Checked</button>
             {/if}
-            {#each [{ field: "date", label: "Date" }, { field: "teacher", label: "Teacher" }, { field: "type", label: "Type" }] as option}
+            {#each [{ field: "date", label: "Date" }, { field: "teacher", label: "Teacher" }, { field: "grade", label: "Grade Level" }, { field: "subject", label: "Subject" }, { field: "type", label: "Type" }] as option}
                 <button onclick={() => setSort(option.field as SortField)} class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {sortField === option.field ? 'border-gov-blue bg-gov-blue/10 text-gov-blue' : 'border-border-subtle bg-surface-muted text-text-muted'}">
                     {option.label}
                     <ArrowUpDown size={12} class={sortField === option.field && sortDir === 'desc' ? 'scale-y-[-1]' : ''} />
@@ -185,7 +191,7 @@
                     </div>
                     <div class="min-w-0">
                         <p class="text-sm font-bold text-text-primary truncate" title={item.file_name}>{item.file_name}</p>
-                        <p class="text-xs text-text-muted font-medium truncate">{item.teacher_name || "Unknown teacher"} · {getDocumentLabel(item.doc_type || "DLL")} · {item.subject || "Unassigned"} {item.week_number ? `· Week ${item.week_number}` : ""} · {formatDate(item.created_at)}</p>
+                        <p class="text-xs text-text-muted font-medium truncate">{item.teacher_name || "Unknown teacher"} · {item.grade_level ? `Grade ${String(item.grade_level).replace(/^Grade\s*/i, "")}` : "Grade —"} · {item.subject || "Unassigned"} · {getDocumentLabel(item.doc_type || "DLL")} {item.week_number ? `· Week ${item.week_number}` : ""} · {formatDate(item.created_at)}</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button onclick={() => viewDocument(item)} disabled={openingId !== null} class="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-2 text-xs font-bold text-text-primary hover:bg-gov-blue/10 hover:text-gov-blue transition-colors">
