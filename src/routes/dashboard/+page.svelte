@@ -44,8 +44,6 @@
     import { logOnce, shouldUseRealtime } from "$lib/utils/noise";
     import {
         buildRequirements,
-        currentCompliancePeriod,
-        filterSubmissionsByPeriod,
         isRemarkRequiredSubmission,
         scopedCalendar,
         summarizeRequirements,
@@ -635,27 +633,19 @@
                     .select("submission_id, reviewer_id, reviewer_comment")
                     .in("submission_id", batch));
                 // Tracker and Compliance must answer the same question for
-                // the same active period. Previously Tracker counted every
-                // school-year archive while Compliance counted the selected
-                // term/week, which produced different totals.
+                // the same all-weeks scope. Compliance is the source of truth
+                // for the Monday compliance totals, while every reviewable
+                // DLP/DLL upload is included in the review queue.
                 const sharedCalendar = scopedCalendar(calendarArr as any, userProfile.district_id);
-                const sharedPeriod = currentCompliancePeriod(sharedCalendar as any);
-                const sharedRows = buildRequirements(
+                const allRequirementRows = buildRequirements(
                     loads as any,
-                    sharedCalendar.filter((c: any) =>
-                        String(c.term) === sharedPeriod.term && String(c.week_number) === sharedPeriod.week,
-                    ) as any,
+                    sharedCalendar as any,
                     complianceSubs as any,
                     reviews as any,
                     Date.now(),
                     leaveRequests as any,
                 );
-                const sharedRequirementSummary = summarizeRequirements(sharedRows);
-                const sharedPeriodSubmissions = filterSubmissionsByPeriod(
-                    allSubs as any,
-                    sharedPeriod.term,
-                    sharedPeriod.week,
-                );
+                const sharedRequirementSummary = summarizeRequirements(allRequirementRows);
                 const reviewById: Record<string, string> = {};
                 const reviewerById: Record<string, string> = {};
                 const reviewReviewerBySubmission: Record<string, string> = {};
@@ -676,7 +666,7 @@
                 const nameById: Record<string, string> = {};
                 for (const t of teachersWithNames) nameById[t.id] = t.full_name;
                 const loadById = new Map(loads.map((load: any) => [load.id, load]));
-                const sharedReviewSubmissions = sharedPeriodSubmissions.filter((s: any) => isRemarkRequiredSubmission(s as any));
+                const sharedReviewSubmissions = allSubs.filter((s: any) => isRemarkRequiredSubmission(s as any));
                 awaitingReview = sharedReviewSubmissions
                     .map((s: any) => ({
                         ...s,
@@ -688,8 +678,9 @@
                     }));
 
                 // These are the exact Compliance metrics for the same
-                // district, school year, term, and week.
-                stats.totalUploads = sharedPeriodSubmissions.length;
+                // district and school year across all active weeks.
+                archiveMetricItems = sharedReviewSubmissions;
+                stats.totalUploads = sharedReviewSubmissions.length;
                 stats.compliantCount = sharedRequirementSummary.onTime;
                 stats.lateCount = sharedRequirementSummary.late;
                 stats.nonCompliantCount = sharedRequirementSummary.missing;
