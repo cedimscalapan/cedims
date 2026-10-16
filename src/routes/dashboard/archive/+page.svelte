@@ -394,13 +394,13 @@ import { fetchAllRows } from "$lib/utils/compliance";
         try {
 
         if (role === "Teacher") {
-            const { data } = await supabase
+            const data = await fetchAllRows<Submission>(() => supabase
                 .from("submissions")
                 .select("*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)")
                 .eq("user_id", userProfile.id)
                 .eq("school_year", currentSchoolYear)
                 .in("doc_type", ["DLL", "DLP"])
-                .order("created_at", { ascending: false });
+                .order("created_at", { ascending: false }));
             if (runId !== loadRun) return;
             allSubmissions = getRows<Submission>(data).filter((s) => s.user_id === userProfile.id);
             teachersMap = buildTeachersMap(allSubmissions);
@@ -419,7 +419,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
         } else if (role === "Master Teacher") {
             if (!userProfile.school_id) return;
 
-            const { data } = await supabase
+            const data = await fetchAllRows<Submission>(() => supabase
                 .from("submissions")
                 .select(
                     "*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)",
@@ -427,7 +427,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
                 .eq("profiles.school_id", userProfile.school_id)
                 .eq("school_year", currentSchoolYear)
                 .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
-                .order("created_at", { ascending: false });
+                .order("created_at", { ascending: false }));
             if (runId !== loadRun) return;
 
             allSubmissions = getRows<Submission>(data)
@@ -446,7 +446,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
         } else if (role === "School Head") {
             if (!userProfile.school_id) return;
 
-            const { data } = await supabase
+            const data = await fetchAllRows<Submission>(() => supabase
                 .from("submissions")
                 .select(
                     "*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)",
@@ -454,7 +454,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
                 .eq("profiles.school_id", userProfile.school_id)
                 .eq("school_year", currentSchoolYear)
                 .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
-                .order("created_at", { ascending: false });
+                .order("created_at", { ascending: false }));
             if (runId !== loadRun) return;
 
             allSubmissions = getRows<Submission>(data)
@@ -512,7 +512,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
                     return;
                 }
             }
-            const { data } = await submissionsQuery;
+            const data = await fetchAllRows<Submission>(() => submissionsQuery);
             if (runId !== loadRun) return;
 
             allSubmissions = getRows<Submission>(data).map((s) => {
