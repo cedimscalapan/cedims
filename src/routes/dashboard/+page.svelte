@@ -47,6 +47,7 @@
         isRemarkRequiredSubmission,
         scopedCalendar,
         summarizeRequirements,
+        fetchAllRows,
         fetchRowsForIds,
     } from "$lib/utils/compliance";
     const { isOnline: onlineStatus } = connectivity;
@@ -511,12 +512,12 @@
 
         const results = await Promise.allSettled([
             teacherQuery,
-            subQuery.order("created_at", { ascending: false }),
+            fetchAllRows<any>(() => subQuery.order("created_at", { ascending: false })),
             leaveQuery.order("created_at", { ascending: false }),
         ]);
 
         const teachers = results[0].status === 'fulfilled' ? results[0].value.data || [] : [];
-        const allSubs = results[1].status === 'fulfilled' ? results[1].value.data || [] : [];
+        const allSubs = results[1].status === 'fulfilled' ? results[1].value || [] : [];
         leaveRequests = results[2].status === 'fulfilled' ? results[2].value.data || [] : [];
 
         // Resolve school names for alerts (can't use the schools() embed here)
