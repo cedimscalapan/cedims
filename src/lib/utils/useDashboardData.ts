@@ -61,7 +61,6 @@ export async function getActualWeeks(
     .from('academic_calendar')
     .select('id, term, district_id, week_number, deadline_date, school_year, is_active')
     .eq('school_year', schoolYear)
-    .eq('is_active', true)
     .order('week_number', { ascending: true });
 
   if (districtId) {
@@ -374,7 +373,6 @@ export async function markNonCompliantSubmissions(
       .from('academic_calendar')
       .select('id, term, week_number')
       .eq('school_year', schoolYear)
-      .eq('is_active', true)
       .lt('deadline_date', new Date().toISOString())
       .order('week_number', { ascending: true });
 

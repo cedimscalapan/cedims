@@ -2,8 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-const code = ts.transpileModule(readFileSync(new URL('../src/lib/utils/compliance.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, documentTypeCounts, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const compilerOptions = { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 };
+const deadlineCode = ts.transpileModule(readFileSync(new URL('../src/lib/utils/deadlineRules.ts', import.meta.url), 'utf8'), { compilerOptions }).outputText;
+const deadlineModuleUrl = `data:text/javascript;base64,${Buffer.from(deadlineCode).toString('base64')}`;
+const complianceSource = readFileSync(new URL('../src/lib/utils/compliance.ts', import.meta.url), 'utf8')
+    .replace("import { effectiveDeadlineForSubject } from './deadlineRules';", `import { effectiveDeadlineForSubject } from '${deadlineModuleUrl}';`);
+const code = ts.transpileModule(complianceSource, { compilerOptions }).outputText;
+const { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, documentTypeCounts, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange, isWeeklyComplianceDocType } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const now = Date.parse('2026-09-27T12:00:00Z');
 const load = { id: 'load', user_id: 'teacher', subject: 'English', grade_level: 'Grade 5' };
 const calendar = [1, 2, 3].map(term => ({ id: `c${term}`, school_year: '2026-2027', term, week_number: 1, deadline_date: term === 3 ? '2026-12-01T12:00:00Z' : '2026-09-01T12:00:00Z', is_active: true }));
@@ -26,7 +31,7 @@ test('Term 2 Week 1 never fulfills Term 1 Week 1', () => {
     assert.equal(summary.submitted, 1); assert.equal(summary.rate, 33); assert.equal(summary.dueRate, 50);
 });
 test('selected week can count every no-DLL requirement as missing for action stats', () => {
-    const futureWeek = [{ ...calendar[2], id: 'future-week', term: 1, week_number: 1 }];
+    const futureWeek = [{ ...calendar[2], id: 'past-week', term: 1, week_number: 1, deadline_date: '2026-09-01T12:00:00Z' }];
     const rows = buildRequirements([
         load,
         { ...load, id: 'math', subject: 'Math' },
@@ -80,6 +85,12 @@ test('inactive loads, other years and administrative documents do not count', ()
     assert.equal(buildRequirements([{ ...load, is_active: false }], calendar, [sub], [], now).length, 0);
     for (const wrong of [{ ...sub, school_year: '2025-2026' }, { ...sub, doc_type: 'ISP' }]) assert.equal(summarizeRequirements(buildRequirements([load], calendar, [wrong], [], now), now).submitted, 0);
 });
+test('only DLL and DLP are weekly compliance document types', () => {
+    assert.equal(isWeeklyComplianceDocType('DLL'), true);
+    assert.equal(isWeeklyComplianceDocType('DLP'), true);
+    assert.equal(isWeeklyComplianceDocType('ISP'), false);
+    assert.equal(isWeeklyComplianceDocType('ISR'), false);
+});
 test('same subject in different grades is two requirements', () => {
     const rows = buildRequirements([load, { ...load, id: 'grade6', grade_level: 'Grade 6' }], [calendar[1]], [sub], [], now);
     assert.equal(rows.length, 2); assert.equal(rows[1].status, 'missing');
@@ -88,6 +99,11 @@ test('district calendar overrides global duplicate and excludes other districts'
     const district = { ...calendar[0], id: 'district', district_id: 'd1' };
     const rows = scopedCalendar([calendar[0], district, { ...calendar[1], district_id: 'd2' }], 'd1');
     assert.deepEqual(rows, [district]);
+});
+test('closing a calendar period keeps it in compliance history', () => {
+    const closed = { ...calendar[0], is_active: false };
+    assert.deepEqual(scopedCalendar([closed]), [closed]);
+    assert.deepEqual(currentCompliancePeriod([closed], now), { term: '1', week: '1' });
 });
 test('zero requirements has no misleading percentage; future work is not at risk', () => {
     assert.equal(summarizeRequirements([], now).rate, null);

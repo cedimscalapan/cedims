@@ -40,6 +40,7 @@
     import UploadSuccessModal from "$lib/components/UploadSuccessModal.svelte";
     import { formatDocumentList, getDocumentLabel } from "$lib/utils/documentLabels";
     import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
+    import { isWeeklyComplianceDocType } from "$lib/utils/compliance";
 
     import type { PageData } from "./$types";
 
@@ -52,8 +53,10 @@
     }
 
     interface CalendarEntry {
+        id: string;
         term: number;
         week_number: number;
+        school_year?: string;
         deadline_date?: string | null;
         description?: string | null;
         is_active?: boolean;
@@ -112,6 +115,9 @@
         { value: 2, label: "Term 2" },
         { value: 3, label: "Term 3" },
     ];
+    const availableTerms = $derived(
+        academicTerms.filter((period) => calendarEntries.some((entry) => entry.term === period.value)),
+    );
     const visibleWeeks = $derived(
         calendarEntries
             .filter((w) => !termNumber || w.term === termNumber)
@@ -179,17 +185,32 @@
     });
 
     async function fetchCurrentDeadline(wk: number, districtId: string) {
+        const selectedTerm = termNumber || calendarEntries.find((entry) => entry.week_number === wk)?.term;
         if (navigator.onLine) {
-            const { data } = await supabase
+            let query = supabase
                 .from("academic_calendar")
                 .select("deadline_date, description")
                 .eq("district_id", districtId)
+                .eq("school_year", getCurrentSchoolYear())
                 .eq("week_number", wk)
-                .maybeSingle();
+                .eq("is_active", true);
+            if (selectedTerm) query = query.eq("term", selectedTerm);
+            const { data, error } = await query.maybeSingle();
 
             if (data) {
                 currentDeadline = data;
                 // Update specific cache entry if needed or just rely on the batch pre-fetch
+                return;
+            }
+            if (!error) {
+                // The selected period is no longer Open. Do not resurrect a
+                // stale cached deadline while the user is online.
+                currentDeadline = null;
+                calendarEntries = calendarEntries.filter((entry) => !(entry.week_number === wk && (!selectedTerm || entry.term === selectedTerm)));
+                if (weekNumber === wk) {
+                    weekNumber = undefined;
+                    targetConfirmed = false;
+                }
                 return;
             }
         }
@@ -198,7 +219,7 @@
         const cached = await getCachedMetadata(`calendar_open_${districtId}`);
         if (cached?.data) {
             const entry = cached.data.find(
-                (e: any) => e.week_number === wk && e.is_active === true,
+                (e: any) => e.week_number === wk && (!selectedTerm || e.term === selectedTerm) && e.is_active === true,
             );
             if (entry) {
                 currentDeadline = entry;
@@ -438,7 +459,7 @@
             if (navigator.onLine) {
                 const { data, error } = await supabase
                     .from("academic_calendar")
-                    .select("term, week_number, deadline_date, description, is_active")
+                    .select("id, school_year, term, week_number, deadline_date, description, is_active")
                     .eq("district_id", userProfile.district_id)
                     .eq("is_active", true)
                     .order("week_number", { ascending: true });
@@ -757,7 +778,7 @@
             return;
         }
         uploadConfirmed = false;
-        if (docType === 'DLL' && (!teachingLoadId || !termNumber || !weekNumber)) {
+        if (isWeeklyComplianceDocType(docType) && (!teachingLoadId || !termNumber || !weekNumber)) {
             addToast('error', 'Select and confirm the teaching load, term, and week before uploading. Scanner results are suggestions only.');
             return;
         }
@@ -805,6 +826,54 @@
             return;
         }
 
+        let openCalendarEntry: CalendarEntry | null = null;
+        if (isWeeklyComplianceDocType(docType)) {
+            if (!termNumber || !weekNumber) {
+                addToast("error", "Choose a term and week that is Open in the Academic Calendar.");
+                return;
+            }
+
+            if (navigator.onLine && $profile?.district_id) {
+                const { data: entry, error } = await supabase
+                    .from("academic_calendar")
+                    .select("id, school_year, term, week_number, deadline_date, description, is_active")
+                    .eq("district_id", $profile.district_id)
+                    .eq("school_year", getCurrentSchoolYear())
+                    .eq("term", termNumber)
+                    .eq("week_number", weekNumber)
+                    .eq("is_active", true)
+                    .maybeSingle();
+
+                if (error) {
+                    addToast("error", "Could not verify that this upload period is Open. Refresh and try again.");
+                    return;
+                }
+                if (!entry) {
+                    const closedPeriod = `Term ${termNumber}, Week ${weekNumber} is Closed. Choose an Open period from the Academic Calendar.`;
+                    calendarEntries = calendarEntries.filter((item) => !(item.term === termNumber && item.week_number === weekNumber));
+                    currentDeadline = null;
+                    weekNumber = undefined;
+                    targetConfirmed = false;
+                    addToast("error", closedPeriod);
+                    return;
+                }
+                openCalendarEntry = entry;
+                if (!calendarEntries.some((item) => item.id === entry.id)) {
+                    calendarEntries = [...calendarEntries, entry].sort((a, b) => a.term - b.term || a.week_number - b.week_number);
+                }
+                cacheMetadata(`calendar_open_${$profile.district_id}`, calendarEntries);
+                currentDeadline = entry;
+            } else {
+                openCalendarEntry = calendarEntries.find((entry) =>
+                    entry.term === termNumber && entry.week_number === weekNumber && entry.is_active === true,
+                ) || null;
+                if (!openCalendarEntry) {
+                    addToast("error", "This upload period is not in your saved list of Open calendar entries. Connect to the internet and refresh before uploading.");
+                    return;
+                }
+            }
+        }
+
         processing = true;
         result = null;
 
@@ -817,8 +886,10 @@
             userRole: $profile!.role,
             docType,
             subject: subject || undefined,
-            termNumber,
-            weekNumber,
+            termNumber: isWeeklyComplianceDocType(docType) ? termNumber : undefined,
+            weekNumber: isWeeklyComplianceDocType(docType) ? weekNumber : undefined,
+            calendarId: openCalendarEntry?.id,
+            schoolYear: getCurrentSchoolYear(),
             teachingLoadId,
             enforceOcr: $settings.enforce_ocr,
             submissionWindowDays: $settings.submission_window_days,
@@ -1803,7 +1874,7 @@
                 </button>
             </div>
             <div class="max-h-[60vh] overflow-y-auto p-4 grid grid-cols-1 gap-3">
-                {#each academicTerms as term}
+                {#each availableTerms as term}
                     <button
                         onclick={() => {
                             termNumber = term.value;
@@ -1822,6 +1893,10 @@
                             Weeks {(term.value - 1) * 13 + 1}-{term.value * 13}
                         </span>
                     </button>
+                {:else}
+                    <p class="py-8 text-center text-sm text-text-muted">
+                        No academic terms are currently Open for uploads.
+                    </p>
                 {/each}
             </div>
         </div>

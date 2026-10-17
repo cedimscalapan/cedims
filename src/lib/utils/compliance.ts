@@ -29,8 +29,14 @@ export interface Requirement {
     review: 'checked' | 'for-checking' | 'none';
 }
 
+/** DLL/DLP are weekly compliance submissions; ISP/ISR are administrative archives. */
+export function isWeeklyComplianceDocType(docType: string | null | undefined): boolean {
+    const doc = (docType || '').toUpperCase().trim();
+    return doc === 'DLL' || doc === 'DLP';
+}
+
 export function currentCompliancePeriod(calendar: CalendarSlot[], now = Date.now()) {
-    const sorted = calendar.filter(c => c.is_active !== false && Number.isFinite(Date.parse(c.deadline_date)))
+    const sorted = calendar.filter(c => Number.isFinite(Date.parse(c.deadline_date)))
         .sort((a, b) => Date.parse(a.deadline_date) - Date.parse(b.deadline_date));
     const current = sorted.find(c => Date.parse(c.deadline_date) >= now) || sorted.at(-1);
     return { term: current ? String(current.term) : 'all', week: current ? String(current.week_number) : 'all' };
@@ -56,7 +62,9 @@ export function submissionTerm(s: Pick<ComplianceSubmission, 'term_number' | 'fi
 export function scopedCalendar(calendar: CalendarSlot[], districtId?: string | null): CalendarSlot[] {
     const slots = new Map<string, CalendarSlot>();
     for (const c of calendar) {
-        if (c.is_active === false || (c.district_id && c.district_id !== districtId)) continue;
+        // Open/Closed controls upload availability only. Closed periods remain
+        // in compliance history and reporting.
+        if (c.district_id && c.district_id !== districtId) continue;
         const key = `${c.school_year}|${c.term}|${c.week_number}`;
         const previous = slots.get(key);
         if (!previous || (!previous.district_id && c.district_id)) slots.set(key, c);

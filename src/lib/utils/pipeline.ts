@@ -16,6 +16,7 @@ import { supabase } from './supabase';
 import { getCurrentSchoolYear } from './schoolYear';
 import { isMobileDevice } from './device';
 import { logAudit } from './audit';
+import { isWeeklyComplianceDocType } from './compliance';
 import type { PipelineEvent, PipelineOptions } from '$lib/types/pipeline';
 export type { PipelinePhase, PipelineResult } from '$lib/types/pipeline';
 
@@ -220,9 +221,14 @@ async function* runPipelineCore(
 
     // The selected upload target is authoritative. OCR remains available for
     // mismatch warnings, but it must never silently redirect the archive slot.
-    const activeWeekNumber = options.weekNumber;
-    const activeTermNumber = resolveTermNumber(options.termNumber, activeWeekNumber);
     const activeDocType = options.docType || 'DLL';
+    const isWeeklyComplianceUpload = isWeeklyComplianceDocType(activeDocType);
+    // Supervisory plans/reports are archived and reviewed independently; OCR
+    // suggestions must never attach them to a weekly calendar slot.
+    const activeWeekNumber = isWeeklyComplianceUpload ? options.weekNumber : undefined;
+    const activeTermNumber = isWeeklyComplianceUpload
+        ? resolveTermNumber(options.termNumber, activeWeekNumber)
+        : undefined;
     const rawText = options.rawText || detectedMetadata?.rawText || '';
     const fileName = file.name.replace(/\.\w+$/, '.pdf');
     const sanitizedFileName = (fileName || 'document').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
@@ -272,18 +278,19 @@ async function* runOnlinePipelineResilient(
     // and any failure (timeout or otherwise) is swallowed: the archive still
     // goes through, just without deadline-based lateness tracking for this
     // submission.
-    let calendarId = options.calendarId || null;
+    let calendarId: string | null = null;
     let deadlineDate: Date | undefined;
     let calendarIsOpen = false;
-    if (!calendarId && activeWeekNumber) {
+    if (isWeeklyComplianceDocType(activeDocType) && activeWeekNumber && activeTermNumber) {
         try {
             let calendarQuery = supabase
                 .from('academic_calendar')
                 .select('id, deadline_date, is_active')
                 .eq('school_year', options.schoolYear || getCurrentSchoolYear())
+                .eq('term', activeTermNumber)
                 .eq('week_number', activeWeekNumber)
                 .eq('is_active', true);
-            if (activeTermNumber) calendarQuery = calendarQuery.eq('term', activeTermNumber);
+            if (options.calendarId) calendarQuery = calendarQuery.eq('id', options.calendarId);
 
             const { data: calEntry } = await withTimeout(
                 calendarQuery.maybeSingle() as any,
@@ -305,10 +312,12 @@ async function* runOnlinePipelineResilient(
                     let districtCalendarQuery = supabase
                         .from('academic_calendar')
                         .select('id, deadline_date, is_active')
+                        .eq('school_year', options.schoolYear || getCurrentSchoolYear())
                         .eq('district_id', profileData.district_id)
+                        .eq('term', activeTermNumber)
                         .eq('week_number', activeWeekNumber)
                         .eq('is_active', true);
-                    if (activeTermNumber) districtCalendarQuery = districtCalendarQuery.eq('term', activeTermNumber);
+                    if (options.calendarId) districtCalendarQuery = districtCalendarQuery.eq('id', options.calendarId);
 
                     const { data: calByDistrict } = await withTimeout(
                         districtCalendarQuery.maybeSingle() as any,
@@ -332,7 +341,7 @@ async function* runOnlinePipelineResilient(
         }
     }
 
-    if ((activeDocType === 'DLL' || activeDocType === 'DLP') && (!calendarId || !calendarIsOpen)) {
+    if (isWeeklyComplianceDocType(activeDocType) && (!calendarId || !calendarIsOpen)) {
         throw new Error(`Week ${activeWeekNumber || 'selected'} is closed for submissions. Uploads are locked after the Friday 11:59 PM deadline.`);
     }
 
@@ -388,8 +397,10 @@ async function* runOnlinePipelineResilient(
     // Detect whether this is an ADDITIONAL DLL for an already-covered slot
     // (same teaching load + week + doc type). If so, mark it 'supplementary'
     // so it is archived but does not affect compliance / missing / late / rate.
-    let complianceStatus: 'compliant' | 'late' | 'supplementary' = calculateComplianceStatus(new Date(), deadlineDate, options.subject);
-    if (options.teachingLoadId && activeWeekNumber) {
+    let complianceStatus: 'compliant' | 'late' | 'supplementary' = isWeeklyComplianceDocType(activeDocType)
+        ? calculateComplianceStatus(new Date(), deadlineDate, options.subject)
+        : 'supplementary';
+    if (isWeeklyComplianceDocType(activeDocType) && options.teachingLoadId && activeWeekNumber) {
       try {
         const { data: slotMatch } = await withTimeout(
           supabase

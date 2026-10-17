@@ -40,8 +40,8 @@
     ];
 
     // DepEd SY 2026-2027 three-term calendar (DepEd Order No. 009, s. 2026).
-    // Each submission deadline is the Monday of its week. Generated weeks start
-    // scheduled (closed / not open) until a supervisor opens them to teachers.
+    // Each submission deadline is the Monday of its week. Generated entries
+    // start Closed until an administrator opens them for uploads.
     const DEPED_2026_WEEKS: { term: number; week_number: number; deadline_date: string }[] = [
         // Term 1 (Weeks 1–13, Jun 8 – Sep 15, 2026)
         ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((w, i) => ({
@@ -224,7 +224,7 @@
             console.error("[calendar] Toggle active error:", error);
             addToast(
                 "error",
-                `Failed to ${next ? "open" : "schedule"} Week ${d.week_number}: ${error.message}`,
+                `Failed to ${next ? "open" : "close"} Week ${d.week_number}: ${error.message}`,
             );
             return;
         }
@@ -234,7 +234,7 @@
             "success",
             next
                 ? `Week ${d.week_number} is now open for submissions (visible to teachers)`
-                : `Week ${d.week_number} is now scheduled (hidden from teachers)`,
+                : `Week ${d.week_number} is now closed (hidden from Upload)`,
         );
 
         if (next) {
@@ -267,7 +267,7 @@
         if (!canEdit || !resolvedDistrictId) return;
         if (
             !confirm(
-                "Generate the full DepEd SY 2026-2027 three-term calendar for this district? Weeks are created in a scheduled (closed) state and can be opened per week. Existing dates will be overwritten.",
+                "Generate the full DepEd SY 2026-2027 three-term calendar for this district? Entries start Closed and can be opened individually. Existing dates will be overwritten.",
             )
         )
             return;
@@ -299,7 +299,7 @@
 
             addToast(
                 "success",
-                "DepEd SY 2026-2027 calendar generated. Weeks are scheduled (closed) — open them as needed.",
+                "DepEd SY 2026-2027 calendar generated. Entries are Closed — open each period when ready.",
             );
             await loadDeadlines();
         } finally {
@@ -436,7 +436,7 @@
                                             class="flex items-center gap-1 text-xs font-semibold uppercase text-text-muted"
                                         >
                                             <Clock size={10} />
-                                            Scheduled
+                                            Closed
                                         </div>
                                     {/if}
                                 </div>
@@ -451,9 +451,9 @@
                                         class="px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors shadow-sm flex items-center gap-1.5 {d.is_active
                                             ? 'bg-gov-green/10 text-[#166534] dark:text-[#4ade80] hover:bg-gov-green hover:text-white'
                                             : 'bg-surface-muted text-text-muted border border-border-subtle hover:bg-gov-gold/10 hover:text-gov-gold-dark'}"
-                                        title="Week {d.week_number} is {d.is_active ? 'open' : 'scheduled'}. Click to {d.is_active ? 'close (hide from teachers)' : 'open this week to teachers'}"
+                                        title="Week {d.week_number} is {d.is_active ? 'Open' : 'Closed'}. Click to {d.is_active ? 'close (hide from Upload)' : 'open this week for Upload'}"
                                     >
-                                        {d.is_active ? "Open" : "Scheduled"}
+                                        {d.is_active ? "Open" : "Closed"}
                                     </button>
                                 {/if}
                                 <button
@@ -549,11 +549,11 @@
                                 icon. Deadlines are set to
                                 <strong>11:59 PM</strong> of the selected date. Submissions
                                 after this will be marked as <strong>Late</strong>
-                                automatically. Use the <strong>Scheduled</strong> / <strong
+                                automatically. Use the <strong>Closed</strong> / <strong
                                     >Open</strong
                                 >
-                                toggle to control whether a week is visible to teachers and
-                                counted toward compliance.
+                                toggle to control upload availability. Closing a period does
+                                not change its saved uploads, reviews, or compliance history.
                             </p>
                             <button
                                 type="button"

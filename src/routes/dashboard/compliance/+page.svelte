@@ -68,7 +68,7 @@
             const [loads, submissions, calendar, leaveRequests] = await Promise.all([
                 fetchRowsForIds<ComplianceLoad>(ids, batch => supabase.from('teaching_loads').select('id, user_id, subject, grade_level, is_active').in('user_id', batch).eq('is_active', true).order('id')),
                 fetchRowsForIds<ComplianceSubmission>(submissionUserIds, batch => supabase.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at, subject').in('user_id', batch).eq('school_year', selectedYear).in('doc_type', ['DLL', 'DLP', 'ISP', 'ISR']).order('id')),
-                fetchAllRows<CalendarSlot>(() => supabase.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active').eq('school_year', selectedYear).eq('is_active', true).order('id')),
+                fetchAllRows<CalendarSlot>(() => supabase.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active').eq('school_year', selectedYear).order('id')),
                 fetchRowsForIds<LeaveRequest>(submissionUserIds, batch => supabase.from('submission_leave_requests').select('*').in('user_id', batch).eq('school_year', selectedYear).order('created_at', { ascending: false })),
             ]);
             const reviews: Snapshot['reviews'] = [];

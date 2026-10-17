@@ -12,6 +12,7 @@ import { getCurrentSchoolYear } from './schoolYear';
 import { deadlineAtTenAM, effectiveDeadlineForSubject } from './deadlineRules';
 import { logAudit } from './audit';
 import { logOnce } from './noise';
+import { isWeeklyComplianceDocType } from './compliance';
 
 export const pendingSyncCount = writable<number>(0);
 
@@ -492,6 +493,31 @@ export async function processQueue(force = false): Promise<{ success: number; fa
             let forceSupplementary = false;
 
             try {
+                const docType = item.options.docType || 'Unknown';
+                const isWeeklyComplianceUpload = isWeeklyComplianceDocType(docType);
+
+                // A queued weekly document is not sent to storage unless its
+                // exact school-year/term/week entry is still Open. Keep a
+                // blocked item in the local queue so reopening the same entry
+                // can resume it without losing the file.
+                if (isWeeklyComplianceUpload) {
+                    const { termNumber, weekNumber, schoolYear, calendarId } = item.options;
+                    if (!termNumber || !weekNumber) {
+                        throw new Error('A term and week are required for a weekly DLL/DLP upload.');
+                    }
+                    let calendarQuery = supabase
+                        .from('academic_calendar')
+                        .select('id')
+                        .eq('school_year', schoolYear || getCurrentSchoolYear())
+                        .eq('term', termNumber)
+                        .eq('week_number', weekNumber)
+                        .eq('is_active', true);
+                    if (calendarId) calendarQuery = calendarQuery.eq('id', calendarId);
+                    const { data: openEntry, error: calendarError } = await calendarQuery.maybeSingle();
+                    if (calendarError) throw new Error('Could not verify the academic calendar entry. The queued upload will retry.');
+                    if (!openEntry) throw new Error(`Term ${termNumber}, Week ${weekNumber} is Closed. The queued file is preserved; reopen this entry to sync it.`);
+                }
+
                 // ── Re-validate against server before upload ──
                 // (Items may have been uploaded by another device/session since queuing)
 
@@ -563,19 +589,21 @@ export async function processQueue(force = false): Promise<{ success: number; fa
 
                 // ── Fetch deadline for compliance + calendar_id ──
                 let deadlineDate: Date | undefined;
-                let calendarId = item.options.calendarId || null;
-                if (calendarId) {
+                let calendarId = isWeeklyComplianceUpload ? item.options.calendarId || null : null;
+                if (isWeeklyComplianceUpload && calendarId) {
                     const { data } = await supabase.from('academic_calendar').select('deadline_date').eq('id', calendarId).single();
                     if (data?.deadline_date) deadlineDate = new Date(data.deadline_date);
-                } else if (item.options.weekNumber) {
+                } else if (isWeeklyComplianceUpload && item.options.weekNumber) {
                     const { data: profileData } = await supabase.from('profiles').select('district_id').eq('id', item.options.userId).single();
                     if (profileData?.district_id) {
                         let calendarQuery = supabase
                             .from('academic_calendar')
-                            .select('id, deadline_date')
+                            .select('id, deadline_date, is_active')
                             .eq('district_id', profileData.district_id)
+                            .eq('school_year', item.options.schoolYear || getCurrentSchoolYear())
                             .eq('week_number', item.options.weekNumber);
                         if (item.options.termNumber) calendarQuery = calendarQuery.eq('term', item.options.termNumber);
+                        calendarQuery = calendarQuery.eq('is_active', true);
 
                         const { data: calData } = await calendarQuery.maybeSingle();
                         if (calData) {
@@ -600,9 +628,10 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 // submitted on time — and with uploads now able to fall back to
                 // this queue silently, that would have the app report success
                 // and then quietly mark the submission late.
-                let complianceStatus: 'compliant' | 'late' | 'supplementary' =
-                    calculateComplianceStatus(new Date(item.timestamp), deadlineDate, item.options.subject);
-                if (item.options.teachingLoadId && item.options.weekNumber) {
+                let complianceStatus: 'compliant' | 'late' | 'supplementary' = isWeeklyComplianceUpload
+                    ? calculateComplianceStatus(new Date(item.timestamp), deadlineDate, item.options.subject)
+                    : 'supplementary';
+                if (isWeeklyComplianceUpload && item.options.teachingLoadId && item.options.weekNumber) {
                     try {
 	                        let slotQuery = supabase
 	                            .from('submissions')
@@ -638,11 +667,11 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                     file_hash: item.fileHash,
                     file_size: item.fileSize,
                     doc_type: item.options.docType || 'Unknown',
-                    term_number: item.options.termNumber,
-                    week_number: item.options.weekNumber,
+                    term_number: isWeeklyComplianceUpload ? item.options.termNumber ?? null : null,
+                    week_number: isWeeklyComplianceUpload ? item.options.weekNumber ?? null : null,
                     school_year: item.options.schoolYear || getCurrentSchoolYear(),
                     subject: item.options.subject,
-                    calendar_id: calendarId,
+                    calendar_id: isWeeklyComplianceUpload ? calendarId : null,
                     teaching_load_id: item.options.teachingLoadId || null,
                     compliance_status: complianceStatus,
                     raw_text: item.rawText || null
