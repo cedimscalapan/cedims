@@ -212,7 +212,6 @@ import { fetchAllRows } from "$lib/utils/compliance";
             .from("academic_calendar")
             .select("id, term, week_number, deadline_date, is_active, school_year")
             .eq("school_year", getCurrentSchoolYear())
-            .eq("is_active", true)
             .order("term")
             .order("week_number");
         moveTarget = sub;
@@ -238,7 +237,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
         const load = moveLoads.find((item) => item.id === moveLoadId);
         const calendar = moveCalendarEntries.find((item) => item.term === moveTerm && item.week_number === moveWeek);
         if (!load || !moveTerm || !moveWeek || !calendar) {
-            addToast("error", "Choose a valid teaching load, term, and open week.");
+            addToast("error", "Choose a valid teaching load, term, and calendar week.");
             return;
         }
         movingSubmission = true;
@@ -1569,7 +1568,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
                 <button onclick={closeMoveModal} class="w-9 h-9 rounded-lg hover:bg-surface-muted flex items-center justify-center text-text-muted" aria-label="Close move dialog" disabled={movingSubmission}><X size={18} /></button>
             </div>
             <div class="px-6 py-5 space-y-4">
-                <p class="text-sm text-text-secondary">Only the archive target will change. The original file, QR code, upload time, uploader, file hash, and remarks will remain unchanged.</p>
+                <p class="text-sm text-text-secondary">Only the archive target will change. Closed weeks remain available for archive corrections; moving a file will not reopen uploads. The original file, QR code, upload time, uploader, file hash, and remarks will remain unchanged.</p>
                 <p class="text-sm font-bold text-text-primary break-words">{moveTarget.file_name}</p>
                 <label class="block text-sm font-semibold text-text-primary">Teaching load
                     <select bind:value={moveLoadId} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
@@ -1587,7 +1586,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
                     <label class="block text-sm font-semibold text-text-primary">Week
                         <select bind:value={moveWeek} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
                             <option value={null}>Select week</option>
-                            {#each moveCalendarEntries.filter((entry) => !moveTerm || entry.term === Number(moveTerm)) as entry}<option value={entry.week_number}>Week {entry.week_number}</option>{/each}
+                            {#each moveCalendarEntries.filter((entry) => !moveTerm || entry.term === Number(moveTerm)) as entry}<option value={entry.week_number}>Week {entry.week_number} · {entry.is_active ? "Open" : "Closed"}</option>{/each}
                         </select>
                     </label>
                 </div>

@@ -432,16 +432,17 @@ CREATE POLICY "District supervisors can manage calendar"
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid()
-              AND role IN ('District Supervisor', 'School Head', 'Master Teacher')
+              AND role IN ('Admin', 'District Supervisor', 'School Head', 'Master Teacher')
         )
     )
     WITH CHECK (
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid()
-              AND role IN ('District Supervisor', 'School Head', 'Master Teacher')
+              AND role IN ('Admin', 'District Supervisor', 'School Head', 'Master Teacher')
               AND (
                 (role = 'District Supervisor' AND district_id = academic_calendar.district_id)
+                OR (role = 'Admin' AND (district_id IS NULL OR district_id = academic_calendar.district_id))
                 OR (role = 'School Head' AND school_id IN (
                     SELECT id FROM public.schools WHERE district_id = academic_calendar.district_id
                 ))
