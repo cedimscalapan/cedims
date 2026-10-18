@@ -1561,49 +1561,55 @@ import { fetchAllRows } from "$lib/utils/compliance";
 </div>
 
 {#if moveTarget}
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="presentation">
-        <div class="w-full max-w-lg mx-4 rounded-2xl bg-surface-white shadow-2xl border border-border-subtle overflow-hidden" role="dialog" aria-modal="true" aria-label="Move archive file" use:focusTrap>
-            <div class="px-6 py-4 border-b border-border-subtle flex items-center justify-between">
-                <div><p class="text-xs font-bold text-gov-blue uppercase tracking-wide">Admin correction</p><h3 class="text-lg font-bold text-text-primary">Move archive file</h3></div>
-                <button onclick={closeMoveModal} class="w-9 h-9 rounded-lg hover:bg-surface-muted flex items-center justify-center text-text-muted" aria-label="Close move dialog" disabled={movingSubmission}><X size={18} /></button>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-5" role="presentation">
+        <div class="flex max-h-[92dvh] w-full max-w-2xl flex-col rounded-2xl border border-border-subtle bg-surface-white shadow-2xl" role="dialog" aria-modal="true" aria-label="Move archive file" use:focusTrap>
+            <div class="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4 sm:px-6">
+                <div class="min-w-0"><p class="text-xs font-bold uppercase tracking-wide text-gov-blue">Admin correction</p><h3 class="text-xl font-bold text-text-primary">Move archive file</h3></div>
+                <button onclick={closeMoveModal} class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-surface-muted" aria-label="Close move dialog" disabled={movingSubmission}><X size={18} /></button>
             </div>
-            <div class="px-6 py-5 space-y-4">
-                <p class="text-sm text-text-secondary">Only the archive target will change. Closed weeks remain available for archive corrections; moving a file will not reopen uploads. The original file, QR code, upload time, uploader, file hash, and remarks will remain unchanged.</p>
-                <p class="text-sm font-bold text-text-primary break-words">{moveTarget.file_name}</p>
-                <label class="block text-sm font-semibold text-text-primary">Teaching load
-                    <select bind:value={moveLoadId} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
+            <div class="space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+                <div class="rounded-xl border border-gov-blue/15 bg-gov-blue/5 px-4 py-3">
+                    <p class="text-xs font-bold uppercase tracking-wide text-gov-blue">Selected file</p>
+                    <p class="mt-1 break-words text-sm font-bold text-text-primary">{moveTarget.file_name}</p>
+                    <p class="mt-1 text-xs leading-relaxed text-text-secondary">This changes only where the file is organized. Upload history, QR code, uploader, file, and review remarks stay unchanged. Closed weeks can be used for archive corrections and remain closed to new uploads.</p>
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <label class="block text-sm font-semibold text-text-primary sm:col-span-2">Teaching load
+                    <select bind:value={moveLoadId} class="mt-1.5 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
                         <option value="">Select teaching load</option>
                         {#each moveLoads as load}<option value={load.id}>{load.grade_level} · {load.subject}</option>{/each}
                     </select>
-                </label>
-                <div class="grid grid-cols-2 gap-3">
+                    </label>
                     <label class="block text-sm font-semibold text-text-primary">Term
-                        <select bind:value={moveTerm} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
+                        <select bind:value={moveTerm} class="mt-1.5 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
                             <option value={null}>Select term</option>
                             {#each [...new Set(moveCalendarEntries.map((entry) => entry.term))] as term}<option value={term}>Term {term}</option>{/each}
                         </select>
                     </label>
                     <label class="block text-sm font-semibold text-text-primary">Week
-                        <select bind:value={moveWeek} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
+                        <select bind:value={moveWeek} class="mt-1.5 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
                             <option value={null}>Select week</option>
                             {#each moveCalendarEntries.filter((entry) => !moveTerm || entry.term === Number(moveTerm)) as entry}<option value={entry.week_number}>Week {entry.week_number} · {entry.is_active ? "Open" : "Closed"}</option>{/each}
                         </select>
                     </label>
+                    <label class="block text-sm font-semibold text-text-primary sm:col-span-2">Archive status
+                        <select bind:value={moveStatus} class="mt-1.5 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
+                            <option value="compliant">Compliant</option>
+                            <option value="supplementary">Supplementary</option>
+                        </select>
+                    </label>
                 </div>
-                <label class="block text-sm font-semibold text-text-primary">Archive status
-                    <select bind:value={moveStatus} class="mt-1 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
-                        <option value="compliant">Compliant</option>
-                        <option value="supplementary">Supplementary</option>
-                    </select>
-                </label>
                 {#if moveLoadId && moveTerm && moveWeek}
                     {@const selectedLoad = moveLoads.find((load) => load.id === moveLoadId)}
-                    <div class="rounded-xl border border-gov-blue/20 bg-gov-blue/5 px-4 py-3 text-sm text-text-primary">New archive path: <strong>{selectedLoad?.grade_level} · {selectedLoad?.subject} · Term {moveTerm} · Week {moveWeek}</strong></div>
+                    <div class="rounded-xl border border-gov-blue/20 bg-gov-blue/5 px-4 py-3">
+                        <p class="text-xs font-bold uppercase tracking-wide text-gov-blue">New archive location</p>
+                        <p class="mt-1 text-sm font-semibold text-text-primary">{selectedLoad?.grade_level} · {selectedLoad?.subject} · Term {moveTerm} · Week {moveWeek}</p>
+                    </div>
                 {/if}
             </div>
-            <div class="px-6 py-4 bg-surface-muted border-t border-border-subtle flex justify-end gap-3">
-                <button onclick={closeMoveModal} class="min-h-11 px-4 rounded-xl border border-border-subtle bg-surface-white text-sm font-bold" disabled={movingSubmission}>Cancel</button>
-                <button onclick={confirmMove} class="min-h-11 px-4 rounded-xl bg-gov-blue text-white text-sm font-bold disabled:opacity-60" disabled={movingSubmission || !moveLoadId || !moveTerm || !moveWeek}>{movingSubmission ? "Moving..." : "Move file"}</button>
+            <div class="flex justify-end gap-3 border-t border-border-subtle bg-surface-muted px-5 py-4 sm:px-6">
+                <button onclick={closeMoveModal} class="min-h-11 rounded-xl border border-border-subtle bg-surface-white px-4 text-sm font-bold" disabled={movingSubmission}>Cancel</button>
+                <button onclick={confirmMove} class="min-h-11 rounded-xl bg-gov-blue px-5 text-sm font-bold text-white disabled:opacity-60" disabled={movingSubmission || !moveLoadId || !moveTerm || !moveWeek}>{movingSubmission ? "Moving..." : "Move file"}</button>
             </div>
         </div>
     </div>

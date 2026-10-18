@@ -33,7 +33,7 @@
     let history = $state<NavigationState[]>([]);
     let initialized = $state(false);
     const stateKey = $derived(`compliance-workspace-v2:${role}:${year}:${schools.map(s => s.id).sort().join(',')}`);
-    const isDistrict = $derived(role === 'District Supervisor');
+    const isDistrict = $derived(role === 'District Supervisor' || role === 'Admin');
     const districtOverview = $derived(isDistrict && school === 'all');
     const activeTab = $derived(districtOverview ? 'schools' : selectedTeacher ? 'teacher' : 'follow-up');
     onMount(() => {
@@ -291,7 +291,7 @@
         <header class="view-heading">
             <div class="heading-main">
             {#if selectedTeacher || (isDistrict && school !== 'all')}<button class="back" onclick={goBack}><ArrowLeft size={16} />{selectedTeacher ? 'Back to teachers' : 'Back to district'}</button>{/if}
-            <span class="scope-label">{districtOverview ? 'District Supervisor' : 'School Head'}</span>
+            <span class="scope-label">{role === 'Admin' ? 'Administrator' : role === 'District Supervisor' ? 'District Supervisor' : role === 'Master Teacher' ? 'Master Teacher' : 'School Head'}</span>
             <h2>{selectedTeacher ? teacherName(selectedTeacher) : districtOverview ? 'Compliance Monitoring' : school !== 'all' ? schoolName(school) : schools[0]?.name || 'School compliance'}</h2>
             <p>{districtOverview ? 'District-wide instructional document compliance.' : 'Track submissions, follow up missing DLLs, and manage review work.'}</p>
             <small>{districtOverview ? `${schoolRows.length} schools monitored` : `${scopedTeachers.length} teachers monitored`} · {summary.rate === null ? 'N/A' : summary.rate + '%'} complete</small>

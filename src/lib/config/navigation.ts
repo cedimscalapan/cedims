@@ -163,6 +163,15 @@ export const navItems: NavItem[] = [
         roles: ["District Supervisor", "Admin"],
     },
     {
+        href: "/dashboard/compliance",
+        label: "Compliance",
+        icon: ClipboardCheck,
+        mobileNav: true,
+        priority: 2,
+        navKey: "compliance",
+        roles: ["Admin"],
+    },
+    {
         href: "/dashboard/admin?tab=settings",
         label: "Settings",
         icon: Settings,

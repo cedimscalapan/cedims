@@ -28,7 +28,7 @@
     let run = 0;
     let inFlightLoad: Promise<void> | null = null;
     let lastRealtimeRefreshAt = 0;
-    const allowed = $derived(['Master Teacher', 'School Head', 'District Supervisor'].includes($profile?.role || ''));
+    const allowed = $derived(['Master Teacher', 'School Head', 'District Supervisor', 'Admin'].includes($profile?.role || ''));
     const yearOptions = $derived(Array.from({ length: 6 }, (_, i) => {
         const start = Number(getCurrentSchoolYear().slice(0, 4)) + 1 - i;
         return `${start}-${start + 1}`;
@@ -128,9 +128,9 @@
 </script>
 
 <svelte:head><title>Compliance Monitoring: CEDIMS</title></svelte:head>
-<PageHeader title={$profile?.role === 'District Supervisor' ? 'District Compliance' : 'School Compliance'} description={$profile?.role === 'District Supervisor' ? 'Compare schools, identify district-wide risks, and open a school for details.' : 'Track your school’s submissions, follow up missing DLLs, and manage review work.'} />
+<PageHeader title={['District Supervisor', 'Admin'].includes($profile?.role || '') ? 'District Compliance' : 'School Compliance'} description={['District Supervisor', 'Admin'].includes($profile?.role || '') ? 'Compare schools, identify district-wide risks, and open a school for details.' : 'Track your school’s submissions, follow up missing DLLs, and manage review work.'} />
 {#if !allowed && !loading}
-    <p role="alert">Compliance Monitoring is available to supervisors.</p>
+    <p role="alert">Compliance Monitoring is available to school and district reviewers.</p>
 {:else}
     {#if data}<p role="status" class="mb-4 text-sm text-text-muted">{offline ? 'Offline. ' : cachedAt ? 'Saved data. Latest refresh unavailable. ' : ''}Updated at {new Date(data.savedAt).toLocaleString('en-PH')}{offline || cachedAt ? '. Recent changes may not be reflected.' : ''}</p>{/if}
     {#if loading}<SkeletonLoader variant="card-grid" count={3} />
