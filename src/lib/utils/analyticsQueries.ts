@@ -19,9 +19,10 @@ export async function getSchoolHeadAnalytics(schoolId: string, districtId: strin
                 doc_type,
                 week_number,
                 teaching_load_id,
-                profiles!inner(school_id)
+                profiles!inner(school_id, is_active)
             `)
             .eq('profiles.school_id', schoolId)
+            .eq('profiles.is_active', true)
             .order('created_at', { ascending: true })
             .limit(10000),
 
@@ -37,9 +38,10 @@ export async function getSchoolHeadAnalytics(schoolId: string, districtId: strin
                 created_at,
                 week_number,
                 teaching_load_id,
-                profiles!inner(full_name, role, school_id)
+                profiles!inner(full_name, role, school_id, is_active)
             `)
             .eq('profiles.school_id', schoolId)
+            .eq('profiles.is_active', true)
             .order('created_at', { ascending: false })
             .limit(10000),
 
@@ -49,9 +51,10 @@ export async function getSchoolHeadAnalytics(schoolId: string, districtId: strin
             .select(`
                 user_id,
                 compliance_status,
-                profiles!inner(full_name, role, avatar_url, school_id)
+                profiles!inner(full_name, role, avatar_url, school_id, is_active)
             `)
             .eq('profiles.school_id', schoolId)
+            .eq('profiles.is_active', true)
             .order('user_id')
             .limit(10000),
 
@@ -60,16 +63,19 @@ export async function getSchoolHeadAnalytics(schoolId: string, districtId: strin
         // silently absent from clustering/rankings/at-risk.
         supabase
             .from('profiles')
-            .select('id, full_name')
+            .select('id, full_name, is_active')
             .eq('school_id', schoolId)
+            .eq('is_active', true)
             .in('role', ['Teacher', 'Master Teacher']),
 
         // Active teaching load counts per teacher, for the expected-total
         // denominator in getPerformanceDistribution
         supabase
             .from('teaching_loads')
-            .select('id, user_id, profiles!inner(school_id)')
+            .select('id, user_id, profiles!inner(school_id, is_active)')
             .eq('profiles.school_id', schoolId)
+            .eq('profiles.is_active', true)
+            .eq('is_active', true)
     ]);
 
     const loadCountByUser = new Map<string, number>();
@@ -104,9 +110,10 @@ export async function getDistrictSupervisorAnalytics(districtId: string) {
                 doc_type,
                 week_number,
                 teaching_load_id,
-                profiles!inner(district_id, schools(name))
+                profiles!inner(district_id, is_active, schools(name))
             `)
             .eq('profiles.district_id', districtId)
+            .eq('profiles.is_active', true)
             .order('created_at', { ascending: true })
             .limit(10000),
 
@@ -115,9 +122,10 @@ export async function getDistrictSupervisorAnalytics(districtId: string) {
             .from('submissions')
             .select(`
                 compliance_status,
-                profiles!inner(district_id, school_id, schools(name))
+                profiles!inner(district_id, school_id, is_active, schools(name))
             `)
             .eq('profiles.district_id', districtId)
+            .eq('profiles.is_active', true)
             .limit(10000),
 
         // Teacher performance distribution (for k-means clustering).
@@ -132,9 +140,10 @@ export async function getDistrictSupervisorAnalytics(districtId: string) {
                 created_at,
                 week_number,
                 teaching_load_id,
-                profiles!inner(full_name, district_id, school_id, schools(name))
+                profiles!inner(full_name, district_id, school_id, is_active, schools(name))
             `)
             .eq('profiles.district_id', districtId)
+            .eq('profiles.is_active', true)
             .order('user_id')
             .limit(10000),
 
@@ -145,9 +154,10 @@ export async function getDistrictSupervisorAnalytics(districtId: string) {
                 id,
                 compliance_status,
                 created_at,
-                profiles!inner(full_name, district_id, schools(name))
+                profiles!inner(full_name, district_id, is_active, schools(name))
             `)
             .eq('profiles.district_id', districtId)
+            .eq('profiles.is_active', true)
             .in('compliance_status', ['late', 'missing'])
             .order('created_at', { ascending: false })
             .limit(100),
@@ -157,16 +167,19 @@ export async function getDistrictSupervisorAnalytics(districtId: string) {
         // being silently absent from clustering/rankings/at-risk.
         supabase
             .from('profiles')
-            .select('id, full_name')
+            .select('id, full_name, is_active')
             .eq('district_id', districtId)
+            .eq('is_active', true)
             .in('role', ['Teacher', 'Master Teacher']),
 
         // Active teaching load counts per teacher, for the expected-total
         // denominator in getPerformanceDistribution
         supabase
             .from('teaching_loads')
-            .select('id, user_id, profiles!inner(district_id)')
+            .select('id, user_id, is_active, profiles!inner(district_id, is_active)')
             .eq('profiles.district_id', districtId)
+            .eq('profiles.is_active', true)
+            .eq('is_active', true)
     ]);
 
     const loadCountByUser = new Map<string, number>();

@@ -186,6 +186,11 @@
                 { event: "*", schema: "public", table: "submission_leave_requests" },
                 () => scheduleReload(),
             )
+            .on(
+                "postgres_changes",
+                { event: "UPDATE", schema: "public", table: "profiles" },
+                () => scheduleReload(),
+            )
             .subscribe();
     }
 
@@ -414,10 +419,10 @@
             if (userProfile.school_id) {
                 const { data: teacherIds } = await supabase
                     .from("profiles")
-                    .select("id")
+                    .select("id, is_active")
                     .eq("school_id", userProfile.school_id);
                 if (teacherIds && teacherIds.length > 0) {
-                    fixQuery = fixQuery.in("user_id", teacherIds.map((t) => t.id));
+                    fixQuery = fixQuery.in("user_id", teacherIds.filter((t: any) => t.is_active !== false).map((t) => t.id));
                 }
             }
         } else if ((role === "District Supervisor" || role === "Admin") && userProfile.district_id) {
@@ -428,10 +433,10 @@
             if (schoolIds && schoolIds.length > 0) {
                 const { data: teacherIds } = await supabase
                     .from("profiles")
-                    .select("id")
+                    .select("id, is_active")
                     .in("school_id", schoolIds.map((s) => s.id));
                 if (teacherIds && teacherIds.length > 0) {
-                    fixQuery = fixQuery.in("user_id", teacherIds.map((t) => t.id));
+                    fixQuery = fixQuery.in("user_id", teacherIds.filter((t: any) => t.is_active !== false).map((t) => t.id));
                 }
             }
         }
@@ -469,7 +474,7 @@
         // separately below.
         let teacherQuery = supabase
             .from("profiles")
-            .select("id, full_name, role, school_id, district_id")
+            .select("id, full_name, role, school_id, district_id, is_active")
             .in("role", ["Teacher", "Master Teacher"]);
 
         // Fetch submissions in the scope
@@ -516,7 +521,8 @@
             leaveQuery.order("created_at", { ascending: false }),
         ]);
 
-        const teachers = results[0].status === 'fulfilled' ? results[0].value.data || [] : [];
+        const teachers = (results[0].status === 'fulfilled' ? results[0].value.data || [] : [])
+            .filter((teacher: any) => teacher.is_active !== false);
         const allSubs = results[1].status === 'fulfilled' ? results[1].value || [] : [];
         leaveRequests = results[2].status === 'fulfilled' ? results[2].value.data || [] : [];
 
@@ -541,10 +547,12 @@
             school_name: t.school_id ? (schoolNameMap[t.school_id] || 'Unknown School') : 'Unknown School',
             schools: { name: t.school_id ? (schoolNameMap[t.school_id] || 'Unknown School') : 'Unknown School' },
         }));
+        const activeTeacherIds = new Set(teachersWithNames.map((teacher: any) => teacher.id));
 
         const { data: loadsData } = await supabase
             .from("teaching_loads")
             .select("id, user_id, subject, grade_level")
+            .eq("is_active", true)
             .in(
                 "user_id",
                 teachersWithNames.map((t) => t.id),
@@ -560,7 +568,7 @@
         // DLL cadence — excluded here (and below) so they never skew
         // compliant/late/missing counts. They still show up in total uploads
         // and recentActivity because those are file counts.
-        const complianceSubs = allSubs.filter((s) => isComplianceTrackedDocType(s.doc_type));
+        const complianceSubs = allSubs.filter((s) => activeTeacherIds.has(s.user_id) && isComplianceTrackedDocType(s.doc_type));
 
         // Per-teacher compliance: expected = active loads x defined weeks.
         // Uses the same calculateCompliance() the rest of the app (School
@@ -667,7 +675,7 @@
                 const nameById: Record<string, string> = {};
                 for (const t of teachersWithNames) nameById[t.id] = t.full_name;
                 const loadById = new Map(loads.map((load: any) => [load.id, load]));
-                const sharedReviewSubmissions = allSubs.filter((s: any) => isRemarkRequiredSubmission(s as any));
+                const sharedReviewSubmissions = allSubs.filter((s: any) => activeTeacherIds.has(s.user_id) && isRemarkRequiredSubmission(s as any));
                 awaitingReview = sharedReviewSubmissions
                     .map((s: any) => ({
                         ...s,

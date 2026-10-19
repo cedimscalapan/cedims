@@ -9,6 +9,7 @@ export interface Profile {
     school_id: string | null;
     district_id: string | null;
     avatar_url: string | null;
+    is_active: boolean;
 }
 
 export const user = writable<User | null>(null);
@@ -18,6 +19,7 @@ export const isChangingPassword = writable<boolean>(false);
 
 let authInitialized = false;
 let authInitPromise: Promise<void> | null = null;
+let activeProfileChannel: ReturnType<typeof supabase.channel> | null = null;
 
 // Tracks which account last signed in on this browser, so the instant-cache
 // bootstrap in performAuthInit() never guesses from localStorage key order.
@@ -94,16 +96,22 @@ async function performAuthInit(): Promise<void> {
 
         if (session?.user) {
             user.set(session.user);
+            watchActiveProfile(session.user.id);
             await fetchProfile(session.user.id);
         }
 
         supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
             if (session?.user) {
                 user.set(session.user);
+                watchActiveProfile(session.user.id);
                 await fetchProfile(session.user.id);
             } else {
                 user.set(null);
                 profile.set(null);
+                if (activeProfileChannel) {
+                    void supabase.removeChannel(activeProfileChannel);
+                    activeProfileChannel = null;
+                }
             }
         });
 
@@ -114,6 +122,23 @@ async function performAuthInit(): Promise<void> {
     } finally {
         authLoading.set(false);
     }
+}
+
+function watchActiveProfile(userId: string): void {
+    if (activeProfileChannel) void supabase.removeChannel(activeProfileChannel);
+    activeProfileChannel = supabase
+        .channel(`active-profile-${userId}`)
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${userId}`,
+        }, (payload: any) => {
+            if (payload.new?.is_active === false) {
+                void fetchProfile(userId);
+            }
+        })
+        .subscribe();
 }
 
 async function fetchProfile(userId: string): Promise<void> {
@@ -135,7 +160,7 @@ async function fetchProfile(userId: string): Promise<void> {
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, full_name, role, school_id, district_id, avatar_url')
+            .select('id, full_name, role, school_id, district_id, avatar_url, is_active')
             .eq('id', userId)
             .single();
 
@@ -143,6 +168,15 @@ async function fetchProfile(userId: string): Promise<void> {
             console.error('Error fetching profile:', error.message);
             // If offline, we already set it from cache. If it's a real error (not just fetch), maybe don't clear it yet.
             if (navigator.onLine) profile.set(null);
+        } else if (data?.is_active === false) {
+            // A cached profile may have let the dashboard render while this
+            // request was in flight. Expire that local identity as soon as
+            // the authoritative profile confirms it has been deactivated.
+            localStorage.removeItem(CACHE_KEY);
+            if (localStorage.getItem(LAST_USER_KEY) === userId) localStorage.removeItem(LAST_USER_KEY);
+            profile.set(null);
+            user.set(null);
+            await supabase.auth.signOut();
         } else if (data) {
             profile.set(data as Profile);
             localStorage.setItem(CACHE_KEY, JSON.stringify(data));
@@ -155,10 +189,25 @@ async function fetchProfile(userId: string): Promise<void> {
 
 export async function signIn(email: string, password: string): Promise<{ error: string | null }> {
     try {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
             console.error('[v0] Sign in error:', error.message);
             return { error: error.message };
+        }
+        if (authData.user) {
+            const { data: accountProfile, error: profileError } = await supabase
+                .from('profiles')
+                .select('is_active')
+                .eq('id', authData.user.id)
+                .maybeSingle();
+            if (profileError || !accountProfile || accountProfile.is_active === false) {
+                await supabase.auth.signOut();
+                return {
+                    error: accountProfile?.is_active === false
+                        ? 'This account has been deactivated. Contact your administrator.'
+                        : 'Unable to verify this account. Please try again or contact your administrator.'
+                };
+            }
         }
         return { error: null };
     } catch (err) {

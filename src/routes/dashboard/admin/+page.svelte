@@ -317,10 +317,13 @@
         if (user.is_active && !confirm(`Deactivate user "${user.full_name}"? They will lose access to the system.`)) return;
         saving = true;
         const newStatus = !user.is_active;
-        const { error } = await supabase
-            .from("profiles")
-            .update({ is_active: newStatus })
-            .eq("id", user.id);
+        // This RPC atomically toggles the profile and soft-disables/restores
+        // only teaching loads that were active before this deactivation.
+        // Submission rows and their file/archive references are untouched.
+        const { error } = await supabase.rpc("set_user_active_status", {
+            p_user_id: user.id,
+            p_is_active: newStatus,
+        });
 
         if (error) {
             showMessage(
@@ -333,6 +336,7 @@
             });
             const idx = users.findIndex((u) => u.id === user.id);
             if (idx >= 0) users[idx].is_active = newStatus;
+            window.dispatchEvent(new CustomEvent("cedims:refresh-visible-route", { detail: { reason: "user-status-change" } }));
             showMessage(
                 `${user.full_name} ${newStatus ? "activated" : "deactivated"}`,
                 "success",

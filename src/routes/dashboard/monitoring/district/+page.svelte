@@ -126,6 +126,13 @@
           if (!loading) loadDistrictData();
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles" },
+        () => {
+          if (!loading) loadDistrictData();
+        },
+      )
       .subscribe();
   });
 
@@ -167,7 +174,7 @@
       .select(
         `
                 id, user_id, file_name, doc_type, compliance_status, created_at, week_number,
-                profiles!inner(school_id)
+                profiles!inner(school_id, is_active)
             `,
       )
       .in("profiles.school_id", schoolIds)
@@ -176,7 +183,7 @@
     // 3. Fetch teaching loads for all schools in district
     const { data: loadsData } = await supabase
       .from("teaching_loads")
-      .select("id, profiles!inner(school_id)")
+      .select("id, is_active, profiles!inner(school_id, is_active)")
       .in("profiles.school_id", schoolIds);
 
     // 4. Fetch Academic Calendar
@@ -201,12 +208,12 @@
     schools = schoolsData.map((school) => {
       const schoolSubmissions = (subsData || []).filter((s: any) => {
         const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
-        return p?.school_id === school.id;
+        return p?.school_id === school.id && p?.is_active !== false;
       });
 
       const schoolLoadsCount = (loadsData || []).filter((l: any) => {
         const p = Array.isArray(l.profiles) ? l.profiles[0] : l.profiles;
-        return p?.school_id === school.id;
+        return l.is_active !== false && p?.school_id === school.id && p?.is_active !== false;
       }).length;
 
       const stats = calculateCompliance(
@@ -221,7 +228,10 @@
       };
     });
 
-    allSubmissions = (subsData || []).map((s: any) => {
+    allSubmissions = (subsData || []).filter((s: any) => {
+      const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+      return p?.is_active !== false;
+    }).map((s: any) => {
       const p = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
       return {
         ...s,

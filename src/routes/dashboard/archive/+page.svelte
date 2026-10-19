@@ -27,7 +27,6 @@
         Trash2,
         X,
         ArrowLeft,
-        ArrowUpDown,
         ArrowRightLeft,
     } from "lucide-svelte";
     import { cacheMetadata, getCachedMetadata } from "$lib/utils/offline";
@@ -99,8 +98,8 @@ import { fetchAllRows } from "$lib/utils/compliance";
     // â"€â"€ Remarks & Review Status â"€â"€
     let reviewsMap = $state<Record<string, { reviewer_comment: string | null; status: string | null; return_reason: string | null; reviewer_id: string | null; reviewer_name: string | null }>>({});
     let statusFilter = $state<"all" | "for-checking" | "checked">("all");
-    let sortField = $state<"date" | "name" | "grade" | "size">("date");
-    let sortDir = $state<"asc" | "desc">("desc");
+    let archiveTerm = $state("all");
+    let archiveWeek = $state("all");
 
     let remarkModalOpen = $state(false);
     let remarkTarget = $state<Submission | null>(null);
@@ -151,6 +150,18 @@ import { fetchAllRows } from "$lib/utils/compliance";
         const grade = (sub.grade_level || "").trim();
         return grade || "Unassigned Grade";
     }
+
+    function isWeeklyArchive(sub: Submission): boolean {
+        return isLessonPlanDoc(sub.doc_type);
+    }
+
+    const availableArchiveTerms = $derived([...new Set(allSubmissions
+        .filter((sub) => isWeeklyArchive(sub))
+        .map((sub) => getTermFolderId(sub))
+        .filter((term) => term !== "unassigned"))].sort((a, b) => Number(a) - Number(b)));
+    const availableArchiveWeeks = $derived([...new Set(allSubmissions
+        .filter((sub) => isWeeklyArchive(sub) && sub.week_number != null && (archiveTerm === "all" || getTermFolderId(sub) === archiveTerm))
+        .map((sub) => Number(sub.week_number)))].sort((a, b) => a - b));
 
     function canAddRemarkToSubmission(sub: Submission): boolean {
         if (!$profile) return false;
@@ -768,21 +779,14 @@ import { fetchAllRows } from "$lib/utils/compliance";
                 return statusFilter === "checked" ? isChecked : !isChecked;
             });
         }
-        // Sort — keeps large document lists navigable instead of stuck in
-        // whatever order the database happened to return them.
-        filtered = [...filtered].sort((a, b) => {
-            let cmp = 0;
-            if (sortField === "date") {
-                cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-            } else if (sortField === "name") {
-                cmp = a.file_name.localeCompare(b.file_name);
-            } else if (sortField === "grade") {
-                cmp = getArchiveGrade(a).localeCompare(getArchiveGrade(b), undefined, { numeric: true });
-            } else if (sortField === "size") {
-                cmp = (a.file_size || 0) - (b.file_size || 0);
-            }
-            return sortDir === "asc" ? cmp : -cmp;
-        });
+        // Period filters apply only to weekly DLL/DLP submissions. ISP/ISR
+        // remain visible in the unfiltered archive, but have no term or week.
+        if (archiveTerm !== "all") {
+            filtered = filtered.filter((sub) => isWeeklyArchive(sub) && getTermFolderId(sub) === archiveTerm);
+        }
+        if (archiveWeek !== "all") {
+            filtered = filtered.filter((sub) => isWeeklyArchive(sub) && String(sub.week_number) === archiveWeek);
+        }
         return filtered;
     });
 
@@ -837,8 +841,8 @@ import { fetchAllRows } from "$lib/utils/compliance";
     $effect(() => {
         searchQuery;
         statusFilter;
-        sortField;
-        sortDir;
+        archiveTerm;
+        archiveWeek;
         currentPath;
         currentPage = 1;
         folderPage = 1;
@@ -1264,27 +1268,33 @@ import { fetchAllRows } from "$lib/utils/compliance";
             {/each}
         </div>
 
-        <!-- Sort -->
-        <div class="flex items-center gap-1 flex-shrink-0">
+        <!-- Academic period filters -->
+        <div class="flex flex-wrap items-center gap-2 flex-shrink-0" aria-label="Filter archives by academic period">
+            <span class="px-1 text-xs font-bold uppercase tracking-wide text-text-muted">Period</span>
             <select
-                bind:value={sortField}
-                aria-label="Sort files by"
-                class="px-3 py-2 text-sm font-bold bg-surface-muted border border-border-subtle rounded-lg outline-none focus:ring-2 focus:ring-gov-blue/30 focus:border-gov-blue"
+                value={archiveTerm}
+                aria-label="Filter archives by term"
+                onchange={(event) => { archiveTerm = event.currentTarget.value; archiveWeek = "all"; }}
+                class="min-h-10 min-w-32 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-sm font-semibold outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/30"
             >
-                <option value="date">Date</option>
-                <option value="name">Name</option>
-                <option value="grade">Grade</option>
-                <option value="size">Size</option>
+                <option value="all">All terms</option>
+                {#each availableArchiveTerms as term}
+                    <option value={String(term)}>Term {term}</option>
+                {/each}
             </select>
-            <button
-                type="button"
-                onclick={() => (sortDir = sortDir === "asc" ? "desc" : "asc")}
-                class="p-2 rounded-lg bg-surface-muted border border-border-subtle text-text-muted hover:text-gov-blue hover:border-gov-blue/30 transition-colors"
-                title={sortDir === "asc" ? "Ascending, click to reverse" : "Descending, click to reverse"}
-                aria-label="Toggle sort direction"
+            <select
+                bind:value={archiveWeek}
+                aria-label="Filter archives by week"
+                class="min-h-10 min-w-32 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-sm font-semibold outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/30"
             >
-                <ArrowUpDown size={16} class={sortDir === "asc" ? "" : "scale-y-[-1]"} />
-            </button>
+                <option value="all">All weeks</option>
+                {#each availableArchiveWeeks as week}
+                    <option value={String(week)}>Week {week}</option>
+                {/each}
+            </select>
+            {#if archiveTerm !== "all" || archiveWeek !== "all"}
+                <button type="button" class="min-h-10 rounded-lg px-2.5 text-sm font-semibold text-gov-blue hover:bg-gov-blue/5" onclick={() => { archiveTerm = "all"; archiveWeek = "all"; }}>Clear</button>
+            {/if}
         </div>
 
     </div>

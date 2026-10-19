@@ -18,7 +18,7 @@
     let offline = $state(false);
     type Snapshot = {
         teachers: { id: string; full_name: string; school_id: string }[];
-        submissionUsers: { id: string; full_name: string; school_id: string; role?: string | null }[];
+        submissionUsers: { id: string; full_name: string; school_id: string; role?: string | null; is_active?: boolean | null }[];
         schools: { id: string; name: string; district_id: string }[];
         loads: ComplianceLoad[]; calendar: CalendarSlot[]; submissions: ComplianceSubmission[];
         leaveRequests: LeaveRequest[];
@@ -51,7 +51,10 @@
         const selectedYear = year;
         refreshing = true;
         error = '';
-        const cacheKey = makeScopedCacheKey(`compliance_v2_${selectedYear}_${user.school_id}_${user.district_id}`, user.role, user.id);
+        // Bump the snapshot version when roster semantics change so an older
+        // cached roster (which may contain users deactivated since it was
+        // written) cannot reintroduce them as missing compliance rows.
+        const cacheKey = makeScopedCacheKey(`compliance_v3_${selectedYear}_${user.school_id}_${user.district_id}`, user.role, user.id);
         try {
             const schools = await fetchAllRows<Snapshot['schools'][number]>(() => {
                 let q = supabase.from('schools').select('id, name, district_id').order('id');
@@ -61,10 +64,14 @@
             });
             const schoolIds = schools.map(s => s.id);
             const submissionUsers = await fetchRowsForIds<Snapshot['submissionUsers'][number]>(schoolIds, batch => supabase.from('profiles')
-                .select('id, full_name, school_id, role').in('school_id', batch).in('role', ['Teacher', 'Master Teacher', 'School Head']).order('id'));
-            const teachers = submissionUsers.filter(user => user.role === 'Teacher' || user.role === 'Master Teacher').map(({ id, full_name, school_id }) => ({ id, full_name, school_id }));
+                .select('id, full_name, school_id, role, is_active').in('school_id', batch).in('role', ['Teacher', 'Master Teacher', 'School Head']).order('id'));
+            // Deactivated accounts stay in Archives, but are no longer part of
+            // compliance rosters, deadlines, or review counts. Null remains
+            // active for compatibility with older profile rows.
+            const activeSubmissionUsers = submissionUsers.filter(user => user.is_active !== false);
+            const teachers = activeSubmissionUsers.filter(user => user.role === 'Teacher' || user.role === 'Master Teacher').map(({ id, full_name, school_id }) => ({ id, full_name, school_id }));
             const ids = teachers.map(t => t.id);
-            const submissionUserIds = submissionUsers.map(t => t.id);
+            const submissionUserIds = activeSubmissionUsers.map(t => t.id);
             const [loads, submissions, calendar, leaveRequests] = await Promise.all([
                 fetchRowsForIds<ComplianceLoad>(ids, batch => supabase.from('teaching_loads').select('id, user_id, subject, grade_level, is_active').in('user_id', batch).eq('is_active', true).order('id')),
                 fetchRowsForIds<ComplianceSubmission>(submissionUserIds, batch => supabase.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at, subject').in('user_id', batch).eq('school_year', selectedYear).in('doc_type', ['DLL', 'DLP', 'ISP', 'ISR']).order('id')),
@@ -77,7 +84,7 @@
                 reviews.push(...await fetchAllRows<Snapshot['reviews'][number]>(() => supabase.from('dll_reviews').select('submission_id, status, reviewer_comment').in('submission_id', submissions.slice(i, i + reviewBatchSize).map(s => s.id)).order('id')));
             }
             if (request !== run) return;
-            data = { schools, teachers, submissionUsers, loads, submissions, calendar, leaveRequests, reviews, savedAt: new Date().toISOString() };
+            data = { schools, teachers, submissionUsers: activeSubmissionUsers, loads, submissions, calendar, leaveRequests, reviews, savedAt: new Date().toISOString() };
             cachedAt = '';
             await writeLocalData(cacheKey, data);
         } catch (e) {
@@ -116,7 +123,7 @@
         let channel: ReturnType<typeof supabase.channel> | null = null;
         if (shouldUseRealtime()) {
             channel = supabase.channel('compliance-workspace');
-            for (const table of ['submissions', 'dll_reviews', 'submission_leave_requests']) {
+            for (const table of ['submissions', 'dll_reviews', 'submission_leave_requests', 'profiles']) {
                 channel.on('postgres_changes', { event: '*', schema: 'public', table }, refresh);
             }
             channel.subscribe();

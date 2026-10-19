@@ -963,10 +963,10 @@ async function queryCompliance(
         schools = (schoolRows || []) as any[];
         const { data: teacherIds } = await db
             .from('profiles')
-            .select('id, full_name, school_id')
+            .select('id, full_name, school_id, is_active')
             .eq('school_id', profile.school_id);
-        if (!teacherIds || teacherIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa paaralan ninyo.' : 'No teachers found in your school.';
-        teacherScope = teacherIds as any[];
+        teacherScope = (teacherIds || []).filter((teacher: any) => teacher.is_active !== false) as any[];
+        if (teacherScope.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa paaralan ninyo.' : 'No active teachers found in your school.';
         scopeLabel = lang === 'tl' ? 'Ang compliance ng paaralan ninyo' : 'Your school\'s';
     } else if (role === 'District Supervisor' && districtId) {
         const { data: schoolIds } = await db
@@ -977,10 +977,10 @@ async function queryCompliance(
         schools = schoolIds as any[];
         const { data: teacherIds } = await db
             .from('profiles')
-            .select('id, full_name, school_id')
+            .select('id, full_name, school_id, is_active')
             .in('school_id', schoolIds.map((s: any) => s.id));
-        if (!teacherIds || teacherIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa distrito ninyo.' : 'No teachers found in your district.';
-        teacherScope = teacherIds as any[];
+        teacherScope = (teacherIds || []).filter((teacher: any) => teacher.is_active !== false) as any[];
+        if (teacherScope.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa distrito ninyo.' : 'No active teachers found in your district.';
         scopeLabel = lang === 'tl' ? 'Ang compliance ng distrito ninyo' : 'Your district\'s';
     } else {
         return lang === 'tl' ? 'Hindi ma-determine ang scope ninyo. Mag-login gamit ang valid na account.' : 'Unable to determine your scope. Please log in with a valid account.';
@@ -1229,17 +1229,18 @@ async function querySchoolCompare(
     const schoolIds = (schools as any[]).map((s: any) => s.id);
     const { data: teachers } = await db
         .from('profiles')
-        .select('id, school_id')
+        .select('id, school_id, is_active')
         .in('role', ['Teacher', 'Master Teacher'])
         .in('school_id', schoolIds);
 
-    if (!teachers || teachers.length === 0) {
-        return lang === 'tl' ? 'Walang nahanap na guro sa mga paaralang ito.' : 'No teachers found in these schools.';
+    const activeTeachers = (teachers || []).filter((teacher: any) => teacher.is_active !== false);
+    if (activeTeachers.length === 0) {
+        return lang === 'tl' ? 'Walang nahanap na aktibong guro sa mga paaralang ito.' : 'No active teachers found in these schools.';
     }
 
     // Match ComplianceWorkspace: current-year DLL/DLP requirements, not raw
     // uploaded-file totals.
-    const teacherIds = (teachers as any[]).map((t: any) => t.id);
+    const teacherIds = activeTeachers.map((t: any) => t.id);
     const schoolYear = getDynamicSchoolYear();
     const [{ data: loads }, { data: calendar }, { data: submissions }] = await Promise.all([
         db.from('teaching_loads').select('id, user_id, subject, grade_level, is_active')
@@ -1254,7 +1255,7 @@ async function querySchoolCompare(
     const schoolMap = new Map<string, { expected: number; submitted: number; missing: number; rate: number | null }>();
     const scoped = scopedCalendar((calendar || []) as CalendarSlot[], effectiveDistrictId);
     for (const school of schools as any[]) {
-        const schoolTeachers = (teachers as any[]).filter(t => t.school_id === school.id);
+        const schoolTeachers = activeTeachers.filter(t => t.school_id === school.id);
         const schoolRequirements = schoolTeachers.flatMap(t => buildRequirements(
             ((loads || []) as ComplianceLoad[]).filter(l => l.user_id === t.id),
             scoped,
@@ -1308,7 +1309,7 @@ async function queryTeacherStats(
     const role = profile?.role;
     if (!userId) return lang === 'tl' ? 'Mangyaring mag-sign in upang makita ang teacher statistics.' : 'Please log in to view teacher statistics.';
 
-    let userQuery = db.from('profiles').select('id, full_name, school_id, role');
+    let userQuery = db.from('profiles').select('id, full_name, school_id, role, is_active');
 
     if (slots.teacher) {
         userQuery = userQuery.ilike('full_name', `%${slots.teacher}%`);
@@ -1340,8 +1341,9 @@ async function queryTeacherStats(
         }
     }
 
-    const { data: teachers, error: tErr } = await userQuery;
-    if (tErr || !teachers || teachers.length === 0) {
+    const { data: teacherRows, error: tErr } = await userQuery;
+    const teachers = (teacherRows || []).filter((teacher: any) => teacher.is_active !== false);
+    if (tErr || teachers.length === 0) {
         if (slots.teacher) return lang === 'tl' ? `Walang nahanap na guro na "${slots.teacher}".` : `I couldn't find a teacher named "${slots.teacher}".`;
         return lang === 'tl' ? 'Walang nahanap na guro.' : 'No teachers found.';
     }

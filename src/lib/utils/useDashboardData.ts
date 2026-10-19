@@ -386,7 +386,7 @@ export async function markNonCompliantSubmissions(
     // Teachers in scope
     let teacherQuery = supabase
       .from('profiles')
-      .select('id, full_name, school_id')
+      .select('id, full_name, school_id, is_active')
       .in('role', ['Teacher', 'Master Teacher']);
 
     if (userId) {
@@ -400,8 +400,9 @@ export async function markNonCompliantSubmissions(
       }
     }
 
-    const { data: teachers, error: teacherError } = await teacherQuery;
-    if (teacherError || !teachers || teachers.length === 0) return 0;
+    const { data: teacherRows, error: teacherError } = await teacherQuery;
+    const teachers = (teacherRows || []).filter((teacher: any) => teacher.is_active !== false);
+    if (teacherError || teachers.length === 0) return 0;
 
     const teacherIds = teachers.map((t: any) => t.id);
 
