@@ -24,6 +24,7 @@ export interface PipelineOptions {
     weekNumber?: number;
     schoolYear?: string;
     subject?: string;
+    schoolName?: string;
     calendarId?: string;
     teachingLoadId?: string;
     enforceOcr?: boolean;

@@ -3,6 +3,7 @@
     import { profile } from '$lib/utils/auth';
     import { supabase } from '$lib/utils/supabase';
     import { buildRequirements, scopedCalendar, summarizeRequirements } from '$lib/utils/compliance';
+    import { effectiveDeadlineForSubject } from '$lib/utils/deadlineRules';
     export let submissions: any[] = [];
     export let teachingLoads: any[] = [];
     export let calendarWeeks: any[] = [];
@@ -34,6 +35,10 @@
         if (row.status === 'on-leave') return 'On Leave / Excluded';
         if (row.status === 'leave-rejected') return 'Leave rejected';
         return 'Upcoming';
+    }
+    function formatDeadline(row: any) {
+        return effectiveDeadlineForSubject(row.calendar.deadline_date, row.load.subject, row.load.school_name)
+            .toLocaleString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     }
     function openLeave(row: any) {
         requesting = row;
@@ -77,7 +82,7 @@
     <p class="formula">Completion: {summary.rate === null ? 'N/A' : `${summary.rate}%`} ({summary.submitted} / {summary.expected}). Approved leave is excluded from expected submissions.</p>
     <div class="scroll"><table><thead><tr><th>Term</th><th>Week</th><th>Subject / Grade</th><th>Deadline</th><th>Status</th><th></th></tr></thead><tbody>
         {#each rows.slice((page - 1) * size, page * size) as row}
-            <tr><td>{row.calendar.term}</td><td>{row.calendar.week_number}</td><th scope="row">{row.load.subject}<small>{row.load.grade_level}</small></th><td>{new Date(row.calendar.deadline_date).toLocaleDateString('en-PH')}</td><td class:missing={row.status === 'missing'} class:leave={row.status === 'on-leave' || row.status === 'leave-requested'}>{label(row)}</td><td class="actions">{#if !row.submission && row.status !== 'on-leave'}<a class="text-action primary-action" href="/dashboard/upload">Upload DLL</a>{#if row.status !== 'leave-requested'}<button class="text-action" type="button" on:click={() => openLeave(row)}>Request leave</button>{/if}{/if}</td></tr>
+            <tr><td>{row.calendar.term}</td><td>{row.calendar.week_number}</td><th scope="row">{row.load.subject}<small>{row.load.grade_level}</small></th><td>{formatDeadline(row)}</td><td class:missing={row.status === 'missing'} class:leave={row.status === 'on-leave' || row.status === 'leave-requested'}>{label(row)}</td><td class="actions">{#if !row.submission && row.status !== 'on-leave'}<a class="text-action primary-action" href="/dashboard/upload">Upload DLL</a>{#if row.status !== 'leave-requested'}<button class="text-action" type="button" on:click={() => openLeave(row)}>Request leave</button>{/if}{/if}</td></tr>
         {/each}
     </tbody></table></div>
     {#if rows.length === 0}<p class="empty">No requirements match this view.</p>{/if}

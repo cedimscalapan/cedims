@@ -72,12 +72,15 @@
             const teachers = activeSubmissionUsers.filter(user => user.role === 'Teacher' || user.role === 'Master Teacher').map(({ id, full_name, school_id }) => ({ id, full_name, school_id }));
             const ids = teachers.map(t => t.id);
             const submissionUserIds = activeSubmissionUsers.map(t => t.id);
-            const [loads, submissions, calendar, leaveRequests] = await Promise.all([
+            const [rawLoads, submissions, calendar, leaveRequests] = await Promise.all([
                 fetchRowsForIds<ComplianceLoad>(ids, batch => supabase.from('teaching_loads').select('id, user_id, subject, grade_level, is_active').in('user_id', batch).eq('is_active', true).order('id')),
                 fetchRowsForIds<ComplianceSubmission>(submissionUserIds, batch => supabase.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at, subject').in('user_id', batch).eq('school_year', selectedYear).in('doc_type', ['DLL', 'DLP', 'ISP', 'ISR']).order('id')),
                 fetchAllRows<CalendarSlot>(() => supabase.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active').eq('school_year', selectedYear).order('id')),
                 fetchRowsForIds<LeaveRequest>(submissionUserIds, batch => supabase.from('submission_leave_requests').select('*').in('user_id', batch).eq('school_year', selectedYear).order('created_at', { ascending: false })),
             ]);
+            const schoolNames = new Map(schools.map(school => [school.id, school.name]));
+            const schoolByUser = new Map(activeSubmissionUsers.map(user => [user.id, schoolNames.get(user.school_id) || null]));
+            const loads = rawLoads.map(load => ({ ...load, school_name: schoolByUser.get(load.user_id) || null }));
             const reviews: Snapshot['reviews'] = [];
             const reviewBatchSize = 25;
             for (let i = 0; i < submissions.length; i += reviewBatchSize) {

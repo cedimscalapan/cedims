@@ -398,7 +398,7 @@ async function* runOnlinePipelineResilient(
     // (same teaching load + week + doc type). If so, mark it 'supplementary'
     // so it is archived but does not affect compliance / missing / late / rate.
     let complianceStatus: 'compliant' | 'late' | 'supplementary' = isWeeklyComplianceDocType(activeDocType)
-        ? calculateComplianceStatus(new Date(), deadlineDate, options.subject)
+        ? calculateComplianceStatus(new Date(), deadlineDate, options.subject, options.schoolName)
         : 'supplementary';
     if (isWeeklyComplianceDocType(activeDocType) && options.teachingLoadId && activeWeekNumber) {
       try {
@@ -522,6 +522,7 @@ async function* runOfflinePipelineResilient(
             weekNumber: activeWeekNumber,
             schoolYear: options.schoolYear || getCurrentSchoolYear(),
             subject: options.subject,
+            schoolName: options.schoolName,
             calendarId: calendarId ?? undefined,
             teachingLoadId: options.teachingLoadId
         },

@@ -559,6 +559,8 @@
             );
 
         const loads = loadsData || [];
+        const schoolNameByUser = new Map(teachersWithNames.map((teacher: any) => [teacher.id, teacher.school_name]));
+        const loadsWithSchools = loads.map((load: any) => ({ ...load, school_name: schoolNameByUser.get(load.user_id) || null }));
         // Only weeks actually opened count toward "expected" — matches the
         // semantics used everywhere else (getDefinedWeeksCount, District
         // Monitoring's currentDefinedWeeks).
@@ -580,7 +582,7 @@
         // come out with different compliant/missing counts here than on
         // School Monitoring for the exact same data.
         const loadsByTeacher: Record<string, any[]> = {};
-        for (const l of loads) {
+        for (const l of loadsWithSchools) {
             (loadsByTeacher[l.user_id] ||= []).push(l);
         }
         activeTeachingLoads = loadsByTeacher[userProfile.id] || [];
@@ -647,7 +649,7 @@
                 // DLP/DLL upload is included in the review queue.
                 const sharedCalendar = scopedCalendar(calendarArr as any, userProfile.district_id);
                 const allRequirementRows = buildRequirements(
-                    loads as any,
+                    loadsWithSchools as any,
                     sharedCalendar as any,
                     complianceSubs as any,
                     reviews as any,

@@ -41,6 +41,7 @@
     import { formatDocumentList, getDocumentLabel } from "$lib/utils/documentLabels";
     import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
     import { isWeeklyComplianceDocType } from "$lib/utils/compliance";
+    import { effectiveDeadlineForSubject } from "$lib/utils/deadlineRules";
 
     import type { PageData } from "./$types";
 
@@ -110,6 +111,20 @@
     let showTermPicker = $state(false);
     let showWeekPicker = $state(false);
     let calendarEntries = $state<CalendarEntry[]>([]);
+    let uploaderSchoolName = $state('');
+    function formatCurrentDeadline(deadlineDate: string) {
+        const deadline = isWeeklyComplianceDocType(docType)
+            ? effectiveDeadlineForSubject(deadlineDate, subject, uploaderSchoolName)
+            : new Date(deadlineDate);
+        return deadline.toLocaleString("en-PH", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+        });
+    }
     const academicTerms = [
         { value: 1, label: "Term 1" },
         { value: 2, label: "Term 2" },
@@ -395,6 +410,11 @@
         loadingTeachingLoads = true;
 
         let loads: TeachingLoad[] = [];
+        uploaderSchoolName = '';
+        if (userProfile.school_id) {
+            const { data: school } = await supabase.from('schools').select('name').eq('id', userProfile.school_id).maybeSingle();
+            uploaderSchoolName = school?.name || '';
+        }
         if (navigator.onLine) {
             const { data, error } = await supabase
                 .from("teaching_loads")
@@ -886,6 +906,7 @@
             userRole: $profile!.role,
             docType,
             subject: subject || undefined,
+            schoolName: uploaderSchoolName || undefined,
             termNumber: isWeeklyComplianceDocType(docType) ? termNumber : undefined,
             weekNumber: isWeeklyComplianceDocType(docType) ? weekNumber : undefined,
             calendarId: openCalendarEntry?.id,
@@ -1018,13 +1039,7 @@
                 <div
                     class="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gov-blue/5 border border-gov-blue/10 text-xs font-semibold text-gov-blue"
                 >
-                    Deadline: {new Date(
-                        currentDeadline.deadline_date,
-                    ).toLocaleDateString("en-PH", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                    })}
+                    Deadline: {formatCurrentDeadline(currentDeadline.deadline_date)}
                     {#if currentDeadline.week_number}
                         Â· Week {currentDeadline.week_number}
                     {/if}

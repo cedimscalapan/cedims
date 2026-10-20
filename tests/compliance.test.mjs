@@ -6,7 +6,7 @@ const compilerOptions = { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.
 const deadlineCode = ts.transpileModule(readFileSync(new URL('../src/lib/utils/deadlineRules.ts', import.meta.url), 'utf8'), { compilerOptions }).outputText;
 const deadlineModuleUrl = `data:text/javascript;base64,${Buffer.from(deadlineCode).toString('base64')}`;
 const complianceSource = readFileSync(new URL('../src/lib/utils/compliance.ts', import.meta.url), 'utf8')
-    .replace("import { effectiveDeadlineForSubject } from './deadlineRules';", `import { effectiveDeadlineForSubject } from '${deadlineModuleUrl}';`);
+    .replace("import { effectiveDeadlineForSubject, isFridayTenHgp } from './deadlineRules';", `import { effectiveDeadlineForSubject, isFridayTenHgp } from '${deadlineModuleUrl}';`);
 const code = ts.transpileModule(complianceSource, { compilerOptions }).outputText;
 const { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, documentTypeCounts, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange, isWeeklyComplianceDocType } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const now = Date.parse('2026-09-27T12:00:00Z');
@@ -17,6 +17,29 @@ test('current period selects next deadline and falls back to final scheduled wee
     assert.deepEqual(currentCompliancePeriod(calendar, now), { term: '3', week: '1' });
     assert.deepEqual(currentCompliancePeriod(calendar, Date.parse('2030-01-01')), { term: '3', week: '1' });
     assert.deepEqual(currentCompliancePeriod([], now), { term: 'all', week: 'all' });
+});
+test('only Bulusan and Guinobatan HGP are due Friday at 10 AM Manila time', async () => {
+    const { effectiveDeadlineForSubject } = await import(deadlineModuleUrl);
+    const monday = '2026-10-19T02:00:00.000Z';
+    assert.equal(effectiveDeadlineForSubject(monday, 'HGP', 'Bulusan Elementary School').toISOString(), '2026-10-23T02:00:00.000Z');
+    assert.equal(effectiveDeadlineForSubject(monday, 'HGP', 'Guinobatan Elementary School').toISOString(), '2026-10-23T02:00:00.000Z');
+    assert.equal(effectiveDeadlineForSubject(monday, 'HGP', 'Guinobatan ES').toISOString(), '2026-10-23T02:00:00.000Z');
+    assert.equal(effectiveDeadlineForSubject(monday, 'HGP', 'Ibaba Elementary School').toISOString(), '2026-10-20T02:00:00.000Z');
+    assert.equal(effectiveDeadlineForSubject(monday, 'HGP', 'Salong Elementary School').toISOString(), '2026-10-20T02:00:00.000Z');
+    assert.equal(effectiveDeadlineForSubject(monday, 'MAPEH', 'Bulusan Elementary School').toISOString(), '2026-10-20T02:00:00.000Z');
+});
+test('Bulusan HGP uploads remain on time through Friday while other school rules stay intact', () => {
+    const week = { ...calendar[0], term: 1, week_number: 1, deadline_date: '2026-10-19T02:00:00Z' };
+    const hgpLoad = { ...load, subject: 'HGP', school_name: 'Bulusan Elementary School' };
+    const submission = { ...sub, term_number: 1, week_number: 1, created_at: '2026-10-20T03:00:00Z', compliance_status: 'late' };
+    const rows = buildRequirements([hgpLoad], [week], [submission]);
+    assert.equal(rows[0].status, 'on-time');
+    const otherSchoolRows = buildRequirements([{ ...hgpLoad, school_name: 'Salong Elementary School' }], [week], [submission]);
+    assert.equal(otherSchoolRows[0].status, 'late');
+
+    const guinobatanLoad = { ...hgpLoad, school_name: 'Guinobatan Elementary School' };
+    const guinobatanRows = buildRequirements([guinobatanLoad], [week], [submission]);
+    assert.equal(guinobatanRows[0].status, 'on-time');
 });
 test('comparison crosses term boundaries and excludes aggregate/first periods', () => {
     const rows = buildRequirements([load], calendar, [sub], [], now);

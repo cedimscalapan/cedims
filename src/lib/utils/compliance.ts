@@ -1,11 +1,11 @@
-import { effectiveDeadlineForSubject } from './deadlineRules';
+import { effectiveDeadlineForSubject, isFridayTenHgp } from './deadlineRules';
 
 export interface CalendarSlot {
     id: string; school_year: string; term: number; week_number: number;
     deadline_date: string; district_id?: string | null; is_active?: boolean;
 }
 export interface ComplianceLoad {
-    id: string; user_id: string; subject: string; grade_level?: string; is_active?: boolean;
+    id: string; user_id: string; subject: string; grade_level?: string; is_active?: boolean; school_name?: string | null;
 }
 export interface ComplianceSubmission {
     id: string; user_id?: string; teaching_load_id?: string | null; school_year?: string | null;
@@ -148,8 +148,12 @@ export function buildRequirements(
         });
         const submission = matching.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0];
         const review = submission ? reviewMap.get(submission.id) : undefined;
-        const effectiveDeadline = effectiveDeadlineForSubject(c.deadline_date, load.subject);
-        const status = submission ? (submission.compliance_status === 'late' ? 'late' : 'on-time')
+        const effectiveDeadline = effectiveDeadlineForSubject(c.deadline_date, load.subject, load.school_name);
+        const status = submission ? (
+            isFridayTenHgp(load.subject, load.school_name)
+                ? (submission.created_at && Date.parse(submission.created_at) > effectiveDeadline.getTime() ? 'late' : 'on-time')
+                : submission.compliance_status === 'late' ? 'late' : 'on-time'
+        )
             : leaveRequest?.status === 'approved' ? 'on-leave'
                 : leaveRequest?.status === 'pending' ? 'leave-requested'
                     : leaveRequest?.status === 'rejected' ? 'leave-rejected'
@@ -168,8 +172,8 @@ export function summarizeRequirements(rows: Requirement[], now = Date.now(), cou
     const missing = countedRows.filter(r => r.status === 'missing' || (countOpenAsMissing && !r.submission && r.status !== 'upcoming')).length;
     const upcoming = countedRows.filter(r => r.status === 'upcoming').length;
     const expected = countedRows.length;
-    const due = countedRows.filter(r => effectiveDeadlineForSubject(r.calendar.deadline_date, r.load.subject).getTime() <= now).length;
-    const dueSubmitted = countedRows.filter(r => r.submission && effectiveDeadlineForSubject(r.calendar.deadline_date, r.load.subject).getTime() <= now).length;
+    const due = countedRows.filter(r => effectiveDeadlineForSubject(r.calendar.deadline_date, r.load.subject, r.load.school_name).getTime() <= now).length;
+    const dueSubmitted = countedRows.filter(r => r.submission && effectiveDeadlineForSubject(r.calendar.deadline_date, r.load.subject, r.load.school_name).getTime() <= now).length;
     return {
         expected, submitted, missing, upcoming,
         onLeave: rows.filter(r => r.status === 'on-leave').length,

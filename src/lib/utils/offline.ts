@@ -289,6 +289,7 @@ export interface QueueItem {
         weekNumber?: number;
         schoolYear?: string;
         subject?: string;
+        schoolName?: string;
         calendarId?: string;
         teachingLoadId?: string;
     };
@@ -589,13 +590,18 @@ export async function processQueue(force = false): Promise<{ success: number; fa
 
                 // ── Fetch deadline for compliance + calendar_id ──
                 let deadlineDate: Date | undefined;
+                let schoolName = item.options.schoolName;
                 let calendarId = isWeeklyComplianceUpload ? item.options.calendarId || null : null;
-                if (isWeeklyComplianceUpload && calendarId) {
-                    const { data } = await supabase.from('academic_calendar').select('deadline_date').eq('id', calendarId).single();
-                    if (data?.deadline_date) deadlineDate = new Date(data.deadline_date);
-                } else if (isWeeklyComplianceUpload && item.options.weekNumber) {
-                    const { data: profileData } = await supabase.from('profiles').select('district_id').eq('id', item.options.userId).single();
-                    if (profileData?.district_id) {
+                if (isWeeklyComplianceUpload) {
+                    const { data: profileData } = await supabase.from('profiles').select('district_id, school_id').eq('id', item.options.userId).single();
+                    if (!schoolName && profileData?.school_id) {
+                        const { data: school } = await supabase.from('schools').select('name').eq('id', profileData.school_id).maybeSingle();
+                        schoolName = school?.name;
+                    }
+                    if (calendarId) {
+                        const { data } = await supabase.from('academic_calendar').select('deadline_date').eq('id', calendarId).single();
+                        if (data?.deadline_date) deadlineDate = new Date(data.deadline_date);
+                    } else if (item.options.weekNumber && profileData?.district_id) {
                         let calendarQuery = supabase
                             .from('academic_calendar')
                             .select('id, deadline_date, is_active')
@@ -629,7 +635,7 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 // this queue silently, that would have the app report success
                 // and then quietly mark the submission late.
                 let complianceStatus: 'compliant' | 'late' | 'supplementary' = isWeeklyComplianceUpload
-                    ? calculateComplianceStatus(new Date(item.timestamp), deadlineDate, item.options.subject)
+                    ? calculateComplianceStatus(new Date(item.timestamp), deadlineDate, item.options.subject, schoolName)
                     : 'supplementary';
                 if (isWeeklyComplianceUpload && item.options.teachingLoadId && item.options.weekNumber) {
                     try {
@@ -749,12 +755,13 @@ export async function processQueue(force = false): Promise<{ success: number; fa
 export function calculateComplianceStatus(
     submissionDate: Date,
     deadlineDate?: Date,
-    subject?: string | null
+    subject?: string | null,
+    schoolName?: string | null
 ): 'compliant' | 'late' {
     const now = submissionDate;
 
     if (deadlineDate) {
-        const deadline = effectiveDeadlineForSubject(deadlineDate, subject);
+        const deadline = effectiveDeadlineForSubject(deadlineDate, subject, schoolName);
 
         // Submitted on or before 10:00 AM on the due date -> compliant;
         // after that exact cutoff -> late.

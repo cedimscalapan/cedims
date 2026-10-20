@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import { effectiveDeadlineForSubject } from '$lib/utils/deadlineRules';
     import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission } from '$lib/utils/compliance';
     import { supabase } from '$lib/utils/supabase';
     import { profile } from '$lib/utils/auth';
@@ -206,6 +207,10 @@
     }
     function teacherName(id: string) { return teachers.find(t => t.id === id)?.full_name || 'Unknown teacher'; }
     function schoolName(id: string) { return schools.find(s => s.id === id)?.name || 'Unassigned school'; }
+    function formatRequirementDeadline(requirement: Requirement) {
+        return effectiveDeadlineForSubject(requirement.calendar.deadline_date, requirement.load.subject, requirement.load.school_name)
+            .toLocaleString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
     function clusterLabelFor(id: string) { return clusterMap.get(id) || ''; }
     function docColor(label: string) { return label === 'DLP' ? 'var(--color-gov-blue)' : label === 'ISP' ? 'var(--color-gov-green)' : 'var(--color-gov-gold)'; }
     function requirementLabel(r: Requirement) {
@@ -270,7 +275,7 @@
             for (const r of scoped) {
                 const teacherSchoolId = teachers.find(t => t.id === r.teacherId)?.school_id || '';
                 const clusterLabel = districtOverview ? clusterMap.get(teacherSchoolId) || '' : clusterMap.get(r.teacherId) || '';
-                details.addRow([year, teacherName(r.teacherId), schoolName(teacherSchoolId), r.load.subject, r.load.grade_level, r.calendar.term, r.calendar.week_number, r.calendar.deadline_date, r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late, submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming', r.review === 'none' ? '-' : r.review === 'for-checking' ? 'For checking' : r.review === 'checked' ? 'Checked' : 'None', r.submission?.created_at || '', r.submission?.id || '', clusterLabel]);
+                details.addRow([year, teacherName(r.teacherId), schoolName(teacherSchoolId), r.load.subject, r.load.grade_level, r.calendar.term, r.calendar.week_number, formatRequirementDeadline(r), r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late, submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming', r.review === 'none' ? '-' : r.review === 'for-checking' ? 'For checking' : r.review === 'checked' ? 'Checked' : 'None', r.submission?.created_at || '', r.submission?.id || '', clusterLabel]);
             }
             for (const sheet of book.worksheets) {
                 sheet.views = [{ state: 'frozen', ySplit: 1 }];
@@ -495,7 +500,7 @@
             {:else}
                 {#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
                     <article>
-                        <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {new Date(r.calendar.deadline_date).toLocaleDateString('en-PH')}</small></div>
+                        <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {formatRequirementDeadline(r)}</small></div>
                         <div class="status-pill" class:missing={r.status === 'missing' || (countOpenAsMissing && !r.submission && r.status !== 'on-leave' && r.status !== 'leave-requested')} class:leave={r.status === 'on-leave' || r.status === 'leave-requested'}>{requirementLabel(r)}</div>
                         {#if r.leaveRequest?.status === 'pending'}
                             <div class="leave-actions">
