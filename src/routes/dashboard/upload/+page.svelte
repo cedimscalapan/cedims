@@ -72,6 +72,7 @@
     let selectedFile = $state<File | null>(null);
     let docType = $state("DLL");
     let allowedDocTypes = $state<string[]>([]);
+    let docTypeManuallySelected = $state(false);
     let subject = $state("");
     let termNumber = $state<number | undefined>();
     let weekNumber = $state<number | undefined>();
@@ -112,8 +113,9 @@
     let showWeekPicker = $state(false);
     let calendarEntries = $state<CalendarEntry[]>([]);
     let uploaderSchoolName = $state('');
-    function setDocType(nextType: string) {
+    function setDocType(nextType: string, manual = true) {
         docType = nextType;
+        if (manual) docTypeManuallySelected = true;
         targetConfirmed = false;
         if (!isWeeklyComplianceDocType(nextType)) {
             termNumber = undefined;
@@ -713,7 +715,7 @@
 
             // OCR may update the suggested target, but the final archive
             // destination is not committed until the confirmation form.
-            if (metadata.docType !== "Unknown") setDocType(metadata.docType);
+            if (!docTypeManuallySelected && metadata.docType !== "Unknown") setDocType(metadata.docType, false);
 
             // Only auto-fill week number and teaching load for DLL documents
             if (docType === "DLL") {
@@ -952,8 +954,8 @@
                 message = event.message;
 
                 if (event.metadata) {
-                    if (event.metadata.docType !== "Unknown")
-                        setDocType(event.metadata.docType);
+                    if (!docTypeManuallySelected && event.metadata.docType !== "Unknown")
+                        setDocType(event.metadata.docType, false);
                     if (isWeeklyComplianceDocType(docType) && event.metadata.weekNumber)
                         weekNumber = event.metadata.weekNumber;
                     if (isWeeklyComplianceDocType(docType) && event.metadata.termNumber)
@@ -1011,6 +1013,7 @@
         result = null;
         detectedMetadata = null;
         ocrConfidence = null;
+        docTypeManuallySelected = false;
     }
 
     function handleViewArchive() {
@@ -1158,6 +1161,21 @@
     <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.75fr)] gap-4 items-start">
         <!-- Upload Area -->
         <div class="space-y-4">
+            {#if allowedDocTypes.length > 1}
+                <section class="gov-card-static p-4" aria-labelledby="upload-type-heading">
+                    <div class="mb-3">
+                        <h2 id="upload-type-heading" class="text-sm font-bold text-text-primary">1. Choose document type</h2>
+                        <p class="mt-1 text-xs text-text-muted">Choose what you’re uploading first. We’ll scan the file and prefill the details for you to confirm.</p>
+                    </div>
+                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {#each allowedDocTypes as type}
+                            <button type="button" aria-pressed={docType === type} onclick={() => setDocType(type)} class="min-h-11 rounded-lg border px-4 py-2 text-left text-sm font-bold transition-colors {docType === type ? 'border-gov-blue bg-gov-blue/5 text-gov-blue ring-1 ring-gov-blue' : 'border-border-subtle bg-surface-white text-text-primary hover:border-gov-blue'}">
+                                {getDocumentLabel(type)}
+                            </button>
+                        {/each}
+                    </div>
+                </section>
+            {/if}
             <!-- File Drop Zone -->
             <FileDropZone
                 onfileselected={onFileSelected}
@@ -1338,34 +1356,6 @@
                             {/if}
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <!-- Doc Type -->
-                                <div class="space-y-2">
-                                    <span
-                                        class="text-xs font-bold text-text-muted uppercase tracking-wide ml-1"
-                                        >Document Type</span
-                                    >
-                                    <div
-                                        class="flex p-1.5 bg-surface-muted border border-border-subtle rounded-md"
-                                    >
-                                        {#each allowedDocTypes as type}
-                                            <button
-                                                onclick={() => setDocType(type)}
-                                                class="flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors {docType ===
-                                                type
-                                                    ? 'bg-surface-white text-gov-blue shadow-sm'
-                                                    : 'text-text-muted hover:text-text-primary'}"
-                                            >
-                                                {getDocumentLabel(type)}
-                                            </button>
-                                        {/each}
-                                        {#if allowedDocTypes.length === 0}
-                                            <div class="flex-1 py-3 px-4 text-sm font-semibold text-text-muted">
-                                                No upload access
-                                            </div>
-                                        {/if}
-                                    </div>
-                                </div>
-
                                 {#if docType === "DLL" && teachingLoads.length === 0 && ($profile?.role === "Teacher" || $profile?.role === "Master Teacher")}
                                     <div class="rounded-lg border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm text-gov-gold-dark" role="status">
                                         <p class="font-bold">Daily Lesson Plan uploads need a teaching load first.</p>
@@ -1587,10 +1577,8 @@
         </div>
 
         <div class="space-y-4">
-            <div class="gov-card-static p-4">
-                <h3 class="text-base font-bold text-text-primary mb-3">
-                    How Upload Works
-                </h3>
+            <details class="gov-card-static rounded-xl p-4">
+                <summary class="cursor-pointer text-sm font-bold text-text-primary">How upload works <span class="ml-2 text-xs font-medium text-text-muted">View the steps</span></summary>
                 <ul class="space-y-2.5 text-sm text-text-secondary">
                     {#if docType === 'DLL'}
                         <li class="flex items-start gap-3">
@@ -1637,7 +1625,7 @@
                         </li>
                     {/if}
                 </ul>
-            </div>
+            </details>
 
         </div>
     </div>

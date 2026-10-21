@@ -359,15 +359,20 @@
         </div>
     </section>
     {#if exportError}<p role="alert" class="text-gov-red">{exportError}</p>{/if}
-    <dl class="stats">
+    <dl class="stats primary-stats">
         <div class="stat-card is-missing"><dt><FileText size={18} />Missing DLLs</dt><dd><button class="count-link" onclick={() => { status = 'missing'; reset(); }} aria-label="Show missing DLLs" disabled={!summary.missing}>{summary.missing}</button><small>no DLL yet</small></dd></div>
         <div class="stat-card is-review"><dt><Eye size={18} />For checking</dt><dd><button class="count-link" onclick={() => { status = 'for-checking'; reset(); }} aria-label="Show files waiting for remarks" disabled={!summary.forChecking}>{summary.forChecking}</button><small>needs remarks</small></dd></div>
         <div class="stat-card is-late"><dt><AlertTriangle size={18} />Late submissions</dt><dd>{summary.late}<small>after deadline</small></dd></div>
         <div class="stat-card is-good"><dt><CheckCircle size={18} />On-time / Compliant</dt><dd>{summary.onTime}<small>before deadline</small></dd></div>
+    </dl>
+    <details class="secondary-metrics">
+        <summary>More compliance counts <span>{summary.onLeave} on leave · {summary.checked} checked · {supplementaryUploads} supplementary</span></summary>
+        <dl class="stats secondary-stats">
         <div class="stat-card is-leave"><dt><CalendarX size={18} />On Leave / Excluded</dt><dd>{summary.onLeave}<small>{summary.leavePending ? `${summary.leavePending} pending review` : 'not counted'}</small></dd></div>
         <div class="stat-card is-good"><dt><CheckCircle size={18} />Checked / With remarks</dt><dd>{summary.checked}<small>review completed</small></dd></div>
         <div class="stat-card"><dt><FileText size={18} />Supplementary uploads</dt><dd>{supplementaryUploads}<small>review only</small></dd></div>
-    </dl>
+        </dl>
+    </details>
     <section class:urgent={nextActionTone === 'urgent'} class:review={nextActionTone === 'review'} class:clear={nextActionTone === 'clear'} class="decision-strip">
         <div class="decision-icon">
             {#if nextActionTone === 'clear'}<CheckCircle size={26} />{:else}<AlertTriangle size={26} />{/if}
@@ -375,11 +380,14 @@
         <div>
             <span>Do this next</span>
             <strong>{decisionLine}</strong>
-            <p>{nextActionDetail} DLL compliance: {summary.submitted} of {summary.expected} expected submitted. {summary.onLeave} on leave excluded. {reviewUploadLine}.</p>
+            <p>{nextActionDetail}</p>
+            <small class="decision-context">DLL compliance: {summary.submitted} of {summary.expected} expected · {reviewUploadLine}.</small>
         </div>
         <button class="primary-action" onclick={doNextAction} disabled={rowCount === 0 || nextActionTone === 'clear'}>{nextActionLabel}<ChevronRight size={18} /></button>
     </section>
     {#if clusterLabels.length && !selectedTeacher}
+        <details class="insights-panel">
+        <summary>Explore upload patterns <span>K-means groups · {districtOverview ? schoolRows.length : teacherRows.length} {districtOverview ? 'schools' : 'teachers'}</span></summary>
         <section class="cluster-panel" aria-label={districtOverview ? 'School pattern groups' : 'Teacher pattern groups'}>
             <div class="cluster-head">
                 <div>
@@ -402,8 +410,11 @@
             {/each}
             </div>
         </section>
+        </details>
     {/if}
     {#if !selectedTeacher && (docTypeTotal > 0 || scopedUploads.length > 0 || visibleTermOverdueBars.length > 1 || districtOverview && visibleSchoolOverdueBars.length)}
+    <details class="insights-panel">
+    <summary>Explore trends <span>Uploads, missing DLLs, and school patterns</span></summary>
     <div class="charts">
         {#if docTypeTotal > 0}
             <div class="chart-card pie-card">
@@ -465,6 +476,7 @@
             </div>
         {/if}
     </div>
+    </details>
     {/if}
     <div class="list-tools">
         <div class="list-header">
@@ -594,7 +606,16 @@
     button:disabled { opacity: .5; cursor: default; }
     .export, .refresh { align-self: start; min-width: 140px; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--color-border-subtle); background: var(--color-surface-white); font-size: 16px; font-weight: 800; color: var(--color-text-primary); }
     .export { min-width: 150px; }
-    .stats { display: grid; grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: 12px; align-items: stretch; }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+    .secondary-metrics, .insights-panel { border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); overflow: hidden; }
+    .secondary-metrics > summary, .insights-panel > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 10px 14px; color: var(--color-gov-blue); font-size: 15px; font-weight: 800; cursor: pointer; list-style: none; }
+    .secondary-metrics > summary::-webkit-details-marker, .insights-panel > summary::-webkit-details-marker { display: none; }
+    .secondary-metrics > summary::after, .insights-panel > summary::after { content: '+'; flex: 0 0 auto; font-size: 20px; line-height: 1; }
+    .secondary-metrics[open] > summary::after, .insights-panel[open] > summary::after { content: '−'; }
+    .secondary-metrics > summary span, .insights-panel > summary span { margin-left: auto; color: var(--color-text-muted); font-size: 13px; font-weight: 600; text-align: right; }
+    .secondary-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0 12px 12px; }
+    .decision-context { display: block; margin-top: 4px; color: var(--color-text-muted); font-size: 13px; }
+    .insights-panel .cluster-panel, .insights-panel .charts { margin: 0 12px 12px; }
     .stat-card { display: grid; align-content: start; min-height: 112px; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px 16px; background: var(--color-surface-white); box-shadow: 0 8px 18px rgba(15, 23, 42, .05); }
     .stat-card.is-missing { background: #fff1f2; border-color: #f4a3aa; }
     .stat-card.is-review { background: #fff7ed; border-color: #f2c48d; }
@@ -698,11 +719,11 @@
     @media (max-width: 920px) {
         .view-heading { grid-template-columns: 1fr; align-items: stretch; }
         .export { width: 100%; min-width: 0; justify-content: center; }
-        .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .decision-strip { grid-template-columns: auto minmax(0, 1fr); }
         .primary-action { grid-column: 1 / -1; width: 100%; }
     }
-    @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } .pie-wrap { grid-template-columns: 1fr; justify-items: center; } }
+    @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } .secondary-stats { grid-template-columns: 1fr; } .secondary-metrics > summary, .insights-panel > summary { align-items: flex-start; flex-wrap: wrap; } .secondary-metrics > summary span, .insights-panel > summary span { flex-basis: 100%; margin-left: 0; text-align: left; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } .pie-wrap { grid-template-columns: 1fr; justify-items: center; } }
     @media (max-width: 700px) {
         .control-panel { padding: 12px; }
         .filters { grid-template-columns: 1fr; gap: 12px; }

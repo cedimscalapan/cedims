@@ -101,6 +101,7 @@
     $: if (currentPage > totalPages) currentPage = totalPages;
     $: pageItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     $: forCheckingCount = reviewItems.filter((item) => !hasRemark(item)).length;
+    $: activeFilterCount = [filterDate, filterTeacher, filterGrade, filterSubject].filter(Boolean).length;
 
     async function getSignedUrl(path: string): Promise<string | null> {
         try {
@@ -177,11 +178,7 @@
     </div>
 
     <div class="px-4 py-3 bg-surface-muted border-b border-border-subtle">
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Total</p>
-                <p class="text-xl font-bold text-text-primary">{reviewItems.length}</p>
-            </div>
+        <div class="grid grid-cols-2 gap-2">
             <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
                 <p class="text-xs font-bold text-gov-gold uppercase tracking-tight">For Checking</p>
                 <p class="text-xl font-bold text-gov-gold">{forCheckingCount}</p>
@@ -204,7 +201,9 @@
             {/if}
         </div>
         <div class="w-full lg:col-span-4">
-                <div class="mb-2 text-xs font-bold uppercase tracking-normal text-text-muted">Filter by</div>
+            <details class="review-filters">
+                <summary><span>Filter reviews</span><span class="filter-count">{activeFilterCount ? `${activeFilterCount} active` : "Date · Teacher · Grade · Subject"}</span></summary>
+                <div class="filter-content">
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div class="min-w-0">
                         <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-date">Date</label>
@@ -246,6 +245,8 @@
                 {#if filterDate || filterTeacher || filterGrade || filterSubject}
                     <button type="button" onclick={clearFilters} class="mt-3 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-xs font-bold text-text-muted hover:border-gov-blue hover:text-gov-blue transition-colors">Clear filters</button>
                 {/if}
+                </div>
+            </details>
         </div>
         <p class="text-xs font-semibold text-text-muted lg:col-span-5 lg:justify-self-end">
             Showing {sortedItems.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedItems.length)} of {sortedItems.length}
@@ -290,6 +291,16 @@
         <button type="button" onclick={() => currentPage = Math.min(totalPages, currentPage + 1)} disabled={currentPage >= totalPages} class="cedims-page-button is-next">Next</button>
     </div>
 </div>
+
+<style>
+    .review-filters { border: 1px solid var(--color-border-subtle); border-radius: 10px; background: var(--color-surface-white); overflow: hidden; }
+    .review-filters > summary { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; color: var(--color-text-primary); font-size: 12px; font-weight: 800; cursor: pointer; list-style: none; }
+    .review-filters > summary::-webkit-details-marker { display: none; }
+    .review-filters > summary::after { content: '+'; color: var(--color-gov-blue); font-size: 19px; }
+    .review-filters[open] > summary::after { content: '−'; }
+    .filter-count { margin-left: auto; color: var(--color-text-muted); font-size: 11px; font-weight: 600; }
+    .filter-content { padding: 0 12px 12px; }
+</style>
 
 {#if remarkTarget}
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onclick={() => (remarkTarget = null)}>

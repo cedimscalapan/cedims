@@ -894,69 +894,33 @@
             />
 
         {:else}
-            <div class="space-y-6">
-                <div class="gov-card-static overflow-hidden">
-                    <div class="px-4 py-3 border-b border-border-subtle bg-surface-white flex items-center justify-between flex-wrap gap-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-1.5 h-5 bg-gov-blue rounded-full"></div>
-                            <h3 class="text-sm font-bold text-text-primary uppercase tracking-normal">Submission Metrics</h3>
-                        </div>
-                        <p class="text-xs font-bold text-text-muted uppercase tracking-normal">{stats.totalUploads} visible archives</p>
-                    </div>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4 bg-surface-muted">
-                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Archives</p>
-                            <p class="text-xl font-bold text-text-primary">{stats.totalUploads}</p>
-                        </div>
-                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Schools</p>
-                            <p class="text-xl font-bold text-text-primary">{schoolStandings.length}</p>
-                        </div>
-                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-gov-green uppercase tracking-tight">Submission Completion Rate</p>
-                            <p class="text-xl font-bold text-gov-green">{stats.compliantRate}%</p>
-                        </div>
-                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-gov-red uppercase tracking-tight">Missing Required DLLs</p>
-                            <p class="text-xl font-bold text-gov-red">{stats.nonCompliantCount}</p>
-                        </div>
-                    </div>
+            <section class="gov-card-static overflow-hidden rounded-xl">
+                <div class="border-b border-border-subtle px-5 py-5 sm:px-6">
+                    <p class="text-xs font-bold uppercase tracking-wide text-gov-blue">CEDIMS overview</p>
+                    <h1 class="mt-1 text-2xl font-extrabold text-text-primary">{ $profile?.role === "Admin" ? "System tracker" : "District tracker" }</h1>
+                    <p class="mt-1 text-sm text-text-muted">Start with the work that needs attention, or open the full compliance and archive views.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3 bg-surface-muted p-4 lg:grid-cols-4 sm:p-5">
+                    <div class="rounded-lg border border-border-subtle bg-surface-white p-4"><p class="text-xs font-bold uppercase text-text-muted">Schools</p><p class="mt-1 text-2xl font-extrabold text-text-primary">{schoolStandings.length}</p></div>
+                    <div class="rounded-lg border border-border-subtle bg-surface-white p-4"><p class="text-xs font-bold uppercase text-text-muted">Completion</p><p class="mt-1 text-2xl font-extrabold text-gov-green">{stats.compliantRate}%</p></div>
+                    <div class="rounded-lg border border-border-subtle bg-surface-white p-4"><p class="text-xs font-bold uppercase text-text-muted">Missing DLLs</p><p class="mt-1 text-2xl font-extrabold text-gov-red">{stats.nonCompliantCount}</p></div>
+                    <div class="rounded-lg border border-border-subtle bg-surface-white p-4"><p class="text-xs font-bold uppercase text-text-muted">Needs review</p><p class="mt-1 text-2xl font-extrabold text-gov-gold">{reviewForCheckingCount}</p></div>
+                </div>
+                <div class="flex flex-wrap gap-3 border-t border-border-subtle px-4 py-4 sm:px-5">
+                    <a href="/dashboard/compliance" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gov-blue px-5 text-sm font-bold text-white hover:bg-gov-blue-dark">Open compliance</a>
+                    <a href="/dashboard/archive" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-border-subtle bg-surface-white px-5 text-sm font-bold text-text-primary hover:border-gov-blue hover:text-gov-blue">Find an archive ({stats.totalUploads})</a>
+                </div>
+                <details class="border-t border-border-subtle">
+                    <summary class="cursor-pointer px-5 py-4 text-sm font-bold text-gov-blue">Archive totals by document type</summary>
                     <div class="divide-y divide-border-subtle">
                         {#each archiveTypeMetrics as metric}
-                            <div class="flex items-center justify-between px-4 py-3">
-                                <span class="text-sm font-bold text-text-primary">{metric.label}</span>
-                                <span class="rounded-lg bg-gov-blue/10 px-3 py-1 text-xs font-bold text-gov-blue">{metric.count}</span>
-                            </div>
+                            <div class="flex items-center justify-between px-5 py-3"><span class="text-sm font-semibold text-text-primary">{metric.label}</span><span class="rounded-full bg-gov-blue/10 px-3 py-1 text-xs font-bold text-gov-blue">{metric.count}</span></div>
                         {:else}
-                            <div class="p-6 text-center text-sm text-text-muted">No archive metrics yet.</div>
+                            <div class="p-5 text-sm text-text-muted">No archive metrics yet.</div>
                         {/each}
                     </div>
-                </div>
-
-                <div class="gov-card-static overflow-hidden">
-                    <div class="px-4 py-3 border-b border-border-subtle bg-surface-white flex items-center justify-between flex-wrap gap-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-1.5 h-5 bg-gov-gold rounded-full"></div>
-                            <h3 class="text-sm font-bold text-text-primary uppercase tracking-normal">Review Metrics</h3>
-                        </div>
-                        <p class="text-xs font-bold text-text-muted uppercase tracking-normal">{awaitingReview.length} visible archives</p>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 p-4 bg-surface-muted">
-                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-text-muted uppercase tracking-tight">Total</p>
-                            <p class="text-xl font-bold text-text-primary">{awaitingReview.length}</p>
-                        </div>
-                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-gov-gold uppercase tracking-tight">For Checking</p>
-                            <p class="text-xl font-bold text-gov-gold">{reviewForCheckingCount}</p>
-                        </div>
-                        <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                            <p class="text-xs font-bold text-gov-green uppercase tracking-tight">Checked</p>
-                            <p class="text-xl font-bold text-gov-green">{reviewCheckedCount}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                </details>
+            </section>
         {/if}
 
 
