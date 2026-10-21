@@ -1200,11 +1200,9 @@ import { fetchAllRows } from "$lib/utils/compliance";
     {#if fromCompliance}<a href="/dashboard/compliance" class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-gov-blue"><ArrowLeft size={16} />Back to compliance</a>{/if}
 
     <!-- Breadcrumb + Search Bar -->
-    <div
-        class="gov-card-static p-3 mb-4 flex flex-wrap items-center gap-2"
-    >
+    <div class="gov-card-static mb-4 space-y-3 p-4">
         <!-- Breadcrumb -->
-        <div class="flex items-center gap-1 min-w-0 max-w-full overflow-x-auto">
+        <div class="flex min-w-0 max-w-full items-center gap-1 overflow-x-auto pb-1" aria-label="Archive location">
             {#if currentPath.length > 1}
                 <button
                     onclick={goBack}
@@ -1242,61 +1240,39 @@ import { fetchAllRows } from "$lib/utils/compliance";
             {/each}
         </div>
 
-        <!-- Search -->
-        <div class="relative flex-1 min-w-[14rem] max-w-sm">
-            <Search
-                size={16}
-                class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-            />
-            <input
-                type="text"
-                bind:value={searchQuery}
-                placeholder="Search files..."
-                class="w-full pl-9 pr-3 py-2 text-sm bg-surface-muted border border-border-subtle rounded-lg focus:ring-2 focus:ring-gov-blue/30 focus:border-gov-blue outline-none min-h-[40px]"
-            />
-        </div>
+        <div class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(14rem,1fr)_auto_auto] xl:items-center">
+            <!-- Search -->
+            <label class="relative block min-w-0">
+                <span class="sr-only">Search archive files</span>
+                <Search size={18} class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <input type="search" bind:value={searchQuery} placeholder="Search files, teachers, or subjects…" class="min-h-11 w-full rounded-xl border border-border-subtle bg-surface-muted py-2 pl-10 pr-3 text-sm outline-none transition focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20" />
+            </label>
 
-        <!-- Status Filter -->
-        <div class="flex items-center gap-1 bg-surface-muted border border-border-subtle rounded-lg p-1 flex-shrink-0">
-            {#each ["all", "for-checking", "checked"] as opt}
-                <button
-                    onclick={() => (statusFilter = opt as typeof statusFilter)}
-                    class="min-h-[36px] px-2.5 flex items-center justify-center text-xs font-bold rounded-md transition-colors {statusFilter === opt ? 'bg-gov-blue text-white shadow-sm' : 'text-text-muted hover:text-text-primary'}"
-                >
-                    {opt === "all" ? "All" : opt === "for-checking" ? "For Checking" : "Checked"}
-                </button>
-            {/each}
-        </div>
-
-        <!-- Academic period filters -->
-        <div class="flex flex-wrap items-center gap-2 flex-shrink-0" aria-label="Filter archives by academic period">
-            <span class="px-1 text-xs font-bold uppercase tracking-wide text-text-muted">Period</span>
-            <select
-                value={archiveTerm}
-                aria-label="Filter archives by term"
-                onchange={(event) => { archiveTerm = event.currentTarget.value; archiveWeek = "all"; }}
-                class="min-h-10 min-w-32 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-sm font-semibold outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/30"
-            >
-                <option value="all">All terms</option>
-                {#each availableArchiveTerms as term}
-                    <option value={String(term)}>Term {term}</option>
+            <!-- Review state -->
+            <div class="flex min-h-11 items-center gap-1 overflow-x-auto rounded-xl border border-border-subtle bg-surface-muted p-1" aria-label="Filter by review status">
+                {#each ["all", "for-checking", "checked"] as opt}
+                    <button type="button" aria-pressed={statusFilter === opt} onclick={() => (statusFilter = opt as typeof statusFilter)} class="min-h-9 flex-1 whitespace-nowrap rounded-lg px-3 text-xs font-bold transition-colors sm:flex-none {statusFilter === opt ? 'bg-gov-blue text-white shadow-sm' : 'text-text-muted hover:bg-surface-white hover:text-text-primary'}">
+                        {opt === "all" ? "All files" : opt === "for-checking" ? "For checking" : "Checked"}
+                    </button>
                 {/each}
-            </select>
-            <select
-                bind:value={archiveWeek}
-                aria-label="Filter archives by week"
-                class="min-h-10 min-w-32 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-sm font-semibold outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/30"
-            >
-                <option value="all">All weeks</option>
-                {#each availableArchiveWeeks as week}
-                    <option value={String(week)}>Week {week}</option>
-                {/each}
-            </select>
-            {#if archiveTerm !== "all" || archiveWeek !== "all"}
-                <button type="button" class="min-h-10 rounded-lg px-2.5 text-sm font-semibold text-gov-blue hover:bg-gov-blue/5" onclick={() => { archiveTerm = "all"; archiveWeek = "all"; }}>Clear</button>
-            {/if}
-        </div>
+            </div>
 
+            <!-- Academic period filters -->
+            <div class="flex flex-wrap items-center gap-2" aria-label="Filter archives by academic period">
+                <span class="px-1 text-xs font-bold uppercase tracking-wide text-text-muted">Period</span>
+                <select value={archiveTerm} aria-label="Filter archives by term" onchange={(event) => { archiveTerm = event.currentTarget.value; archiveWeek = "all"; }} class="min-h-11 min-w-32 flex-1 rounded-xl border border-border-subtle bg-surface-white px-3 py-2 text-sm font-semibold outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20 sm:flex-none">
+                    <option value="all">All terms</option>
+                    {#each availableArchiveTerms as term}<option value={String(term)}>Term {term}</option>{/each}
+                </select>
+                <select bind:value={archiveWeek} aria-label="Filter archives by week" class="min-h-11 min-w-32 flex-1 rounded-xl border border-border-subtle bg-surface-white px-3 py-2 text-sm font-semibold outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20 sm:flex-none">
+                    <option value="all">All weeks</option>
+                    {#each availableArchiveWeeks as week}<option value={String(week)}>Week {week}</option>{/each}
+                </select>
+                {#if archiveTerm !== "all" || archiveWeek !== "all"}
+                    <button type="button" class="min-h-10 rounded-lg px-2.5 text-sm font-semibold text-gov-blue hover:bg-gov-blue/5" onclick={() => { archiveTerm = "all"; archiveWeek = "all"; }}>Clear period</button>
+                {/if}
+            </div>
+        </div>
     </div>
 
     <!-- Content -->
@@ -1317,9 +1293,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
         </div>
     {:else if !isFileLevel && currentFolders.length > 0}
         <!-- Folder Grid -->
-        <div
-            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
-        >
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {#each paginatedFolders as folder, i (folder.id)}
                 <FolderCard
                     label={folder.label}
@@ -1332,7 +1306,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
             {/each}
         </div>
         <div class="cedims-pagination-shell mt-4 rounded-xl border border-border-subtle bg-surface-white px-4 py-3 shadow-sm">
-            <p class="text-sm text-text-muted">
+            <p class="text-sm text-text-muted" aria-live="polite">
                 Showing {(folderPage - 1) * folderPageSize + 1}&ndash;{Math.min(folderPage * folderPageSize, currentFolders.length)} of {currentFolders.length} folders
             </p>
             <div class="cedims-pagination">

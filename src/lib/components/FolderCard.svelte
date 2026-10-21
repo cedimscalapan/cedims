@@ -1,6 +1,6 @@
 <script lang="ts">
     import { fly } from "svelte/transition";
-    import { Folder, School, User, Calendar, FileText } from "lucide-svelte";
+    import { Folder, School, User, Calendar, FileText, ChevronRight } from "lucide-svelte";
 
     interface Props {
         label: string;
@@ -38,12 +38,12 @@
 </script>
 
 <button
-    class="gov-card p-5 text-left cursor-pointer group"
+    class="gov-card group flex min-h-[6.5rem] w-full items-center gap-4 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-gov-blue/25 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gov-blue focus-visible:ring-offset-2"
     onclick={onclick}
     transition:fly={{ y: 20, duration: 300, delay: transitionDelay }}
 >
     <div
-        class="w-12 h-12 rounded-xl bg-gradient-to-br {getColor()} flex items-center justify-center mb-3 mx-auto group-hover:scale-110 transition-transform duration-200 overflow-hidden"
+        class="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br {getColor()} flex items-center justify-center transition-transform duration-200 group-hover:scale-105"
     >
         {#if avatar_url}
             <img src={avatar_url} alt={label} class="w-full h-full object-cover" />
@@ -51,7 +51,10 @@
             <IconComp size={22} />
         {/if}
     </div>
-    <p class="text-sm font-bold text-text-primary text-center truncate">{label}</p>
-    <p class="text-xs text-text-muted text-center mt-1">{count} file{count > 1 ? 's' : ''}</p>
+    <span class="min-w-0 flex-1">
+        <span class="block truncate text-sm font-bold text-text-primary">{label}</span>
+        <span class="mt-1 block text-xs text-text-muted">{count} {count === 1 ? 'file' : 'files'}</span>
+    </span>
+    <ChevronRight size={18} class="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-gov-blue" aria-hidden="true" />
 </button>
 

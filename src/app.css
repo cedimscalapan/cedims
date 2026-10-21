@@ -547,8 +547,17 @@ a {
 }
 
 .cedims-page-button.is-next {
-  background: #050505;
+  background: var(--color-gov-blue);
   color: #ffffff;
+}
+
+.cedims-page-button.is-next:not(:disabled):hover {
+  background: var(--color-gov-blue-dark);
+}
+
+.cedims-page-button.is-next:disabled {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 
 .cedims-page-indicator {

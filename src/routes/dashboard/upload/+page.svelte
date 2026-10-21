@@ -112,6 +112,16 @@
     let showWeekPicker = $state(false);
     let calendarEntries = $state<CalendarEntry[]>([]);
     let uploaderSchoolName = $state('');
+    function setDocType(nextType: string) {
+        docType = nextType;
+        targetConfirmed = false;
+        if (!isWeeklyComplianceDocType(nextType)) {
+            termNumber = undefined;
+            weekNumber = undefined;
+            currentDeadline = null;
+            mismatchAlert = null;
+        }
+    }
     function formatCurrentDeadline(deadlineDate: string) {
         const deadline = isWeeklyComplianceDocType(docType)
             ? effectiveDeadlineForSubject(deadlineDate, subject, uploaderSchoolName)
@@ -188,11 +198,11 @@
 
     // Watch weekNumber and fetch deadline
     $effect(() => {
-        if (weekNumber) {
+        if (isWeeklyComplianceDocType(docType) && weekNumber) {
             const entry = calendarEntries.find((w) => w.week_number === weekNumber);
             termNumber = entry?.term || Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
         }
-        if (weekNumber && $profile?.district_id) {
+        if (isWeeklyComplianceDocType(docType) && weekNumber && $profile?.district_id) {
             fetchCurrentDeadline(weekNumber, $profile.district_id);
         } else {
             currentDeadline = null;
@@ -703,7 +713,7 @@
 
             // OCR may update the suggested target, but the final archive
             // destination is not committed until the confirmation form.
-            if (metadata.docType !== "Unknown") docType = metadata.docType;
+            if (metadata.docType !== "Unknown") setDocType(metadata.docType);
 
             // Only auto-fill week number and teaching load for DLL documents
             if (docType === "DLL") {
@@ -755,7 +765,7 @@
             }
 
             // Check for initial mismatch
-            if (teachingLoadId) {
+            if (teachingLoadId && isWeeklyComplianceDocType(docType)) {
                 mismatchAlert = validateSelection(
                     teachingLoadId,
                     metadata.rawText,
@@ -943,10 +953,10 @@
 
                 if (event.metadata) {
                     if (event.metadata.docType !== "Unknown")
-                        docType = event.metadata.docType;
-                    if (event.metadata.weekNumber)
+                        setDocType(event.metadata.docType);
+                    if (isWeeklyComplianceDocType(docType) && event.metadata.weekNumber)
                         weekNumber = event.metadata.weekNumber;
-                    if (event.metadata.termNumber)
+                    if (isWeeklyComplianceDocType(docType) && event.metadata.termNumber)
                         termNumber = event.metadata.termNumber;
                     if (event.metadata.confidence !== undefined)
                         ocrConfidence = event.metadata.confidence;
@@ -981,7 +991,7 @@
 
     // Reactively validate selection mismatch
     $effect(() => {
-        if (teachingLoadId && detectedMetadata?.rawText) {
+        if (teachingLoadId && detectedMetadata?.rawText && isWeeklyComplianceDocType(docType)) {
             mismatchAlert = validateSelection(
                 teachingLoadId,
                 detectedMetadata.rawText,
@@ -1035,7 +1045,7 @@
                     ? uploadSubtitle
                     : "Files will be saved locally and synced when online"}
             </p>
-            {#if currentDeadline}
+            {#if isWeeklyComplianceDocType(docType) && currentDeadline?.deadline_date}
                 <div
                     class="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gov-blue/5 border border-gov-blue/10 text-xs font-semibold text-gov-blue"
                 >
@@ -1204,10 +1214,8 @@
                                 Scanning {scanProgress}%
                             </div>
                         {:else}
-                            <div
-                                class="text-xs font-bold text-gov-green bg-gov-green/5 px-2 py-1 rounded-md border border-gov-green/10"
-                            >
-                                Ready
+                            <div class="text-xs font-bold {mismatchAlert ? 'border-gov-gold/20 bg-gov-gold/10 text-gov-gold-dark' : 'border-gov-green/10 bg-gov-green/5 text-gov-green'} rounded-md border px-2 py-1">
+                                {mismatchAlert ? 'Review suggestion' : 'Ready to review'}
                             </div>
                         {/if}
                     </div>
@@ -1341,7 +1349,7 @@
                                     >
                                         {#each allowedDocTypes as type}
                                             <button
-                                                onclick={() => (docType = type)}
+                                                onclick={() => setDocType(type)}
                                                 class="flex-1 py-2.5 px-3 rounded-lg text-sm font-semibold transition-colors {docType ===
                                                 type
                                                     ? 'bg-surface-white text-gov-blue shadow-sm'
@@ -1570,10 +1578,11 @@
             {/if}
 
             <!-- Processing Progress -->
-            <div class="animate-fade-in">
-                <UploadProgress {currentPhase} {progress} {message} onRetry={selectedFile ? handleUpload : undefined} />
-
-            </div>
+            {#if processing || currentPhase === "error" || message}
+                <div class="animate-fade-in">
+                    <UploadProgress {currentPhase} {progress} {message} onRetry={selectedFile ? handleUpload : undefined} />
+                </div>
+            {/if}
 
         </div>
 
@@ -1641,10 +1650,16 @@
             <div class="px-6 py-5 space-y-3">
                 <p class="text-sm text-text-secondary">OCR may have suggested these values. Review them carefully before the file is archived.</p>
                 <div class="rounded-xl border border-border-subtle bg-surface-muted p-4 space-y-2 text-sm">
-                    <p><strong>Teaching Load:</strong> {teachingLoads.find((load) => load.id === teachingLoadId)?.subject || "Not selected"} · Grade {teachingLoads.find((load) => load.id === teachingLoadId)?.grade_level || "—"}</p>
+                    {#if isWeeklyComplianceDocType(docType)}
+                        <p><strong>Teaching Load:</strong> {teachingLoads.find((load) => load.id === teachingLoadId)?.subject || "Not selected"} · Grade {teachingLoads.find((load) => load.id === teachingLoadId)?.grade_level || "—"}</p>
+                    {/if}
                     <p><strong>Document Type:</strong> {docType}</p>
-                    <p><strong>Term:</strong> {termNumber || "Not selected"}</p>
-                    <p><strong>Week:</strong> {weekNumber || "Not selected"}</p>
+                    {#if isWeeklyComplianceDocType(docType)}
+                        <p><strong>Term:</strong> {termNumber || "Not selected"}</p>
+                        <p><strong>Week:</strong> {weekNumber || "Not selected"}</p>
+                    {:else}
+                        <p class="text-text-secondary">Administrative archive document; no weekly compliance period is assigned.</p>
+                    {/if}
                     <p><strong>File:</strong> {selectedFile?.name || "—"}</p>
                 </div>
                 {#if mismatchAlert}<p class="rounded-xl border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm text-gov-gold-dark">Scanner mismatch detected. Confirm only if the selected target is correct.</p>{/if}

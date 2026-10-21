@@ -123,15 +123,56 @@ export function predictSubject(text: string): FuzzyPrediction {
     if (header) {
         const candidate = header[1].trim();
         // Extract the subject name (it's usually the first token before any number)
-        const firstWord = candidate.split(/[\s,]+/)[0];
-        const result = fuzzyMatchAny(firstWord, SUBJECTS);
-        if (result.value) return { value: result.value, confidence: result.score };
+        const result = predictExplicitSubject(candidate);
+        if (result.value) return result;
     }
 
-    const result = fuzzyMatchAny(text, SUBJECTS);
-    return result.value
-        ? { value: result.value, confidence: result.score }
-        : { value: null, confidence: 0 };
+    // Use whole-word/phrase matches, longest first. Substring matching caused
+    // short subjects such as "AP" to be found inside unrelated words (e.g. "KaPamana").
+    const explicit = predictExplicitSubject(text);
+    if (explicit.value) return explicit;
+
+    // Fuzzy fallback is limited to short text fragments, avoiding a long OCR
+    // page accidentally scoring as a subject based on a few shared letters.
+    const fragments = text
+        .split(/[\r\n|,;]+/)
+        .flatMap((part) => {
+            const words = part.trim().split(/\s+/).filter(Boolean);
+            const windows: string[] = [];
+            for (let start = 0; start < words.length; start++) {
+                for (let size = 1; size <= 4 && start + size <= words.length; size++) {
+                    const window = words.slice(start, start + size).join(' ');
+                    // Short acronyms are matched explicitly above; fuzzy matching
+                    // them against arbitrary words is too prone to false positives.
+                    if (normalize(window).replace(/\s/g, '').length >= 4) windows.push(window);
+                }
+            }
+            return windows;
+        });
+    let best: FuzzyPrediction = { value: null, confidence: 0 };
+    for (const fragment of fragments) {
+        const result = bestMatch(fragment, SUBJECTS, 0.72);
+        if (result.value && result.score > best.confidence) {
+            best = { value: result.value, confidence: result.score };
+        }
+    }
+    return best;
+}
+
+function predictExplicitSubject(text: string): FuzzyPrediction {
+    const matches = [...SUBJECTS]
+        .sort((a, b) => b.length - a.length)
+        .filter((subject) => {
+            const escaped = subject.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+            return new RegExp(`(?:^|[^A-Z0-9])${escaped}(?:$|[^A-Z0-9])`, 'i').test(text);
+        });
+    if (!matches.length) return { value: null, confidence: 0 };
+    const value = matches[0];
+    if (value === 'Homeroom Guidance' || value === 'Homeroom Guidance Program') {
+        return { value: 'HGP', confidence: 100 };
+    }
+    if (value === 'Math') return { value: 'Mathematics', confidence: 100 };
+    return { value, confidence: 100 };
 }
 
 function romanToNumber(value: string): number | null {
