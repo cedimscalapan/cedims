@@ -77,7 +77,6 @@
     const scopedSubmissionUsers = $derived((submissionUsers?.length ? submissionUsers : teachers).filter(t => school === 'all' || t.school_id === school));
     const scoped = $derived(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) &&
         (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week))));
-    const countOpenAsMissing = $derived(week !== 'all');
     const scopedSubmissionUserIds = $derived(new Set(scopedSubmissionUsers.map(t => t.id)));
     const scopedUploadTotals = $derived(submissions.filter(s => s.user_id && scopedSubmissionUserIds.has(s.user_id) && s.school_year === year && isUploadSubmission(s)));
     const scopedUploads = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedSubmissionUserIds.has(s.user_id) && isUploadSubmission(s)), term, week));
@@ -85,7 +84,7 @@
     const reviewSummary = $derived(summarizeSubmissionReviews(scopedReviewSubmissions, reviews));
     const teacherRows = $derived(scopedTeachers.map(t => {
         const rows = scoped.filter(r => r.teacherId === t.id);
-        return { ...t, ...summarizeRequirements(rows, Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForTeacher(t.id), reviews), risk: riskReason(rows), rows };
+        return { ...t, ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForTeacher(t.id), reviews), risk: riskReason(rows), rows };
     }).filter(t => (districtOverview && school === 'all' || !districtOverview) && (!search.trim() || t.full_name.toLowerCase().includes(search.trim().toLowerCase()))).filter(t => status === 'all' ||
         (status === 'risk' && (!!t.risk || t.missing > 0 || t.leavePending > 0)) || (status === 'missing' && t.missing > 0) ||
         (status === 'for-checking' && t.forChecking > 0)));
@@ -99,8 +98,8 @@
         const userIds = new Set((submissionUsers?.length ? submissionUsers : teachers).filter(t => t.school_id === id).map(t => t.id));
         return filterSubmissionsByPeriod(submissions.filter(s => s.user_id && userIds.has(s.user_id) && isRemarkRequiredSubmission(s)), term, week);
     }
-    const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id), Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
-    const summary = $derived({ ...summarizeRequirements(scoped, Date.now(), countOpenAsMissing), ...reviewSummary });
+    const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id)), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
+    const summary = $derived({ ...summarizeRequirements(scoped), ...reviewSummary });
     const reviewMap = $derived(new Map(reviews.map(r => [r.submission_id, r])));
     const termNumber = $derived(term === 'all' ? null : Number(term));
     const clusterSubmissions = $derived(submissions.filter((s): s is ComplianceSubmission & { user_id: string } => {
@@ -161,7 +160,7 @@
     const supplementaryUploads = $derived(scopedReviewSubmissions.filter(s => ['supplementary', 'extra'].includes((s.compliance_status || '').toLowerCase())).length);
     const uploadDays = $derived(uploadDayCounts(scopedUploads));
     const maxUploadDay = $derived(Math.max(1, ...uploadDays.map(d => d.total)));
-    const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'missing' ? r.status === 'missing' || (countOpenAsMissing && !r.submission) : status === 'for-checking' ? false : true));
+    const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'missing' ? r.status === 'missing' : status === 'for-checking' ? false : true));
     const selectedTeacherReviewRows = $derived(selectedTeacher && status === 'for-checking'
         ? submissionsForTeacher(selectedTeacher).filter(s => !reviewMap.get(s.id)?.reviewer_comment)
         : []);
@@ -219,7 +218,7 @@
         if (r.status === 'on-leave') return 'On Leave / Excluded';
         if (r.status === 'leave-requested') return 'Leave requested';
         if (r.status === 'leave-rejected') return 'Leave rejected';
-        return r.status === 'missing' || (countOpenAsMissing && !r.submission) ? 'Missing' : 'Upcoming';
+        return r.status === 'missing' ? 'Missing' : 'Upcoming';
     }
     async function decideLeave(request: LeaveRequest, status: 'approved' | 'rejected') {
         if (!$profile) return;
@@ -260,13 +259,13 @@
             if (districtOverview) {
                 for (const item of rankedSchools) {
                     const rows = scoped.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === item.id);
-                    const t = { ...summarizeRequirements(rows, Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForSchool(item.id), reviews) };
+                    const t = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForSchool(item.id), reviews) };
                     people.addRow([item.name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', riskReason(rows)]);
                 }
             } else {
                 for (const item of sortedTeachers) {
                     const rows = scoped.filter(r => r.teacherId === item.id);
-                    const t = { ...summarizeRequirements(rows, Date.now(), countOpenAsMissing), ...summarizeSubmissionReviews(submissionsForTeacher(item.id), reviews) };
+                    const t = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForTeacher(item.id), reviews) };
                     people.addRow([item.full_name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', riskReason(rows), clusterLabelFor(item.id)]);
                 }
             }
@@ -377,7 +376,6 @@
             <span>Do this next</span>
             <strong>{decisionLine}</strong>
             <p>{nextActionDetail} DLL compliance: {summary.submitted} of {summary.expected} expected submitted. {summary.onLeave} on leave excluded. {reviewUploadLine}.</p>
-            {#if countOpenAsMissing}<small>Week view is active, so open requirements without files are counted as missing for this view.</small>{/if}
         </div>
         <button class="primary-action" onclick={doNextAction} disabled={rowCount === 0 || nextActionTone === 'clear'}>{nextActionLabel}<ChevronRight size={18} /></button>
     </section>
@@ -501,7 +499,7 @@
                 {#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
                     <article>
                         <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {formatRequirementDeadline(r)}</small></div>
-                        <div class="status-pill" class:missing={r.status === 'missing' || (countOpenAsMissing && !r.submission && r.status !== 'on-leave' && r.status !== 'leave-requested')} class:leave={r.status === 'on-leave' || r.status === 'leave-requested'}>{requirementLabel(r)}</div>
+                        <div class="status-pill" class:missing={r.status === 'missing'} class:leave={r.status === 'on-leave' || r.status === 'leave-requested'}>{requirementLabel(r)}</div>
                         {#if r.leaveRequest?.status === 'pending'}
                             <div class="leave-actions">
                                 <button type="button" onclick={() => decideLeave(r.leaveRequest!, 'approved')}>Approve</button>

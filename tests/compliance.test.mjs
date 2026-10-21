@@ -41,6 +41,18 @@ test('Bulusan HGP uploads remain on time through Friday while other school rules
     const guinobatanRows = buildRequirements([guinobatanLoad], [week], [submission]);
     assert.equal(guinobatanRows[0].status, 'on-time');
 });
+test('Guinobatan HGP is upcoming on Wednesday before its Friday 10 AM deadline, then missing after it', () => {
+    const week = { ...calendar[0], term: 2, week_number: 6, deadline_date: '2026-10-19T02:00:00.000Z' };
+    const guinobatanHgp = { ...load, subject: 'HGP', school_name: 'Guinobatan Elementary School' };
+    const wednesdayElevenAMManila = Date.parse('2026-10-21T03:00:00.000Z');
+    const beforeDeadline = buildRequirements([guinobatanHgp], [week], [], [], wednesdayElevenAMManila);
+    assert.equal(beforeDeadline[0].status, 'upcoming');
+    assert.equal(summarizeRequirements(beforeDeadline).missing, 0);
+
+    const afterDeadline = buildRequirements([guinobatanHgp], [week], [], [], Date.parse('2026-10-23T02:00:01.000Z'));
+    assert.equal(afterDeadline[0].status, 'missing');
+    assert.equal(summarizeRequirements(afterDeadline).missing, 1);
+});
 test('comparison crosses term boundaries and excludes aggregate/first periods', () => {
     const rows = buildRequirements([load], calendar, [sub], [], now);
     assert.equal(previousPeriodChange(rows, '2', '1'), 100);
