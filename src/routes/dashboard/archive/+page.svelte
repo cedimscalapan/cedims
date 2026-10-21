@@ -1409,7 +1409,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
 
                     <!-- Card Footer: Metadata & Actions -->
                     <div
-                        class="px-3 py-2 bg-surface-muted border-t border-border-subtle flex items-center justify-between gap-2"
+                        class="px-3 py-2 bg-surface-muted border-t border-border-subtle rounded-b-xl flex items-center justify-between gap-2"
                     >
                         <div class="flex flex-col min-w-0">
                             <span
@@ -1458,8 +1458,9 @@ import { fetchAllRows } from "$lib/utils/compliance";
                                     e.stopPropagation();
                                     handleDownload(sub);
                                 }}
-                                class="w-8 h-8 flex items-center justify-center text-text-muted hover:text-gov-blue hover:bg-gov-blue/10 rounded-lg transition-colors"
+                                class="min-h-9 min-w-9 flex items-center justify-center text-text-muted hover:text-gov-blue hover:bg-gov-blue/10 rounded-lg transition-colors"
                                 title="Download File"
+                                aria-label={`Download ${sub.file_name}`}
                             >
                                 <Download size={16} />
                             </button>

@@ -24,11 +24,12 @@
     background-size: .4rem .4rem, .4rem .4rem;
     background-repeat: no-repeat;
     border: 1px solid var(--color-border-subtle);
-    border-radius: .9rem;
+    border-radius: .5rem;
     box-shadow: none;
     color: var(--color-gov-blue);
     font-weight: 750;
     min-width: 10rem;
+    min-height: 46px;
     padding-inline: 1.05rem 2.35rem;
   }
   .workspace-content :where(select:focus) {
@@ -42,6 +43,11 @@
     color: var(--color-text-primary);
     font-weight: 650;
     padding: 1rem;
+  }
+  .workspace-content :where(select option:checked) {
+    background: var(--color-surface-muted);
+    color: var(--color-gov-blue);
+    font-weight: 800;
   }
   .workspace-content :where(button, a.gov-btn-primary, a.gov-btn-secondary, .gov-btn-primary, .gov-btn-secondary, [role='button']) { min-height: 48px; }
   .workspace-content :where([role='tab'], [role='option']) { min-height: 48px; }

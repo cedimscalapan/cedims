@@ -20,6 +20,7 @@
     let filterTeacher = "";
     let filterGrade = "";
     let filterSubject = "";
+    let searchQuery = "";
     let currentPage = 1;
     const pageSize = 5;
     let remarkTarget: any = null;
@@ -79,6 +80,7 @@
         filterTeacher = "";
         filterGrade = "";
         filterSubject = "";
+        searchQuery = "";
         currentPage = 1;
     }
 
@@ -90,7 +92,10 @@
         const matchesDate = !filterDate || dateKey(item.created_at) === filterDate;
         const matchesTeacher = !filterTeacher || String(item.teacher_name || "").trim() === filterTeacher;
         const matchesSubject = !filterSubject || normalizeSubject(item.subject).toLowerCase() === filterSubject.toLowerCase();
-        if (!matchesElementaryGrade || !matchesDate || !matchesTeacher || !matchesSubject) return false;
+        const query = searchQuery.trim().toLocaleLowerCase();
+        const matchesSearch = !query || [item.file_name, item.teacher_name, item.subject, item.grade_level, item.doc_type, item.week_number]
+            .some((value) => String(value ?? "").toLocaleLowerCase().includes(query));
+        if (!matchesElementaryGrade || !matchesDate || !matchesTeacher || !matchesSubject || !matchesSearch) return false;
         if (pendingOnly || filterStatus === "forChecking") return !hasRemark(item);
         if (filterStatus === "checked") return hasRemark(item);
         return true;
@@ -102,7 +107,7 @@
     $: if (currentPage > totalPages) currentPage = totalPages;
     $: pageItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     $: forCheckingCount = reviewItems.filter((item) => !hasRemark(item)).length;
-    $: activeFilterCount = [filterDate, filterTeacher, filterGrade, filterSubject].filter(Boolean).length;
+    $: activeFilterCount = [filterDate, filterTeacher, filterGrade, filterSubject, searchQuery].filter(Boolean).length;
 
     async function getSignedUrl(path: string): Promise<string | null> {
         try {
@@ -191,7 +196,7 @@
         </div>
     </div>
 
-    <div class="px-4 py-3 grid grid-cols-1 items-end gap-4 border-b border-border-subtle lg:grid-cols-5">
+    <div class="px-4 py-3 grid grid-cols-1 items-end gap-3 border-b border-border-subtle lg:grid-cols-5">
         <div class="flex items-end gap-2 flex-wrap lg:col-span-1">
             {#if !pendingOnly}
             <button onclick={() => { filterStatus = "all"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'all' ? 'border-gov-blue bg-gov-blue text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">All</button>
@@ -201,7 +206,11 @@
                 <button onclick={() => { filterStatus = "checked"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'checked' ? 'border-gov-green bg-gov-green text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">Checked</button>
             {/if}
         </div>
-        <div class="w-full lg:col-span-4">
+        <label class="relative block min-w-0 lg:col-span-2">
+            <span class="sr-only">Search review uploads</span>
+            <input type="search" bind:value={searchQuery} oninput={() => currentPage = 1} placeholder="Search file, teacher, or subject" class="min-h-11 w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-sm outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20" />
+        </label>
+        <div class="w-full lg:col-span-2">
             <details class="review-filters">
                 <summary><span>Filter reviews</span><span class="filter-count">{activeFilterCount ? `${activeFilterCount} active` : "Date · Teacher · Grade · Subject"}</span></summary>
                 <div class="filter-content">

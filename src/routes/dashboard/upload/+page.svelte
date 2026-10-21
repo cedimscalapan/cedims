@@ -1167,9 +1167,9 @@
                         <h2 id="upload-type-heading" class="text-sm font-bold text-text-primary">1. Choose document type</h2>
                         <p class="mt-1 text-xs text-text-muted">Choose what you’re uploading first. We’ll scan the file and prefill the details for you to confirm.</p>
                     </div>
-                    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-2 md:grid-cols-3">
                         {#each allowedDocTypes as type}
-                            <button type="button" aria-pressed={docType === type} onclick={() => setDocType(type)} class="min-h-11 rounded-lg border px-4 py-2 text-left text-sm font-bold transition-colors {docType === type ? 'border-gov-blue bg-gov-blue/5 text-gov-blue ring-1 ring-gov-blue' : 'border-border-subtle bg-surface-white text-text-primary hover:border-gov-blue'}">
+                            <button type="button" aria-pressed={docType === type} onclick={() => setDocType(type)} class="min-h-14 rounded-lg border px-3 py-2 text-center text-sm font-bold leading-snug transition-colors {docType === type ? 'border-gov-blue bg-gov-blue/5 text-gov-blue ring-1 ring-gov-blue' : 'border-border-subtle bg-surface-white text-text-primary hover:border-gov-blue'}">
                                 {getDocumentLabel(type)}
                             </button>
                         {/each}
@@ -1668,18 +1668,16 @@
                                 targetConfirmed = false;
                                 showLoadPicker = false;
                             }}
-                            class="w-full p-4 rounded-md text-left transition-colors flex items-center justify-between group {teachingLoadId ===
-                            load.id
-                                ? 'bg-gov-blue text-white shadow-lg'
-                                : 'bg-surface-muted hover:bg-gov-blue/5 border border-transparent hover:border-gov-blue/20'}"
+                            role="option"
+                            aria-selected={teachingLoadId === load.id}
+                            class="w-full min-h-14 rounded-lg border px-4 py-2.5 text-left transition-colors flex items-center justify-between group {teachingLoadId === load.id
+                                ? 'border-gov-blue/20 bg-surface-muted text-gov-blue'
+                                : 'border-transparent bg-surface-white text-text-primary hover:bg-surface-muted'}"
                         >
                             <div>
                                 <p class="font-bold text-lg">{load.subject}</p>
                                 <p
-                                    class="text-xs font-medium {teachingLoadId ===
-                                    load.id
-                                        ? 'text-white/70'
-                                        : 'text-text-muted'} uppercase tracking-wider"
+                                    class="text-xs font-medium text-text-muted uppercase tracking-wider"
                                 >
                                     {load.grade_level}
                                 </p>
@@ -1781,20 +1779,13 @@
                             targetConfirmed = !!teachingLoadId && !!termNumber && !!wk;
                             showWeekPicker = false;
                         }}
-                        class="p-6 rounded-md text-center transition-colors flex flex-col items-center justify-center gap-1 group {weekNumber ===
-                        wk
-                            ? 'bg-gov-blue text-white shadow-lg'
-                            : 'bg-surface-muted hover:bg-gov-blue/5 border border-transparent hover:border-gov-blue/20'}"
+                        role="option"
+                        aria-selected={weekNumber === wk}
+                        class="w-full min-h-12 rounded-lg border px-4 py-2 text-left transition-colors flex items-center justify-between group {weekNumber === wk
+                            ? 'border-transparent bg-surface-muted text-gov-blue'
+                            : 'border-transparent bg-surface-white text-text-primary hover:bg-surface-muted'}"
                     >
-                        <span
-                            class="text-xs font-semibold uppercase tracking-wide {weekNumber ===
-                            wk
-                                ? 'text-white/70'
-                                : 'text-text-muted'}">Week</span
-                        >
-                        <span class="text-3xl font-semibold tracking-normal"
-                            >{wk}</span
-                        >
+                        <span class="text-lg font-bold">Week {wk}</span>
                     </button>
                 {:else}
                     <div class="col-span-2 text-center py-10 text-text-muted">
@@ -1850,12 +1841,14 @@
                             }
                             showTermPicker = false;
                         }}
-                        class="p-5 rounded-md text-left transition-colors flex items-center justify-between group {termNumber === term.value
-                            ? 'bg-gov-blue text-white shadow-lg'
-                            : 'bg-surface-muted hover:bg-gov-blue/5 border border-transparent hover:border-gov-blue/20'}"
+                        role="option"
+                        aria-selected={termNumber === term.value}
+                        class="w-full min-h-12 rounded-lg border px-4 py-2 text-left transition-colors flex items-center justify-between group {termNumber === term.value
+                            ? 'border-transparent bg-surface-muted text-gov-blue'
+                            : 'border-transparent bg-surface-white text-text-primary hover:bg-surface-muted'}"
                     >
-                        <span class="text-lg font-semibold">{term.label}</span>
-                        <span class="text-xs font-semibold uppercase tracking-wide {termNumber === term.value ? 'text-white/70' : 'text-text-muted'}">
+                        <span class="text-base font-bold">{term.label}</span>
+                        <span class="text-xs font-semibold uppercase tracking-wide text-text-muted">
                             Weeks {(term.value - 1) * 13 + 1}-{term.value * 13}
                         </span>
                     </button>
