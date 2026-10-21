@@ -3,6 +3,7 @@
     import { profile } from "$lib/utils/auth";
     import { addToast } from "$lib/stores/toast";
     import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
+    import PaginationBar from "$lib/components/PaginationBar.svelte";
     import { onMount } from "svelte";
     import { Edit, Trash2, Plus, BookOpen, Layers } from "lucide-svelte";
 
@@ -295,28 +296,7 @@
                 </div>
             {/each}
         </div>
-        <div class="cedims-pagination-shell rounded-xl border border-border-subtle bg-surface-white px-4 py-3 shadow-sm">
-            <p class="text-xs font-bold uppercase tracking-normal text-text-muted">
-                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedLoads.length)} of {sortedLoads.length}
-            </p>
-            <div class="cedims-pagination">
-                <button
-                    onclick={() => currentPage = Math.max(1, currentPage - 1)}
-                    disabled={currentPage <= 1}
-                    class="cedims-page-button"
-                >
-                    Previous
-                </button>
-                <span class="cedims-page-indicator">{currentPage} / {totalPages}</span>
-                <button
-                    onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
-                    disabled={currentPage >= totalPages}
-                    class="cedims-page-button is-next"
-                >
-                    Next
-                </button>
-            </div>
-        </div>
+        <PaginationBar bind:page={currentPage} pages={totalPages} total={sortedLoads.length} pageSize={pageSize} itemLabel="teaching loads" />
     {/if}
 </div>
 

@@ -1026,7 +1026,7 @@
     <title>Upload Document â€” CEDIMS</title>
 </svelte:head>
 
-<div>
+<div class="mx-auto w-full max-w-5xl">
     <!-- Header -->
     <div
         class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -1158,7 +1158,7 @@
         {/if}
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1.65fr)_minmax(18rem,0.75fr)] gap-4 items-start">
+    <div class="w-full">
         <!-- Upload Area -->
         <div class="space-y-4">
             {#if allowedDocTypes.length > 1}
@@ -1576,58 +1576,6 @@
 
         </div>
 
-        <div class="space-y-4">
-            <details class="gov-card-static rounded-xl p-4">
-                <summary class="cursor-pointer text-sm font-bold text-text-primary">How upload works <span class="ml-2 text-xs font-medium text-text-muted">View the steps</span></summary>
-                <ul class="space-y-2.5 text-sm text-text-secondary">
-                    {#if docType === 'DLL'}
-                        <li class="flex items-start gap-3">
-                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-                            <span>Choose your Daily Lesson Plan file.</span>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-                            <span>The system reads the file and suggests the teaching load, document type, term, and week.</span>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
-                            <span>Review the details, then confirm the archive.</span>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">4</span>
-                            <span>If the same file already exists, upload is blocked. If offline, it is saved and synced later.</span>
-                        </li>
-                    {:else if docType === 'ISP'}
-                        <li class="flex items-start gap-3">
-                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-                            <span>Choose your Instructional Supervisory Plan file.</span>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-                            <span>The system checks the file and prepares it for archiving.</span>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
-                            <span>Confirm the archive. Duplicate files are blocked; offline files sync later.</span>
-                        </li>
-                    {:else if docType === 'ISR'}
-                        <li class="flex items-start gap-3">
-                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-                            <span>Choose your Instructional Supervisory Report file.</span>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-                            <span>The system checks the file and prepares it for archiving.</span>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="w-6 h-6 rounded-full bg-gov-blue/10 text-gov-blue text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
-                            <span>Confirm the archive. Duplicate files are blocked; offline files sync later.</span>
-                        </li>
-                    {/if}
-                </ul>
-            </details>
-
-        </div>
     </div>
 </div>
 

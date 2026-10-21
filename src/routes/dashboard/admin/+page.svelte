@@ -20,6 +20,7 @@
         EyeOff,
     } from "lucide-svelte";
     import AcademicCalendarManager from "$lib/components/AcademicCalendarManager.svelte";
+    import PaginationBar from "$lib/components/PaginationBar.svelte";
 
     // â”€â”€ Settings State â”€â”€
     let settings = $state<any[]>([]);
@@ -1001,7 +1002,9 @@
             {#if loadingLogs}<div class="p-8 text-center text-text-muted">Loading system logs...</div>
             {:else if visibleSystemLogs.length === 0}<div class="p-8 text-center text-text-muted">No system logs match this search.</div>
             {:else}<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-surface-muted text-text-muted"><tr><th class="px-4 py-3">Time</th><th class="px-4 py-3">Action</th><th class="px-4 py-3">Entity</th><th class="px-4 py-3">Actor ID</th><th class="px-4 py-3">Details</th></tr></thead><tbody class="divide-y divide-border-subtle">{#each visibleSystemLogs as log}<tr><td class="px-4 py-3 whitespace-nowrap">{new Date(log.created_at).toLocaleString('en-PH')}</td><td class="px-4 py-3 font-semibold">{log.action}</td><td class="px-4 py-3">{log.entity_type}{log.entity_id ? ` · ${log.entity_id}` : ''}</td><td class="px-4 py-3 font-mono text-xs">{log.actor_id}</td><td class="px-4 py-3 max-w-sm truncate" title={JSON.stringify(log.metadata || {})}>{JSON.stringify(log.metadata || {})}</td></tr>{/each}</tbody></table></div>{/if}
-            <div class="px-4 py-3 border-t border-border-subtle flex justify-between items-center text-sm text-text-muted"><span>{filteredSystemLogs().length} log entries</span><div class="flex gap-2 items-center"><button class="text-action" type="button" disabled={logPage === 1} onclick={() => logPage--}>Previous</button><span>{logPage} / {logPages}</span><button class="text-action" type="button" disabled={logPage === logPages} onclick={() => logPage++}>Next</button></div></div>
+            <div class="px-4 pb-4">
+                <PaginationBar bind:page={logPage} pages={logPages} total={filteredSystemLogs().length} pageSize={logPageSize} itemLabel="log entries" />
+            </div>
         </div>
     </div>
 {/if}

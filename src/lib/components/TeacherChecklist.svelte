@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { ChevronLeft, ChevronRight } from 'lucide-svelte';
+    import PaginationBar from './PaginationBar.svelte';
     import { profile } from '$lib/utils/auth';
     import { supabase } from '$lib/utils/supabase';
     import { buildRequirements, scopedCalendar, summarizeRequirements } from '$lib/utils/compliance';
@@ -92,7 +92,7 @@
         {/each}
     </tbody></table></div>
     {#if rows.length === 0}<p class="empty">No requirements match this view.</p>{/if}
-    <footer><span>{rows.length ? (page - 1) * size + 1 : 0}-{Math.min(page * size, rows.length)} of {rows.length}</span><div><button title="Previous page" aria-label="Previous page" disabled={page === 1} on:click={() => page--}><ChevronLeft size={18} /></button><span>{page} / {pages}</span><button title="Next page" aria-label="Next page" disabled={page === pages} on:click={() => page++}><ChevronRight size={18} /></button></div></footer>
+    <PaginationBar bind:page pages={pages} total={rows.length} pageSize={size} itemLabel="requirements" />
 </section>
 {#if requesting}
     <div class="modal-backdrop" role="presentation">
@@ -109,7 +109,7 @@
 {/if}
 <style>
     .tracker { min-width: 0; padding: 18px; color: var(--color-text-primary); border: 1px solid var(--color-border-subtle); border-radius: 12px; background: var(--color-surface-white); box-shadow: 0 8px 20px rgba(15, 23, 42, .04); }
-    header, header div, footer, footer div { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+    header, header div { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
     header { padding: 0 0 14px; } h2 { font-size: 18px; font-weight: 800; } header p { margin-top: 3px; color: var(--color-text-muted); font-size: 13px; }
     .filters, .secondary-counts { border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
     .filters summary, .secondary-counts summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 8px 12px; color: var(--color-gov-blue); font-size: 12px; font-weight: 800; cursor: pointer; list-style: none; }
@@ -118,7 +118,7 @@
     .filters[open] summary::after, .secondary-counts[open] summary::after { content: '−'; }
     .filters summary span, .secondary-counts summary span { color: var(--color-text-muted); font-size: 11px; font-weight: 600; }
     .filter-fields { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 12px 12px; }
-    label, select, table, footer, .formula { font-size: 13px; }
+    label, select, table, .formula { font-size: 13px; }
     select { padding: 8px; border: 1px solid var(--color-border-subtle); border-radius: 6px; background: var(--color-surface-white); }
     dl { display: grid; gap: 10px; }
     .primary-counts { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 0 10px; }
@@ -130,8 +130,7 @@
     .scroll { overflow-x: auto; border: 1px solid var(--color-border-subtle); border-radius: 8px; } table { width: 100%; text-align: left; border-collapse: collapse; }
     td, th { padding: 12px; border-bottom: 1px solid var(--color-border-subtle); } thead { background: var(--color-surface-muted); }
     small { display: block; font-weight: 400; } .missing { color: var(--color-gov-red); font-weight: 700; } .leave { color: var(--color-gov-blue); font-weight: 800; }
-    footer { padding: 12px 0; } button, a { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
-    footer button { width: 36px; height: 36px; }
+    button, a { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; min-width: 240px; }
     .text-action { width: auto; min-width: 106px; padding: 0 12px; color: var(--color-gov-blue); background: #eef4ff; border-color: #b8c7ee; font-size: 13px; font-weight: 800; white-space: nowrap; }
     .text-action.primary-action { color: white; background: var(--color-gov-blue); border-color: var(--color-gov-blue); }

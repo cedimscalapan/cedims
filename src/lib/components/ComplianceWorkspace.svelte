@@ -4,8 +4,9 @@
     import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission } from '$lib/utils/compliance';
     import { supabase } from '$lib/utils/supabase';
     import { profile } from '$lib/utils/auth';
+    import PaginationBar from '$lib/components/PaginationBar.svelte';
     import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
-    import { Download, Search, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, RefreshCw, AlertTriangle, CheckCircle, Eye, FileText, CalendarX } from 'lucide-svelte';
+    import { Download, Search, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Filter, RefreshCw, AlertTriangle, CheckCircle, Eye, FileText, CalendarX } from 'lucide-svelte';
     let { teachers, submissionUsers, schools, loads, calendar, submissions, leaveRequests, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
         teachers: { id: string; full_name: string; school_id: string }[];
         submissionUsers?: { id: string; full_name: string; school_id: string; role?: string | null }[];
@@ -532,7 +533,7 @@
         {/if}
         {#if rowCount === 0}<p class="empty">{calendar.length === 0 ? 'No active calendar weeks for this school year.' : status === 'missing' && !search ? 'No missing DLLs for this period.' : status === 'for-checking' && !search ? 'No files waiting for remarks for this period.' : 'No results match this view.'}</p>{/if}
     </div>
-    <footer><span>{rowCount ? (page - 1) * size + 1 : 0}-{Math.min(page * size, rowCount)} of {rowCount}</span><div><button aria-label="Previous page" title="Previous page" disabled={page === 1} onclick={() => page--}><ChevronLeft size={18} /></button><span>{page} / {pages}</span><button aria-label="Next page" title="Next page" disabled={page === pages} onclick={() => page++}><ChevronRight size={18} /></button></div></footer>
+    <PaginationBar bind:page pages={pages} total={rowCount} pageSize={size} itemLabel={districtOverview ? 'schools' : 'teachers'} />
 </div>
 
 <style>
@@ -713,8 +714,6 @@
     .upload-bars small { margin: 0; }
     .upload-bars strong { font-size: 15px; }
     button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-gov-blue); outline-offset: 3px; }
-    footer, footer div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 12px; font-size: 15px; }
-    footer button { width: 40px; border: 1px solid var(--color-border-subtle); border-radius: 6px; }
     .empty { padding: 32px 12px; text-align: center; color: var(--color-text-muted); }
     @media (max-width: 920px) {
         .view-heading { grid-template-columns: 1fr; align-items: stretch; }
@@ -749,6 +748,5 @@
         .action-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .row-action, .action-list .row-action { width: 100%; justify-content: space-between; min-height: 44px; }
         .status-pill { justify-self: stretch; text-align: center; }
-        footer { flex-wrap: wrap; }
     }
 </style>

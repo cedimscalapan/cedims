@@ -1,4 +1,5 @@
 <script lang="ts">
+    import PaginationBar from "./PaginationBar.svelte";
     // Shared by any "one row per teacher/school, missing+late+expected+rate"
     // list — Needs Attention (School Head) and School Standings (District
     // Supervisor) are the same shape, so this replaces both of their plain
@@ -61,31 +62,6 @@
             {/each}
         </div>
 
-        {#if totalPages > 1}
-            <div class="cedims-pagination-shell mt-1 rounded-xl border border-border-subtle bg-surface-white px-4 py-3 shadow-sm">
-                <p class="text-sm text-text-muted">
-                    Showing {(page - 1) * pageSize + 1}&ndash;{Math.min(page * pageSize, items.length)} of {items.length} records
-                </p>
-                <div class="cedims-pagination">
-                <button
-                    type="button"
-                    onclick={() => (page = Math.max(1, page - 1))}
-                    disabled={page === 1}
-                    class="cedims-page-button"
-                >
-                    Previous
-                </button>
-                <span class="cedims-page-indicator">{page} / {totalPages}</span>
-                <button
-                    type="button"
-                    onclick={() => (page = Math.min(totalPages, page + 1))}
-                    disabled={page === totalPages}
-                    class="cedims-page-button is-next"
-                >
-                    Next
-                </button>
-                </div>
-            </div>
-        {/if}
+        <PaginationBar bind:page pages={totalPages} total={items.length} pageSize={pageSize} itemLabel="records" />
     </div>
 {/if}

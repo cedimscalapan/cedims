@@ -1,6 +1,7 @@
 <script lang="ts">
     import { ChevronUp, ChevronDown, Search } from "lucide-svelte";
     import StatusBadge from "./StatusBadge.svelte";
+    import PaginationBar from "./PaginationBar.svelte";
     import { getDocumentLabel } from "$lib/utils/documentLabels";
 
     interface Submission {
@@ -228,30 +229,5 @@
         </div>
     {/if}
 
-    {#if totalPages > 1}
-        <div class="cedims-pagination-shell mt-6">
-            <p class="text-sm text-text-muted">
-                Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredSubmissions.length)} of {filteredSubmissions.length}
-            </p>
-            <div class="cedims-pagination">
-                <button
-                    onclick={() => currentPage = Math.max(1, currentPage - 1)}
-                    disabled={currentPage === 1}
-                    class="cedims-page-button"
-                >
-                    Previous
-                </button>
-                <span class="cedims-page-indicator">
-                    {currentPage} / {totalPages}
-                </span>
-                <button
-                    onclick={() => currentPage = Math.min(totalPages, currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    class="cedims-page-button is-next"
-                >
-                    Next
-                </button>
-            </div>
-        </div>
-    {/if}
+    <PaginationBar bind:page={currentPage} pages={totalPages} total={filteredSubmissions.length} pageSize={itemsPerPage} />
 </div>

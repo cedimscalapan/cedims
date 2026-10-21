@@ -4,6 +4,7 @@
     import { profile } from "$lib/utils/auth";
     import StatusBadge from "$lib/components/StatusBadge.svelte";
     import FolderCard from "$lib/components/FolderCard.svelte";
+    import PaginationBar from "$lib/components/PaginationBar.svelte";
     import { normalizeComplianceStatus } from "$lib/utils/useDashboardData";
     import {
         canAddReviewRemarks,
@@ -1314,30 +1315,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
                 />
             {/each}
         </div>
-        <div class="cedims-pagination-shell mt-4 rounded-xl border border-border-subtle bg-surface-white px-4 py-3 shadow-sm">
-            <p class="text-sm text-text-muted" aria-live="polite">
-                Showing {(folderPage - 1) * folderPageSize + 1}&ndash;{Math.min(folderPage * folderPageSize, currentFolders.length)} of {currentFolders.length} folders
-            </p>
-            <div class="cedims-pagination">
-                <button
-                    onclick={() => { if (folderPage > 1) folderPage--; }}
-                    disabled={folderPage <= 1}
-                    class="cedims-page-button"
-                >
-                    Previous
-                </button>
-                <span class="cedims-page-indicator">
-                    {folderPage} / {totalFolderPages}
-                </span>
-                <button
-                    onclick={() => { if (folderPage < totalFolderPages) folderPage++; }}
-                    disabled={folderPage >= totalFolderPages}
-                    class="cedims-page-button is-next"
-                >
-                    Next
-                </button>
-            </div>
-        </div>
+        <PaginationBar bind:page={folderPage} pages={totalFolderPages} total={currentFolders.length} pageSize={folderPageSize} itemLabel="folders" />
     {:else if filteredByPath.length === 0}
         <!-- Empty State -->
         <div>
@@ -1526,30 +1504,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
         </div>
 
         <!-- Pagination -->
-        <div class="cedims-pagination-shell mt-6 rounded-xl border border-border-subtle bg-surface-white px-4 py-3 shadow-sm">
-            <p class="text-sm text-text-muted">
-                Showing {(currentPage - 1) * pageSize + 1}&ndash;{Math.min(currentPage * pageSize, filteredByPath.length)} of {filteredByPath.length} files
-            </p>
-            <div class="cedims-pagination">
-                <button
-                    onclick={() => { if (currentPage > 1) currentPage--; }}
-                    disabled={currentPage <= 1}
-                    class="cedims-page-button"
-                >
-                    Previous
-                </button>
-                <span class="cedims-page-indicator">
-                    {currentPage} / {totalPages}
-                </span>
-                <button
-                    onclick={() => { if (currentPage < totalPages) currentPage++; }}
-                    disabled={currentPage >= totalPages}
-                    class="cedims-page-button is-next"
-                >
-                    Next
-                </button>
-            </div>
-        </div>
+        <PaginationBar bind:page={currentPage} pages={totalPages} total={filteredByPath.length} pageSize={pageSize} itemLabel="files" />
     {/if}
 </div>
 

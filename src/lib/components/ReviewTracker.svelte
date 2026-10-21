@@ -5,6 +5,7 @@
     import { addToast } from "$lib/stores/toast";
     import { getDocumentLabel } from "$lib/utils/documentLabels";
     import { logAudit } from "$lib/utils/audit";
+    import PaginationBar from "./PaginationBar.svelte";
 
     export let items: any[] = [];
     export let title = "Review Tracker";
@@ -248,9 +249,6 @@
                 </div>
             </details>
         </div>
-        <p class="text-xs font-semibold text-text-muted lg:col-span-5 lg:justify-self-end">
-            Showing {sortedItems.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedItems.length)} of {sortedItems.length}
-        </p>
     </div>
 
     {#if pageItems.length === 0}
@@ -283,13 +281,7 @@
         </div>
     {/if}
 
-    <div class="px-4 py-3 cedims-pagination-shell border-t border-border-subtle bg-surface-muted">
-        <button type="button" onclick={() => currentPage = Math.max(1, currentPage - 1)} disabled={currentPage <= 1} class="cedims-page-button">Previous</button>
-        <div class="cedims-pagination">
-            <span class="cedims-page-indicator">{currentPage} / {totalPages}</span>
-        </div>
-        <button type="button" onclick={() => currentPage = Math.min(totalPages, currentPage + 1)} disabled={currentPage >= totalPages} class="cedims-page-button is-next">Next</button>
-    </div>
+    <PaginationBar bind:page={currentPage} pages={totalPages} total={sortedItems.length} pageSize={pageSize} itemLabel="documents" />
 </div>
 
 <style>
