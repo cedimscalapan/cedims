@@ -1,10 +1,12 @@
 <script lang="ts">
 	import "../app.css";
 	import Toast from "$lib/components/Toast.svelte";
+	import DisplayZoom from "$lib/components/DisplayZoom.svelte";
 	import LoadingScreen from "$components/LoadingScreen.svelte";
 	import { showQRScanner } from "$lib/stores/ui";
 	import { hideLoading } from "$stores/loadingStore";
 	import { goto } from "$app/navigation";
+	import { updated } from "$app/state";
 	import { initAuth, profile } from "$lib/utils/auth";
 	import {
 		initOfflineSync,
@@ -23,6 +25,10 @@
 	// that never open it.
 	let QRScannerComponent = $state<typeof import("$lib/components/QRScanner.svelte").default | null>(null);
 	let ChatBotComponent = $state<typeof import("$lib/components/ChatBot.svelte").default | null>(null);
+	let reloadForUpdate = () => {};
+	$effect(() => {
+		if (updated.current) reloadForUpdate();
+	});
 	$effect(() => {
 		if ($showQRScanner && !QRScannerComponent) {
 			import("$lib/components/QRScanner.svelte").then((m) => {
@@ -45,6 +51,7 @@
 	}
 
 	function activateWaitingServiceWorker(registration: ServiceWorkerRegistration) {
+		if (document.documentElement.hasAttribute('data-cedims-upload-pending')) return;
 		const worker = registration.waiting || registration.installing;
 		if (!worker) return;
 
@@ -54,13 +61,49 @@
 		}
 
 		worker.addEventListener("statechange", () => {
-			if (worker.state === "installed") {
+			if (worker.state === "installed" && !document.documentElement.hasAttribute('data-cedims-upload-pending')) {
 				worker.postMessage({ type: "SKIP_WAITING" });
 			}
 		});
 	}
 
 	onMount(() => {
+		let disposed = false;
+		let pendingReload = false;
+		let reloading = false;
+		let registration: ServiceWorkerRegistration | null = null;
+		const applyPendingUpdate = () => {
+			if (disposed || document.hidden || document.documentElement.hasAttribute('data-cedims-upload-pending')) return;
+			if (registration) activateWaitingServiceWorker(registration);
+			if (pendingReload && !reloading) {
+				reloading = true;
+				window.location.reload();
+			}
+		};
+		reloadForUpdate = () => {
+			pendingReload = true;
+			applyPendingUpdate();
+		};
+		const checkForUpdate = () => {
+			if (disposed || document.hidden || !navigator.onLine) return;
+			if (registration) void registration.update().then(applyPendingUpdate).catch((error) => console.warn('Update check failed:', error));
+			void updated.check().then((available) => {
+				if (available) reloadForUpdate();
+			}).catch(() => {});
+		};
+		const onVisibilityChange = () => {
+			if (!document.hidden) {
+				applyPendingUpdate();
+				checkForUpdate();
+			}
+		};
+		window.addEventListener('cedims:upload-state', applyPendingUpdate);
+		window.addEventListener('focus', checkForUpdate);
+		window.addEventListener('online', checkForUpdate);
+		document.addEventListener('visibilitychange', onVisibilityChange);
+		const updateTimer = window.setInterval(checkForUpdate, 5 * 60 * 1000);
+		const onControllerChange = () => reloadForUpdate();
+		if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
 		// Dynamic `import()` failures (stale chunk hashes after a redeploy,
 		// or a chunk request that got redirected/404'd) surface as a
 		// *rejected promise*, not a thrown error — so the existing 'error'
@@ -154,25 +197,20 @@
 					}
 
 					try {
-						let refreshing = false;
-						navigator.serviceWorker.addEventListener("controllerchange", () => {
-							if (refreshing) return;
-							refreshing = true;
-							window.location.reload();
-						});
-
-						const registration =
+						const activeRegistration =
 							await navigator.serviceWorker.register(
 								"/service-worker.js",
 								{ updateViaCache: "none" },
 							);
 
-						activateWaitingServiceWorker(registration);
-						registration.addEventListener("updatefound", () => {
-							activateWaitingServiceWorker(registration);
+						if (disposed) return;
+						registration = activeRegistration;
+						applyPendingUpdate();
+						activeRegistration.addEventListener("updatefound", () => {
+							activateWaitingServiceWorker(activeRegistration);
 						});
-						await registration.update();
-						activateWaitingServiceWorker(registration);
+						await activeRegistration.update();
+						applyPendingUpdate();
 					} catch (error) {
 						console.error(
 							"Service Worker registration failed:",
@@ -184,6 +222,14 @@
 		})();
 
 		return () => {
+			disposed = true;
+			reloadForUpdate = () => {};
+			window.clearInterval(updateTimer);
+			window.removeEventListener('cedims:upload-state', applyPendingUpdate);
+			window.removeEventListener('focus', checkForUpdate);
+			window.removeEventListener('online', checkForUpdate);
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+			if ('serviceWorker' in navigator) navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
 			window.removeEventListener("error", handleModuleError);
 			window.removeEventListener(
 				"unhandledrejection",
@@ -205,8 +251,14 @@
 	<QRScannerComponent onScan={handleScan} onClose={() => showQRScanner.set(false)} />
 {/if}
 
-{#if ChatBotComponent}
-	<ChatBotComponent />
-{/if}
+<aside class="system-tools" aria-label="Display and help tools">
+	<DisplayZoom />
+	{#if ChatBotComponent}<ChatBotComponent />{/if}
+</aside>
 
 {@render children()}
+
+<style>
+	.system-tools { position:fixed; right:16px; bottom:calc(88px + env(safe-area-inset-bottom, 0px)); z-index:60; display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+	@media print { .system-tools { display:none; } }
+</style>

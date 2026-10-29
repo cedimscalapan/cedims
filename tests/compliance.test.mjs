@@ -6,7 +6,7 @@ const compilerOptions = { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.
 const deadlineCode = ts.transpileModule(readFileSync(new URL('../src/lib/utils/deadlineRules.ts', import.meta.url), 'utf8'), { compilerOptions }).outputText;
 const deadlineModuleUrl = `data:text/javascript;base64,${Buffer.from(deadlineCode).toString('base64')}`;
 const complianceSource = readFileSync(new URL('../src/lib/utils/compliance.ts', import.meta.url), 'utf8')
-    .replace("import { effectiveDeadlineForSubject, isFridayTenHgp } from './deadlineRules';", `import { effectiveDeadlineForSubject, isFridayTenHgp } from '${deadlineModuleUrl}';`);
+    .replace("import { effectiveDeadlineForSubject } from './deadlineRules';", `import { effectiveDeadlineForSubject } from '${deadlineModuleUrl}';`);
 const code = ts.transpileModule(complianceSource, { compilerOptions }).outputText;
 const { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, documentTypeCounts, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange, isWeeklyComplianceDocType } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const now = Date.parse('2026-09-27T12:00:00Z');
@@ -27,6 +27,25 @@ test('only Bulusan and Guinobatan HGP are due Friday at 10 AM Manila time', asyn
     assert.equal(effectiveDeadlineForSubject(monday, 'HGP', 'Ibaba Elementary School').toISOString(), '2026-10-20T02:00:00.000Z');
     assert.equal(effectiveDeadlineForSubject(monday, 'HGP', 'Salong Elementary School').toISOString(), '2026-10-20T02:00:00.000Z');
     assert.equal(effectiveDeadlineForSubject(monday, 'MAPEH', 'Bulusan Elementary School').toISOString(), '2026-10-20T02:00:00.000Z');
+});
+test('every school and subject uses the same effective deadline for pending and submitted work', async () => {
+    const { effectiveDeadlineForSubject } = await import(deadlineModuleUrl);
+    const schools = ['Bulusan Elementary School', 'Guinobatan Elementary School', 'Ibaba Elementary School', 'Salong Elementary School', 'Suqui Elementary School'];
+    const week = { ...calendar[0], term: 2, week_number: 7, deadline_date: '2026-10-26T02:00:00.000Z' };
+    const wednesday = Date.parse('2026-10-28T02:00:00.000Z');
+    for (const school_name of schools) {
+        for (const subject of ['HGP', 'Makabansa', 'MAPEH', 'Filipino']) {
+            const fridayHgp = subject === 'HGP' && /^(Bulusan|Guinobatan)/.test(school_name);
+            const expectedDeadline = fridayHgp ? '2026-10-30T02:00:00.000Z'
+                : subject === 'Filipino' ? '2026-10-26T02:00:00.000Z' : '2026-10-27T02:00:00.000Z';
+            const assignedLoad = { ...load, subject, school_name };
+            assert.equal(effectiveDeadlineForSubject(week.deadline_date, subject, school_name).toISOString(), expectedDeadline);
+            const pending = buildRequirements([assignedLoad], [week], [], [], wednesday)[0];
+            assert.equal(pending.status, fridayHgp ? 'upcoming' : 'missing', `${school_name} ${subject} pending`);
+            const submitted = buildRequirements([assignedLoad], [week], [{ ...sub, term_number: 2, week_number: 7, created_at: '2026-10-28T02:00:00.000Z', compliance_status: 'compliant' }], [], wednesday)[0];
+            assert.equal(submitted.status, fridayHgp ? 'on-time' : 'late', `${school_name} ${subject} submitted`);
+        }
+    }
 });
 test('Bulusan HGP uploads remain on time through Friday while other school rules stay intact', () => {
     const week = { ...calendar[0], term: 1, week_number: 1, deadline_date: '2026-10-19T02:00:00Z' };
@@ -129,6 +148,18 @@ test('only DLL and DLP are weekly compliance document types', () => {
 test('same subject in different grades is two requirements', () => {
     const rows = buildRequirements([load, { ...load, id: 'grade6', grade_level: 'Grade 6' }], [calendar[1]], [sub], [], now);
     assert.equal(rows.length, 2); assert.equal(rows[1].status, 'missing');
+});
+test('Kindergarten learning areas appear separately and a DLP fulfills its assigned load', () => {
+    const kinderLoads = [
+        { ...load, id: 'kinder-language', grade_level: 'Kinder', subject: 'Literacy, Language, and Communication' },
+        { ...load, id: 'kinder-math', grade_level: 'Kindergarten', subject: 'Mathematics' },
+    ];
+    const kinderSubmission = { ...sub, teaching_load_id: 'kinder-math', doc_type: 'DLP' };
+    const rows = buildRequirements(kinderLoads, [calendar[1]], [kinderSubmission], [], now);
+    assert.equal(rows.length, 2);
+    assert.equal(rows.find(row => row.load.id === 'kinder-language').status, 'missing');
+    assert.equal(rows.find(row => row.load.id === 'kinder-math').submission?.id, 's');
+    assert.equal(summarizeRequirements(rows, now).submitted, 1);
 });
 test('district calendar overrides global duplicate and excludes other districts', () => {
     const district = { ...calendar[0], id: 'district', district_id: 'd1' };

@@ -1,0 +1,97 @@
+/* Readable, comfortable controls shared by every role's Tracker. */
+.tracker-page {
+    --tracker-secondary: #475569;
+    --tracker-focus: #1d4ed8;
+    font-size: 16px;
+    line-height: 1.6;
+    min-width: 0;
+}
+.dark .tracker-page { --tracker-secondary: #cbd5e1; --tracker-focus: #93c5fd; }
+.tracker-page :is(.tracker, .school-tracker, .documents) { padding: 24px; border-radius: 16px; }
+.tracker-page :is(.tracker, .school-tracker, .documents) h2 { font-size: 24px; line-height: 1.3; }
+.tracker-page :is(.tracker, .school-tracker, .documents) h3 { font-size: 20px; line-height: 1.4; }
+.tracker-page :is(.tracker, .school-tracker, .documents) :is(table, label, input, select, textarea, button, a, .formula, .empty) {
+    font-size: 16px;
+    line-height: 1.55;
+}
+.tracker-page :is(.tracker, .school-tracker, .documents) :is(p, small, dt, .context, .closed-hint, .review-pair) {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--tracker-secondary);
+}
+.tracker-page :is(.tracker, .school-tracker) dd { font-size: 32px; line-height: 1.25; }
+.tracker-page :is(.tracker, .school-tracker) :is(.primary-counts, .summary) { gap: 16px; margin-block: 18px 12px; }
+.tracker-page :is(.tracker .primary-counts, .school-tracker .summary) > div { padding: 18px; border-radius: 12px; }
+.tracker-page :is(button, select, input:not([type=checkbox]):not([type=radio]), summary) { min-height: 48px; }
+.tracker-page :is(button, select, input, textarea) { font-size: 16px; }
+.tracker-page :is(button, select, input:not([type=checkbox]):not([type=radio]), textarea) { border-radius: 10px; }
+.tracker-page :is(button, a, select, input, textarea, summary):focus-visible { outline: 3px solid var(--tracker-focus); outline-offset: 3px; }
+.tracker-page :is(.text-xs, .text-sm) { font-size: 16px; line-height: 1.6; }
+.tracker-page .text-text-muted { color: var(--tracker-secondary); }
+.tracker-page .school-tracker .filters, .tracker-page .documents > .filters,
+.tracker-page .tracker .filter-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    align-items: end;
+}
+.tracker-page :is(.school-tracker, .documents) .filters { padding: 18px; }
+.tracker-page :is(.school-tracker, .documents) .filters label,
+.tracker-page .tracker .filter-fields label { min-width: 0; gap: 8px; font-weight: 650; }
+.tracker-page .school-tracker .filters .search { grid-column: span 2; }
+.tracker-page .school-tracker .school-search { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+.tracker-page .school-tracker .school-search label { flex: 1; min-width: min(240px, 100%); font-size: 16px; }
+.tracker-page .school-tracker .school-filters { border: 1px solid var(--color-border-subtle); border-radius: 12px; margin-bottom: 18px; }
+.tracker-page .school-tracker .school-filters > summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 12px 16px; cursor: pointer; font-size: 16px; font-weight: 700; color: var(--color-text-primary); }
+.tracker-page .school-tracker .school-filters > summary span { font-size: 14px; color: var(--tracker-secondary); font-weight: 500; }
+.tracker-page .school-tracker .school-filters > summary::after { content: '+'; font-size: 24px; line-height: 1; }
+.tracker-page .school-tracker .school-filters[open] > summary::after { content: '−'; }
+.tracker-page :is(.school-tracker, .documents) header a { color: var(--color-text-primary); text-decoration: underline; min-height: 48px; display: inline-flex; align-items: center; }
+.tracker-page .tracker > .filters { margin-bottom: 18px; }
+.tracker-page :is(.school-tracker, .documents, .tracker) :is(input, select, textarea) { width: 100%; min-width: 0; color: var(--color-text-primary); }
+.tracker-page .tracker :is(.filters, .secondary-counts) summary { font-size: 16px; padding: 12px 16px; color: var(--color-text-primary); flex-wrap: wrap; }
+.tracker-page .tracker :is(.filters, .secondary-counts) summary span { font-size: 14px; color: var(--tracker-secondary); }
+.tracker-page :is(.tracker, .school-tracker) :is(td, th) { padding: 18px 14px; vertical-align: middle; }
+.tracker-page :is(.tracker, .school-tracker) thead th { font-size: 15px; font-weight: 750; }
+.tracker-page :is(.tracker, .school-tracker) tbody tr:hover { background: var(--color-surface-muted); }
+.tracker-page .tracker .text-action { min-height: 48px; padding: 10px 16px; font-size: 16px; border-radius: 10px; white-space: normal; text-align: center; }
+.tracker-page .school-tracker :is(.attention button, .attention a) { min-height: 52px; padding: 12px 18px; color: var(--color-text-primary); font-size: 16px; }
+.tracker-page .school-tracker .attention strong { font-size: 20px; }
+.tracker-page .tracker .missing, .tracker-page .school-tracker .overdue { color: #b91c1c; font-weight: 750; }
+.dark .tracker-page .tracker .missing, .dark .tracker-page .school-tracker .overdue { color: #fca5a5; }
+.dark .tracker-page .tracker .leave { color: #93c5fd; }
+.tracker-page .school-tracker .document-row { padding-block: 20px; gap: 20px; }
+.tracker-page .school-tracker .document-row strong { font-size: 18px; }
+.tracker-page .school-tracker .document-name { color: var(--color-text-primary); }
+.tracker-page .pagination-bar :is(.pagination-summary, .pagination-button, .pagination-page) { font-size: 16px; }
+.tracker-page .pagination-bar :is(.pagination-button, .pagination-page) { min-height: 48px; min-width: 80px; }
+.tracker-page .pagination-bar .pagination-button:not(:disabled):not(.next) { color: var(--color-text-primary); }
+.tracker-page .review-dialog :is(label, textarea, button, .remark) { font-size: 16px; line-height: 1.6; }
+.tracker-page .review-dialog :is(small, .help, .preview-title, .status) { font-size: 14px; line-height: 1.6; }
+.tracker-page .review-dialog h3 { font-size: 19px; }
+@media (max-width: 1000px) {
+    .tracker-page :is(.tracker .scroll, .school-tracker .roster) { overflow: visible; border: 0; }
+    .tracker-page :is(.tracker, .school-tracker) :is(table, tbody) { display: block; }
+    .tracker-page :is(.tracker, .school-tracker) thead { display: none; }
+    .tracker-page :is(.tracker, .school-tracker) tbody tr {
+        display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px;
+        border: 1px solid var(--color-border-subtle); border-radius: 12px; padding: 18px; margin-bottom: 16px;
+    }
+    .tracker-page :is(.tracker, .school-tracker) :is(td, th) { border: 0; padding: 6px 0; }
+    .tracker-page :is(.tracker, .school-tracker) th[scope=row] { grid-column: 1 / -1; order: -1; font-size: 20px; }
+    .tracker-page :is(.tracker, .school-tracker) td[data-label] { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+    .tracker-page :is(.tracker, .school-tracker) td[data-label]::before { content: attr(data-label); font-size: 15px; color: var(--tracker-secondary); }
+    .tracker-page .tracker :is(td[data-label=Deadline], td[data-label="Submission status"], .actions),
+    .tracker-page .school-tracker td:last-child { grid-column: 1 / -1; }
+    .tracker-page .tracker .actions { min-width: 0; justify-content: flex-start; margin-top: 8px; }
+    .tracker-page :is(.school-tracker, .tracker) :is(.primary-counts, .summary) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+    .tracker-page :is(.tracker, .school-tracker, .documents) { padding: 16px; }
+    .tracker-page .school-tracker .filters, .tracker-page .documents > .filters,
+    .tracker-page .tracker .filter-fields { grid-template-columns: minmax(0, 1fr); }
+    .tracker-page .school-tracker .filters .search { grid-column: auto; }
+    .tracker-page :is(.tracker .actions, .school-tracker .document-row) :is(button, a) { width: 100%; }
+    .tracker-page .school-tracker .detail-heading { align-items: flex-start; flex-direction: column; }
+    .tracker-page .tracker .formula { font-size: 16px; }
+}

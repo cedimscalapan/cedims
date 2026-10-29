@@ -59,3 +59,11 @@ function normalizeSubject(subject?: string | null): string {
 function normalizeSchool(school?: string | null): string {
     return String(school || '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
 }
+
+/** The calendar's Open/Closed setting controls availability; deadlines determine lateness only. */
+export function submissionWindowOpen(
+    calendar: { is_active?: boolean; deadline_date?: string | null },
+    _subject?: string | null, _schoolName?: string | null, _now = Date.now()
+): boolean {
+    return calendar.is_active === true;
+}

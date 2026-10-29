@@ -4,6 +4,7 @@
   import { goto } from "$app/navigation";
   import { supabase } from "$lib/utils/supabase";
   import StatCard from "$lib/components/StatCard.svelte";
+  import CedimsSelect from "$lib/components/CedimsSelect.svelte";
   import ComplianceHeatmap from "$lib/components/ComplianceHeatmap.svelte";
   import ComplianceTrendChart from "$lib/components/ComplianceTrendChart.svelte";
   import DrillDownModal from "$lib/components/DrillDownModal.svelte";
@@ -567,16 +568,7 @@
           />
         </div>
         <div class="flex items-center gap-2">
-          <select
-            bind:value={sortField}
-            aria-label="Sort schools by"
-            class="px-3 py-2 text-xs font-bold bg-surface-white border border-border-subtle rounded-md outline-none focus:ring-2 focus:ring-gov-blue/20 uppercase tracking-tight"
-          >
-            <option value="name">Name</option>
-            <option value="rate">Compliance Rate</option>
-            <option value="Late">Late</option>
-            <option value="NonCompliant">Missing</option>
-          </select>
+          <div class="min-w-36"><CedimsSelect bind:value={sortField} ariaLabel="Sort schools by" compact options={[{value:'name',label:'Name'},{value:'rate',label:'Compliance Rate'},{value:'Late',label:'Late'},{value:'NonCompliant',label:'Missing'}]} /></div>
           <button
             type="button"
             onclick={() => (sortDir = sortDir === "asc" ? "desc" : "asc")}

@@ -10,6 +10,8 @@
 
     async function handleSubmit(e: Event) {
         e.preventDefault();
+        if (loading) return;
+        email = email.trim().toLowerCase();
         if (!email) {
             errorMsg = "Please enter your email address.";
             return;
@@ -29,7 +31,7 @@
             addToast("error", result.error);
         } else {
             sent = true;
-            addToast("success", "Password reset link sent to your email.");
+            addToast("success", "If this email is registered, a reset link will arrive shortly.");
         }
 
         loading = false;
@@ -52,14 +54,14 @@
                 {#if sent}
                     <div class="inline-flex items-center gap-2 rounded-lg bg-gov-green/20 border border-gov-green/40 px-4 py-2 mb-4">
                         <CheckCircle2 size={16} class="text-gov-green" strokeWidth={2.5} />
-                        <span class="text-xs font-bold uppercase tracking-wider text-gov-green">Email Sent</span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-gov-green">Request Sent</span>
                     </div>
                     <h1 class="text-xl sm:text-2xl font-bold text-text-primary">Check your inbox</h1>
                     <p class="mt-2.5 text-sm text-text-secondary leading-relaxed">
-                        We sent a password reset link to<br class="sm:hidden" />
+                        If an account exists for this address, a password reset link will be sent to<br class="sm:hidden" />
                         <strong class="text-text-primary">{email}</strong>.<br class="hidden sm:block" />
                         <br class="hidden sm:block" />
-                        Click the link in the email to reset your password. The link expires in 1 hour.
+                        Open the latest link in the same browser used for this request. Check your spam or junk folder if it does not arrive.
                     </p>
                 {:else}
                     <h1 class="text-xl sm:text-2xl font-bold text-text-primary">Forgot password?</h1>
@@ -110,6 +112,10 @@
                         {/if}
                     </button>
                 </form>
+            {/if}
+
+            {#if sent}
+                <button type="button" class="gov-btn-primary w-full justify-center text-sm" onclick={() => { sent = false; errorMsg = ''; }}>Try another email or resend</button>
             {/if}
 
             <!-- Footer -->

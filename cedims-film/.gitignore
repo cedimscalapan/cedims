@@ -1,0 +1,21 @@
+node_modules
+dist
+.DS_Store
+.env
+
+# Ignore the output video from Git but not videos you import into src/.
+out
+.venv-tts
+.tts-model
+.ttsdeps
+.tts-temp/
+.recorddeps/
+tmp-tts/
+
+# Keep the completed launch deliverable and its preview in the repository.
+!out/
+out/*
+!out/Smart-E-VISION-Launch-Final.mp4
+!out/Smart-E-VISION-Launch.srt
+!out/launch-final-contact-sheet.png
+!out/launch-preview.png

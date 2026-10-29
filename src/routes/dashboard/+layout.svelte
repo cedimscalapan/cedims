@@ -1,7 +1,6 @@
 <script lang="ts">
     import AppHeader from "$lib/components/AppHeader.svelte";
     import InstallPrompt from "$lib/components/InstallPrompt.svelte";
-    import UpdatePrompt from "$lib/components/UpdatePrompt.svelte";
     import SystemWalkthrough from "$lib/components/SystemWalkthrough.svelte";
     import { notifications } from "$lib/stores/notifications";
     import { authLoading, profile, user, isChangingPassword } from "$lib/utils/auth";
@@ -128,7 +127,6 @@
 
         <!-- PWA prompts -->
         <InstallPrompt />
-        <UpdatePrompt />
 
         <!-- Full system interactive walkthrough -->
         <SystemWalkthrough />

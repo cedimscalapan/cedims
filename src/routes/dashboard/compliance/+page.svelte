@@ -56,6 +56,12 @@
         // written) cannot reintroduce them as missing compliance rows.
         const cacheKey = makeScopedCacheKey(`compliance_v3_${selectedYear}_${user.school_id}_${user.district_id}`, user.role, user.id);
         try {
+            // Paint a recent, user-scoped snapshot immediately while fetching authoritative rows.
+            if (!data) {
+                const cached = await readLocalData<Snapshot>(cacheKey, 5 * 60 * 1000);
+                if (request !== run) return;
+                if (cached?.data) { data = cached.data; cachedAt = cached.data.savedAt; loading = false; }
+            }
             const schools = await fetchAllRows<Snapshot['schools'][number]>(() => {
                 let q = supabase.from('schools').select('id, name, district_id').order('id');
                 if (user.role !== 'District Supervisor' && user.role !== 'Admin') q = q.eq('id', user.school_id || '00000000-0000-0000-0000-000000000000');
@@ -81,11 +87,9 @@
             const schoolNames = new Map(schools.map(school => [school.id, school.name]));
             const schoolByUser = new Map(activeSubmissionUsers.map(user => [user.id, schoolNames.get(user.school_id) || null]));
             const loads = rawLoads.map(load => ({ ...load, school_name: schoolByUser.get(load.user_id) || null }));
-            const reviews: Snapshot['reviews'] = [];
-            const reviewBatchSize = 25;
-            for (let i = 0; i < submissions.length; i += reviewBatchSize) {
-                reviews.push(...await fetchAllRows<Snapshot['reviews'][number]>(() => supabase.from('dll_reviews').select('submission_id, status, reviewer_comment').in('submission_id', submissions.slice(i, i + reviewBatchSize).map(s => s.id)).order('id')));
-            }
+            const reviews = await fetchRowsForIds<Snapshot['reviews'][number]>(submissions.map(s => s.id), batch =>
+                supabase.from('dll_reviews').select('submission_id, status, reviewer_comment')
+                    .in('submission_id', batch).order('id'));
             if (request !== run) return;
             data = { schools, teachers, submissionUsers: activeSubmissionUsers, loads, submissions, calendar, leaveRequests, reviews, savedAt: new Date().toISOString() };
             cachedAt = '';
@@ -142,7 +146,7 @@
 {#if !allowed && !loading}
     <p role="alert">Compliance Monitoring is available to school and district reviewers.</p>
 {:else}
-    {#if data}<p role="status" class="mb-4 text-sm text-text-muted">{offline ? 'Offline. ' : cachedAt ? 'Saved data. Latest refresh unavailable. ' : ''}Updated at {new Date(data.savedAt).toLocaleString('en-PH')}{offline || cachedAt ? '. Recent changes may not be reflected.' : ''}</p>{/if}
+    {#if data}<p role="status" class="mb-4 text-sm text-text-muted">{offline ? 'Offline. ' : cachedAt ? (refreshing ? 'Showing saved data while refreshing. ' : 'Saved data. Latest refresh unavailable. ') : ''}Updated at {new Date(data.savedAt).toLocaleString('en-PH')}{offline || cachedAt ? '. Recent changes may not be reflected.' : ''}</p>{/if}
     {#if loading}<SkeletonLoader variant="card-grid" count={3} />
     {:else if error}<p role="alert" class="text-gov-red">{error}</p>
     {:else if data}<ComplianceWorkspace {...data} role={$profile?.role || 'School Head'} {year} {yearOptions} onYearChange={changeYear} refreshing={refreshing} onRefresh={() => void load()} />{/if}

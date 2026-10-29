@@ -1,0 +1,49 @@
+1
+00:00:00,000 --> 00:00:12,000
+Every week, instructional records move between teachers and supervisors.
+When lesson logs, deadlines, and follow-ups are scattered, the full picture is hard to see.
+
+2
+00:00:12,000 --> 00:00:20,000
+Meet Smart E-VISION, the progressive web app for instructional supervision archiving
+in Calapan East District.
+
+3
+00:00:20,000 --> 00:00:34,000
+The work begins with a teaching load.
+Assigned subjects and weekly requirements give each teacher a clear place to start.
+
+4
+00:00:34,000 --> 00:00:58,000
+A teacher chooses a lesson document. Smart E-VISION reads the file and suggests details.
+The teacher checks the information, then submits the record.
+
+5
+00:00:58,000 --> 00:01:10,000
+The document enters the archive with its status, date,
+and verification information connected to the submission.
+
+6
+00:01:10,000 --> 00:01:28,000
+A reviewer opens the actual file, examines the lesson plan, and records remarks.
+The teacher can see when it has been checked.
+
+7
+00:01:28,000 --> 00:01:44,000
+School leaders can see missing work, documents waiting for remarks,
+and submissions that arrived on time or after the deadline.
+
+8
+00:01:44,000 --> 00:02:00,000
+District supervisors can look across schools, follow records needing attention,
+and explore patterns that help guide technical assistance.
+
+9
+00:02:00,000 --> 00:02:12,000
+On a phone, the same archive remains accessible.
+A QR code opens the verification record and confirms the official file.
+
+10
+00:02:12,000 --> 00:02:20,000
+From classroom record to district insight.
+Smart E-VISION. Clear records. Shared responsibility.

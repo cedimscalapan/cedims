@@ -95,8 +95,6 @@ self.addEventListener('install', (event) => {
         }
     }
 
-    // Activate immediately
-    (self as any).skipWaiting();
     event.waitUntil(addFilesToCache());
 });
 

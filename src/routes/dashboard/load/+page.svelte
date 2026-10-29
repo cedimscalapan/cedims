@@ -337,7 +337,7 @@
                         <button
                             type="button"
                             onclick={() => gradeOpen = !gradeOpen}
-                            class="w-full px-4 py-3 text-base text-left bg-surface-white/60 border border-border-subtle rounded-xl min-h-[48px] flex items-center justify-between text-text-primary"
+                            class="w-full px-4 py-3 text-base font-extrabold text-left bg-surface-white border border-border-subtle rounded-lg min-h-[48px] flex items-center justify-between text-gov-blue"
                         >
                             <span>{gradeLevel}</span>
                             <svg class="w-4 h-4 transition-transform {gradeOpen ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -383,7 +383,7 @@
                         <button
                             type="button"
                             onclick={() => subjectOpen = !subjectOpen}
-                            class="w-full px-4 py-3 text-base text-left bg-surface-white/60 border border-border-subtle rounded-xl min-h-[48px] flex items-center justify-between {subject ? 'text-text-primary' : 'text-text-muted'}"
+                            class="w-full px-4 py-3 text-base font-extrabold text-left bg-surface-white border border-border-subtle rounded-lg min-h-[48px] flex items-center justify-between {subject ? 'text-gov-blue' : 'text-text-muted'}"
                         >
                             <span>{subject || "Select subject..."}</span>
                             <svg class="w-4 h-4 transition-transform {subjectOpen ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">

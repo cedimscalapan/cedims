@@ -1,3 +1,5 @@
+import { extractTeachingLoadFields } from './teachingLoadFields';
+import { resolveTeachingLoadMatch, inferUploadSubject, canonicalSubject, loadGrade, acceptsUploadSubject, type UploadMetadata } from './teachingLoadMatching';
 /**
  * Smart Copilot — Contextual Upload Assistant
  * 
@@ -9,7 +11,6 @@
  */
 
 import copilotConfig from '../models/copilot_model.json';
-import { predictGradeLevel, predictSubject } from './fuzzyClassifier';
 
 export type SuggestionType = 'missing' | 'recommendation' | 'deadline' | 'duplicate' | 'tip' | 'mismatch';
 export type SuggestionPriority = 'high' | 'medium' | 'low';
@@ -306,50 +307,10 @@ function generateTips(ctx: CopilotContext, startId: number): CopilotSuggestion[]
 }
 
 /**
- * Predict the best teaching load match based on OCR text using Naive Bayes.
+ * Match the detected subject and grade against active teaching loads.
  */
 export function predictLoad(ocrText: string, teachingLoads: any[]): string | null {
-    if (!ocrText || teachingLoads.length === 0) return null;
-
-    const subjectPrediction = predictSubject(ocrText);
-    if (!subjectPrediction.value || subjectPrediction.confidence < 40) return null;
-
-    const matches = teachingLoads.filter(l => subjectsMatch(l.subject, subjectPrediction.value!));
-
-    if (matches.length === 0) return null;
-    if (matches.length === 1) return matches[0].id;
-
-    const gradePrediction = predictGradeLevel(ocrText);
-    if (!gradePrediction.value || gradePrediction.confidence < 60) return null;
-
-    const detectedGrade = normalizeGradeLevel(gradePrediction.value);
-    const gradeMatch = matches.find(l => normalizeGradeLevel(l.grade_level) === detectedGrade);
-
-    return gradeMatch ? gradeMatch.id : null;
-}
-
-function normalizeGradeLevel(value?: string | null): string {
-    const match = String(value || '').match(/\d+/);
-    return match ? match[0] : '';
-}
-
-function normalizeSubjectKey(value?: string | null): string {
-    const subject = String(value || '').toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (/\bH\s*G\s*P\b/.test(subject) || subject.includes('HOMEROOM GUIDANCE')) return 'HGP';
-    if (subject === 'MATH' || subject.includes('MATHEMATICS') || subject.includes('MATEMATIKA')) return 'MATHEMATICS';
-    if (subject === 'AP' || subject.includes('ARALING PANLIPUNAN') || subject.includes('SOCIAL STUDIES')) return 'AP';
-    if (subject === 'GMRC' || subject.includes('PAGPAPAKATAO') || subject.includes('VALUES') || subject.includes('ESP')) return 'GMRC';
-    return subject;
-}
-
-function subjectsMatch(loadSubject: string, detectedSubject: string): boolean {
-    const loadSub = normalizeSubjectKey(loadSubject);
-    const sub = normalizeSubjectKey(detectedSubject);
-
-    if (sub === 'HGP') return loadSub === 'HGP';
-    if (sub === 'GMRC') return loadSub === 'GMRC';
-    if (sub === 'AP') return loadSub === 'AP';
-    return loadSub.includes(sub) || sub.includes(loadSub);
+    return resolveTeachingLoadMatch({ rawText: ocrText }, teachingLoads).loadId;
 }
 
 /**
@@ -367,14 +328,13 @@ function detectMismatches(ctx: CopilotContext, startId: number): CopilotSuggesti
 /**
  * Flags a mismatch when the OCR-detected subject doesn't match the selected teaching load's subject.
  */
-export function validateSelection(selectedLoadId: string, ocrText: string, teachingLoads: any[]): CopilotSuggestion | null {
+export function validateSelection(selectedLoadId: string, ocrText: string, teachingLoads: any[], metadata: UploadMetadata = {}, fileName = ""): CopilotSuggestion | null {
     const selectedLoad = teachingLoads.find(l => l.id === selectedLoadId);
-    if (!selectedLoad || !ocrText) return null;
-
-    const prediction = predictSubject(ocrText);
-    if (!prediction.value || prediction.confidence < 60) return null;
-
-    const isMatch = subjectsMatch(selectedLoad.subject, prediction.value);
+    if (!selectedLoad) return null;
+    const detectedSubject = inferUploadSubject({ ...metadata, rawText: metadata.rawText || ocrText }, fileName);
+    if (!detectedSubject) return null;
+    const prediction = { value: detectedSubject };
+    const isMatch = acceptsUploadSubject(selectedLoad, detectedSubject, teachingLoads);
 
     if (!isMatch) {
         return {
@@ -390,6 +350,16 @@ export function validateSelection(selectedLoadId: string, ocrText: string, teach
         };
     }
 
+    const detectedGrade = extractTeachingLoadFields(metadata.rawText || ocrText).grade;
+    const selectedGrade = loadGrade(selectedLoad.grade_level);
+    if (detectedGrade && selectedGrade && loadGrade(detectedGrade) !== selectedGrade) {
+        return {
+            id: `mismatch_${Date.now()}`, type: 'mismatch', priority: 'high',
+            title: 'Grade Mismatch Detected',
+            message: `This document looks like **${detectedGrade === 'Kinder' ? 'Kinder' : `Grade ${detectedGrade}`}**, but you've selected **${selectedLoad.subject} ${selectedGrade === 'K' ? 'Kinder' : `Grade ${selectedGrade}`}**. Please verify.`,
+            icon: ''
+        };
+    }
     return null;
 }
 

@@ -11,12 +11,14 @@
  * 3. Sync background processes will attempt to finalize the archive later.
  */
 
+import { assertNoDatabaseDuplicate, DuplicateUploadError } from './submissionDuplicates';
 import PdfWorker from './pdf.worker?worker';
 import { supabase } from './supabase';
 import { getCurrentSchoolYear } from './schoolYear';
 import { isMobileDevice } from './device';
 import { logAudit } from './audit';
 import { isWeeklyComplianceDocType } from './compliance';
+import { validAssignedLoad } from './teachingLoadMatching';
 import type { PipelineEvent, PipelineOptions } from '$lib/types/pipeline';
 export type { PipelinePhase, PipelineResult } from '$lib/types/pipeline';
 
@@ -24,6 +26,7 @@ const MAX_UPLOAD_SIZE_MB = 4;
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 
 interface CoreResult {
+    contentHash: string;
     stampedBytes: Uint8Array;
     fileHash: string;
     fileName: string;
@@ -165,8 +168,7 @@ function randomHex(byteLength = 16): string {
         .join('');
 }
 
-async function createSubmissionHash(originalBytes: Uint8Array, options: PipelineOptions): Promise<string> {
-    const contentHash = await sha256Hex(originalBytes);
+async function createSubmissionHash(contentHash: string, options: PipelineOptions): Promise<string> {
     const nonce = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : randomHex(16);
     return sha256TextHex([
         contentHash,
@@ -190,7 +192,8 @@ async function* runPipelineCore(
     // bytes. That keeps every QR code unique even when a teacher submits the
     // exact same file name and contents again.
     const originalBytes = new Uint8Array(await file.arrayBuffer());
-    const fileHash = await createSubmissionHash(originalBytes, options);
+    const contentHash = await sha256Hex(originalBytes);
+    const fileHash = await createSubmissionHash(contentHash, options);
 
     const ext = file.name.split('.').pop()?.toLowerCase();
     if (file.type !== 'application/pdf' && ext !== 'pdf') {
@@ -203,7 +206,9 @@ async function* runPipelineCore(
     yield { phase: 'analyzing', progress: 30, message: 'Reading your document...' };
     const { extractMetadata } = await import('./ocr');
     const ocrFile = file;
-    const hasPreDetected = options.preDetectedMetadata?.docType && options.preDetectedMetadata?.docType !== 'Unknown' && options.preDetectedMetadata?.rawText;
+    // A completed scan with no recognized text is still a completed scan.
+    // Manual confirmation must not trigger the same unavailable OCR again.
+    const hasPreDetected = options.preDetectedMetadata != null;
     const detectedMetadata = hasPreDetected ? options.preDetectedMetadata : await extractMetadata(ocrFile);
 
     yield { phase: 'compressing', progress: 50, message: 'Securing your file...' };
@@ -246,6 +251,7 @@ async function* runPipelineCore(
         progress: 90,
         message: 'Ready to upload...',
             _core: {
+                contentHash,
                 stampedBytes: new Uint8Array(stampedBytes),
                 fileHash,
                 fileName,
@@ -263,12 +269,20 @@ async function* runOnlinePipelineResilient(
     core: CoreResult,
     options: PipelineOptions
 ): AsyncGenerator<PipelineEvent> {
-    const { stampedBytes, fileHash, fileName, filePath, activeTermNumber, activeWeekNumber, activeDocType, rawText } = core;
+    const { contentHash, stampedBytes, fileHash, fileName, filePath, activeTermNumber, activeWeekNumber, activeDocType, rawText } = core;
+
+    if (isWeeklyComplianceDocType(activeDocType)) {
+        const { data: load, error } = await withTimeout(Promise.resolve(supabase.from('teaching_loads')
+            .select('id, subject, grade_level, is_active').eq('id', options.teachingLoadId || '')
+            .eq('user_id', options.userId).eq('is_active', true).maybeSingle()), 10000, 'Teaching load verification timed out.');
+        if (error) throw new Error('Could not verify your teaching load. Please try again.');
+        if (!load || !validAssignedLoad(load)) throw new Error('Select an active assigned teaching load with a valid grade before uploading.');
+        options.subject = load.subject;
+    }
 
     yield { phase: 'uploading', progress: 10, message: 'Checking your document...' };
 
     const { cacheVerifiedDoc, calculateComplianceStatus } = await import('./offline');
-    const { recordSubmission } = await import('./offlineSubmissionLedger');
 
     // Look up calendar_id + deadline from academic_calendar using detected week number.
     // This is metadata only — calculateComplianceStatus() already falls back
@@ -342,7 +356,7 @@ async function* runOnlinePipelineResilient(
     }
 
     if (isWeeklyComplianceDocType(activeDocType) && (!calendarId || !calendarIsOpen)) {
-        throw new Error(`Week ${activeWeekNumber || 'selected'} is closed for submissions. Uploads are locked after the Friday 11:59 PM deadline.`);
+        throw new Error(`Week ${activeWeekNumber || 'selected'} is Closed in the Academic Calendar. Choose an Open term and week.`);
     }
 
     yield { phase: 'uploading', progress: 20, message: 'Preparing upload...' };
@@ -352,6 +366,8 @@ async function* runOnlinePipelineResilient(
     const token = session.data.session?.access_token;
 
     if (!token) throw new Error('You have been signed out. Please sign in again and retry.');
+
+    await withTimeout(assertNoDatabaseDuplicate(supabase, options.userId, contentHash, fileHash), 30000, 'Duplicate check timed out.');
 
     const contentType = 'application/pdf';
     const fileBlob = new Blob([stampedBytes as BlobPart], { type: contentType });
@@ -429,6 +445,7 @@ async function* runOnlinePipelineResilient(
             file_name: fileName,
             file_path: filePath,
             file_hash: fileHash,
+            content_hash: contentHash,
             file_size: stampedBytes.byteLength,
             doc_type: activeDocType,
             term_number: activeTermNumber,
@@ -444,6 +461,7 @@ async function* runOnlinePipelineResilient(
         'Database record timed out.'
     ) as { error: any };
     if (dbError) {
+        if (dbError.code === '23505' && dbError.message?.includes('uniq_submission_content')) throw new DuplicateUploadError();
         throw new Error(`DB Error: ${dbError.message}`);
     }
 
@@ -456,20 +474,6 @@ async function* runOnlinePipelineResilient(
         school_year: options.schoolYear || getCurrentSchoolYear(),
     });
 
-    // Success bookkeeping
-    if (options.teachingLoadId && activeWeekNumber) {
-        await recordSubmission({
-            teachingLoadId: options.teachingLoadId,
-            termNumber: activeTermNumber,
-            weekNumber: activeWeekNumber,
-            schoolYear: options.schoolYear || getCurrentSchoolYear(),
-            docType: activeDocType,
-            fileHash,
-            fileName,
-            timestamp: Date.now(),
-            status: 'synced'
-        });
-    }
     await cacheVerifiedDoc(fileHash, { file_name: fileName, doc_type: activeDocType, week_number: activeWeekNumber });
 
     yield {
@@ -484,7 +488,7 @@ async function* runOfflinePipelineResilient(
     core: CoreResult,
     options: PipelineOptions
 ): AsyncGenerator<PipelineEvent> {
-    const { stampedBytes, fileHash, fileName, filePath, activeTermNumber, activeWeekNumber, activeDocType, rawText } = core;
+    const { contentHash, stampedBytes, fileHash, fileName, filePath, activeTermNumber, activeWeekNumber, activeDocType, rawText } = core;
 
     // Progress mirrors the direct-upload path's stages and percentages so the
     // two are indistinguishable to the teacher — the outcome is the same
@@ -494,7 +498,6 @@ async function* runOfflinePipelineResilient(
     yield { phase: 'uploading', progress: 10, message: 'Checking your document...' };
 
     const { enqueue, cacheVerifiedDoc } = await import('./offline');
-    const { recordSubmission } = await import('./offlineSubmissionLedger');
 
     yield { phase: 'uploading', progress: 20, message: 'Preparing upload...' };
 
@@ -509,6 +512,7 @@ async function* runOfflinePipelineResilient(
     yield { phase: 'uploading', progress: 45, message: 'Uploading...' };
 
     await enqueue({
+        contentHash,
         fileName,
         filePath,
         fileHash,
@@ -534,20 +538,6 @@ async function* runOfflinePipelineResilient(
 
     yield { phase: 'uploading', progress: 80, message: 'Finishing up...' };
 
-    if (options.teachingLoadId && activeWeekNumber) {
-        await recordSubmission({
-            teachingLoadId: options.teachingLoadId,
-            termNumber: activeTermNumber,
-            weekNumber: activeWeekNumber,
-            schoolYear: options.schoolYear || getCurrentSchoolYear(),
-            docType: activeDocType,
-            fileHash,
-            fileName,
-            timestamp: Date.now(),
-            status: 'pending'
-        });
-    }
-
     await cacheVerifiedDoc(fileHash, { file_name: fileName, doc_type: activeDocType, week_number: activeWeekNumber, pending_sync: true });
 
     // Start pushing to the server right away rather than waiting for the 60s
@@ -562,9 +552,9 @@ async function* runOfflinePipelineResilient(
     }
 
     yield {
-        phase: 'done',
-        progress: 100,
-        message: 'Upload Successful!',
+        phase: 'queued',
+        progress: 90,
+        message: 'Waiting for upload and server confirmation. Your document is not archived yet.',
         result: { fileHash, filePath, fileSize: stampedBytes.byteLength, fileName }
     };
 }
@@ -577,6 +567,9 @@ export async function* runPipeline(
     const worker = new PdfWorker();
 
     try {
+        if (isWeeklyComplianceDocType(options.docType || 'DLL') && !options.teachingLoadId) {
+            throw new Error('Select an active assigned teaching load with a valid grade before uploading.');
+        }
         let core: CoreResult | null = null;
         for await (const event of runPipelineCore(file, options, worker)) {
             if (event._core) core = event._core;
@@ -590,7 +583,7 @@ export async function* runPipeline(
         // already hashed and stamped by this point, and the queued item carries
         // its original submission timestamp so compliance is unaffected by how
         // long the sync takes.
-        if (isMobileDevice()) {
+        if (isMobileDevice() || options.queueLocally) {
             yield* runOfflinePipelineResilient(core, options);
             return;
         }
@@ -610,7 +603,7 @@ export async function* runPipeline(
                 // Queuing can't fix either of these: the same document will be
                 // refused whenever it syncs, and a missing session leaves the
                 // background sync with nothing to authenticate with.
-                const isTerminal = msg.includes('signed out');
+                const isTerminal = err instanceof DuplicateUploadError || msg.includes('signed out') || msg.includes('active assigned teaching load') || msg.includes('Closed in the Academic Calendar');
                 if (isTerminal) throw err;
             }
         }

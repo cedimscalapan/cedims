@@ -15,10 +15,7 @@
         getCachedMetadata,
         pendingSyncCount,
     } from "$lib/utils/offline";
-    import {
-        syncLedgerFromServer,
-        type LedgerEntry,
-    } from "$lib/utils/offlineSubmissionLedger";
+
     import { profile, type Profile } from "$lib/utils/auth";
     import { isMobileDevice } from "$lib/utils/device";
     import { settings } from "$lib/stores/settings";
@@ -28,7 +25,9 @@
     import { goto } from "$app/navigation";
     import { onMount, untrack } from "svelte";
     import { fade } from "svelte/transition";
-    import { extractMetadata, resolveWeekFromDates, type DocMetadata } from "$lib/utils/ocr";
+    import { extractMetadata, warmPdfReader, resolveWeekFromDates, createDefaultMetadata, type DocMetadata } from "$lib/utils/ocr";
+    import { resolveHeaderUploadPeriod, resolveUniqueOpenUploadPeriod } from "$lib/utils/headerPeriod";
+    import { resolveTeachingLoadMatch, validAssignedLoad } from "$lib/utils/teachingLoadMatching";
     import { validateSelection } from "$lib/utils/copilot";
     import {
         canUploadDocument,
@@ -42,6 +41,7 @@
     import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
     import { isWeeklyComplianceDocType } from "$lib/utils/compliance";
     import { effectiveDeadlineForSubject } from "$lib/utils/deadlineRules";
+    import { requestUploadTargets, openUploadTargets, preserveUploadPeriod, parseTrackerUploadTarget, type TrackerUploadTarget } from "$lib/utils/uploadTargets";
 
     import type { PageData } from "./$types";
 
@@ -70,6 +70,12 @@
     const debugLog = (...args: any[]) => { if (UPLOAD_DEBUG) console.log(...args); };
 
     let selectedFile = $state<File | null>(null);
+    $effect(() => {
+        if (typeof document === 'undefined') return;
+        const pending = !!selectedFile || processing || detectingMetadata || checkingTarget || confirmArchiveOpen || showSuccessModal;
+        document.documentElement.toggleAttribute('data-cedims-upload-pending', pending);
+        window.dispatchEvent(new CustomEvent('cedims:upload-state', { detail: { pending } }));
+    });
     let docType = $state("DLL");
     let allowedDocTypes = $state<string[]>([]);
     let docTypeManuallySelected = $state(false);
@@ -86,8 +92,39 @@
     let progress = $state(0);
     let message = $state("");
     let processing = $state(false);
+    let checkingTarget = $state(false);
+    let scanController: AbortController | null = null;
+    let optionsRequest: { key: string; promise: Promise<void> } | null = null;
     let result = $state<PipelineResult | null>(null);
     let showSuccessModal = $state(false);
+    let completedDetails = $state<{ docType: string; weekNumber?: number } | null>(null);
+    let awaitingArchive = $state<PipelineResult | null>(null);
+    let checkingArchive = false;
+
+    async function confirmPendingArchive() {
+        const pending = awaitingArchive;
+        if (!pending || checkingArchive || !navigator.onLine || !$profile) return;
+        checkingArchive = true;
+        try {
+            const { data, error } = await supabase.from('submissions').select('id')
+                .eq('user_id', $profile.id).eq('file_hash', pending.fileHash)
+                .eq('file_path', pending.filePath).limit(1).maybeSingle();
+            if (!error && data && awaitingArchive?.fileHash === pending.fileHash) {
+                result = pending;
+                awaitingArchive = null;
+                currentPhase = 'done';
+                progress = 100;
+                message = 'Upload Successful!';
+                showSuccessModal = true;
+                const { speak, VoicePrompts } = await import('$lib/utils/voiceGuide');
+                speak(VoicePrompts.UPLOAD_COMPLETE);
+            }
+        } catch {
+            // A failed confirmation stays pending; the next online poll retries.
+        } finally {
+            checkingArchive = false;
+        }
+    }
     let mismatchAlert = $state<any>(null);
     let queueCount = $state(0);
     let currentDeadline = $state<any>(null);
@@ -107,11 +144,60 @@
     let cancellingQueueKey = $state("");
     let showPendingPanel = $state(false);
     let initialDataRun = 0;
+    let metadataRun = 0;
+    let submissionCheckRun = 0;
+    let targetProfileId = "";
+    let optionsNoticeShown = false;
+    let trackerTarget: TrackerUploadTarget | null = null;
+    let trackerTargetApplied = false;
+    function applyTrackerTarget() {
+        if (!trackerTarget || trackerTargetApplied || !teachingLoads.length || !calendarEntries.length) return;
+        const load = teachingLoads.find(item => item.id === trackerTarget?.loadId);
+        const period = calendarEntries.find(item => item.term === trackerTarget?.term && item.week_number === trackerTarget?.week);
+        if (!load || !period) return;
+        teachingLoadId = load.id;
+        subject = load.subject;
+        termNumber = period.term;
+        weekNumber = period.week_number;
+        currentDeadline = period;
+        targetConfirmed = false;
+        trackerTargetApplied = true;
+    }
 
     let showLoadPicker = $state(false);
+    let loadRefreshRun = 0;
+    async function refreshTeachingLoads(notifyOnFailure = true): Promise<TeachingLoad[] | null> {
+        const profileId = $profile?.id;
+        if (!profileId || !navigator.onLine) return null;
+        const runId = ++loadRefreshRun;
+        loadingTeachingLoads = true;
+        try {
+            const { data, error } = await requestUploadTargets((signal) => supabase
+                .from('teaching_loads').select('id, subject, grade_level')
+                .eq('user_id', profileId).eq('is_active', true)
+                .order('subject').order('grade_level').abortSignal(signal));
+            if (error) throw error;
+            if (!data || runId !== loadRefreshRun || $profile?.id !== profileId) return null;
+            teachingLoads = data;
+            void requestUploadTargets(() => cacheMetadata(`teaching_loads_${profileId}`, data), 1500).catch(() => {});
+            return data;
+        } catch (error) {
+            debugLog('[upload] Could not refresh teaching loads:', error);
+            if (notifyOnFailure) addToast('warning', 'Could not refresh teaching loads. Check your connection and try again.');
+            return null;
+        } finally {
+            if (runId === loadRefreshRun) loadingTeachingLoads = false;
+        }
+    }
+    function openTeachingLoadPicker() {
+        useManualTargets();
+        showLoadPicker = true;
+        void refreshTeachingLoads();
+    }
     let showTermPicker = $state(false);
     let showWeekPicker = $state(false);
     let calendarEntries = $state<CalendarEntry[]>([]);
+    let allCalendarEntries = $state<CalendarEntry[]>([]);
     let uploaderSchoolName = $state('');
     function setDocType(nextType: string, manual = true) {
         docType = nextType;
@@ -122,6 +208,10 @@
             weekNumber = undefined;
             currentDeadline = null;
             mismatchAlert = null;
+        } else {
+            const period = preserveUploadPeriod(calendarEntries, termNumber, weekNumber);
+            termNumber = period?.term;
+            weekNumber = period?.week_number;
         }
     }
     function formatCurrentDeadline(deadlineDate: string) {
@@ -158,19 +248,26 @@
             : "View and manage submitted documents",
     );
 
-    // Watch for changes that could invalidate uniqueness
+    // Selection changes settle before an advisory server lookup. Never cache duplicate history.
     $effect(() => {
-        if (teachingLoadId && weekNumber && docType && $profile) {
-            checkExistingSubmission();
-        } else {
-            submissionAlreadyExists = false;
-            submissionBlockReason = "";
+        const target = `${$profile?.id}:${teachingLoadId}:${termNumber}:${weekNumber}:${docType}`;
+        if (target && teachingLoadId && weekNumber && docType && $profile) {
+            const timer = window.setTimeout(() => { void checkExistingSubmission(); }, 200);
+            return () => window.clearTimeout(timer);
         }
+        submissionCheckRun++;
+        slotAlreadyCovered = false;
+        slotNotice = '';
+        submissionAlreadyExists = false;
+        submissionBlockReason = '';
     });
 
     async function checkExistingSubmission() {
+        const runId = ++submissionCheckRun;
+        const selectedTarget = `${teachingLoadId}:${termNumber}:${weekNumber}:${docType}`;
         slotAlreadyCovered = false;
         slotNotice = "";
+        if (!navigator.onLine) return;
 
         if (teachingLoadId && weekNumber && docType === "DLL" && $profile) {
             const selectedLoad = teachingLoads.find((load) => load.id === teachingLoadId);
@@ -185,9 +282,10 @@
                 .in("compliance_status", ["compliant", "late"])
                 .in("doc_type", ["DLL", "DLP"])
                 .limit(1);
-            const { data: slotMatches } = resolvedTerm
-                ? await query.eq("term_number", resolvedTerm)
-                : await query;
+            const { data: slotMatches } = await requestUploadTargets((signal) =>
+                (resolvedTerm ? query.eq("term_number", resolvedTerm) : query).abortSignal(signal),
+            ).catch(() => ({ data: null }));
+            if (runId !== submissionCheckRun || selectedTarget !== `${teachingLoadId}:${termNumber}:${weekNumber}:${docType}`) return;
             const existingSlot = slotMatches?.[0];
             if (existingSlot) {
                 slotAlreadyCovered = true;
@@ -198,91 +296,22 @@
         submissionAlreadyExists = false;
     }
 
-    // Watch weekNumber and fetch deadline
+    // The target list already contains deadlines. Never put a second network
+    // request on the selection path; reconnect refresh verifies the full list.
     $effect(() => {
-        if (isWeeklyComplianceDocType(docType) && weekNumber) {
-            const entry = calendarEntries.find((w) => w.week_number === weekNumber);
-            termNumber = entry?.term || Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
-        }
-        if (isWeeklyComplianceDocType(docType) && weekNumber && $profile?.district_id) {
-            fetchCurrentDeadline(weekNumber, $profile.district_id);
-        } else {
-            currentDeadline = null;
-        }
+        currentDeadline = isWeeklyComplianceDocType(docType)
+            ? calendarEntries.find((entry) => entry.term === termNumber && entry.week_number === weekNumber) || null
+            : null;
     });
-
-    async function fetchCurrentDeadline(wk: number, districtId: string) {
-        const selectedTerm = termNumber || calendarEntries.find((entry) => entry.week_number === wk)?.term;
-        if (navigator.onLine) {
-            let query = supabase
-                .from("academic_calendar")
-                .select("deadline_date, description")
-                .eq("district_id", districtId)
-                .eq("school_year", getCurrentSchoolYear())
-                .eq("week_number", wk)
-                .eq("is_active", true);
-            if (selectedTerm) query = query.eq("term", selectedTerm);
-            const { data, error } = await query.maybeSingle();
-
-            if (data) {
-                currentDeadline = data;
-                // Update specific cache entry if needed or just rely on the batch pre-fetch
-                return;
-            }
-            if (!error) {
-                // The selected period is no longer Open. Do not resurrect a
-                // stale cached deadline while the user is online.
-                currentDeadline = null;
-                calendarEntries = calendarEntries.filter((entry) => !(entry.week_number === wk && (!selectedTerm || entry.term === selectedTerm)));
-                if (weekNumber === wk) {
-                    weekNumber = undefined;
-                    targetConfirmed = false;
-                }
-                return;
-            }
-        }
-
-        // Offline Fallback
-        const cached = await getCachedMetadata(`calendar_open_${districtId}`);
-        if (cached?.data) {
-            const entry = cached.data.find(
-                (e: any) => e.week_number === wk && (!selectedTerm || e.term === selectedTerm) && e.is_active === true,
-            );
-            if (entry) {
-                currentDeadline = entry;
-                debugLog("[upload] Using cached deadline for week", wk);
-            }
-        }
-    }
-
-    // Mobile Optimization: Multi-stage library pre-warming
-    // Hides the 2-5s loading delay of heavy workers on mobile
     async function preWarmLibraries() {
-        if (typeof window === "undefined") return;
-        debugLog("[upload] Pre-warming heavy libraries...");
-
-        // PDF.js: pre-load from CDN so OCR can use it immediately
-        if (!(window as any).pdfjsLib) {
-            debugLog("[upload] Fetching PDF.js...");
-            const script = document.createElement("script");
-            script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js";
-            script.onload = () => {
-                (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc =
-                    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js";
-                debugLog("[upload] PDF.js loaded.");
-            };
-            document.head.appendChild(script);
-        }
-
-        // Tesseract.js (dynamic import)
-        try {
-            const { createWorker } = await import("tesseract.js");
-            // Just the import is often enough to trigger Service Worker caching
-            debugLog("[upload] Tesseract.js pre-warmed.");
-        } catch (e) {
-            debugLog("[upload] Pre-warm skipped:", e);
-        }
+        if (!navigator.onLine || processing || detectingMetadata) return;
+        try { await warmPdfReader(); }
+        catch (error) { debugLog('[upload] Reader warmup deferred:', error); }
     }
+
+    $effect(() => {
+        if (!selectedFile) resetDocumentTargets();
+    });
 
     // Keep this page's pending-sync panel in sync with the shared queue store
     // the instant it changes (e.g. right after a background sync finishes
@@ -294,12 +323,18 @@
     });
 
     onMount(() => {
+        trackerTarget = parseTrackerUploadTarget(new URLSearchParams(window.location.search));
+        if (trackerTarget) {
+            applyTrackerTarget();
+        }
+        const archiveTimer = window.setInterval(() => { void confirmPendingArchive(); }, 5000);
         // Delay pre-warming slightly to not block initial page render
-        setTimeout(preWarmLibraries, 3000);
+        const warmTimer = window.setTimeout(() => { void preWarmLibraries(); }, 1500);
 
         const onOnline = () => {
             isOnline = true;
             refreshPendingItems();
+            if ($profile && !processing) void fetchInitialData($profile);
         };
         const onOffline = () => {
             isOnline = false;
@@ -312,6 +347,9 @@
             }
         };
         window.addEventListener("cedims:refresh-visible-route", onRefresh);
+        const retryOptions = window.setInterval(() => {
+            if (navigator.onLine && $profile && !processing && !detectingMetadata && !confirmArchiveOpen && !showLoadPicker && !showTermPicker && !showWeekPicker) void fetchInitialData($profile);
+        }, 30000);
 
         // Handle files launched from OS (PWA File Handling API)
         if (
@@ -329,9 +367,18 @@
         }
 
         return () => {
+            document.documentElement.removeAttribute('data-cedims-upload-pending');
+            window.dispatchEvent(new CustomEvent('cedims:upload-state', { detail: { pending: false } }));
             window.removeEventListener("online", onOnline);
             window.removeEventListener("offline", onOffline);
             window.removeEventListener("cedims:refresh-visible-route", onRefresh);
+            window.clearInterval(retryOptions);
+            window.clearInterval(archiveTimer);
+            window.clearTimeout(warmTimer);
+            scanController?.abort();
+            metadataRun++;
+            initialDataRun++;
+            submissionCheckRun++;
         };
     });
 
@@ -357,7 +404,12 @@
         if (!confirm(`Cancel the local upload for "${fileName}"? This removes it from this device and it will stop retrying.`)) return;
         cancellingQueueKey = queueKey;
         try {
+            const cancelled = pendingItems.find(item => item.key === queueKey);
             await cancelQueuedUpload(queueKey);
+            if (cancelled?.fileHash === awaitingArchive?.fileHash) {
+                awaitingArchive = null;
+                message = '';
+            }
             addToast("success", "Queued upload cancelled.");
             await refreshPendingItems();
         } catch (err: any) {
@@ -417,374 +469,291 @@
         }
     });
 
-    async function fetchInitialData(userProfile: Profile) {
-        const runId = ++initialDataRun;
-        loadingTeachingLoads = true;
+    function fetchInitialData(userProfile: Profile): Promise<void> {
+        const key = `${userProfile.id}:${userProfile.role}:${userProfile.school_id}:${userProfile.district_id}`;
+        if (optionsRequest?.key === key) return optionsRequest.promise;
+        const promise = loadUploadOptions(userProfile);
+        optionsRequest = { key, promise };
+        void promise.finally(() => { if (optionsRequest?.promise === promise) optionsRequest = null; }).catch(() => {});
+        return promise;
+    }
 
-        let loads: TeachingLoad[] = [];
-        uploaderSchoolName = '';
-        if (userProfile.school_id) {
-            const { data: school } = await supabase.from('schools').select('name').eq('id', userProfile.school_id).maybeSingle();
-            uploaderSchoolName = school?.name || '';
-        }
-        if (navigator.onLine) {
-            const { data, error } = await supabase
-                .from("teaching_loads")
-                .select("id, subject, grade_level")
-                .eq("user_id", userProfile.id)
-                .eq("is_active", true)
-                .order("subject, grade_level");
-
-            if (!error && data) {
-                if (runId !== initialDataRun) return;
-                loads = data;
-                cacheMetadata(`teaching_loads_${userProfile.id}`, data);
-            } else if (error) {
-                debugLog("[upload] Online fetch teaching loads skipped:", error.message);
-            }
-        }
-
-        if (loads.length === 0) {
-            const cached = await getCachedMetadata(
-                `teaching_loads_${userProfile.id}`,
-            );
-            if (cached?.data) {
-                if (runId !== initialDataRun) return;
-                loads = cached.data;
-                debugLog("[upload] Using cached teaching loads");
-            }
-        }
-
-        if (loads.length > 0) {
-            teachingLoads = loads;
-            if (!teachingLoadId) {
-                teachingLoadId = teachingLoads[0].id;
-            }
-        } else {
+    async function loadUploadOptions(userProfile: Profile) {
+        if (targetProfileId !== userProfile.id) {
+            targetProfileId = userProfile.id;
             teachingLoads = [];
+            calendarEntries = [];
+            allCalendarEntries = [];
             teachingLoadId = "";
             termNumber = undefined;
             weekNumber = undefined;
-            // Only show error if uploading DLL (which requires teaching load)
-            // School Head and Master Teacher uploading ISP/ISR don't need teaching loads
-            if (navigator.onLine && docType === 'DLL') {
-                addToast("error", "No teaching loads found. Please configure at least one teaching load before uploading Daily Lesson Plan documents.");
-            }
+            uploaderSchoolName = "";
         }
+        const runId = ++initialDataRun;
+        const isCurrent = () => runId === initialDataRun && $profile?.id === userProfile.id && $profile?.district_id === userProfile.district_id;
+        const year = getCurrentSchoolYear();
+        const loadsKey = `teaching_loads_${userProfile.id}`;
+        const calendarKey = `calendar_${userProfile.district_id}`;
+        const schoolKey = `upload_school_${userProfile.school_id}`;
+        loadingTeachingLoads = isWeeklyComplianceDocType(docType) && (teachingLoads.length === 0 || calendarEntries.length === 0);
 
-        if (userProfile.district_id) {
-            let loadedCalendarEntries: CalendarEntry[] = [];
-
-            // Try cache first for immediate UI
-            const cacheKey = `calendar_open_${userProfile.district_id}`;
-            const cachedCal = await getCachedMetadata(cacheKey);
-            if (cachedCal?.data) {
-                if (runId !== initialDataRun) return;
-                loadedCalendarEntries = (cachedCal.data as CalendarEntry[]).filter(
-                    (w) => w.is_active === true,
-                );
-                calendarEntries = loadedCalendarEntries;
-                debugLog("[upload] Loaded calendar from cache");
+        const applyLoads = (loads: TeachingLoad[]) => {
+            teachingLoads = loads;
+            if (!loads.some((load) => load.id === teachingLoadId)) {
+                teachingLoadId = "";
+                targetConfirmed = false;
             }
+            if (teachingLoads.length && calendarEntries.length) loadingTeachingLoads = false;
+            applyTrackerTarget();
+        };
+        const applyCalendar = (entries: CalendarEntry[]) => {
+            allCalendarEntries = entries.filter(entry => entry.school_year === year);
+            calendarEntries = openUploadTargets(entries, year);
+            if (!isWeeklyComplianceDocType(docType)) return;
+            const period = preserveUploadPeriod(calendarEntries, termNumber, weekNumber);
+            if (termNumber !== period?.term || weekNumber !== period?.week_number) targetConfirmed = false;
+            termNumber = period?.term;
+            weekNumber = period?.week_number;
+            currentDeadline = period || null;
+            if (teachingLoads.length && calendarEntries.length) loadingTeachingLoads = false;
+            applyTrackerTarget();
+        };
+        const readSaved = async (key: string) => {
+            try { return await requestUploadTargets(() => getCachedMetadata(key), 1500); }
+            catch { return null; }
+        };
+        const save = async (key: string, value: unknown) => {
+            try { await requestUploadTargets(() => cacheMetadata(key, value), 1500); }
+            catch (err) { debugLog("[upload] Could not save options on this device:", err); }
+        };
 
-            // Sync with online if possible
-            if (navigator.onLine) {
-                const { data, error } = await supabase
-                    .from("academic_calendar")
-                    .select("id, school_year, term, week_number, deadline_date, description, is_active")
-                    .eq("district_id", userProfile.district_id)
-                    .eq("is_active", true)
-                    .order("week_number", { ascending: true });
-
-                if (!error && data) {
-                    if (runId !== initialDataRun) return;
-                    loadedCalendarEntries = data;
-                    calendarEntries = loadedCalendarEntries;
-                    cacheMetadata(cacheKey, data);
-                } else if (error) {
-                    debugLog("[upload] Online fetch calendar skipped:", error.message);
-                }
-            }
-
-            // Auto-detect current week only when teaching loads are available
-            if (
-                teachingLoads.length > 0 &&
-                loadedCalendarEntries.length > 0 &&
-                !weekNumber
-            ) {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-
-                const sorted = loadedCalendarEntries
-                    .filter((e): e is CalendarEntry & { deadline_date: string } => typeof e.deadline_date === "string" && e.deadline_date.length > 0)
-                    .sort(
-                        (a, b) =>
-                            new Date(a.deadline_date).getTime() -
-                            new Date(b.deadline_date).getTime(),
-                    );
-
-                const currentEntry = sorted.find((e) => {
-                    const deadline = new Date(e.deadline_date);
-                    deadline.setHours(23, 59, 59, 999);
-                    return deadline >= today;
-                });
-
-                if (currentEntry) {
-                    termNumber = currentEntry.term;
-                    weekNumber = currentEntry.week_number;
-                } else if (sorted.length > 0) {
-                    termNumber = sorted[sorted.length - 1].term;
-                    weekNumber = sorted[sorted.length - 1].week_number;
-                }
-            }
-        }
-
-        if (navigator.onLine) {
-            try {
-                await syncLedgerFromServer(userProfile.id);
-
-            } catch (err) {
-                debugLog("[upload] Sync context fetch skipped:", err);
-            }
-        }
-
-        if (runId === initialDataRun) loadingTeachingLoads = false;
-    }
-
-    function normalizeGradeLevel(value?: string | null): string {
-        const match = String(value || "").match(/\d+/);
-        return match ? match[0] : "";
-    }
-
-    function normalizeSubjectKey(value?: string | null): string {
-        const subject = String(value || "").toUpperCase().replace(/[^A-Z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-        if (/\bH\s*G\s*P\b/.test(subject) || subject.includes("HOMEROOM GUIDANCE")) return "HGP";
-        if (subject === "MATH" || subject.includes("MATHEMATICS") || subject.includes("MATEMATIKA")) return "MATHEMATICS";
-        if (subject === "AP" || subject.includes("ARALING PANLIPUNAN") || subject.includes("SOCIAL STUDIES")) return "AP";
-        if (subject === "GMRC" || subject.includes("PAGPAPAKATAO") || subject.includes("VALUES") || subject.includes("ESP")) return "GMRC";
-        return subject;
-    }
-
-    function subjectsMatch(loadSubject: string, detectedSubject: string): boolean {
-        const loadSub = normalizeSubjectKey(loadSubject);
-        const sub = normalizeSubjectKey(detectedSubject);
-
-        if (sub === "HGP") return loadSub === "HGP";
-        if (sub === "GMRC") return loadSub === "GMRC";
-        if (sub === "AP") return loadSub === "AP";
-        return loadSub.includes(sub) || sub.includes(loadSub);
-    }
-
-    function mapTeachingLoad(metadata: Partial<DocMetadata>): string {
-        if (!metadata.subject) return teachingLoadId;
-
-        const sub = metadata.subject.toUpperCase();
-        const grade = normalizeGradeLevel(metadata.gradeLevel);
-
-        const subjectMatches = teachingLoads.filter((l) =>
-            subjectsMatch(l.subject, sub),
-        );
-
-        if (subjectMatches.length === 0) return "";
-        if (subjectMatches.length === 1) return subjectMatches[0].id;
-
-        if (!grade) {
-            addToast(
-                "info",
-                `Scanner detected ${metadata.subject}, but could not confirm the grade. Please choose the correct grade before uploading.`,
-            );
-            return "";
-        }
-
-        const gradeMatch = subjectMatches.find(
-            (l) => normalizeGradeLevel(l.grade_level) === grade,
-        );
-
-        if (!gradeMatch) {
-            addToast(
-                "warning",
-                `Scanner detected ${metadata.subject} Grade ${grade}, but it did not match an active teaching load. Please verify the selected load.`,
-            );
-            return "";
-        }
-
-        return gradeMatch.id;
-    }
-
-    function parseDocDate(dateStr: string | null): Date | null {
-        if (!dateStr) return null;
         try {
-            debugLog("[upload] Attempting to parse date from:", dateStr);
-            // Extract the month and day part using regex to ignore any surrounding garbage
-            const match = dateStr.match(
-                /(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[a-zA-Z]*\s+\d{1,2}/i,
-            );
+            // All saved targets appear together before any network work starts.
+            const [savedLoads, savedCalendar, savedSchool] = await Promise.all([
+                readSaved(loadsKey),
+                userProfile.district_id ? readSaved(calendarKey) : Promise.resolve(null),
+                userProfile.school_id ? readSaved(schoolKey) : Promise.resolve(null),
+            ]);
+            if (!isCurrent()) return;
+            if (!teachingLoads.length && Array.isArray(savedLoads?.data)) applyLoads(savedLoads.data);
+            if (!calendarEntries.length && Array.isArray(savedCalendar?.data)) applyCalendar(savedCalendar.data);
+            if (savedSchool?.data) uploaderSchoolName = savedSchool.data;
+            if (teachingLoads.length && calendarEntries.length) loadingTeachingLoads = false;
+            if (!navigator.onLine) return;
 
-            if (!match) {
-                debugLog(
-                    "[upload] Could not find Month Day pattern in string",
-                );
-                return null;
+            // Refresh independently: a slow school lookup must never block the targets.
+            await Promise.allSettled([
+                (async () => {
+                    const { data: loads, error } = await requestUploadTargets((signal) => supabase
+                        .from("teaching_loads").select("id, subject, grade_level")
+                        .eq("user_id", userProfile.id).eq("is_active", true)
+                        .order("subject").order("grade_level").abortSignal(signal));
+                    if (!isCurrent() || processing || error || !loads) return;
+                    applyLoads(loads);
+                    await save(loadsKey, loads);
+                })(),
+                (async () => {
+                    if (!userProfile.district_id) return;
+                    const { data: entries, error } = await requestUploadTargets((signal) => supabase
+                        .from("academic_calendar")
+                        .select("id, school_year, term, week_number, deadline_date, description, is_active")
+                        .eq("district_id", userProfile.district_id).eq("school_year", year)
+                        .order("term").order("week_number").abortSignal(signal));
+                    if (!isCurrent() || processing || error || !entries) return;
+                    applyCalendar(entries);
+                    await save(calendarKey, entries);
+                })(),
+                (async () => {
+                    if (!userProfile.school_id) return;
+                    const { data: school, error } = await requestUploadTargets((signal) => supabase
+                        .from("schools").select("name").eq("id", userProfile.school_id)
+                        .abortSignal(signal).maybeSingle());
+                    if (!isCurrent() || processing || error || !school) return;
+                    uploaderSchoolName = school.name;
+                    await save(schoolKey, school.name);
+                })(),
+            ]);
+        } finally {
+            if (isCurrent()) {
+                loadingTeachingLoads = false;
+                if (teachingLoads.length && calendarEntries.length) optionsNoticeShown = false;
+                if (!optionsNoticeShown && (!teachingLoads.length || !calendarEntries.length) && isWeeklyComplianceDocType(docType)) {
+                    optionsNoticeShown = true;
+                    addToast("info", navigator.onLine
+                        ? "Some upload options are unavailable. Check your teaching loads and Open calendar periods, or reconnect to retry."
+                        : "Connect once to save your teaching loads and Open calendar periods for offline uploads.");
+                }
             }
-
-            const cleaned = match[0];
-            const yearMatch = dateStr.match(/\d{4}/);
-            const year = yearMatch
-                ? yearMatch[0]
-                : new Date().getFullYear().toString();
-
-            const finalDateStr = `${cleaned}, ${year}`;
-            debugLog("[upload] Parsed clean date string:", finalDateStr);
-
-            const d = new Date(finalDateStr);
-            return isNaN(d.getTime()) ? null : d;
-        } catch (e) {
-            debugLog("[upload] Date parse skipped:", e);
-            return null;
         }
     }
+    function useManualTargets() {
+        if (!detectingMetadata) return;
+        metadataRun++;
+        scanController?.abort();
+        detectingMetadata = false;
+        scanProgress = 100;
+        detectedMetadata = createDefaultMetadata();
+    }
 
-    async function lookupWeekByDate(date: Date, districtId: string) {
-        // Find the week where this document's date is between (deadline - 10 days) and (deadline)
-        // This prevents dates from months ago jumping forward to the first future deadline.
-        const isoDate = date.toISOString();
-
-        const endDate = new Date(date);
-        endDate.setDate(endDate.getDate() + 10);
-        const isoEndDate = endDate.toISOString();
-
-        debugLog(
-            `[upload] Looking up week between: ${isoDate} and ${isoEndDate}, district: ${districtId}`,
-        );
-
-        const { data, error } = await supabase
-            .from("academic_calendar")
-            .select("week_number, deadline_date")
-            .gte("deadline_date", isoDate)
-            .lte("deadline_date", isoEndDate)
-            .eq("district_id", districtId)
-            .eq("is_active", true)
-            .order("deadline_date", { ascending: true })
-            .limit(1)
-            .maybeSingle();
-
-        if (error) {
-            debugLog("[upload] Calendar lookup skipped:", error);
-            return null;
-        }
-
-        debugLog(`[upload] Lookup result:`, data);
-        return data ? data.week_number : null;
+    function resetDocumentTargets() {
+        metadataRun++;
+        submissionCheckRun++;
+        scanController?.abort();
+        scanController = null;
+        teachingLoadId = '';
+        subject = '';
+        termNumber = undefined;
+        weekNumber = undefined;
+        currentDeadline = null;
+        detectedMetadata = null;
+        mismatchAlert = null;
+        ocrConfidence = null;
+        detectingMetadata = false;
+        scanProgress = 0;
+        slotAlreadyCovered = false;
+        slotNotice = '';
+        submissionAlreadyExists = false;
+        submissionBlockReason = '';
+        targetConfirmed = false;
+        uploadConfirmed = false;
+        confirmArchiveOpen = false;
+        showLoadPicker = false;
+        showTermPicker = false;
+        showWeekPicker = false;
     }
 
     async function onFileSelected(file: File) {
-        if ($settings.maintenance_mode) {
-            addToast(
-                "error",
-                "System is currently under maintenance. Uploads are disabled.",
-            );
-            return;
-        }
-        const ext = file.name.split('.').pop()?.toLowerCase();
-        if (file.type !== "application/pdf" && ext !== "pdf") {
+        if (processing || checkingTarget) return;
+        resetDocumentTargets();
+        result = null;
+        completedDetails = null;
+        showSuccessModal = false;
+        awaitingArchive = null;
+        progress = 0;
+        message = '';
+        currentPhase = 'transcoding';
+        if ($settings.maintenance_mode) { selectedFile = null; return; }
+        if (file.type !== 'application/pdf' && file.name.split('.').pop()?.toLowerCase() !== 'pdf') {
             selectedFile = null;
-            addToast("error", "Only PDF files can be uploaded. Please export or save the document as PDF first.");
+            addToast('error', 'Only PDF files can be uploaded. Please export or save the document as PDF first.');
             return;
         }
         if (file.size > MAX_SELECTED_PDF_BYTES) {
             selectedFile = null;
-            addToast("error", `File too large. Compress the PDF below ${MAX_SELECTED_PDF_SIZE_MB}MB first: ${PDF_COMPRESSOR_URL}`);
+            addToast('error', `File too large. Compress the PDF below ${MAX_SELECTED_PDF_SIZE_MB}MB first: ${PDF_COMPRESSOR_URL}`);
             return;
         }
-
         selectedFile = file;
-        targetConfirmed = false;
-        result = null;
-        ocrConfidence = null;
-        // Runs OCR-based metadata detection: doc type, week number, and teaching load auto-fill
+        const runId = metadataRun;
+        const controller = new AbortController();
+        scanController = controller;
+        const isCurrentScan = () => runId === metadataRun && selectedFile === file && !controller.signal.aborted;
         detectingMetadata = true;
         scanProgress = 5;
         try {
-            let ocrTarget = file;
-            scanProgress = Math.max(scanProgress, 55);
-            const metadata = await extractMetadata(ocrTarget);
+            const metadata = await extractMetadata(file, { signal: controller.signal });
+            if (!isCurrentScan()) return;
+            if (loadingTeachingLoads || !$profile) {
+                const ready = await waitForDataReady(15000);
+                if (!isCurrentScan()) return;
+                if (!ready) { addToast('warning', 'Document scanned, but upload options could not load. Please reconnect and try again.'); return; }
+            }
             scanProgress = 82;
-            debugLog("[upload] OCR metadata result:", metadata);
-            detectedMetadata = metadata;
-            scanProgress = 92;
-
-            // OCR may update the suggested target, but the final archive
-            // destination is not committed until the confirmation form.
-            if (!docTypeManuallySelected && metadata.docType !== "Unknown") setDocType(metadata.docType, false);
-
-            // Only auto-fill week number and teaching load for DLL documents
-            if (docType === "DLL") {
-                if (metadata.termNumber) termNumber = metadata.termNumber;
-                if (metadata.weekNumber) {
-                    weekNumber = metadata.weekNumber;
-                    termNumber = metadata.termNumber || Math.min(3, Math.max(1, Math.ceil(metadata.weekNumber / 13)));
+            const nextDocType = !docTypeManuallySelected && metadata.docType !== 'Unknown' ? metadata.docType : docType;
+            let nextTerm: number | undefined;
+            let nextWeek: number | undefined;
+            let nextLoad = '';
+            let nextMetadata = metadata;
+            let notice = '';
+            if (isWeeklyComplianceDocType(nextDocType)) {
+                let match = resolveTeachingLoadMatch(metadata, teachingLoads, file.name);
+                if (!match.loadId && (match.reason === 'grade_mismatch' || match.reason === 'no_subject_match') && navigator.onLine) {
+                    const refreshed = await refreshTeachingLoads(false);
+                    if (!isCurrentScan()) return;
+                    if (refreshed) match = resolveTeachingLoadMatch(metadata, refreshed, file.name);
                 }
-                if (metadata.dateRange && calendarEntries.length > 0) {
-                    const resolved = resolveWeekFromDates(
-                        metadata.dateRange,
-                        calendarEntries.map((entry) => ({
-                            week_number: entry.week_number,
-                            deadline_date: entry.deadline_date || undefined,
-                        })),
-                    );
-                    if (resolved) {
-                        weekNumber = resolved.weekNumber;
-                        const entry = calendarEntries.find((w) => w.week_number === resolved.weekNumber);
-                        termNumber = entry?.term || metadata.termNumber || Math.min(3, Math.max(1, Math.ceil(resolved.weekNumber / 13)));
-                        debugLog(
-                            `[upload] Derived week ${weekNumber} from document header dates ${metadata.dateRange.raw}`,
-                        );
-                    }
-                } else if (metadata.date && $profile?.district_id) {
-                    const docDate = parseDocDate(metadata.date);
-                    if (docDate) {
-                        const derivedWeek = await lookupWeekByDate(
-                            docDate,
-                            $profile.district_id,
-                        );
-                        if (derivedWeek) {
-                            weekNumber = derivedWeek;
-                            const entry = calendarEntries.find((w) => w.week_number === derivedWeek);
-                            termNumber = entry?.term || Math.min(3, Math.max(1, Math.ceil(derivedWeek / 13)));
-                            debugLog(
-                                `[upload] Derived week ${weekNumber} from date ${metadata.date}`,
-                            );
+                const year = getCurrentSchoolYear();
+                const periodOptions = {
+                    schoolYear: year, subject: teachingLoads.find(load => load.id === match.loadId)?.subject || match.subject, schoolName: uploaderSchoolName
+                };
+                let scannedPeriod = resolveHeaderUploadPeriod(metadata.rawText || '', allCalendarEntries, periodOptions);
+                let period = scannedPeriod || resolveUniqueOpenUploadPeriod(metadata.rawText || '', allCalendarEntries, year, periodOptions);
+                // Cached options can be from the week that just closed. Refresh the
+                // calendar before using its sole Open period as a fallback.
+                if (!scannedPeriod && typeof navigator !== 'undefined' && navigator.onLine && $profile?.district_id) {
+                    try {
+                        const { data: currentCalendar, error: calendarError } = await requestUploadTargets((signal) => supabase
+                            .from('academic_calendar')
+                            .select('id, school_year, term, week_number, deadline_date, description, is_active')
+                            .eq('district_id', $profile!.district_id).eq('school_year', year)
+                            .order('term').order('week_number').abortSignal(signal));
+                        if (!isCurrentScan()) return;
+                        if (!calendarError && currentCalendar) {
+                            allCalendarEntries = currentCalendar;
+                            calendarEntries = openUploadTargets(currentCalendar, year);
+                            scannedPeriod = resolveHeaderUploadPeriod(metadata.rawText || '', currentCalendar, periodOptions);
+                            period = scannedPeriod || resolveUniqueOpenUploadPeriod(metadata.rawText || '', currentCalendar, year, periodOptions);
+                        }
+                    } catch (error) { debugLog('[upload] Could not refresh the Open calendar period:', error); }
+                }
+                nextTerm = period?.term;
+                nextWeek = period?.week_number;
+                nextLoad = match.loadId || '';
+                if (trackerTarget && teachingLoadId === trackerTarget.loadId && termNumber === trackerTarget.term && weekNumber === trackerTarget.week) {
+                    const linkedLoad = teachingLoads.find(load => load.id === trackerTarget?.loadId);
+                    const linkedPeriod = calendarEntries.find(entry => entry.term === trackerTarget?.term && entry.week_number === trackerTarget?.week);
+                    if (linkedLoad && linkedPeriod) {
+                        if ((nextLoad && nextLoad !== linkedLoad.id) || (nextTerm && nextWeek && (nextTerm !== linkedPeriod.term || nextWeek !== linkedPeriod.week_number))) {
+                            notice = 'The scanned document differs from the tracker target. Review the teaching load and period before uploading.';
+                        } else {
+                            nextLoad ||= linkedLoad.id;
+                            if (!nextTerm || !nextWeek) {
+                                nextTerm = linkedPeriod.term;
+                                nextWeek = linkedPeriod.week_number;
+                            }
                         }
                     }
                 }
-
-                const mappedId = mapTeachingLoad(metadata);
-                if (mappedId) teachingLoadId = mappedId;
+                nextMetadata = { ...metadata, subject: match.subject, gradeLevel: match.grade || metadata.gradeLevel };
+                if (!nextLoad && !notice) notice = match.reason === 'missing_grade'
+                    ? `Detected ${match.subject}, but the Grade Level and Section field could not be read. Please choose the load below.`
+                    : match.reason === 'ambiguous' ? 'Several Kindergarten learning areas match your assigned loads. Choose the correct teaching load below.'
+                    : match.subject ? `Detected ${match.subject}${match.grade ? ` Grade ${match.grade}` : ''}. Choose a matching active teaching load below.`
+                    : 'The Learning Area / Asignatura field could not identify one subject. Please choose the correct load below.';
+                else if ((!nextTerm || !nextWeek) && !notice) notice = 'Confirm the term and week for this document. No unique Open period could be matched.';
+                else if (match.subject === 'HGP' && teachingLoads.find(load => load.id === match.loadId)?.subject !== 'HGP')
+                    notice = 'HGP will be filed under your assigned GMRC teaching load for the same grade. Please review before uploading.';
+                if (!notice && period && !scannedPeriod)
+                    notice = `Term ${period.term}, Week ${period.week_number} was filled because it is the only Open period. Please review before uploading.`;
             }
-
-            if (metadata.confidence) {
-                ocrConfidence = metadata.confidence;
-            }
-
-            // Check for initial mismatch
-            if (teachingLoadId && isWeeklyComplianceDocType(docType)) {
-                mismatchAlert = validateSelection(
-                    teachingLoadId,
-                    metadata.rawText,
-                    teachingLoads,
-                );
-            }
-
-            const { speak } = await import("$lib/utils/voiceGuide");
-            speak("Smart detection complete. Fields updated.");
+            if (!isCurrentScan()) return;
+            // Commit one file's complete result together; previous scans never own these fields.
+            if (nextDocType !== docType) setDocType(nextDocType, false);
+            teachingLoadId = nextLoad;
+            termNumber = nextTerm;
+            weekNumber = nextWeek;
+            trackerTarget = null;
+            detectedMetadata = nextMetadata;
+            ocrConfidence = metadata.confidence || null;
+            mismatchAlert = nextLoad && isWeeklyComplianceDocType(nextDocType)
+                ? validateSelection(nextLoad, metadata.rawText, teachingLoads, nextMetadata, file.name) : null;
             scanProgress = 100;
-        } catch (err) {
-            debugLog("[upload] OCR skipped:", err);
+            if (notice) addToast('info', notice);
+        } catch (error) {
+            if (isCurrentScan()) {
+                if (isWeeklyComplianceDocType(docType)) {
+                    const period = resolveUniqueOpenUploadPeriod('', allCalendarEntries, getCurrentSchoolYear());
+                    termNumber = period?.term;
+                    weekNumber = period?.week_number;
+                }
+                detectedMetadata = createDefaultMetadata();
+                addToast('info', termNumber && weekNumber
+                    ? `The scan could not read this file. Term ${termNumber}, Week ${weekNumber} is the only Open period; please choose the teaching load and review the period.`
+                    : 'The scan could not read this file. Please choose its load, term, and week manually.');
+            }
         } finally {
-            scanProgress = 100;
-            detectingMetadata = false;
+            if (isCurrentScan()) { detectingMetadata = false; scanProgress = 100; }
         }
-
     }
 
     /** Auto-wait for profile + teaching loads to finish loading (polls every 200ms) */
@@ -805,11 +774,14 @@
         });
     }
     async function handleUpload() {
+        if (processing || checkingTarget) { uploadConfirmed = false; return; }
         if (!uploadConfirmed) {
             confirmArchiveOpen = true;
             return;
         }
         uploadConfirmed = false;
+        checkingTarget = true;
+        try {
         if (isWeeklyComplianceDocType(docType) && (!teachingLoadId || !termNumber || !weekNumber)) {
             addToast('error', 'Select and confirm the teaching load, term, and week before uploading. Scanner results are suggestions only.');
             return;
@@ -852,13 +824,14 @@
             return;
         }
 
-        if (requiresTeachingLoadSelection($profile?.role || '', docType) && !teachingLoadId) {
+        if (isWeeklyComplianceDocType(docType) && !validAssignedLoad(teachingLoads.find(load => load.id === teachingLoadId))) {
             addToast("error", "Please select a teaching load before uploading");
-            showLoadPicker = true;
+            openTeachingLoadPicker();
             return;
         }
 
         let openCalendarEntry: CalendarEntry | null = null;
+        let queueLocally = false;
         if (isWeeklyComplianceDocType(docType)) {
             if (!termNumber || !weekNumber) {
                 addToast("error", "Choose a term and week that is Open in the Academic Calendar.");
@@ -866,21 +839,36 @@
             }
 
             if (navigator.onLine && $profile?.district_id) {
-                const { data: entry, error } = await supabase
+                const districtId = $profile.district_id;
+                const requestedTerm = termNumber;
+                const requestedWeek = weekNumber;
+                const requestedLoad = teachingLoadId;
+                const requestedFile = selectedFile;
+                const { data: entry, error } = await requestUploadTargets((signal) => supabase
                     .from("academic_calendar")
                     .select("id, school_year, term, week_number, deadline_date, description, is_active")
-                    .eq("district_id", $profile.district_id)
+                    .eq("district_id", districtId)
                     .eq("school_year", getCurrentSchoolYear())
-                    .eq("term", termNumber)
-                    .eq("week_number", weekNumber)
+                    .eq("term", requestedTerm)
+                    .eq("week_number", requestedWeek)
                     .eq("is_active", true)
-                    .maybeSingle();
-
-                if (error) {
-                    addToast("error", "Could not verify that this upload period is Open. Refresh and try again.");
+                    .abortSignal(signal).maybeSingle())
+                    .catch(() => ({ data: null, error: new Error("Connection unavailable") }));
+                if (termNumber !== requestedTerm || weekNumber !== requestedWeek || teachingLoadId !== requestedLoad || selectedFile !== requestedFile) {
+                    addToast("info", "Your upload target changed. Please confirm the current selection before uploading.");
                     return;
                 }
-                if (!entry) {
+
+                if (error) {
+                    openCalendarEntry = calendarEntries.find((item) => item.term === termNumber && item.week_number === weekNumber) || null;
+                    if (!openCalendarEntry) {
+                        addToast("error", "Connect once to load and save this upload period before uploading.");
+                        return;
+                    }
+                    // Queue with the exact saved calendar ID; sync rechecks that it is Open.
+                    queueLocally = true;
+                }
+                if (!error && !entry) {
                     const closedPeriod = `Term ${termNumber}, Week ${weekNumber} is Closed. Choose an Open period from the Academic Calendar.`;
                     calendarEntries = calendarEntries.filter((item) => !(item.term === termNumber && item.week_number === weekNumber));
                     currentDeadline = null;
@@ -889,12 +877,14 @@
                     addToast("error", closedPeriod);
                     return;
                 }
-                openCalendarEntry = entry;
-                if (!calendarEntries.some((item) => item.id === entry.id)) {
-                    calendarEntries = [...calendarEntries, entry].sort((a, b) => a.term - b.term || a.week_number - b.week_number);
+                if (entry) {
+                    openCalendarEntry = entry;
+                    if (!calendarEntries.some((item) => item.id === entry.id)) {
+                        calendarEntries = [...calendarEntries, entry].sort((a, b) => a.term - b.term || a.week_number - b.week_number);
+                    }
+                    void cacheMetadata(`calendar_open_${districtId}`, calendarEntries).catch(() => {});
+                    currentDeadline = entry;
                 }
-                cacheMetadata(`calendar_open_${$profile.district_id}`, calendarEntries);
-                currentDeadline = entry;
             } else {
                 openCalendarEntry = calendarEntries.find((entry) =>
                     entry.term === termNumber && entry.week_number === weekNumber && entry.is_active === true,
@@ -906,6 +896,8 @@
             }
         }
 
+        awaitingArchive = null;
+        showSuccessModal = false;
         processing = true;
         result = null;
 
@@ -916,8 +908,9 @@
         const pipelineOptions = {
             userId: $profile!.id,
             userRole: $profile!.role,
+            queueLocally,
             docType,
-            subject: subject || undefined,
+            subject: teachingLoads.find((load) => load.id === teachingLoadId)?.subject || subject || undefined,
             schoolName: uploaderSchoolName || undefined,
             termNumber: isWeeklyComplianceDocType(docType) ? termNumber : undefined,
             weekNumber: isWeeklyComplianceDocType(docType) ? weekNumber : undefined,
@@ -954,16 +947,24 @@
                 message = event.message;
 
                 if (event.metadata) {
-                    if (!docTypeManuallySelected && event.metadata.docType !== "Unknown")
-                        setDocType(event.metadata.docType, false);
-                    if (isWeeklyComplianceDocType(docType) && event.metadata.weekNumber)
-                        weekNumber = event.metadata.weekNumber;
-                    if (isWeeklyComplianceDocType(docType) && event.metadata.termNumber)
-                        termNumber = event.metadata.termNumber;
+                    // The destination was confirmed before starting the pipeline.
+                    // Later OCR events must not change or clear that selection.
                     if (event.metadata.confidence !== undefined)
                         ocrConfidence = event.metadata.confidence;
                     const { speak } = await import("$lib/utils/voiceGuide");
                     speak("Smart detection complete. Details updated.");
+                }
+
+                if ((event.phase === 'queued' || event.phase === 'done') && event.result) {
+                    completedDetails = { docType: pipelineOptions.docType, weekNumber: pipelineOptions.weekNumber };
+                }
+                if (event.phase === "queued" && event.result) {
+                    awaitingArchive = event.result;
+                    selectedFile = null;
+                    resetDocumentTargets();
+                    await refreshPendingItems();
+                    connectivity.refreshPendingCount();
+                    void confirmPendingArchive();
                 }
 
                 if (event.phase === "done" && event.result) {
@@ -971,6 +972,7 @@
                     showSuccessModal = true;
                     speak(VoicePrompts.UPLOAD_COMPLETE);
                     selectedFile = null;
+                    resetDocumentTargets();
                     await refreshPendingItems();
                     connectivity.refreshPendingCount();
                 }
@@ -989,6 +991,14 @@
         }
 
         await refreshPendingItems();
+        } catch (error) {
+            currentPhase = 'error';
+            message = error instanceof Error ? error.message : 'Upload could not be completed. Please try again.';
+            addToast('error', message);
+        } finally {
+            checkingTarget = false;
+            processing = false;
+        }
     }
 
     // Reactively validate selection mismatch
@@ -998,6 +1008,8 @@
                 teachingLoadId,
                 detectedMetadata.rawText,
                 teachingLoads,
+                detectedMetadata,
+                selectedFile?.name || '',
             );
         } else {
             mismatchAlert = null;
@@ -1009,6 +1021,8 @@
     }
 
     function handleUploadAnother() {
+        resetDocumentTargets();
+        completedDetails = null;
         showSuccessModal = false;
         result = null;
         detectedMetadata = null;
@@ -1178,13 +1192,18 @@
             {/if}
             <!-- File Drop Zone -->
             <FileDropZone
+                bind:selectedFile
                 onfileselected={onFileSelected}
-                disabled={processing || $settings.maintenance_mode}
+                disabled={processing || checkingTarget || $settings.maintenance_mode}
                 accept=".pdf,application/pdf"
                 maxSizeMb={MAX_SELECTED_PDF_SIZE_MB}
                 supportedText="PDF only. Compress files below 4MB before uploading."
                 oversizedHelpUrl={PDF_COMPRESSOR_URL}
             />
+
+            {#if checkingTarget && !processing}
+                <p class="rounded-lg border border-gov-blue/20 bg-gov-blue/5 p-3 text-sm text-gov-blue" role="status" aria-live="polite">Checking your selected upload period. Please wait…</p>
+            {/if}
 
             {#if $settings.maintenance_mode}
                 <div
@@ -1247,9 +1266,10 @@
                             <div class="h-2 w-full overflow-hidden rounded-full bg-border-subtle" role="progressbar" aria-label="Document scan progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={scanProgress}>
                                 <div class="h-full rounded-full bg-gov-blue transition-[width] duration-300 ease-out" style={`width: ${scanProgress}%`}></div>
                             </div>
-                            <p class="mt-2 text-xs text-text-muted">Reading the document and detecting its type, term, week, and teaching load.</p>
+                            <p class="mt-2 text-xs text-text-muted">Reading the document. You can choose your teaching load, term, and week below at any time.</p>
+                            <button type="button" class="mt-3 min-h-11 rounded-lg border border-gov-blue/30 px-3 text-sm font-semibold text-gov-blue" onclick={useManualTargets}>Use selected targets without waiting for scan</button>
                         </div>
-                    {:else}
+                    {/if}
                         <div class="space-y-4 animate-fade-in">
                             <!-- Mismatch Alert -->
                             {#if mismatchAlert}
@@ -1278,7 +1298,7 @@
                                             <p
                                                 class="text-xs text-text-secondary mt-0.5 leading-relaxed"
                                             >
-                                                {@html mismatchAlert.message}
+                                                {mismatchAlert.message.replace(/\*\*/g, "")}
                                             </p>
                                         </div>
                                     </div>
@@ -1286,6 +1306,13 @@
                             {/if}
 
                             {#if docType === "DLL"}
+                            {#if !detectingMetadata && detectedMetadata}
+                                <div class="rounded-lg border border-border-subtle bg-surface-muted p-3" role="status">
+                                    <p class="text-xs font-bold text-text-secondary uppercase tracking-wide">Learning area detected from PDF or filename</p>
+                                    <p class="mt-1 text-base font-semibold text-text-primary">{detectedMetadata.subject || 'Not identified'}</p>
+                                    <p class="mt-1 text-xs text-text-muted">{detectedMetadata.subject && teachingLoadId && !mismatchAlert ? 'Matches the selected teaching load. Confirm it before uploading.' : 'Check the teaching load below before uploading.'}</p>
+                                </div>
+                            {/if}
                             <!-- Matched Teaching Load -->
                             <div class="space-y-2">
                                 <span
@@ -1293,7 +1320,7 @@
                                     >Teaching Load</span
                                 >
                                 <button
-                                    onclick={() => (showLoadPicker = true)}
+                                    onclick={openTeachingLoadPicker}
                                     class="w-full p-3 rounded-md transition-colors border-2 text-left flex items-center justify-between group {teachingLoadId
                                         ? 'bg-gov-blue/5 border-gov-blue/20 hover:border-gov-blue/40'
                                         : 'bg-gov-red/5 border-gov-red/20 border-dashed '}"
@@ -1303,7 +1330,7 @@
                                             <p
                                                 class="text-xs font-semibold text-gov-blue uppercase tracking-normal mb-1"
                                             >
-                                                Detected Load
+                                                Selected Load
                                             </p>
                                             <p
                                                 class="text-base font-semibold text-text-primary leading-tight"
@@ -1316,7 +1343,7 @@
                                             <p
                                                 class="text-xs font-bold text-text-secondary mt-0.5"
                                             >
-                                                Grade {teachingLoads.find(
+                                                {teachingLoads.find(
                                                     (l) =>
                                                         l.id === teachingLoadId,
                                                 )?.grade_level || ""}
@@ -1376,7 +1403,7 @@
                                     <button
                                         onclick={() =>
                                             (requiresTeachingLoadSelection($profile?.role || '', docType) ? teachingLoads.length > 0 : true) &&
-                                            (showTermPicker = true)
+                                            (useManualTargets(), showTermPicker = true)
                                         }
                                         disabled={requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0}
                                         class="w-full p-3 rounded-md bg-surface-muted border border-border-subtle transition-colors text-left flex items-center justify-between group {requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0
@@ -1412,7 +1439,7 @@
                                     <button
                                         onclick={() =>
                                             (requiresTeachingLoadSelection($profile?.role || '', docType) ? teachingLoads.length > 0 : true) &&
-                                            (showWeekPicker = true)
+                                            (useManualTargets(), showWeekPicker = true)
                                         }
                                         disabled={requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0}
                                         class="w-full p-3 rounded-md bg-surface-muted border border-border-subtle transition-colors text-left flex items-center justify-between group {requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0
@@ -1467,7 +1494,6 @@
                                 {/if}
                             </div>
                         </div>
-                    {/if}
 
                     {#if ocrConfidence !== null && !detectingMetadata}
                         <div
@@ -1521,10 +1547,10 @@
                                     (requiresTeachingLoadSelection($profile?.role || '', docType) && !teachingLoadId) ||
                                     (docType === "DLL" && !termNumber) ||
                                     (docType === "DLL" && !weekNumber) ||
-                                    processing}
+                                    processing || checkingTarget}
                                 class="gov-btn-primary mt-4 w-full"
                             >
-                                {#if processing}
+                                {#if processing || checkingTarget}
                                     <svg
                                         class="animate-spin h-5 w-5"
                                         viewBox="0 0 24 24"
@@ -1544,7 +1570,7 @@
                                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                                         ></path>
                                     </svg>
-                                    Processing...
+                                    {checkingTarget && !processing ? 'Checking upload...' : 'Uploading...'}
                                 {:else}
                                     <svg
                                         class="w-6 h-6"
@@ -1558,9 +1584,7 @@
                                             d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
                                         /></svg
                                     >
-                                    {isOnline
-                                        ? "Confirm & Archive"
-                                        : "Save Offline"}
+                                    Review upload
                                 {/if}
                         </button>
                     {/if}
@@ -1633,6 +1657,11 @@
                 <h3 class="text-xl font-semibold text-text-primary">
                     Select Teaching Load
                 </h3>
+                <div class="flex items-center gap-2">
+                <button onclick={() => void refreshTeachingLoads()} disabled={loadingTeachingLoads}
+                    class="min-h-11 rounded-lg px-3 text-sm font-semibold text-gov-blue hover:bg-surface-muted disabled:opacity-50">
+                    Refresh loads
+                </button>
                 <button
                     onclick={() => (showLoadPicker = false)}
                     class="p-2.5 hover:bg-surface-muted rounded-full text-text-muted"
@@ -1651,6 +1680,7 @@
                         /></svg
                     >
                 </button>
+                </div>
             </div>
             <div class="max-h-[60vh] overflow-y-auto p-4 space-y-2">
                 {#if loadingTeachingLoads}
@@ -1717,8 +1747,8 @@
     <UploadSuccessModal
         {result}
         {isOnline}
-        {docType}
-        {weekNumber}
+        docType={completedDetails?.docType || docType}
+        weekNumber={completedDetails?.weekNumber}
         onClose={closeSuccessModal}
         onUploadAnother={handleUploadAnother}
         onViewArchive={handleViewArchive}
@@ -1775,7 +1805,7 @@
                     <button
                         onclick={() => {
                             weekNumber = wk;
-                            termNumber = calendarEntries.find((w) => w.week_number === wk)?.term || termNumber;
+                            termNumber = calendarEntries.find((w) => w.week_number === wk && (!termNumber || w.term === termNumber))?.term || termNumber;
                             targetConfirmed = !!teachingLoadId && !!termNumber && !!wk;
                             showWeekPicker = false;
                         }}

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import '$lib/styles/trackerAccessibility.css';
     import PageHeader from '$lib/components/PageHeader.svelte';
     import { profile } from "$lib/utils/auth";
     import { supabase } from "$lib/utils/supabase";
@@ -10,6 +11,7 @@
     import ReviewTracker from "$lib/components/ReviewTracker.svelte";
     import { onMount, onDestroy } from "svelte";
     import { fly, fade } from "svelte/transition";
+    import SchoolTracker from "$lib/components/SchoolTracker.svelte";
     import TeacherChecklist from "$lib/components/TeacherChecklist.svelte";
     import {
         calculateCompliance,
@@ -84,6 +86,11 @@
         { name: string; expected: number; compliant: number; late: number; missing: number; rate: number }[]
     >([]);
     let loading = $state(true);
+    let dashboardError = $state('');
+    let schoolTeachers = $state<any[]>([]);
+    let schoolLoads = $state<any[]>([]);
+    let schoolSubmissions = $state<any[]>([]);
+    let trackerView = $state("school");
 
     let channel: any;
 
@@ -208,12 +215,13 @@
         teacherCompliance: any[];
         awaitingReview: any[];
         schoolStandings: typeof schoolStandings;
+        schoolTeachers: any[]; schoolLoads: any[]; schoolSubmissions: any[];
     };
 
     function dashboardCacheKey(userProfile: any) {
         // Bump this whenever dashboard aggregation rules change so an older
         // role-specific snapshot cannot remain visible after deployment.
-        return makeScopedCacheKey("dashboard_state_v3", userProfile.role, userProfile.id);
+        return makeScopedCacheKey("dashboard_state_v5", userProfile.role, userProfile.id);
     }
 
     function snapshotDashboard(): DashboardSnapshot {
@@ -230,7 +238,7 @@
             stats,
             teacherCompliance,
             awaitingReview,
-            schoolStandings,
+            schoolStandings, schoolTeachers, schoolLoads, schoolSubmissions,
         };
     }
 
@@ -248,6 +256,7 @@
         teacherCompliance = snapshot.teacherCompliance || [];
         awaitingReview = snapshot.awaitingReview || [];
         schoolStandings = snapshot.schoolStandings || [];
+        schoolTeachers = snapshot.schoolTeachers || []; schoolLoads = snapshot.schoolLoads || []; schoolSubmissions = snapshot.schoolSubmissions || [];
     }
 
     async function loadDashboard(options: { useCache?: boolean; background?: boolean } = {}) {
@@ -272,6 +281,10 @@
         }
 
         try {
+            dashboardError = '';
+            if (['Master Teacher','School Head'].includes(role) && !userProfile.school_id) {
+                throw new Error('Your profile needs a school assignment before the school tracker can load.');
+            }
             if (role === "Teacher") {
                 await loadTeacherDashboard(userProfile);
             } else {
@@ -281,6 +294,7 @@
             loadedFromCache = false;
             await writeLocalData(cacheKey, snapshotDashboard());
         } catch (err) {
+            dashboardError = err instanceof Error && err.message.includes('school assignment') ? err.message : 'The latest tracker data could not be loaded. Please try again.';
             logOnce("dashboard-load-failed", "error", "[dashboard] Failed to load dashboard.", err);
             if (runId === loadRun && submissions.length === 0) {
                 const cached = await readLocalData<DashboardSnapshot>(cacheKey, Number.POSITIVE_INFINITY);
@@ -338,12 +352,20 @@
                 .select("*")
                 .eq("user_id", userProfile.id)
                 .eq("school_year", getDynamicSchoolYear()),
+            userProfile.school_id
+                ? supabase.from("schools").select("name").eq("id", userProfile.school_id).single()
+                : Promise.resolve({ data: null }),
         ]);
 
         const subsResult = results[0].status === 'fulfilled' ? results[0].value : { data: [], count: 0 };
         const loadsResult = results[1].status === 'fulfilled' ? results[1].value : { data: [], count: 0 };
         const calendarResult = results[2].status === 'fulfilled' ? results[2].value : { data: [] };
         const leaveResult = results[3].status === 'fulfilled' ? results[3].value : { data: [] };
+        const schoolResult = results[4].status === 'fulfilled' ? results[4].value : { data: null };
+        const assignedSchoolName = schoolResult.data?.name || null;
+        if (userProfile.school_id && !assignedSchoolName) {
+            throw new Error('Unable to load the assigned school for deadline calculations.');
+        }
 
         const rawSubmissions = subsResult.data || [];
         const submissionIds = rawSubmissions.map((submission: any) => submission.id);
@@ -366,12 +388,16 @@
             const review = reviewBySubmission.get(submission.id);
             return {
                 ...submission,
-                subject: load?.subject || "Unassigned",
+                subject: load?.subject || submission.subject || "Unassigned",
+                grade_level: load?.grade_level,
                 reviewer_comment: review?.reviewer_comment || "",
                 reviewer_name: review ? reviewerNames.get(review.reviewer_id) || "Checker" : "",
             };
         });
-        activeTeachingLoads = loadsResult.data || [];
+        activeTeachingLoads = (loadsResult.data || []).map((load: any) => ({
+            ...load,
+            school_name: assignedSchoolName,
+        }));
         teachingLoadsCount = loadsResult.count || 0;
         academicCalendar = calendarResult.data || [];
         leaveRequests = leaveResult.data || [];
@@ -480,9 +506,7 @@
         // Fetch submissions in the scope
         let subQuery = supabase
             .from("submissions")
-            .select("*, uploader:profiles!inner(school_id, district_id)", {
-                count: "exact",
-            })
+            .select("id, user_id, teaching_load_id, school_year, term_number, calendar_id, file_name, file_path, file_hash, file_size, doc_type, compliance_status, created_at, week_number, subject, uploader:profiles!inner(school_id, district_id)")
             .eq("school_year", getDynamicSchoolYear());
         let leaveQuery = supabase
             .from("submission_leave_requests")
@@ -496,7 +520,7 @@
                     userProfile.school_id,
                 );
                 subQuery = subQuery.eq(
-                    "profiles.school_id",
+                    "uploader.school_id",
                     userProfile.school_id,
                 );
                 leaveQuery = leaveQuery.eq("school_id", userProfile.school_id);
@@ -508,7 +532,7 @@
                     userProfile.district_id,
                 );
                 subQuery = subQuery.eq(
-                    "profiles.district_id",
+                    "uploader.district_id",
                     userProfile.district_id,
                 );
                 leaveQuery = leaveQuery.eq("district_id", userProfile.district_id);
@@ -516,15 +540,15 @@
         }
 
         const results = await Promise.allSettled([
-            teacherQuery,
-            fetchAllRows<any>(() => subQuery.order("created_at", { ascending: false })),
-            leaveQuery.order("created_at", { ascending: false }),
+            fetchAllRows<any>(() => teacherQuery.order('id')),
+            fetchAllRows<any>(() => subQuery.order("created_at", { ascending: false }).order("id")),
+            fetchAllRows<any>(() => leaveQuery.order("created_at", { ascending: false }).order("id")),
         ]);
 
-        const teachers = (results[0].status === 'fulfilled' ? results[0].value.data || [] : [])
+        const teachers = (results[0].status === 'fulfilled' ? results[0].value : [])
             .filter((teacher: any) => teacher.is_active !== false);
         const allSubs = results[1].status === 'fulfilled' ? results[1].value || [] : [];
-        leaveRequests = results[2].status === 'fulfilled' ? results[2].value.data || [] : [];
+        leaveRequests = results[2].status === 'fulfilled' ? results[2].value : [];
 
         // Resolve school names for alerts (can't use the schools() embed here)
         const teacherSchoolIds = [...new Set(
@@ -549,16 +573,12 @@
         }));
         const activeTeacherIds = new Set(teachersWithNames.map((teacher: any) => teacher.id));
 
-        const { data: loadsData } = await supabase
+        const loads = await fetchRowsForIds<any>(teachersWithNames.map((t) => t.id), batch => supabase
             .from("teaching_loads")
             .select("id, user_id, subject, grade_level")
             .eq("is_active", true)
-            .in(
-                "user_id",
-                teachersWithNames.map((t) => t.id),
-            );
-
-        const loads = loadsData || [];
+            .in("user_id", batch)
+            .order("id"));
         const schoolNameByUser = new Map(teachersWithNames.map((teacher: any) => [teacher.id, teacher.school_name]));
         const loadsWithSchools = loads.map((load: any) => ({ ...load, school_name: schoolNameByUser.get(load.user_id) || null }));
         // Only weeks actually opened count toward "expected" — matches the
@@ -585,9 +605,10 @@
         for (const l of loadsWithSchools) {
             (loadsByTeacher[l.user_id] ||= []).push(l);
         }
+        schoolTeachers = teachersWithNames; schoolLoads = loadsWithSchools; schoolSubmissions = allSubs;
         activeTeachingLoads = loadsByTeacher[userProfile.id] || [];
         academicCalendar = calendarArr;
-        submissions = complianceSubs.filter((s: any) => s.user_id === userProfile.id);
+        submissions = allSubs.filter((s: any) => s.user_id === userProfile.id).map((s: any) => ({...s, grade_level: loads.find((l: any) => l.id === s.teaching_load_id)?.grade_level}));
         teacherCompliance = teachersWithNames.map((t) => {
             const myLoads = loadsByTeacher[t.id] || [];
             const expected = myLoads.length * definedWeeks;
@@ -642,7 +663,7 @@
                 const reviews = await fetchRowsForIds<any>(subIds, batch => supabase
                     .from("dll_reviews")
                     .select("submission_id, reviewer_id, reviewer_comment")
-                    .in("submission_id", batch));
+                    .in("submission_id", batch).order("id"));
                 // Tracker and Compliance must answer the same question for
                 // the same all-weeks scope. Compliance is the source of truth
                 // for the Monday compliance totals, while every reviewable
@@ -799,7 +820,7 @@
     <title>{$profile?.role === "Teacher" ? "Submission Tracker" : "Dashboard"}: CEDIMS</title>
 </svelte:head>
 
-<div>
+<div class="tracker-page">
     <!-- Header -->
     <PageHeader
         title={$profile?.role === 'Teacher'
@@ -812,9 +833,9 @@
         description={$profile?.role === 'Teacher'
             ? 'Track every expected upload by week, subject, and status.'
             : $profile?.role === 'Master Teacher'
-                ? 'Track your own submissions and documents waiting for review.'
+                ? 'Track your submissions and review lesson plans from all teachers in your school.'
             : $profile?.role === 'School Head'
-                    ? 'Review documents still marked for checking.'
+                    ? 'Monitor school submissions, review documents and manage leave requests.'
                     : 'Monitor archive volume, document types, and review status.'}
     />
 
@@ -836,7 +857,10 @@
         </div>
     {/if}
 
-    {#if $profile?.role === "Teacher"}
+    {#if dashboardError}<div class="mb-5 rounded-xl border border-gov-gold/30 bg-gov-gold/10 p-4 text-sm text-text-primary" role="alert">{dashboardError} <button class="ml-2 min-h-11 font-bold text-gov-blue" onclick={() => void loadDashboard({ background: true })}>Retry</button></div>{/if}
+    {#if loading && !loadedFromCache}
+        <div class="rounded-xl border border-border-subtle bg-surface-white p-8 text-text-muted" role="status">Loading your tracker…</div>
+    {:else if $profile?.role === "Teacher"}
         <!-- ========== TEACHER DASHBOARD ========== -->
 
         <!-- Teacher Checklist: Interactive checkpoint hub for all active teaching loads -->
@@ -849,12 +873,8 @@
                 onChanged={() => void loadDashboard({ background: true })}
             />
         </div>
-        <ReviewTracker
-            title="Submission Reviews"
-            items={submissions}
-            readOnlyRemarks={true}
-            {formatDate}
-        />
+        <details class="rounded-xl border border-border-subtle bg-surface-white"><summary class="cursor-pointer p-4 text-sm font-bold text-gov-blue">Document history and feedback</summary><ReviewTracker title="My documents & feedback" items={submissions} readOnlyRemarks={true} {formatDate} /></details>
+
     {:else}
         <!-- ========== SUPERVISOR DASHBOARD ========== -->
 
@@ -867,32 +887,22 @@
              another tab. All values derive from the same rows already
              fetched above. -->
 
-        {#if $profile?.role === "Master Teacher"}
-            <div class="space-y-6">
-                <TeacherChecklist
-                    title="My Submission Tracker"
-                    {submissions}
-                    teachingLoads={activeTeachingLoads}
-                    calendarWeeks={academicCalendar}
-                    {leaveRequests}
-                    onChanged={() => void loadDashboard({ background: true })}
-                />
-                <ReviewTracker
-                    title="Review Tracker"
-                    items={awaitingReview}
-                    pendingOnly={true}
-                    {formatDate}
-                />
+        {#if $profile?.role === "Master Teacher" || $profile?.role === "School Head"}
+            <div class="mb-5 flex flex-wrap gap-2 rounded-xl border border-border-subtle bg-surface-white p-2" role="group" aria-label="Tracker views">
+                <button class="min-h-11 rounded-lg px-5 text-sm font-bold {trackerView === 'school' ? 'bg-gov-blue text-white' : 'text-text-secondary hover:bg-surface-muted'}" aria-pressed={trackerView === 'school'} onclick={() => trackerView = 'school'}>School submissions</button>
+                <button class="min-h-11 rounded-lg px-5 text-sm font-bold {trackerView === 'mine' ? 'bg-gov-blue text-white' : 'text-text-secondary hover:bg-surface-muted'}" aria-pressed={trackerView === 'mine'} onclick={() => trackerView = 'mine'}>{$profile?.role === 'School Head' ? 'My ISP / ISR' : 'My submissions'}</button>
+                {#if $profile?.role === 'School Head'}<button class="min-h-11 rounded-lg px-5 text-sm font-bold {trackerView === 'supervisory' ? 'bg-gov-blue text-white' : 'text-text-secondary hover:bg-surface-muted'}" aria-pressed={trackerView === 'supervisory'} onclick={() => trackerView = 'supervisory'}>Supervisory reviews · {awaitingReview.filter(s => ['ISP','ISR'].includes(s.doc_type) && s.user_id !== $profile?.id).length}</button>{/if}
             </div>
-
-        {:else if $profile?.role === "School Head"}
-            <ReviewTracker
-                title="Review Tracker"
-                items={awaitingReview}
-                pendingOnly={true}
-                {formatDate}
-            />
-
+            {#if trackerView === 'school'}
+                <SchoolTracker teachers={schoolTeachers} loads={schoolLoads} submissions={schoolSubmissions} calendar={academicCalendar} {leaveRequests} onChanged={() => void loadDashboard({ background: true })} />
+            {:else if trackerView === 'supervisory' && $profile?.role === 'School Head'}
+                <ReviewTracker title="Master Teacher ISP / ISR reviews" items={awaitingReview.filter(s => ['ISP','ISR'].includes(s.doc_type) && s.user_id !== $profile?.id)} onChanged={() => void loadDashboard({ background: true })} />
+            {:else}
+                <div class="space-y-6">
+                    {#if $profile?.role === 'Master Teacher'}<TeacherChecklist title="My weekly submissions" {submissions} teachingLoads={activeTeachingLoads} calendarWeeks={academicCalendar} leaveRequests={leaveRequests.filter(r => r.user_id === $profile?.id)} onChanged={() => void loadDashboard({ background: true })} />{/if}
+                    <ReviewTracker title="My ISP / ISR & feedback" items={submissions.filter(s => ['ISP','ISR'].includes(s.doc_type))} readOnlyRemarks={true} {formatDate} />
+                </div>
+            {/if}
         {:else}
             <section class="gov-card-static overflow-hidden rounded-xl">
                 <div class="border-b border-border-subtle px-5 py-5 sm:px-6">
@@ -1031,3 +1041,4 @@
         {/if}
     {/if}
 </div>
+

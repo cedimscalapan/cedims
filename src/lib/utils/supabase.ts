@@ -84,7 +84,8 @@ export const supabase = createClient(
             debug: false,
             autoRefreshToken: true,
             persistSession: true,
-            detectSessionInUrl: true,
+            // The reset page consumes its callback explicitly, avoiding a double code exchange.
+            detectSessionInUrl: typeof window === 'undefined' || window.location.pathname !== '/auth/update-password',
             flowType: 'pkce',
             storage: new ReslientStorage(),
             storageKey: 'sb-auth-token-v3',

@@ -1,20 +1,19 @@
 <script lang="ts">
     import { X, Send, RefreshCw, Download, FileSpreadsheet, FileText } from "lucide-svelte";
-    import { processQuery, loadDllDocumentsFromSupabase } from "$lib/utils/chatbot";
+    import { processQuery } from "$lib/utils/chatbot";
     import type { ChatResponse, Intent, ChatContext, Lang, ChatAttachment } from "$lib/utils/chatbot";
     import { supabase } from "$lib/utils/supabase";
     import { user, profile } from "$lib/utils/auth";
     import { onMount, tick } from "svelte";
     import { fly, scale } from "svelte/transition";
-    import { page } from "$app/stores";
+
     import GabayMascot from "./GabayMascot.svelte";
+    import { supportTool } from '$lib/stores/supportTool';
 
-    // Dashboard pages carry a bottom tab bar at every screen size, so the
-    // floating button/panel need extra clearance there; other pages don't.
-    const inDashboard = $derived($page.url.pathname.startsWith("/dashboard"));
 
-    let isOpen = $state(false);
-    let hasOpenedOnce = $state(false);
+
+    let isOpen = $derived($supportTool === 'chat');
+
     let messages: { role: 'user' | 'bot'; text: string; intent?: Intent; attachments?: ChatAttachment[]; outOfScope?: boolean }[] = $state([]);
     let inputText = $state('');
     let inputEl: HTMLInputElement | undefined = $state();
@@ -30,13 +29,13 @@
     let lastIntent = $state<Intent | undefined>(undefined);
     let lastSlots = $state<Record<string, string>>({});
     let lastLang = $state<Lang | undefined>(undefined);
-    let dllDocsLoaded = $state(false);
+    let conversationVersion = 0;
 
     // Gabay answers in English or Tagalog (see detectLanguage in
     // utils/chatbot.ts), which a user has no way to discover unless the
     // opening message says so.
     const greeting =
-        "Hello. I’m Gabay. Ask me about uploads, deadlines, compliance, archives, remarks, or Daily Lesson Plans. I can answer in English or Tagalog using your CEDIMS data.";
+        "Hello. I’m Gabay, your CEDIMS guide. Ask about uploads, teaching loads, deadlines, remarks, archives, or password resets in English or Tagalog. Sign in to ask about your records.";
 
     const suggestions = [
         "What is my compliance rate?",
@@ -56,6 +55,17 @@
             "How do I upload a Daily Lesson Plan?",
             "Find my Daily Lesson Plans about fractions",
         ],
+        "Master Teacher": [
+            "How does the Master Teacher tracker work?",
+            "How do I write a remark?",
+            "What is my compliance rate?",
+            "How do I upload a Daily Lesson Plan?",
+        ],
+        Admin: [
+            "What are the tabs for each role?",
+            "How does password reset work?",
+            "How do open and closed deadlines work?",
+        ],
         "School Head": [
             "What is my school's compliance rate?",
             "Show teacher statistics for my school",
@@ -73,32 +83,27 @@
     };
 
     function suggestionsForRole(): string[] {
-        return roleSuggestions[currentProfile?.role || ''] || suggestions;
+        return currentProfile ? roleSuggestions[currentProfile.role] || suggestions : ['How do I reset my password?', 'What is CEDIMS?', 'How do I enlarge the text?'];
     }
 
     onMount(() => {
         messages.push({ role: 'bot', text: greeting, intent: 'general_help' });
-        const unsubUser = user.subscribe((u) => currentUser = u as { id: string } | null);
+        const unsubUser = user.subscribe((u) => {
+            if (currentUser?.id !== u?.id) resetChat();
+            currentUser = u as { id: string } | null;
+        });
         const unsubProfile = profile.subscribe((p) => currentProfile = p as any);
         return () => { unsubUser(); unsubProfile(); };
     });
 
-    // Load DLL search documents lazily, only when the chat is first opened.
-    // This avoids pulling up to 1000 OCR-text submissions on every page load,
-    // which was a major cause of slow initial renders.
-    $effect(() => {
-        if (isOpen && !dllDocsLoaded) {
-            dllDocsLoaded = true;
-            loadDllDocumentsFromSupabase(supabase).catch(() => {});
-        }
-    });
+    // Document text is fetched only when a user actually searches for lesson plans.
 
     // Opening the panel should feel like opening a real chat app: focus the
     // input immediately, and remember it's been opened so the launcher's
     // one-time attention ping never shows again this session.
     $effect(() => {
         if (isOpen) {
-            hasOpenedOnce = true;
+
             tick().then(() => inputEl?.focus());
         }
     });
@@ -141,10 +146,11 @@
 
     function closePanel() {
         restoreFocusOnClose = true;
-        isOpen = false;
+        supportTool.set(null);
     }
 
     function resetChat() {
+        conversationVersion++;
         messages = [{ role: 'bot', text: greeting, intent: 'general_help' }];
         lastIntent = undefined;
         lastSlots = {};
@@ -162,6 +168,7 @@
         inputText = '';
         isLoading = true;
 
+        const version = conversationVersion;
         const ctx: ChatContext = {
             supabase,
             userId: currentUser?.id,
@@ -171,6 +178,7 @@
 
         try {
             const response: ChatResponse = await processQuery(q, ctx);
+            if (version !== conversationVersion) return;
             messages.push({
                 role: 'bot',
                 text: response.answer,
@@ -182,6 +190,7 @@
             lastSlots = response.slots;
             lastLang = response.lang;
         } catch (err) {
+            if (version !== conversationVersion) return;
             // A query that throws — an offline Supabase call is the common
             // case — used to leave the typing indicator running forever with
             // no reply and no way to tell the request had failed.
@@ -191,7 +200,7 @@
                 text: "Sorry, I couldn't reach the records just now. Check your connection and try asking again."
             });
         } finally {
-            isLoading = false;
+            if (version === conversationVersion) isLoading = false;
         }
     }
 
@@ -226,23 +235,20 @@
     <button
         bind:this={launcherEl}
         data-tour="chatbot"
-        onclick={() => (isOpen = true)}
+        onclick={() => supportTool.set('chat')}
         transition:scale={{ duration: 150, start: 0.85 }}
-        class="fixed right-5 z-50 w-12 h-12 bg-surface-white rounded-full shadow-md border border-border-subtle flex items-center justify-center transition-[color,background-color,border-color,transform] duration-200 ease-out hover:scale-105 hover:border-border-strong active:scale-95 {inDashboard
-            ? 'bottom-24'
-            : 'bottom-5'}"
+        class="chat-launcher"
         aria-label="Open Gabay, the CEDIMS chat assistant"
+        title="Gabay · Help"
     >
-        <GabayMascot size={48} />
+        <GabayMascot size={40} wave={false} />
     </button>
 {:else}
     <!-- Chat window. Not aria-modal: the page behind it stays usable, and
          claiming otherwise hides the rest of the app from screen readers. -->
     <div
         transition:fly={{ y: 24, duration: 200, opacity: 0 }}
-        class="fixed z-50 flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-white shadow-xl transition-colors duration-200 inset-x-3 sm:inset-x-auto sm:right-5 sm:w-[19.5rem] h-[min(24rem,calc(100dvh-6rem))] {inDashboard
-            ? 'bottom-24'
-            : 'bottom-5'}"
+        class="chat-panel flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-white"
         role="dialog"
         aria-label="Gabay chat assistant"
     >
@@ -254,8 +260,8 @@
                     <span class="absolute -bottom-0 -right-0 w-2 h-2 rounded-full bg-gov-green border-2 border-gov-blue" aria-hidden="true"></span>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-[0.82rem] font-extrabold leading-tight">Gabay</p>
-                    <p class="text-[0.68rem] leading-tight text-white/85">CEDIMS assistant</p>
+                    <p class="text-base font-extrabold leading-tight">Gabay</p>
+                    <p class="text-sm leading-tight text-white/85">CEDIMS assistant</p>
                 </div>
             </div>
             <div class="flex items-center gap-0.5 shrink-0">
@@ -298,7 +304,7 @@
                                 <GabayMascot size={24} wave={false} />
                             </div>
                             <div class="min-w-0 flex flex-col gap-1.5">
-                                <div class="bg-surface-white border border-border-subtle rounded-xl rounded-tl-md px-3 py-2 text-[0.82rem] text-text-primary leading-relaxed shadow-sm whitespace-pre-line">
+                                <div class="bg-surface-white border border-border-subtle rounded-xl rounded-tl-md px-3 py-2 text-base text-text-primary leading-relaxed shadow-sm whitespace-pre-line">
                                     <span class="sr-only">Gabay said: </span>{msg.text}
                                 </div>
                                 {#if msg.attachments?.length}
@@ -307,7 +313,7 @@
                                             <button
                                                 type="button"
                                                 onclick={() => downloadAttachment(att)}
-                                                class="flex items-center gap-2 bg-surface-white border border-border-subtle rounded-lg px-2.5 py-1.5 text-[0.72rem] font-semibold text-text-primary hover:border-gov-blue/40 hover:bg-gov-blue/5 transition-colors text-left shadow-sm"
+                                                class="flex items-center gap-2 bg-surface-white border border-border-subtle rounded-lg px-2.5 py-1.5 text-sm font-semibold text-text-primary hover:border-gov-blue/40 hover:bg-gov-blue/5 transition-colors text-left shadow-sm"
                                             >
                                                 {#if att.fileName.endsWith('.xlsx')}
                             <FileSpreadsheet size={14} class="text-gov-green shrink-0" />
@@ -323,7 +329,7 @@
                             </div>
                         </div>
                     {:else}
-                        <div class="bg-gov-blue text-white rounded-xl rounded-tr-md px-3 py-2 text-[0.82rem] leading-relaxed max-w-[84%] shadow-sm">
+                        <div class="bg-gov-blue text-white rounded-xl rounded-tr-md px-3 py-2 text-base leading-relaxed max-w-[84%] shadow-sm">
                             <span class="sr-only">You said: </span>{msg.text}
                         </div>
                     {/if}
@@ -351,14 +357,14 @@
             <!-- Suggestions on first message -->
             {#if messages.length === 1 || messages.at(-1)?.outOfScope}
                 <div class="mt-3">
-                    <p class="text-[0.68rem] text-text-muted font-bold uppercase tracking-normal mb-1.5">
+                    <p class="text-sm text-text-muted font-bold uppercase tracking-normal mb-1.5">
                         {messages.at(-1)?.outOfScope ? 'Try one of these CEDIMS questions:' : 'Try asking:'}
                     </p>
                     <div class="flex flex-wrap gap-1.5">
                         {#each suggestionsForRole() as s}
                             <button
                                 onclick={() => applySuggestion(s)}
-                                class="text-[0.72rem] bg-surface-white border border-border-subtle rounded-full px-2.5 py-1.5 font-semibold text-text-secondary hover:bg-gov-blue/5 hover:border-gov-blue/30 hover:text-gov-blue transition-colors shadow-sm"
+                                class="text-sm bg-surface-white border border-border-subtle rounded-full px-2.5 py-1.5 font-semibold text-text-secondary hover:bg-gov-blue/5 hover:border-gov-blue/30 hover:text-gov-blue transition-colors shadow-sm"
                             >
                                 {s}
                             </button>
@@ -381,7 +387,7 @@
                     placeholder="Ask a question…"
                     enterkeyhint="send"
                     autocomplete="off"
-                    class="flex-1 rounded-md bg-transparent text-[0.86rem] text-text-primary outline-none placeholder:text-text-muted focus-visible:ring-2 focus-visible:ring-gov-blue/30"
+                    class="flex-1 rounded-md bg-transparent text-base text-text-primary outline-none placeholder:text-text-muted focus-visible:ring-2 focus-visible:ring-gov-blue/30"
                 />
                 <button
                     onclick={handleSend}
@@ -395,3 +401,11 @@
         </div>
     </div>
 {/if}
+
+<style>
+.chat-launcher { display:flex; align-items:center; justify-content:center; width:48px; height:48px; padding:0; border:1px solid var(--color-border-subtle,#cbd5e1); border-radius:50%; background:var(--color-surface-white,#fff); color:var(--color-text-primary,#172033); box-shadow:0 2px 10px #0002; cursor:pointer; }
+.chat-launcher:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
+.chat-panel { position:absolute; right:60px; bottom:0; width:min(400px,calc(100vw - 92px)); min-width:0; height:min(520px,65dvh); text-align:left; box-shadow:0 4px 24px #0003; }
+.chat-panel :global(button) { min-height:44px; min-width:44px; }
+.chat-panel :global(input) { min-height:44px; min-width:0; }
+</style>

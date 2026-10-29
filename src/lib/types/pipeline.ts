@@ -1,4 +1,4 @@
-export type PipelinePhase = 'transcoding' | 'compressing' | 'analyzing' | 'hashing' | 'stamping' | 'uploading' | 'done' | 'error';
+export type PipelinePhase = 'transcoding' | 'compressing' | 'analyzing' | 'hashing' | 'stamping' | 'uploading' | 'queued' | 'done' | 'error';
 
 export interface PipelineEvent {
     phase: PipelinePhase;
@@ -17,6 +17,8 @@ export interface PipelineResult {
 }
 
 export interface PipelineOptions {
+    /** Save locally when the connection cannot verify the selected cached period. */
+    queueLocally?: boolean;
     userId: string;
     userRole?: string;
     docType?: string;

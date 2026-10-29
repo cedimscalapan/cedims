@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { updatePassword } from "$lib/utils/auth";
+    import { updatePassword, signOut } from "$lib/utils/auth";
+    import { establishRecoverySession, recoveryRequest } from "$lib/utils/passwordRecovery";
     import { addToast } from "$lib/stores/toast";
     import { goto } from "$app/navigation";
     import { onMount } from "svelte";
@@ -14,27 +15,24 @@
     let showConfirm = $state(false);
     let sessionReady = $state(false);
 
-    onMount(async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            sessionReady = true;
-        } else {
-            const params = new URLSearchParams(window.location.hash.replace("#", "?"));
-            if (params.get("access_token") || params.get("type") === "recovery") {
-                const { data, error } = await supabase.auth.getSession();
-                if (data?.session) {
-                    sessionReady = true;
-                } else if (error) {
-                    errorMsg = "Invalid or expired reset link. Please request a new one.";
-                }
-            } else {
-                errorMsg = "No reset session found. Please request a new password reset link.";
-            }
-        }
+    onMount(() => {
+        let active = true;
+        void recoveryRequest(() => establishRecoverySession(supabase.auth, window.location.href))
+            .then(() => {
+                if (!active) return;
+                sessionReady = true;
+                // Tokens and authorization codes must not remain in address/history.
+                window.history.replaceState(window.history.state, '', window.location.pathname);
+            })
+            .catch((error) => {
+                if (active) errorMsg = error instanceof Error ? error.message : 'Could not verify this reset link. Please request a new one.';
+            });
+        return () => { active = false; };
     });
 
     async function handleSubmit(e: Event) {
         e.preventDefault();
+        if (loading || !sessionReady) return;
         if (newPassword.length < 6) {
             errorMsg = "Password must be at least 6 characters.";
             return;
@@ -47,17 +45,28 @@
         loading = true;
         errorMsg = "";
 
-        const result = await updatePassword(newPassword);
-
-        if (result.error) {
-            errorMsg = result.error;
-            addToast("error", result.error);
-        } else {
+        let passwordSaved = false;
+        try {
+            const result = await updatePassword(newPassword);
+            if (result.error) {
+                errorMsg = result.error;
+                addToast("error", result.error);
+                return;
+            }
+            passwordSaved = true;
+            sessionReady = false;
+            newPassword = '';
+            confirmPassword = '';
+            await recoveryRequest(() => signOut());
             addToast("success", "Password updated successfully. Please sign in with your new password.");
-            goto("/auth/login");
+            await goto("/auth/login", { replaceState: true });
+        } catch (error) {
+            errorMsg = passwordSaved
+                ? 'Your password was saved. Use Back to sign in to continue with your new password.'
+                : error instanceof Error ? error.message : 'Could not update your password. Please try again.';
+        } finally {
+            loading = false;
         }
-
-        loading = false;
     }
 </script>
 

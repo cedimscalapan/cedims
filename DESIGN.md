@@ -38,6 +38,10 @@ Core palette is blue (primary) + gold/red/green/purple (status semantics only, n
 
 The codebase already tracks WCAG AA ratios in code comments (e.g. the `text-muted` and `focus-ring` recalculations in `src/app.css`) and runs both themes. Treat this as an existing, real commitment, not a gap `antislop-human` is introducing: extend it (re-verify a ratio when you touch a token) rather than re-deriving it from scratch every time.
 
+## Tracker hierarchy
+
+Teacher and school tracker action lists use a single blue leading border to identify the work queue; totals remain flat, bordered summaries. This keeps the next action distinct without adding another elevated card or new color. On narrow screens, action rows stack the context above the button so the deadline and action remain readable.
+
 ## Dials (antislop Part 3)
 
 CEDIMS is a compliance system for a government workforce under a submission deadline, not a marketing site: trust and legibility outrank spectacle.

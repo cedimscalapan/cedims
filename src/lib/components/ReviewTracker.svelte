@@ -1,359 +1,43 @@
 <script lang="ts">
-    import { Eye, FileText, MessageSquare, X } from "lucide-svelte";
-    import { supabase } from "$lib/utils/supabase";
-    import { profile } from "$lib/utils/auth";
-    import { addToast } from "$lib/stores/toast";
-    import { getDocumentLabel } from "$lib/utils/documentLabels";
-    import { logAudit } from "$lib/utils/audit";
-    import PaginationBar from "./PaginationBar.svelte";
-
+    import { onDestroy } from 'svelte';
+    import { supabase } from '$lib/utils/supabase';
+    import { profile } from '$lib/utils/auth';
+    import { fetchRowsForIds } from '$lib/utils/compliance';
+    import { documentReviewLabel, type ReviewEntry } from '$lib/utils/trackerView';
+    import DocumentReviewPanel from './DocumentReviewPanel.svelte';
+    import PaginationBar from './PaginationBar.svelte';
+    import CedimsSelect from './CedimsSelect.svelte';
     export let items: any[] = [];
-    export let title = "Review Tracker";
+    export let title = 'Documents & feedback';
     export let pendingOnly = false;
     export let readOnlyRemarks = false;
-    export let formatDate: (date: string) => string = (date) =>
-        new Date(date).toLocaleDateString("en-PH", { month: "short", day: "numeric" });
-
-    type FilterStatus = "all" | "forChecking" | "checked";
-    let filterStatus: FilterStatus = pendingOnly ? "forChecking" : "all";
-    let filterDate = "";
-    let filterTeacher = "";
-    let filterGrade = "";
-    let filterSubject = "";
-    let searchQuery = "";
-    let currentPage = 1;
-    const pageSize = 5;
-    let remarkTarget: any = null;
-    let remarkText = "";
-    let savingRemark = false;
-    let openingId: string | null = null;
-    const elementarySubjectOrder = [
-        "English", "Filipino", "Mathematics", "Science", "Araling Panlipunan", "AP",
-        "GMRC", "EPP", "MAPEH", "Music", "Arts", "Physical Education", "Health",
-        "Makabansa", "HGP", "TLE",
-    ];
-
-    function elementaryGradeRank(value: unknown): number {
-        const match = String(value || "").match(/(?:grade|gr\.?|baitang)?\s*([1-6])\b/i);
-        return match ? Number(match[1]) : 99;
+    export let formatDate: (value: string) => string = value => new Date(value).toLocaleDateString('en-PH');
+    export let onChanged: (() => void) | undefined = undefined;
+    let search = ''; let status = 'all'; let type = 'all'; let page = 1; let target: any = null;
+    let reviews: ReviewEntry[] = []; let issue = ''; let loading = false; let run = 0;
+    $: key = items.map(s=>s.id).sort().join(',');
+    $: if(key) void refreshReviews(key);
+    async function refreshReviews(ids: string) {
+        const request=++run;loading=true;issue='';
+        try { const result=await fetchRowsForIds<ReviewEntry>(ids.split(','),batch=>supabase.from('document_review_current').select('*').in('submission_id',batch).order('id')); if(request===run)reviews=result; }
+        catch {if(request===run)issue='Feedback statuses are unavailable. Open a document to retry.';} finally {if(request===run)loading=false;}
     }
-
-    function normalizeSubject(value: unknown): string {
-        const subject = String(value || "").trim();
-        if (/^(homeroom guidance|homeroom|hgp)$/i.test(subject)) return "HGP";
-        return subject;
-    }
-
-    function normalizeDocumentType(value: unknown): string {
-        const docType = String(value || "").trim().toUpperCase();
-        return docType === "DLL" ? "DLP" : docType;
-    }
-
-    function elementarySubjectRank(value: unknown): number {
-        const subject = normalizeSubject(value).toLowerCase();
-        const rank = elementarySubjectOrder.findIndex((item) => item.toLowerCase() === subject);
-        return rank >= 0 ? rank : 99;
-    }
-    $: reviewItems = items.filter((item) => {
-        const docType = normalizeDocumentType(item.doc_type || "DLP");
-        const status = (item.compliance_status || "").toLowerCase();
-        return ["DLP", "ISP", "ISR"].includes(docType) &&
-            ["compliant", "on-time", "late", "supplementary", "extra"].includes(status);
-    });
-
-    $: teacherOptions = [...new Set(reviewItems.map((item) => String(item.teacher_name || "").trim()).filter(Boolean))]
-        .sort((a, b) => a.localeCompare(b));
-    $: subjectOptions = [
-        ...elementarySubjectOrder,
-        ...reviewItems.map((item) => normalizeSubject(item.subject)).filter(Boolean),
-    ].filter((subject, index, subjects) => subjects.findIndex((value) => value.toLowerCase() === subject.toLowerCase()) === index);
-
-    function dateKey(value: unknown): string {
-        if (!value) return "";
-        const date = new Date(String(value));
-        if (Number.isNaN(date.getTime())) return "";
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    }
-
-    function clearFilters() {
-        filterDate = "";
-        filterTeacher = "";
-        filterGrade = "";
-        filterSubject = "";
-        searchQuery = "";
-        currentPage = 1;
-    }
-
-    const hasRemark = (item: any) => !!item.reviewer_comment?.trim();
-
-    $: filteredItems = reviewItems.filter((item) => {
-        const itemGrade = elementaryGradeRank(item.grade_level);
-        const matchesElementaryGrade = !filterGrade || itemGrade === Number(filterGrade);
-        const matchesDate = !filterDate || dateKey(item.created_at) === filterDate;
-        const matchesTeacher = !filterTeacher || String(item.teacher_name || "").trim() === filterTeacher;
-        const matchesSubject = !filterSubject || normalizeSubject(item.subject).toLowerCase() === filterSubject.toLowerCase();
-        const query = searchQuery.trim().toLocaleLowerCase();
-        const matchesSearch = !query || [item.file_name, item.teacher_name, item.subject, item.grade_level, item.doc_type, item.week_number]
-            .some((value) => String(value ?? "").toLocaleLowerCase().includes(query));
-        if (!matchesElementaryGrade || !matchesDate || !matchesTeacher || !matchesSubject || !matchesSearch) return false;
-        if (pendingOnly || filterStatus === "forChecking") return !hasRemark(item);
-        if (filterStatus === "checked") return hasRemark(item);
-        return true;
-    });
-    $: sortedItems = [...filteredItems].sort((a, b) =>
-        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-    );
-    $: totalPages = Math.max(1, Math.ceil(sortedItems.length / pageSize));
-    $: if (currentPage > totalPages) currentPage = totalPages;
-    $: pageItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-    $: forCheckingCount = reviewItems.filter((item) => !hasRemark(item)).length;
-    $: activeFilterCount = [filterDate, filterTeacher, filterGrade, filterSubject, searchQuery].filter(Boolean).length;
-
-    async function getSignedUrl(path: string): Promise<string | null> {
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            if (!token) return null;
-            const res = await fetch("/api/storage/presign", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ key: path, intent: "download" }),
-            });
-            if (!res.ok) throw new Error("Failed to get preview URL");
-            const { url } = await res.json();
-            return url;
-        } catch (err) {
-            console.error("[review-tracker] preview failed", err);
-            return null;
-        }
-    }
-
-    async function viewDocument(item: any) {
-        if (openingId) return;
-        const previewWindow = window.open("about:blank", "_blank");
-        openingId = item.id;
-        try {
-            const path = item.file_path || `${item.id}/${item.file_name}`;
-            const url = await getSignedUrl(path);
-            if (!url) throw new Error("No preview URL");
-            if (previewWindow && !previewWindow.closed) previewWindow.location.href = url;
-            else window.location.href = url;
-        } catch (err) {
-            previewWindow?.close();
-            addToast("error", "Could not open this document.");
-        } finally {
-            openingId = null;
-        }
-    }
-
-    function openRemark(item: any) {
-        remarkTarget = item;
-        remarkText = item.reviewer_comment || "";
-    }
-
-    async function saveRemark() {
-        if (!remarkTarget || !remarkText.trim() || !$profile?.id) return;
-        savingRemark = true;
-        const { error } = await supabase.from("dll_reviews").upsert({
-            submission_id: remarkTarget.id,
-            reviewer_id: $profile.id,
-            reviewer_comment: remarkText.trim(),
-            status: "needs-check",
-        }, { onConflict: "submission_id" });
-        savingRemark = false;
-        if (error) {
-            addToast("error", "Failed to save remark: " + error.message);
-            return;
-        }
-        remarkTarget.reviewer_comment = remarkText.trim();
-        remarkTarget.reviewer_name = $profile.full_name || "Checker";
-        void logAudit($profile.id, "remark.created", "submission", remarkTarget.id, { document_type: remarkTarget.doc_type });
-        addToast("success", "Remark saved");
-        remarkTarget = null;
-        remarkText = "";
-    }
+    onDestroy(()=>run++);
+    $: visible=items.filter(item=>(type==='all'||item.doc_type===type)&&(!search.trim()||[item.file_name,item.subject,item.teacher_name].some(v=>String(v||'').toLowerCase().includes(search.trim().toLowerCase()))));
+    function reviewStatus(id: string) { const entries=reviews.filter(r=>r.submission_id===id);return entries.length?'checked':'pending'; }
+    $: rows=visible.filter(item=>status==='all'&&!pendingOnly||reviewStatus(item.id)===(pendingOnly?'pending':status));
+    $: pages=Math.max(1,Math.ceil(rows.length/6));
+    $: if(page>pages)page=pages;
+    function saved() {void refreshReviews(key);onChanged?.();}
 </script>
-
-<div class="gov-card-static overflow-hidden">
-    <div class="px-4 py-3 border-b border-border-subtle bg-surface-white flex items-center justify-between flex-wrap gap-3">
-        <div class="flex items-center gap-3">
-            <div class="w-1.5 h-5 bg-gov-gold rounded-full"></div>
-            <h3 class="text-sm font-bold text-text-primary uppercase tracking-normal">{title}</h3>
-        </div>
-        <p class="text-xs font-bold text-text-muted uppercase tracking-normal">{forCheckingCount} for checking</p>
-    </div>
-
-    <div class="px-4 py-3 bg-surface-muted border-b border-border-subtle">
-        <div class="grid grid-cols-2 gap-2">
-            <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                <p class="text-xs font-bold text-gov-gold uppercase tracking-tight">For Checking</p>
-                <p class="text-xl font-bold text-gov-gold">{forCheckingCount}</p>
-            </div>
-            <div class="rounded-lg bg-surface-white border border-border-subtle px-3 py-2">
-                <p class="text-xs font-bold text-gov-green uppercase tracking-tight">Checked</p>
-                <p class="text-xl font-bold text-gov-green">{Math.max(0, reviewItems.length - forCheckingCount)}</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="px-4 py-3 grid grid-cols-1 items-end gap-3 border-b border-border-subtle lg:grid-cols-5">
-        <div class="flex items-end gap-2 flex-wrap lg:col-span-1">
-            {#if !pendingOnly}
-            <button onclick={() => { filterStatus = "all"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'all' ? 'border-gov-blue bg-gov-blue text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">All</button>
-            {/if}
-            <button onclick={() => { filterStatus = "forChecking"; currentPage = 1; }} class="min-h-[42px] flex-1 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'forChecking' ? 'border-gov-gold bg-gov-gold text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">For Checking</button>
-            {#if !pendingOnly}
-                <button onclick={() => { filterStatus = "checked"; currentPage = 1; }} class="rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-normal {filterStatus === 'checked' ? 'border-gov-green bg-gov-green text-white' : 'border-border-subtle bg-surface-muted text-text-muted'}">Checked</button>
-            {/if}
-        </div>
-        <label class="relative block min-w-0 lg:col-span-2">
-            <span class="sr-only">Search review uploads</span>
-            <input type="search" bind:value={searchQuery} oninput={() => currentPage = 1} placeholder="Search file, teacher, or subject" class="min-h-11 w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-sm outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20" />
-        </label>
-        <div class="w-full lg:col-span-2">
-            <details class="review-filters">
-                <summary><span>Filter reviews</span><span class="filter-count">{activeFilterCount ? `${activeFilterCount} active` : "Date · Teacher · Grade · Subject"}</span></summary>
-                <div class="filter-content">
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div class="min-w-0">
-                        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-date">Date</label>
-                        <input id="review-filter-date" type="date" value={filterDate} onchange={(event) => { filterDate = (event.currentTarget as HTMLInputElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20" />
-                    </div>
-
-                    <div class="min-w-0">
-                        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-teacher">Teacher</label>
-                        <select id="review-filter-teacher" value={filterTeacher} onchange={(event) => { filterTeacher = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
-                            <option value="">All teachers</option>
-                            {#each teacherOptions as teacher}
-                                <option value={teacher}>{teacher}</option>
-                            {/each}
-                        </select>
-                    </div>
-
-                    <div class="min-w-0">
-                        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-grade">Grade Level</label>
-                        <select id="review-filter-grade" value={filterGrade} onchange={(event) => { filterGrade = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
-                            <option value="">All grade levels</option>
-                            {#each [1, 2, 3, 4, 5, 6] as grade}
-                                <option value={grade}>Grade {grade}</option>
-                            {/each}
-                        </select>
-                    </div>
-
-                    <div class="min-w-0">
-                        <label class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-text-muted" for="review-filter-subject">Subject</label>
-                        <select id="review-filter-subject" value={filterSubject} onchange={(event) => { filterSubject = (event.currentTarget as HTMLSelectElement).value; currentPage = 1; }} class="w-full rounded-lg border border-border-subtle bg-surface-white px-3 py-2.5 text-xs font-bold text-text-primary outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20">
-                            <option value="">All subjects</option>
-                            {#each subjectOptions as subject}
-                                <option value={subject}>{subject}</option>
-                            {/each}
-                        </select>
-                    </div>
-
-                </div>
-
-                {#if filterDate || filterTeacher || filterGrade || filterSubject}
-                    <button type="button" onclick={clearFilters} class="mt-3 rounded-lg border border-border-subtle bg-surface-muted px-3 py-2 text-xs font-bold text-text-muted hover:border-gov-blue hover:text-gov-blue transition-colors">Clear filters</button>
-                {/if}
-                </div>
-            </details>
-        </div>
-    </div>
-
-    {#if pageItems.length === 0}
-        <div class="p-8 text-center text-text-muted">
-            <p>No documents match this view.</p>
-        </div>
-    {:else}
-        <div class="divide-y divide-border-subtle">
-            {#each pageItems as item}
-                <div class="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 hover:bg-gov-blue/5 transition-colors">
-                    <div class="w-12 h-12 rounded-lg bg-gov-blue/10 text-gov-blue flex items-center justify-center">
-                        <FileText size={18} />
-                    </div>
-                    <div class="min-w-0">
-                        <p class="text-sm font-bold text-text-primary truncate" title={item.file_name}>{item.file_name}</p>
-                        <p class="text-xs text-text-muted font-medium truncate">{item.teacher_name || "Unknown teacher"} · {item.grade_level ? `Grade ${String(item.grade_level).replace(/^Grade\s*/i, "")}` : "Grade —"} · {normalizeSubject(item.subject) || "Unassigned"} · {getDocumentLabel(normalizeDocumentType(item.doc_type || "DLP"))} {item.week_number ? `· Week ${item.week_number}` : ""} · {formatDate(item.created_at)}</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button onclick={() => viewDocument(item)} disabled={openingId !== null} class="inline-flex items-center gap-1 rounded-lg bg-surface-muted px-3 py-2 text-xs font-bold text-text-primary hover:bg-gov-blue/10 hover:text-gov-blue transition-colors">
-                            <Eye size={13} />
-                            View
-                        </button>
-                        <button onclick={() => openRemark(item)} class="inline-flex items-center gap-1 rounded-lg bg-gov-blue px-3 py-2 text-xs font-bold text-white hover:bg-gov-blue-dark transition-colors">
-                            <MessageSquare size={13} />
-                            {readOnlyRemarks ? "Remarks" : "Remark"}
-                        </button>
-                    </div>
-                </div>
-            {/each}
-        </div>
-    {/if}
-
-    <PaginationBar bind:page={currentPage} pages={totalPages} total={sortedItems.length} pageSize={pageSize} itemLabel="documents" />
-</div>
-
+<section class="documents">
+    <header><div><h2>{title}</h2><p>Open a document to read feedback and see its review history.</p></div><a href="/dashboard/archive">Browse archives ↗</a></header>
+    <div class="filters"><label>Find a document<input bind:value={search} on:input={()=>page=1} placeholder="Search file, subject or teacher" /></label><label>Document type<CedimsSelect bind:value={type} ariaLabel="Document type" options={[{value:'all',label:'All types'},{value:'DLL',label:'Lesson plan'},{value:'ISP',label:'ISP'},{value:'ISR',label:'ISR'}]} onChange={()=>page=1} /></label><label>Review status<CedimsSelect bind:value={status} ariaLabel="Review status" options={[{value:'all',label:'All reviews'},{value:'pending',label:'For checking'},{value:'checked',label:'Checked'}]} onChange={()=>page=1} /></label><button on:click={()=>{search='';status='all';type='all';page=1;}}>Reset</button></div>
+    {#if issue}<p role="alert">{issue}</p>{/if}
+    {#each rows.slice((page-1)*6,page*6) as item (item.id)}<article><div><h3>{item.file_name || item.subject || item.doc_type}</h3><p>{item.doc_type==='DLL'?'Lesson plan':item.doc_type}{item.week_number?` · Week ${item.week_number}`:''}{item.created_at?` · ${formatDate(item.created_at)}`:''}</p><div class="review-pair"><span>Review: {loading?'Loading…':documentReviewLabel(reviews.filter(r=>r.submission_id===item.id))}</span></div></div><button class="primary" on:click={()=>target=item}>{readOnlyRemarks||item.user_id===$profile?.id?'View document & feedback':'Review'}</button></article>{:else}<p class="empty">No documents match this view.</p>{/each}
+    <PaginationBar bind:page {pages} total={rows.length} pageSize={6} itemLabel="documents" />
+</section>
+{#if target}<DocumentReviewPanel document={target} onClose={()=>target=null} onSaved={saved} />{/if}
 <style>
-    .review-filters { border: 1px solid var(--color-border-subtle); border-radius: 10px; background: var(--color-surface-white); overflow: hidden; }
-    .review-filters > summary { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; color: var(--color-text-primary); font-size: 12px; font-weight: 800; cursor: pointer; list-style: none; }
-    .review-filters > summary::-webkit-details-marker { display: none; }
-    .review-filters > summary::after { content: '+'; color: var(--color-gov-blue); font-size: 19px; }
-    .review-filters[open] > summary::after { content: '−'; }
-    .filter-count { margin-left: auto; color: var(--color-text-muted); font-size: 11px; font-weight: 600; }
-    .filter-content { padding: 0 12px 12px; }
+    .documents {padding:20px;border:1px solid var(--color-border-subtle);border-radius:14px;background:var(--color-surface-white);color:var(--color-text-primary);} header {display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;} h2{font-size:18px;font-weight:800;} header p,p{font-size:13px;color:var(--color-text-muted);margin:5px 0;} a{color:var(--color-gov-blue);font-size:13px;font-weight:700;} .filters{display:flex;flex-wrap:wrap;align-items:end;gap:10px;background:var(--color-surface-muted);padding:14px;border-radius:10px;} label{display:grid;gap:6px;font-size:12px;font-weight:700;flex:1;min-width:140px;} input{padding:10px;border:1px solid var(--color-border-subtle);border-radius:7px;min-height:48px;background:var(--color-surface-white);color:inherit;} button{min-height:48px;padding:9px 14px;border:1px solid var(--color-border-subtle);border-radius:8px;font-size:13px;font-weight:700;} article{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 0;border-bottom:1px solid var(--color-border-subtle);} h3{font-size:14px;font-weight:750;overflow-wrap:anywhere;} .primary{background:var(--color-gov-blue);color:white;} .review-pair{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;margin-top:8px;} .review-pair span{background:var(--color-surface-muted);padding:4px 8px;border-radius:6px;} .empty{padding:24px;text-align:center;} @media(max-width:650px){.documents{padding:14px;}article{align-items:stretch;flex-direction:column;}}
 </style>
-
-{#if remarkTarget}
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onclick={() => (remarkTarget = null)}>
-        <div
-            class="w-full max-w-lg rounded-2xl bg-surface-white shadow-2xl"
-            role="dialog"
-            aria-modal="true"
-            tabindex="-1"
-            onclick={(e) => e.stopPropagation()}
-            onkeydown={(e) => e.stopPropagation()}
-        >
-            <div class="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
-                <div class="min-w-0">
-                    <h3 class="text-lg font-bold text-text-primary">{readOnlyRemarks ? "Remarks" : "Create Remark"}</h3>
-                    <p class="mt-1 truncate text-xs text-text-muted">{remarkTarget.file_name}</p>
-                </div>
-                <button class="rounded-lg p-2 text-text-muted hover:bg-surface-muted hover:text-text-primary" onclick={() => (remarkTarget = null)} aria-label="Close">
-                    <X size={16} />
-                </button>
-            </div>
-            <div class="p-5">
-                {#if readOnlyRemarks}
-                    {#if remarkTarget.reviewer_comment}
-                        <div class="rounded-xl border border-gov-green/30 bg-gov-green/10 p-4">
-                            <p class="text-xs font-bold uppercase tracking-normal text-gov-green">Checked</p>
-                            <p class="mt-2 text-sm leading-relaxed text-text-primary">{remarkTarget.reviewer_comment}</p>
-                            <p class="mt-3 text-xs font-semibold text-text-muted">Checked by {remarkTarget.reviewer_name || "Checker"}</p>
-                        </div>
-                    {:else}
-                        <div class="rounded-xl border border-border-subtle bg-surface-muted p-4">
-                            <p class="text-xs font-bold uppercase tracking-normal text-text-muted">For Checking</p>
-                            <p class="mt-2 text-sm text-text-muted">No remarks have been added for this submission yet.</p>
-                        </div>
-                    {/if}
-                    <div class="mt-4 flex justify-end">
-                        <button class="rounded-lg bg-surface-muted px-4 py-2 text-sm font-semibold text-text-primary hover:bg-border-subtle" onclick={() => (remarkTarget = null)}>Close</button>
-                    </div>
-                {:else}
-                    <textarea
-                        bind:value={remarkText}
-                        rows="5"
-                        placeholder="Write your remark for this document..."
-                        class="w-full resize-none rounded-xl border border-border-subtle bg-surface-muted p-3 text-sm outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20"
-                    ></textarea>
-                    <div class="mt-4 flex justify-end gap-2">
-                        <button class="rounded-lg px-4 py-2 text-sm font-semibold text-text-muted hover:bg-surface-muted" onclick={() => (remarkTarget = null)}>Cancel</button>
-                        <button class="rounded-lg bg-gov-blue px-5 py-2 text-sm font-bold text-white disabled:opacity-50" disabled={!remarkText.trim() || savingRemark} onclick={saveRemark}>
-                            {savingRemark ? "Saving..." : "Save Remark"}
-                        </button>
-                    </div>
-                {/if}
-            </div>
-        </div>
-    </div>
-{/if}

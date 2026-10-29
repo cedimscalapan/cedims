@@ -1,3 +1,4 @@
+import { recoveryRequest } from './passwordRecovery';
 import { writable } from 'svelte/store';
 import { supabase } from './supabase';
 import type { User } from '@supabase/supabase-js';
@@ -100,11 +101,15 @@ async function performAuthInit(): Promise<void> {
             await fetchProfile(session.user.id);
         }
 
-        supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
+        supabase.auth.onAuthStateChange((_event: string, session: any) => {
             if (session?.user) {
                 user.set(session.user);
-                watchActiveProfile(session.user.id);
-                await fetchProfile(session.user.id);
+                // Do not await Supabase requests inside its auth callback: they can
+                // wait on the same session lock held by recovery/password updates.
+                setTimeout(() => {
+                    watchActiveProfile(session.user.id);
+                    void fetchProfile(session.user.id);
+                }, 0);
             } else {
                 user.set(null);
                 profile.set(null);
@@ -257,9 +262,9 @@ export async function resetPasswordForEmail(email: string): Promise<{ error: str
         const redirectTo = typeof window !== 'undefined'
             ? `${window.location.origin}/auth/update-password`
             : undefined;
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo
-        });
+        const normalizedEmail = email.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return { error: 'Please enter a valid email address.' };
+        const { error } = await recoveryRequest(() => supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo }));
         if (error) return { error: error.message };
         return { error: null };
     } catch (err) {
@@ -268,8 +273,9 @@ export async function resetPasswordForEmail(email: string): Promise<{ error: str
 }
 
 export async function updatePassword(newPassword: string): Promise<{ error: string | null }> {
+    if (newPassword.length < 6) return { error: 'Password must be at least 6 characters.' };
     try {
-        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        const { error } = await recoveryRequest(() => supabase.auth.updateUser({ password: newPassword }));
         if (error) return { error: error.message };
         return { error: null };
     } catch (err) {

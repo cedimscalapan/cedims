@@ -33,6 +33,9 @@ const SUBJECTS = [
     'Science', 'Makabansa', 'AP', 'EPP', 'Language',
     'Reading and Literacy', 'Numeracy', 'Arts and Music',
     'Physical Development', 'Language Literacy and Communication',
+    'Literacy, Language, and Communication', 'Socio-Emotional Development',
+    'Values Development', 'Physical Health and Motor Development',
+    'Aesthetic/Creative Development', 'Cognitive Development',
     'TLE'
 ];
 
@@ -114,10 +117,6 @@ export interface FuzzyPrediction {
 }
 
 export function predictSubject(text: string): FuzzyPrediction {
-    if (/\bH\.?G\.?P\.?\b|HOMEROOM\s+GUIDANCE(?:\s+PROGRAM)?/i.test(text)) {
-        return { value: 'HGP', confidence: 100 };
-    }
-
     // Look for an explicit header field first, falling back to a fuzzy scan of the whole text.
     const header = text.match(/(?:ASIGNATURA|SUBJECT|LEARNING\s*AREA(?:\s*[\/]\s*ASIGNATURA)?)\s*[:\t]*\s*([^\n\t|]{3,30})/i);
     if (header) {
@@ -125,6 +124,10 @@ export function predictSubject(text: string): FuzzyPrediction {
         // Extract the subject name (it's usually the first token before any number)
         const result = predictExplicitSubject(candidate);
         if (result.value) return result;
+    }
+
+    if (/\bH\.?G\.?P\.?\b|HOMEROOM\s+GUIDANCE(?:\s+PROGRAM)?/i.test(text)) {
+        return { value: 'HGP', confidence: 100 };
     }
 
     // Use whole-word/phrase matches, longest first. Substring matching caused
@@ -203,28 +206,30 @@ function gradeFromToken(value: string): FuzzyPrediction {
     return word ? { value: `Grade ${words[word]}`, confidence: 95 } : { value: null, confidence: 0 };
 }
 
+/** Read only the grade token at the start of a labeled grade value. */
+export function predictGradeValue(value: string): FuzzyPrediction {
+    const cleaned = value.replace(/^[\s:#/|()*_=\[\]\-\u2022\u2013\u2014]+/, '')
+        .replace(/^(?:GRADE(?:\s+LEVEL)?|BAITANG)\s*[:#-]?\s*/i, '');
+    if (/^(?:KINDERGARTEN|KINDER|K)(?=$|[^A-Z0-9])/i.test(cleaned)) return { value: 'Kinder', confidence: 100 };
+    const numeric = cleaned.match(/^([1-6])(?!\d|\.\d)/);
+    if (numeric) return gradeFromToken(numeric[1]);
+    const token = cleaned.match(/^(VI|IV|III|II|I|V|[1-6]|one|two|three|four|five|six|isa|dalawa|tatlo|apat|lima|anim)(?=$|[^A-Z0-9])/i);
+    return token ? gradeFromToken(token[1]) : { value: null, confidence: 0 };
+}
+
 export function predictGradeLevel(text: string): FuzzyPrediction {
-    // Prefer explicit header/file-name grade labels. Avoid broad fuzzy matches
-    // because lesson content often contains many unrelated grade references.
-    const gradeField = text.match(/(?:GRADE\s*(?:LEVEL)?|GR\.?|BAITANG|ANTAS)\s*(?:\/\s*(?:LEVEL|ANTAS))?\s*[:#\-\t ]+\s*([1-6]|VI|IV|III|II|I|V|one|two|three|four|five|six|isa|dalawa|tatlo|apat|lima|anim)/i);
-    if (gradeField) {
-        const parsed = gradeFromToken(gradeField[1]);
-        if (parsed.value) return parsed;
+    const lines = text.replace(/\r/g, '').split('\n');
+    const stop = lines.findIndex(line => /^\s*(?:(?:[IVX]+|\d+)[.)]?\s*)?(?:OBJECTIVES|LAYUNIN|CONTENT\s+STANDARD|PAMANTAYAN|PROCEDURES|PAMAMARAAN)\b/i.test(line));
+    const header = lines.slice(0, stop >= 0 ? Math.min(stop, 40) : 40).join('\n');
+    const pattern = /\b(?:GRADE(?:\s+LEVEL)?(?:\s*(?:AND|&)\s*SECTION)?|BAITANG(?:\s*(?:AT|&)\s*SEKS(?:YON|IYON))?)(?=\b|[1-6]\b|[IV]+\b)/gi;
+    const results: { grade: string; rank: number }[] = [];
+    for (const label of header.matchAll(pattern)) {
+        const prediction = predictGradeValue(header.slice(label.index! + label[0].length));
+        if (prediction.value) results.push({ grade: prediction.value, rank: /LEVEL|SECTION|SEKS/i.test(label[0]) ? 2 : 1 });
     }
-
-    const compact = text.match(/\b(?:G|GR|GRADE)[_\-\s]*([1-6])\b/i);
-    if (compact) return { value: `Grade ${compact[1]}`, confidence: 95 };
-
-    const gradeAnywhere = text.match(/\b(?:GRADE|BAITANG)\s*([1-6]|VI|IV|III|II|I|V)\b/i);
-    if (gradeAnywhere) {
-        const parsed = gradeFromToken(gradeAnywhere[1]);
-        if (parsed.value) return parsed;
-    }
-
-    const result = bestMatch(text, GRADE_LEVELS, 0.75);
-    return result.value
-        ? { value: result.value, confidence: result.score }
-        : { value: null, confidence: 0 };
+    const rank = Math.max(0, ...results.map(result => result.rank));
+    const grades = new Set(results.filter(result => result.rank === rank).map(result => result.grade));
+    return grades.size === 1 ? { value: [...grades][0], confidence: 100 } : { value: null, confidence: 0 };
 }
 
 export function predictDocType(text: string): FuzzyPrediction {

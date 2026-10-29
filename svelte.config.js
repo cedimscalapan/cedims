@@ -4,6 +4,9 @@ import adapter from '@sveltejs/adapter-node';
 const config = {
 	kit: {
 		adapter: adapter(),
+		version: {
+			pollInterval: 60000
+		},
 		alias: {
 			$components: 'src/lib/components',
 			$stores: 'src/lib/stores'

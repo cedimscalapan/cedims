@@ -1,10 +1,11 @@
+import { readHeaderPeriod } from './headerPeriod';
+import { extractTeachingLoadFields } from './teachingLoadFields';
 /**
  * OCR Metadata Extraction — Tesseract.js (Client-Side)
  * Dynamically imported to avoid blocking initial bundle.
  * Scans the first page ROI to extract document type, week, and school year.
  */
 import { predictSubject, predictGradeLevel, predictDocType, predictTermNumber } from './fuzzyClassifier';
-import { createWorker } from 'tesseract.js';
 import { PDFJS_VERSION } from './pdfjsVersion';
 
 const OCR_DEBUG = false;
@@ -43,8 +44,11 @@ export interface DocMetadata {
 // timeout was guaranteed to fire on exactly the connections this matters
 // most for, silently degrading every PDF upload to "Unknown" metadata
 // detection instead of just taking longer to load.
-function loadPdfJs(timeoutMs: number = 45000): Promise<void> {
-    return new Promise((resolve, reject) => {
+let pdfJsLoading: Promise<void> | null = null;
+export function loadPdfJs(timeoutMs: number = 45000): Promise<void> {
+    if ((window as any).pdfjsLib) return Promise.resolve();
+    if (pdfJsLoading) return pdfJsLoading;
+    const request = new Promise<void>((resolve, reject) => {
         if ((window as any)['pdfjsLib']) {
             resolve();
             return;
@@ -74,13 +78,25 @@ function loadPdfJs(timeoutMs: number = 45000): Promise<void> {
         };
         document.head.appendChild(script);
     });
+    pdfJsLoading = request;
+    void request.catch(() => { if (pdfJsLoading === request) pdfJsLoading = null; });
+    return request;
 }
 
-export async function extractMetadata(file: File): Promise<DocMetadata> {
+/** Warm the shared PDF reader only; image OCR is loaded only when needed. */
+export async function warmPdfReader(): Promise<void> {
+    await loadPdfJs();
+}
+
+export async function extractMetadata(file: File, options: { signal?: AbortSignal } = {}): Promise<DocMetadata> {
+    const signal = options.signal;
+    signal?.throwIfAborted();
     const ext = file.name.split('.').pop()?.toLowerCase();
 
     // PDF path: extract text directly, falling back to raster OCR if needed.
     if (file.type === 'application/pdf' || ext === 'pdf') {
+        let pdfTask: any = null;
+        const cancelPdf = () => { void pdfTask?.destroy().catch(() => {}); };
         try {
             let pdfjsLib = (window as any)['pdfjsLib'];
             if (!pdfjsLib) {
@@ -106,17 +122,22 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
                 }
             }
 
+            signal?.throwIfAborted();
             const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            signal?.throwIfAborted();
+            pdfTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            signal?.addEventListener('abort', cancelPdf, { once: true });
+            const pdf = await pdfTask.promise;
             const page = await pdf.getPage(1);
             const textContent = await page.getTextContent();
+            signal?.throwIfAborted();
             const text = textContentToLines(textContent.items);
             debugLog(`[ocr] PDF text extracted (${text.length} chars):`, text.substring(0, 200) + '...');
 
             // If text is too short, fallback to raster OCR
             if (text.length < 50) {
                 debugWarn('[ocr] PDF text too sparse. Falling back to raster OCR...');
-                return await extractRasterMetadata(page, pdfjsLib, file.name);
+                return await extractRasterMetadata(page, pdfjsLib, file.name, signal);
             }
 
             const metadata = parseMetadata(text, file.name);
@@ -124,6 +145,9 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
         } catch (err) {
             debugWarn('[ocr] PDF extraction skipped:', err);
             return createDefaultMetadata();
+        } finally {
+            signal?.removeEventListener('abort', cancelPdf);
+            await pdfTask?.destroy().catch(() => {});
         }
     }
 
@@ -137,6 +161,7 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
     try {
         // Tesseract.js automatically caches the worker and language data in IndexedDB,
         // so as long as it runs once while online, it keeps working offline.
+        const { createWorker } = await import('tesseract.js');
         const worker = await createWorker('eng+fil', 1, {
             logger: (m: any) => debugLog(m),
             errorHandler: (err: any) => debugWarn('[ocr] Tesseract worker skipped:', err)
@@ -144,7 +169,9 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
 
         try {
             // Manual thresholding for low-end mobile CPUs
-            const { data: { text, confidence } } = await worker.recognize(objectUrl);
+            const { data } = await worker.recognize(objectUrl, {}, { text: true, blocks: true });
+            const confidence = data.confidence;
+            const text = ocrBlocksToLines(data.blocks, data.text);
 
             // Post-process language detection from result
             const language = detectLanguage(text);
@@ -163,7 +190,7 @@ export async function extractMetadata(file: File): Promise<DocMetadata> {
     }
 }
 
-function createDefaultMetadata(): DocMetadata {
+export function createDefaultMetadata(): DocMetadata {
     return {
         docType: 'Unknown',
         termNumber: null,
@@ -184,85 +211,93 @@ function createDefaultMetadata(): DocMetadata {
     };
 }
 
-function textContentToLines(items: any[]): string {
-    const rows = new Map<number, { x: number; text: string }[]>();
-
-    for (const item of items) {
-        const value = String(item.str || '').trim();
-        if (!value) continue;
-
-        const transform = Array.isArray(item.transform) ? item.transform : [];
-        const y = Math.round(Number(transform[5] || 0) / 3) * 3;
-        const x = Number(transform[4] || 0);
-
-        if (!rows.has(y)) rows.set(y, []);
-        rows.get(y)!.push({ x, text: value });
+function joinVisualRows(items: {x:number; y:number; text:string; height?:number}[], topDown: boolean): string {
+    const rows: {y:number; height:number; items:typeof items}[] = [];
+    const ordered = items.filter(item => item.text.trim()).sort((a,b) => topDown ? a.y-b.y : b.y-a.y);
+    for (const item of ordered) {
+        const last = rows[rows.length-1];
+        const tolerance = Math.max(topDown ? 3 : 4, Math.min(item.height || 0,last?.height || 0)*0.35);
+        if (last && Math.abs(item.y-last.y)<=tolerance) last.items.push(item);
+        else rows.push({y:item.y,height:item.height || 0,items:[item]});
     }
-
-    return Array.from(rows.entries())
-        .sort((a, b) => b[0] - a[0])
-        .map(([, row]) => row.sort((a, b) => a.x - b.x).map(item => item.text).join(' '))
-        .join('\n');
+    return rows.map(row => row.items.sort((a,b)=>a.x-b.x).map(item=>item.text.trim()).join(' ')).join('\n');
 }
 
-async function extractRasterMetadata(page: any, pdfjsLib: any, fileName: string = ''): Promise<DocMetadata> {
+/** Preserve table rows even when italic labels and cell values have different baselines. */
+export function textContentToLines(items: any[]): string {
+    return joinVisualRows(items.map(item => ({
+        x:Number(item.transform?.[4] || 0), y:Number(item.transform?.[5] || 0),
+        height:Number(item.height || 0), text:String(item.str || '')
+    })),false);
+}
+
+/** Recover visual reading order when scanned table cells arrive as separate OCR blocks. */
+export function ocrBlocksToLines(blocks: any[] | null | undefined, fallback: string): string {
+    const words: {x:number; y:number; height:number; text:string}[] = [];
+    for (const block of blocks || []) for (const paragraph of block.paragraphs || []) for (const line of paragraph.lines || []) {
+        for (const word of line.words || []) {
+            if (!word.bbox || !word.text) continue;
+            words.push({x:word.bbox.x0,y:word.bbox.y1,height:word.bbox.y1-word.bbox.y0,text:word.text});
+        }
+    }
+    return words.length ? joinVisualRows(words,true) : fallback;
+}
+
+async function extractRasterMetadata(page: any, pdfjsLib: any, fileName: string = '', signal?: AbortSignal): Promise<DocMetadata> {
+    let worker: Awaited<ReturnType<typeof import('tesseract.js')['createWorker']>> | null = null;
+    let workerStopped: Promise<unknown> | null = null;
+    let blobUrl: string | null = null;
+    let canvas: HTMLCanvasElement | null = null;
+    let renderTask: any = null;
+    const stop = () => {
+        renderTask?.cancel();
+        if (worker && !workerStopped) workerStopped = worker.terminate().catch(() => {});
+    };
+    signal?.addEventListener('abort', stop, { once: true });
     try {
-        debugLog('[ocr] Starting raster OCR fallback...');
-
-        // Force a lower render scale on mobile to save CPU/RAM.
+        signal?.throwIfAborted();
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        const scale = isMobile ? 1.0 : 2.5;
-
-        const viewport = page.getViewport({ scale });
-        const canvas = document.createElement('canvas');
+        const viewport = page.getViewport({ scale: isMobile ? 1.0 : 2.5 });
+        canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
         if (!context) throw new Error('Could not get canvas context');
-
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-
-        await page.render({ canvasContext: context, viewport }).promise;
-
-        // Convert to grayscale and threshold for low-end CPUs; this makes Tesseract's job much easier and faster.
+        renderTask = page.render({ canvasContext: context, viewport });
+        await renderTask.promise;
+        renderTask = null;
+        signal?.throwIfAborted();
         if (isMobile) {
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            for (let i = 0; i < data.length; i += 4) {
-                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                // Thresholding: Black or White only (Binary)
-                const val = avg > 128 ? 255 : 0;
-                data[i] = data[i + 1] = data[i + 2] = val;
-                data[i + 3] = 255; // Ensure alpha is solid
+            const image = context.getImageData(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < image.data.length; i += 4) {
+                const value = (image.data[i] + image.data[i + 1] + image.data[i + 2]) / 3 > 128 ? 255 : 0;
+                image.data[i] = image.data[i + 1] = image.data[i + 2] = value;
+                image.data[i + 3] = 255;
             }
-            context.putImageData(imageData, 0, 0);
+            context.putImageData(image, 0, 0);
         }
-
-        return new Promise<DocMetadata>((resolve, reject) => {
-            canvas.toBlob(async (blob) => {
-                if (!blob) {
-                    reject(new Error('Canvas toBlob failed'));
-                    return;
-                }
-                const blobUrl = URL.createObjectURL(blob);
-                const { createWorker } = await import('tesseract.js');
-                const worker = await createWorker('eng+fil');
-                
-                try {
-                    const { data: { text, confidence } } = await worker.recognize(blobUrl);
-                    debugLog(`[ocr] Raster OCR complete (${text.length} chars), scale: ${scale}, confidence:`, confidence);
-                    const metadata = parseMetadata(text, fileName);
-                    resolve({ ...metadata, rawText: text, confidence, language: detectLanguage(text) });
-                } catch (e) {
-                    reject(e);
-                } finally {
-                    await worker.terminate();
-                    URL.revokeObjectURL(blobUrl);
-                }
-            }, 'image/png');
-        });
-    } catch (err) {
-        debugWarn('[ocr] Raster fallback skipped:', err);
+        const blob = await new Promise<Blob>((resolve, reject) => canvas!.toBlob(value =>
+            value ? resolve(value) : reject(new Error('Could not prepare this page for scanning')), 'image/png'));
+        signal?.throwIfAborted();
+        blobUrl = URL.createObjectURL(blob);
+        const { createWorker } = await import('tesseract.js');
+        signal?.throwIfAborted();
+        worker = await createWorker('eng+fil');
+        signal?.throwIfAborted();
+        const { data } = await worker.recognize(blobUrl, {}, { text: true, blocks: true });
+        const confidence = data.confidence;
+        const text = ocrBlocksToLines(data.blocks, data.text);
+        signal?.throwIfAborted();
+        return { ...parseMetadata(text, fileName), rawText: text, confidence, language: detectLanguage(text) };
+    } catch (error) {
+        debugWarn('[ocr] Raster fallback skipped:', error);
         return createDefaultMetadata();
+    } finally {
+        signal?.removeEventListener('abort', stop);
+        stop();
+        if (workerStopped) await workerStopped;
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        if (canvas) { canvas.width = 0; canvas.height = 0; }
     }
 }
 
@@ -352,84 +387,16 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
     let weekSource: 'calendar' | 'header-date' | 'regex' | 'none' = 'none';
 
     if (docType === 'DLL') {
-        // Filenames used by schools are often more reliable than OCR for the
-        // short metadata tokens: MAPEH-T2-DAY 5, AP-T2-LESSON-PLAN-DAY 5.
-        // Read the filename layout first, then let document text fill gaps.
-        const filenameSubject = filenameText.match(/^([A-Z][A-Z0-9& ]{1,24}?)(?=\s*T(?:ERM)?\s*[-_ ]?\s*[1-3]|\s*[-_]\s*T[1-3]|\s+DAY\s*\d|$)/i)
-            || filenameUpper.match(/\b(MAPEH|GMRC|HGP|AP|EPP|TLE|MATH|MATHEMATICS|SCIENCE|ENGLISH|FILIPINO)\b/i);
-        if (filenameSubject) {
-            const candidate = filenameSubject[1].trim();
-            const predicted = predictSubject(candidate);
-            if (predicted.value) {
-                subject = predicted.value;
-                subjectConfidence = Math.max(95, predicted.confidence);
-            }
-        }
+        // Load classification uses only the named subject and grade fields.
+        const loadFields = extractTeachingLoadFields(text);
+        subject = loadFields.subject;
+        subjectConfidence = loadFields.subjectConfidence;
+        gradeLevel = loadFields.grade || null;
 
-        const explicitSubjectMatch = headerAndFilenameUpper.match(/(?:ASIGNATURA|SUBJECT|LEARNING\s*AREA(?:\s*[\/]\s*ASIGNATURA)?)\s*[:\t\-]*\s*([^\n\t|]{3,30})/i);
-        if (explicitSubjectMatch) {
-            const candidate = explicitSubjectMatch[1].trim();
-            const subjectPatterns = buildSubjectPatterns(true);
-
-            for (const p of subjectPatterns) {
-                if (p.regex.test(candidate)) {
-                    subject = p.name;
-                    subjectConfidence = 100;
-                    break;
-                }
-            }
-        }
-
-        if (!subject) {
-            const fuzzy = predictSubject(headerAndFilename);
-            subject = fuzzy.value;
-            subjectConfidence = fuzzy.confidence;
-            if (subject) debugLog(`[ocr] Fuzzy matched subject as ${subject} (confidence: ${fuzzy.confidence}%)`);
-        }
-
-        if (!subject) {
-            const subjectPatterns = buildSubjectPatterns(false);
-
-            for (const p of subjectPatterns) {
-                if (p.regex.test(headerAndFilenameUpper)) {
-                    subject = p.name;
-                    break;
-                }
-            }
-        }
-
-        const grade = predictGradeLevel(headerAndFilename);
-        if (grade.value && grade.confidence >= 75) {
-            gradeLevel = grade.value.replace(/^Grade\s*/i, '');
-            debugLog(`[ocr] Matched grade from header/file name as Grade ${gradeLevel} (confidence: ${grade.confidence}%)`);
-        }
-
-        if (!gradeLevel) {
-            const gradeMatch = headerAndFilenameUpper.match(/(?:GRADE|GR\.?|BAITANG|ANTAS)\s*[/]?\s*(?:LEVEL|ANTAS)?\s*[:\t\- ]*\s*(VI|IV|III|II|I|V|[1-6])/i);
-            gradeLevel = gradeMatch ? gradeMatch[1].trim() : null;
-            if (gradeLevel && isNaN(parseInt(gradeLevel))) {
-                gradeLevel = romanToNum(gradeLevel);
-            }
-        }
-
-        const filenameTerm = filenameUpper.match(/(?:^|[\s_-])(?:T|TERM|Q|QUARTER)\s*[-_ ]?\s*([1-3])(?:$|[\s_-])/i);
-        const term = filenameTerm
-            ? { value: Number(filenameTerm[1]), confidence: 100 }
-            : predictTermNumber(headerAndFilename);
-        if (term.value) {
-            termNumber = term.value;
-            debugLog(`[ocr] Matched term as Term ${termNumber} (confidence: ${term.confidence}%)`);
-        }
-
-        const weekMatch = headerAndFilenameUpper.match(/(?:WEEK|LINGGO|LINGGUH?AN)\s*[#:\-\s]*\s*(\d{1,2})/i) ||
-            headerAndFilenameUpper.match(/IKA-\s*(\d{1,2})\s*LINGGO/i) ||
-            headerAndFilenameUpper.match(/\bW(?:K|EEK)?[_\-\s]*(\d{1,2})\b/i);
-        weekNumber = weekMatch ? parseInt(weekMatch[1], 10) : null;
-        if (weekNumber && (weekNumber < 1 || weekNumber > 39)) weekNumber = null;
+        const headerPeriod = readHeaderPeriod(text);
+        termNumber = headerPeriod.invalid ? null : headerPeriod.termNumber;
+        weekNumber = headerPeriod.invalid ? null : headerPeriod.weekNumber;
         weekSource = weekNumber ? 'regex' : 'none';
-        if (!termNumber && weekNumber) {
-            termNumber = Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
-        }
     }
 
     // Extract school year
@@ -445,11 +412,11 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
     const teacherMatch = headerText.match(/(?:TEACHER|GURO|EDUCATOR)\s*[:\t\-]*\s*([^\n\t|]+)/i);
     const teacher = teacherMatch ? teacherMatch[1].trim() : null;
 
-    const dateMatch = headerAndFilename.match(/(?:Teaching\s*Dates?(?:\s*and\s*Time)?|DATE|PETSA(?:\s*(?:at|[/|])\s*(?:ORAS|DATE))?(?:\s*ng\s*Pagtuturo)?)\s*[:\t\-\s]*\s*([^\n\t|]{5,})/i);
+    const dateMatch = headerText.match(/(?:Teaching\s*Dates?(?:\s*and\s*Time)?|DATE|PETSA(?:\s*(?:at|[/|])\s*(?:ORAS|DATE))?(?:\s*ng\s*Pagtuturo)?)\s*[:\t\-\s]*\s*([^\n\t|]{5,})/i);
     const date = dateMatch ? dateMatch[1].trim() : null;
     const day = extractDay(headerAndFilename);
 
-    const dateRange = parseDateRange(headerAndFilename);
+    const dateRange = parseDateRange(headerText);
     if (dateRange && !weekNumber) {
         weekSource = 'header-date';
         debugLog(`[ocr] Parsed date range: ${dateRange.start.toDateString()} - ${dateRange.end.toDateString()}`);

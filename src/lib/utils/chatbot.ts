@@ -1,4 +1,5 @@
 import intentModel from '../models/intent_classifier_model.json';
+import { answerSystemHelp } from './systemHelp';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentSchoolYear as getDynamicSchoolYear } from './schoolYear';
 import { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, filterSubmissionsByPeriod, isReviewableSubmission, fetchRowsForIds, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type ComplianceReview } from './compliance';
@@ -951,14 +952,14 @@ async function queryCompliance(
     let teacherScope: { id: string; full_name: string; school_id: string }[] = [];
     let schools: { id: string; name: string; district_id: string }[] = [];
     let scopeLabel: string;
-    if (role === 'Teacher' || role === 'Master Teacher' || !role) {
+    if (role === 'Teacher' || (role === 'Master Teacher' && slots.scope !== 'school') || !role) {
         teacherScope = [{ id: userId, full_name: profile?.full_name || 'You', school_id: profile?.school_id || '' }];
         if (profile?.school_id) {
             const { data } = await db.from('schools').select('id, name, district_id').eq('id', profile.school_id);
             schools = (data || []) as any[];
         }
         scopeLabel = lang === 'tl' ? 'Ang' : 'Your';
-    } else if (role === 'School Head' && profile?.school_id) {
+    } else if ((role === 'School Head' || role === 'Master Teacher') && profile?.school_id) {
         const { data: schoolRows } = await db.from('schools').select('id, name, district_id').eq('id', profile.school_id);
         schools = (schoolRows || []) as any[];
         const { data: teacherIds } = await db
@@ -994,12 +995,13 @@ async function queryCompliance(
     }
     if (slots.subject) loadsQuery = loadsQuery.ilike('subject', `%${slots.subject}%`);
 
-    const [loadsResult, submissionsResult, calendarResult] = await Promise.all([
+    const [loadsResult, submissionsResult, calendarResult, leaveResult] = await Promise.all([
         loadsQuery,
         db.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at, subject').eq('school_year', schoolYear).in('user_id', teacherIds).in('doc_type', ['DLL', 'DLP', 'ISP', 'ISR']),
         db.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active').eq('school_year', schoolYear).eq('is_active', true),
+        db.from('submission_leave_requests').select('*').eq('school_year', schoolYear).in('user_id', teacherIds),
     ]);
-    if (loadsResult.error || submissionsResult.error || calendarResult.error) {
+    if (loadsResult.error || submissionsResult.error || calendarResult.error || leaveResult.error) {
         return lang === 'tl' ? 'Paumanhin po, hindi ma-access ngayon ang compliance data. Mangyaring subukan muli.' : "Sorry, I couldn't access the compliance data right now. Please try again.";
     }
 
@@ -1025,6 +1027,7 @@ async function queryCompliance(
         scopedCalendar(calendar, schools.find(s => s.id === t.school_id)?.district_id || districtId),
         submissions.filter(s => s.user_id === t.id),
         reviews,
+        Date.now(), leaveResult.data || [],
     )).filter(r => (periodTerm === 'all' || r.calendar.term === Number(periodTerm)) && (periodWeek === 'all' || r.calendar.week_number === Number(periodWeek)));
     const scopedSubmissions = filterSubmissionsByPeriod(submissions.filter(s => isReviewableSubmission(s.compliance_status)), periodTerm, periodWeek);
     const summary = { ...summarizeRequirements(requirements), ...summarizeSubmissionReviews(scopedSubmissions, reviews) };
@@ -1066,13 +1069,16 @@ async function queryDeadline(
     let query = db
         .from('academic_calendar')
         .select('*')
+        .eq('school_year', getDynamicSchoolYear())
+        .eq('is_active', true)
         .order('deadline_date', { ascending: true });
 
     if (districtId) {
         query = query.or(`district_id.eq.${districtId},district_id.is.null`);
     }
     if (slots.week) query = query.eq('week_number', parseInt(slots.week));
-    if (!slots.week) query = query.limit(5);
+    if (slots.term) query = query.eq('term', parseInt(slots.term));
+    if (!slots.week) query = query.gte('deadline_date', new Date().toISOString()).limit(5);
 
     const { data, error } = await query;
 
@@ -1107,10 +1113,7 @@ async function queryDlls(
     const hasStructuredSlots = !!(slots.subject || slots.week || slots.grade);
     if (!hasStructuredSlots && queryText && queryText.trim().length > 3) {
         try {
-            if (!dllEngineLoaded) {
-                await loadDllDocumentsFromSupabase(db);
-                dllEngineLoaded = true;
-            }
+            await loadDllDocumentsFromSupabase(db);
             const semantic = dllSearchEngine.search(queryText.trim(), 5);
             if (semantic.length > 0) {
                 const lines = semantic.map((r, i) => {
@@ -1137,7 +1140,7 @@ async function queryDlls(
             profile:profiles(full_name),
             teaching_load:teaching_loads(grade_level)
         `)
-        .eq('doc_type', 'DLL')
+        .in('doc_type', ['DLL', 'DLP'])
         .order('created_at', { ascending: false });
 
     if (slots.subject) query = query.ilike('subject', `%${slots.subject}%`);
@@ -1798,7 +1801,7 @@ class DllSearchEngine {
 
 export const intentClassifier = new IntentClassifier(intentModel as unknown as IntentModelData);
 export const dllSearchEngine = new DllSearchEngine();
-let dllEngineLoaded = false;
+
 
 const OUT_OF_SCOPE_PATTERNS = [
     /\b(weather|forecast|temperature|rain|typhoon)\b/i,
@@ -1817,11 +1820,15 @@ function isClearlyOutOfScope(text: string, intent: Intent, confidence: number): 
 }
 
 export async function processQuery(text: string, ctx?: ChatContext): Promise<ChatResponse> {
+    const helpLang = detectLanguage(text) === 'tl' || (ctx?.memory?.lastLang === 'tl' && text.trim().split(/\s+/).length <= 3) ? 'tl' : 'en';
+    const help = answerSystemHelp(text, helpLang, ctx?.memory?.lastSlots?.helpTopic);
+    if (help) return {intent:'general_help', confidence:100, answer:help.answer, slots:{helpTopic:help.topic}, lang:helpLang};
     const prediction = intentClassifier.predict(text);
     const outOfScope = isClearlyOutOfScope(text, prediction.intent, prediction.confidence);
     const intent = prediction.intent;
     const confidence = outOfScope ? 0 : prediction.confidence;
     const slots = extractSlots(text, intent, ctx?.memory);
+    if (ctx?.profile?.role === 'Master Teacher' && /school|teachers|paaralan|mga guro/i.test(text)) slots.scope = 'school';
 
     // Detect language from THIS message. A short reply like "oo" or "sige"
     // has too few Tagalog markers to confidently classify on its own, so a
@@ -1853,10 +1860,17 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
             : 'I am sorry, but that question is outside my CEDIMS support scope. I’m Gabay, the CEDIMS assistant, and I can help with compliance status, submission deadlines, Daily Lesson Plan searches, school comparisons, teacher statistics, the academic calendar, uploads, and compliance reports.';
     } else if (kbHit && (intent === 'general_help' || confidence < 40)) {
         answer = kbHit;
-    } else if (ctx?.supabase) {
+    } else if (confidence < 60 && !kbHit) {
+        return {intent:'general_help', confidence, slots:{}, lang,
+            answer:lang === 'tl'
+                ? 'Aling bahagi ng CEDIMS ang tinutukoy ninyo: Upload, Tracker, Loads, Archives, remarks, password reset, o compliance? Sabihin ang action at error na nakikita ninyo para maitugma ko ang gabay.'
+                : 'Which part of CEDIMS do you mean: Upload, Tracker, Loads, Archives, remarks, password reset, or compliance? Tell me what you are trying to do and any error shown so I can give the right guidance.'};
+    } else if (ctx?.supabase && ctx.userId) {
         const dbResponse = await generateDatabaseResponse(intent, slots, ctx, text, lang);
         answer = dbResponse.answer;
         attachments = dbResponse.attachments;
+    } else if (intent !== 'how_to_upload' && intent !== 'general_help') {
+        answer = lang === 'tl' ? 'Mag-sign in muna para matingnan ko ang kasalukuyang records na pinapayagan sa inyong account.' : 'Please sign in so I can check the current records available to your account.';
     } else {
         answer = generateTemplateResponse(intent, slots, lang);
     }
@@ -1953,15 +1967,11 @@ export function loadDllDocuments(docs: DllDocument[]) {
     dllSearchEngine.setDocuments(docs);
 }
 
-// Keep one request/index build per academic year for the lifetime of the SPA.
-// ChatBot is mounted in the root layout, but this guard also protects against
-// duplicate opens and hot route remounts racing the same expensive query.
-const dllDocumentsPromises = new Map<string, Promise<number>>();
+// Fetch search text on demand under the current session; never reuse another account’s index.
 
 export async function loadDllDocumentsFromSupabase(db: SupabaseClient, schoolYear?: string): Promise<number> {
     const year = schoolYear || getDynamicSchoolYear();
-    const existing = dllDocumentsPromises.get(year);
-    if (existing) return existing;
+    dllSearchEngine.setDocuments([]);
 
     const request = (async () => {
       const { data, error } = await db
@@ -1970,6 +1980,7 @@ export async function loadDllDocumentsFromSupabase(db: SupabaseClient, schoolYea
         .not('raw_text', 'is', null)
         .not('raw_text', 'eq', '')
         .eq('school_year', year)
+        .in('doc_type', ['DLL', 'DLP'])
         .limit(1000);
 
       if (error || !data) {
@@ -1992,6 +2003,5 @@ export async function loadDllDocumentsFromSupabase(db: SupabaseClient, schoolYea
       return docs.length;
     })();
 
-    dllDocumentsPromises.set(year, request);
     return request;
 }

@@ -5,6 +5,7 @@
     import { supabase } from '$lib/utils/supabase';
     import { profile } from '$lib/utils/auth';
     import PaginationBar from '$lib/components/PaginationBar.svelte';
+    import CedimsSelect from '$lib/components/CedimsSelect.svelte';
     import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
     import { Download, Search, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Filter, RefreshCw, AlertTriangle, CheckCircle, Eye, FileText, CalendarX } from 'lucide-svelte';
     let { teachers, submissionUsers, schools, loads, calendar, submissions, leaveRequests, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
@@ -76,7 +77,9 @@
     const weeks = $derived([...new Set(calendar.filter(c => term === 'all' || c.term === Number(term)).map(c => c.week_number))].sort((a, b) => a - b));
     const scopedTeachers = $derived(teachers.filter(t => school === 'all' || t.school_id === school));
     const scopedSubmissionUsers = $derived((submissionUsers?.length ? submissionUsers : teachers).filter(t => school === 'all' || t.school_id === school));
-    const scoped = $derived(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) &&
+    const scopedTeacherIds = $derived(new Set(scopedTeachers.map(t => t.id)));
+    const teacherSchools = $derived(new Map(teachers.map(t => [t.id, t.school_id])));
+    const scoped = $derived(requirements.filter(r => scopedTeacherIds.has(r.teacherId) &&
         (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week))));
     const scopedSubmissionUserIds = $derived(new Set(scopedSubmissionUsers.map(t => t.id)));
     const scopedUploadTotals = $derived(submissions.filter(s => s.user_id && scopedSubmissionUserIds.has(s.user_id) && s.school_year === year && isUploadSubmission(s)));
@@ -90,7 +93,7 @@
         (status === 'risk' && (!!t.risk || t.missing > 0 || t.leavePending > 0)) || (status === 'missing' && t.missing > 0) ||
         (status === 'for-checking' && t.forChecking > 0)));
     function rowsForSchool(id: string) {
-        return requirements.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === id && (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week)));
+        return requirements.filter(r => teacherSchools.get(r.teacherId) === id && (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week)));
     }
     function submissionsForTeacher(id: string) {
         return filterSubmissionsByPeriod(submissions.filter(s => s.user_id === id && isRemarkRequiredSubmission(s)), term, week);
@@ -355,7 +358,7 @@
                 </div>
             </div>
             {#if districtOverview}
-                <label class="school-select"><span>School</span><select bind:value={school} onchange={() => { selectedTeacher = null; clusterFilter = 'all'; reset(); }}><option value="all">All schools</option>{#each schools as s}<option value={s.id}>{s.name}</option>{/each}</select></label>
+                <div class="school-select picker-field"><span>School</span><CedimsSelect bind:value={school} ariaLabel="School" options={[{value:'all',label:'All schools'}, ...schools.map(s=>({value:s.id,label:s.name}))]} onChange={() => { selectedTeacher = null; clusterFilter = 'all'; reset(); }} /></div>
             {/if}
         </div>
     </section>
@@ -485,7 +488,7 @@
             {#if filteredClusterTitle}<p class="selected-cluster">{filteredClusterTitle}</p>{/if}
             <div class="list-controls">
                 {#if !selectedTeacher}<label class="search"><span class="sr-only">Search {districtOverview ? 'schools' : 'teachers'}</span><div><Search size={16} /><input aria-label={districtOverview ? 'Search schools' : 'Search teachers'} placeholder={districtOverview ? 'Search schools' : 'Search teachers'} bind:value={search} oninput={reset} /></div></label>{/if}
-                {#if clusterLabels.length && !selectedTeacher}<label class="cluster-filter"><span class="sr-only">Cluster filter</span><div><Filter size={16} /><select aria-label="Filter by cluster" bind:value={clusterFilter} onchange={reset}><option value="all">All clusters</option>{#each clusterLabels as label}<option value={label.label}>{label.label}</option>{/each}</select></div></label>{/if}
+                {#if clusterLabels.length && !selectedTeacher}<div class="cluster-filter"><span class="sr-only">Cluster filter</span><CedimsSelect bind:value={clusterFilter} ariaLabel="Filter by cluster" compact options={[{value:'all',label:'All clusters'}, ...clusterLabels.map(item=>({value:item.label,label:item.label}))]} onChange={reset} /></div>{/if}
                 <label class="attention"><input type="checkbox" checked={status === 'risk'} onchange={(event) => { status = event.currentTarget.checked ? 'risk' : 'all'; reset(); }} />Needs follow-up only</label>
             </div>
         </div>
@@ -549,17 +552,6 @@
     .back { width: fit-content; color: var(--color-text-primary); font-size: 15px; min-height: 36px; font-weight: 750; }
     .filters { display: grid; grid-template-columns: repeat(3, minmax(150px, 210px)) minmax(160px, 220px); gap: 10px; align-items: end; padding-top: 4px; border-top: 1px solid color-mix(in srgb, var(--color-border-subtle) 70%, transparent); }
     label, .picker-field { display: flex; flex-direction: column; gap: 5px; font-size: 15px; font-weight: 800; min-width: 0; color: var(--color-text-primary); }
-    .school-select select {
-        width: 100%;
-        min-height: 46px;
-        border: 1px solid var(--color-border-subtle);
-        border-radius: 8px;
-        background: var(--color-surface-white);
-        color: var(--color-gov-blue);
-        padding: 0 12px;
-        font-size: 17px;
-        font-weight: 800;
-    }
     .picker { position: relative; min-width: 0; }
     .picker-trigger {
         width: 100%;
@@ -599,9 +591,9 @@
     }
     .picker-menu button.active { background: var(--color-surface-muted); color: var(--color-gov-blue); }
     .picker-menu button:hover { background: var(--color-surface-muted); }
-    .search div, .cluster-filter div { min-width: 0; height: 42px; border: 1px solid var(--color-border-subtle); border-radius: 6px; background: var(--color-surface-white); padding: 7px 10px; font-size: 16px; }
-    .search, .cluster-filter { width: 220px; max-width: 100%; } .search div, .cluster-filter div { display: flex; gap: 8px; align-items: center; }
-    .search input, .cluster-filter select { width: 100%; min-width: 0; background: transparent; }
+    .search div { min-width: 0; height: 42px; border: 1px solid var(--color-border-subtle); border-radius: 6px; background: var(--color-surface-white); padding: 7px 10px; font-size: 16px; }
+    .search, .cluster-filter { width: 220px; max-width: 100%; } .search div { display: flex; gap: 8px; align-items: center; }
+    .search input { width: 100%; min-width: 0; background: transparent; }
     .attention { flex-direction: row; align-items: center; gap: 8px; font-size: 16px; color: var(--color-text-primary); }
     button { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 40px; cursor: pointer; }
     button:disabled { opacity: .5; cursor: default; }
@@ -656,7 +648,6 @@
     .list-header { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(360px, auto); align-items: center; gap: 12px; width: 100%; padding: 10px 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); }
     .list-header h3 { margin: 0; }
     .list-controls { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: end; }
-    .cluster-filter select { width: 200px; }
     .row-action { min-width: 128px; min-height: 44px; padding: 0 12px; border: 1px solid #b8c7ee; border-radius: 8px; background: #eef4ff; color: var(--color-gov-blue); white-space: nowrap; font-size: 16px; font-weight: 850; }
     .row-action:hover { background: var(--color-gov-blue); color: white; }
     .missing { color: var(--color-gov-red); font-weight: 700; }
@@ -683,7 +674,6 @@
     .leave-actions button:first-child { color: white; background: var(--color-gov-blue); border-color: var(--color-gov-blue); }
     .list-tools .list-controls { justify-self: end; }
     .list-controls .attention { min-height: 38px; padding-inline: 2px; }
-    .cluster-filter select { width: 200px; }
     .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
     .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; min-width: 0; }
     .chart-card h4 { font-size: 14px; font-weight: 700; color: var(--color-text-muted); margin: 0 0 12px 0; }
@@ -713,7 +703,7 @@
     .upload-bars .isr { background: var(--color-gov-gold); }
     .upload-bars small { margin: 0; }
     .upload-bars strong { font-size: 15px; }
-    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--color-gov-blue); outline-offset: 3px; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--color-gov-blue); outline-offset: 3px; }
     .empty { padding: 32px 12px; text-align: center; color: var(--color-text-muted); }
     @media (max-width: 920px) {
         .view-heading { grid-template-columns: 1fr; align-items: stretch; }
@@ -729,7 +719,7 @@
         .picker-trigger { min-height: 54px; font-size: 16px; }
         .picker-menu { position: static; margin-top: 6px; max-height: 240px; }
         .refresh { width: 100%; }
-        .search input, .cluster-filter select { font-size: 16px; } .view-heading > div { min-width: 0; }
+        .search input { font-size: 16px; } .view-heading > div { min-width: 0; }
         .stats { gap: 12px; } .stats small { overflow-wrap: anywhere; }
         .list-header { grid-template-columns: 1fr; align-items: stretch; gap: 10px; }
         .selected-cluster { grid-column: auto; }

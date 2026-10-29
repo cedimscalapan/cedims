@@ -2,6 +2,7 @@
     import { Upload, FileText, AlertCircle } from "lucide-svelte";
 
     interface Props {
+        selectedFile?: File | null;
         accept?: string;
         onfileselected: (file: File) => void;
         disabled?: boolean;
@@ -11,6 +12,7 @@
     }
 
     let {
+        selectedFile = $bindable<File | null>(null),
         accept = ".pdf,.docx,.doc,.jpg,.jpeg,.png",
         onfileselected,
         disabled = false,
@@ -20,7 +22,6 @@
     }: Props = $props();
 
     let dragOver = $state(false);
-    let selectedFile = $state<File | null>(null);
     let errorMessage = $state("");
     let inputEl: HTMLInputElement;
 
@@ -45,11 +46,21 @@
     function handleInputChange(e: Event) {
         const target = e.target as HTMLInputElement;
         const file = target.files?.[0];
+        target.value = ''; // Selecting the same corrected file must fire change again.
         errorMessage = "";
         if (file) selectFile(file);
     }
 
     function selectFile(file: File) {
+        const supported = accept.split(',').map(value => value.trim().toLowerCase()).filter(Boolean);
+        const name = file.name.toLowerCase();
+        const type = file.type.toLowerCase();
+        const matches = supported.some(rule => rule.startsWith('.') ? name.endsWith(rule) : rule.endsWith('/*') ? type.startsWith(rule.slice(0, -1)) : type === rule);
+        if (supported.length && !matches) {
+            errorMessage = `Unsupported file. Choose ${supportedText}.`;
+            selectedFile = null;
+            return;
+        }
         if (maxSizeMb && file.size > maxSizeMb * 1024 * 1024) {
             errorMessage = `File too large. Compress it below ${maxSizeMb}MB before uploading.`;
             selectedFile = null;
@@ -76,9 +87,9 @@
     ondrop={handleDrop}
     ondragover={handleDragOver}
     ondragleave={handleDragLeave}
-    onclick={() => !disabled && inputEl.click()}
+    onclick={(e) => { if (!disabled && e.target !== inputEl) inputEl.click(); }}
     onkeydown={(e) => {
-        if (!disabled && (e.key === "Enter" || e.key === " ")) {
+        if (e.target === e.currentTarget && !disabled && (e.key === "Enter" || e.key === " ")) {
             e.preventDefault();
             inputEl.click();
         }
@@ -119,6 +130,8 @@
 
                 <!-- Change Button -->
                 <button
+                    type="button"
+                    {disabled}
                     class="text-sm font-bold text-gov-blue hover:text-gov-blue-dark transition-colors px-3 py-3 rounded-lg"
                     onclick={(e) => {
                         e.stopPropagation();

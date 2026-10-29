@@ -4,6 +4,7 @@
  * Auto-resumes when connectivity is restored.
  */
 
+import { assertNoDatabaseDuplicate } from './submissionDuplicates';
 import { get, set, del, keys } from 'idb-keyval';
 import { writable } from 'svelte/store';
 import { supabase } from './supabase';
@@ -88,10 +89,9 @@ export async function prefetchOfflineMetadata(userId: string, districtId?: strin
     if (!navigator.onLine) return;
 
     try {
-        const stampKey = `offline_metadata_prefetch_${userId}_${districtId || 'none'}`;
+        const stampKey = `offline_metadata_prefetch_v2_${userId}_${districtId || 'none'}_${getCurrentSchoolYear()}`;
         const lastPrefetch = Number(sessionStorage.getItem(stampKey) || 0);
         if (Date.now() - lastPrefetch < METADATA_REFRESH_MS) return;
-        sessionStorage.setItem(stampKey, String(Date.now()));
 
         // 1. Fetch ALL Teaching Loads for the user
         const { data: loads, error: loadsErr } = await supabase
@@ -112,32 +112,30 @@ export async function prefetchOfflineMetadata(userId: string, districtId?: strin
         if (districtId) {
             const { data: calendar, error: calErr } = await supabase
                 .from('academic_calendar')
-                .select('id, week_number, deadline_date, description, is_active')
+                .select('id, school_year, term, week_number, deadline_date, description, is_active')
                 .eq('district_id', districtId)
+                .eq('school_year', getCurrentSchoolYear())
                 .order('week_number', { ascending: true });
 
-            if (!calErr && calendar && calendar.length > 0) {
+            if (!calErr && calendar) {
                 calendarData = calendar;
                 await cacheMetadata(`calendar_${districtId}`, calendar);
-                await cacheMetadata(`calendar_open_${districtId}`, calendar);
+                await cacheMetadata(`calendar_open_${districtId}`, calendar.filter((entry) => entry.is_active === true));
+                if (!loadsErr) sessionStorage.setItem(stampKey, String(Date.now()));
             }
         }
 
         // Fallback: If no district calendar found, fetch global/common
-        if (calendarData.length === 0) {
+        if (!districtId && calendarData.length === 0) {
             const { data: globalCal, error: globalCalErr } = await supabase
                 .from('academic_calendar')
-                .select('id, week_number, deadline_date, description, is_active')
+                .select('id, school_year, term, week_number, deadline_date, description, is_active')
+                .eq('school_year', getCurrentSchoolYear())
                 .order('week_number', { ascending: true });
 
             if (!globalCalErr && globalCal) {
                 calendarData = globalCal;
                 await cacheMetadata('calendar_all', globalCal);
-                // Also cache as district-specific if possible to avoid redundant fetches
-                if (districtId) {
-                    await cacheMetadata(`calendar_${districtId}`, globalCal);
-                    await cacheMetadata(`calendar_open_${districtId}`, globalCal);
-                }
             }
         }
 
@@ -276,6 +274,8 @@ export async function preloadVerificationHashes(userId?: string): Promise<number
 const QUEUE_PREFIX = 'sync_queue_';
 
 export interface QueueItem {
+    /** Original-file fingerprint, used only for a fresh database query on sync. */
+    contentHash?: string;
     fileName: string;
     filePath: string;
     fileHash: string;
@@ -372,16 +372,7 @@ export async function cancelQueuedUpload(queueKey: string): Promise<void> {
     if (!queueKey.startsWith(QUEUE_PREFIX)) {
         throw new Error('Invalid queued upload key.');
     }
-    const item = await get<QueueItem>(queueKey);
     await del(queueKey);
-    if (item?.fileHash) {
-        try {
-            const { removeLedgerEntry } = await import('./offlineSubmissionLedger');
-            await removeLedgerEntry(item.fileHash);
-        } catch (err) {
-            // Ledger cleanup is best-effort.
-        }
-    }
     await updatePendingCount();
 }
 
@@ -471,8 +462,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
     // Notify start
     syncToast('info', `Syncing ${queueKeys.length} offline file(s)...`);
 
-    // Lazy-import ledger for marking synced entries
-    const { markSynced, removeLedgerEntry } = await import('./offlineSubmissionLedger');
 
     try {
         for (const key of queueKeys) {
@@ -482,8 +471,6 @@ export async function processQueue(force = false): Promise<{ success: number; fa
             }
 
             const item = await get<QueueItem>(key);
-
-            // Handle corrupted/missing data
             if (!item) {
                 await del(key);
                 await updatePendingCount();
@@ -494,6 +481,26 @@ export async function processQueue(force = false): Promise<{ success: number; fa
             let forceSupplementary = false;
 
             try {
+                // The live database is the only source of duplicate decisions.
+                // A matching verification ID means a previous sync already committed.
+                const { data: committed, error: lookupError } = await withTimeout(
+                    supabase.from('submissions').select('id').eq('user_id', item.options.userId)
+                        .eq('file_hash', item.fileHash).limit(1).maybeSingle() as any,
+                    20000, 'Submission lookup timed out.'
+                ) as { data: any; error: any };
+                if (lookupError) throw lookupError;
+                if (committed) {
+                    await del(key);
+                    await updatePendingCount();
+                    success++;
+                    continue;
+                }
+                // Older queued files have no original-file fingerprint. Do not
+                // pretend a hash of their QR-stamped bytes is the original hash.
+                if (item.contentHash) {
+                    await withTimeout(assertNoDatabaseDuplicate(supabase, item.options.userId, item.contentHash, item.fileHash),
+                        20000, 'Duplicate check timed out.');
+                }
                 const docType = item.options.docType || 'Unknown';
                 const isWeeklyComplianceUpload = isWeeklyComplianceDocType(docType);
 
@@ -671,6 +678,7 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                     file_name: item.fileName,
                     file_path: sanitizedPath,
                     file_hash: item.fileHash,
+                    content_hash: item.contentHash || null,
                     file_size: item.fileSize,
                     doc_type: item.options.docType || 'Unknown',
                     term_number: isWeeklyComplianceUpload ? item.options.termNumber ?? null : null,
@@ -705,7 +713,7 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 });
                 await del(key);
                 await updatePendingCount();
-                await markSynced(item.fileHash);
+
 
                 // Cache the hash for future offline verification
                 await cacheVerifiedDoc(item.fileHash, {
@@ -781,9 +789,12 @@ export function initOfflineSync(): void {
     if ((window as any).__cedimsOfflineSyncInitialized) return;
     (window as any).__cedimsOfflineSyncInitialized = true;
 
-    // 0. Request persistent storage (prevents browser from evicting IndexedDB)
-    import('./offlineSubmissionLedger').then(({ requestPersistentStorage }) => {
-        requestPersistentStorage();
+    // Keep pending files protected from storage eviction, without keeping a duplicate ledger.
+    void navigator.storage?.persist?.().catch(() => {});
+
+    // Remove obsolete duplicate history without touching queued files or app caches.
+    import('./offlineSubmissionLedger').then(({ clearLegacySubmissionLedger }) => {
+        void clearLegacySubmissionLedger().catch(() => {});
     });
 
     // 1. Event Listener for Network Status

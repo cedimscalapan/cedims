@@ -1,4 +1,4 @@
-import { effectiveDeadlineForSubject, isFridayTenHgp } from './deadlineRules';
+import { effectiveDeadlineForSubject } from './deadlineRules';
 
 export interface CalendarSlot {
     id: string; school_year: string; term: number; week_number: number;
@@ -130,7 +130,7 @@ export function buildRequirements(
     }
     const candidates = new Map<string, ComplianceSubmission[]>();
     for (const s of submissions) {
-        if (s.doc_type !== 'DLL' || !isCountedSubmission(s.compliance_status)) continue;
+        if (!isWeeklyComplianceDocType(s.doc_type) || !isCountedSubmission(s.compliance_status)) continue;
         const key = `${s.teaching_load_id}|${s.school_year}|${s.week_number}`;
         const group = candidates.get(key) || [];
         group.push(s);
@@ -149,9 +149,10 @@ export function buildRequirements(
         const submission = matching.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0];
         const review = submission ? reviewMap.get(submission.id) : undefined;
         const effectiveDeadline = effectiveDeadlineForSubject(c.deadline_date, load.subject, load.school_name);
+        const submittedAt = submission?.created_at ? Date.parse(submission.created_at) : NaN;
         const status = submission ? (
-            isFridayTenHgp(load.subject, load.school_name)
-                ? (submission.created_at && Date.parse(submission.created_at) > effectiveDeadline.getTime() ? 'late' : 'on-time')
+            Number.isFinite(submittedAt)
+                ? (submittedAt > effectiveDeadline.getTime() ? 'late' : 'on-time')
                 : submission.compliance_status === 'late' ? 'late' : 'on-time'
         )
             : leaveRequest?.status === 'approved' ? 'on-leave'
@@ -167,7 +168,7 @@ export function buildRequirements(
 }
 
 export function summarizeRequirements(rows: Requirement[], now = Date.now(), countOpenAsMissing = false) {
-    const countedRows = rows.filter(r => r.status !== 'on-leave' && r.status !== 'leave-requested');
+    const countedRows = rows.filter(r => r.status !== 'on-leave');
     const submitted = countedRows.filter(r => r.submission).length;
     const missing = countedRows.filter(r => r.status === 'missing' || (countOpenAsMissing && !r.submission && r.status !== 'upcoming')).length;
     const upcoming = countedRows.filter(r => r.status === 'upcoming').length;
@@ -177,8 +178,8 @@ export function summarizeRequirements(rows: Requirement[], now = Date.now(), cou
     return {
         expected, submitted, missing, upcoming,
         onLeave: rows.filter(r => r.status === 'on-leave').length,
-        leavePending: 0,
-        leaveRejected: 0,
+        leavePending: rows.filter(r => r.status === 'leave-requested').length,
+        leaveRejected: rows.filter(r => r.status === 'leave-rejected').length,
         onTime: countedRows.filter(r => r.status === 'on-time').length,
         late: countedRows.filter(r => r.status === 'late').length,
         forChecking: countedRows.filter(r => r.review === 'for-checking').length,
@@ -269,12 +270,27 @@ export async function fetchAllRows<T>(query: () => any): Promise<T[]> {
 }
 
 export async function fetchRowsForIds<T>(ids: string[], query: (batch: string[]) => any): Promise<T[]> {
-    const rows: T[] = [];
     const uniqueIds = [...new Set(ids)];
-    // Keep PostgREST URLs small enough for self-hosted gateways and proxies.
-    const batchSize = 25;
-    for (let i = 0; i < uniqueIds.length; i += batchSize) {
-        rows.push(...await fetchAllRows<T>(() => query(uniqueIds.slice(i, i + batchSize))));
-    }
-    return rows;
+    // 75 UUIDs fit comfortably below proxy URL limits. Four workers overlap
+    // network waits without issuing an unbounded request per document batch.
+    const batchSize = 75;
+    const batches: string[][] = [];
+    for (let i = 0; i < uniqueIds.length; i += batchSize) batches.push(uniqueIds.slice(i, i + batchSize));
+    const results: T[][] = new Array(batches.length);
+    let next = 0;
+    let failed = false;
+    const worker = async () => {
+        while (!failed && next < batches.length) {
+            const index = next++;
+            try {
+                results[index] = await fetchAllRows<T>(() => query(batches[index]));
+            } catch (error) {
+                failed = true;
+                throw error;
+            }
+        }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, batches.length) }, worker));
+    // Preserve input batch order, regardless of which network response finishes first.
+    return results.flat();
 }

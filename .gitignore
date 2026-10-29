@@ -10,6 +10,13 @@ node_modules/
 .env*.local
 .DS_Store
 .vercel
+
+# Local credentials, backups, and generated working files
+.env.*
+!.env.production.example
+tmp/
+backup/
+.capstone-build/
 .svelte-kit/
 build/
 

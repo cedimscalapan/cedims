@@ -1,10 +1,12 @@
-﻿<script lang="ts">
+<script lang="ts">
     import { supabase, getRows } from "$lib/utils/supabase";
+    import DocumentReviewPanel from "$lib/components/DocumentReviewPanel.svelte";
     import PageHeader from '$lib/components/PageHeader.svelte';
     import { profile } from "$lib/utils/auth";
     import StatusBadge from "$lib/components/StatusBadge.svelte";
     import FolderCard from "$lib/components/FolderCard.svelte";
     import PaginationBar from "$lib/components/PaginationBar.svelte";
+    import CedimsSelect from "$lib/components/CedimsSelect.svelte";
     import { normalizeComplianceStatus } from "$lib/utils/useDashboardData";
     import {
         canAddReviewRemarks,
@@ -37,9 +39,12 @@
     import { getDocumentLabel } from "$lib/utils/documentLabels";
     import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
     import { logAudit } from "$lib/utils/audit";
-import { fetchAllRows } from "$lib/utils/compliance";
+import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
 
     // â"€â"€ Types â"€â"€
+    // Archive browsing needs metadata only. OCR text and AI analysis stay on the server.
+    const ARCHIVE_COLUMNS = 'id, user_id, file_name, file_hash, file_size, doc_type, compliance_status, term_number, week_number, subject, teaching_load_id, created_at, file_path, school_year, calendar_id, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)';
+
     interface Submission {
         id: string;
         user_id: string;
@@ -126,7 +131,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
         const id = requestedReview;
         requestedReview = null;
         const target = filteredByPath.find(s => s.id === id);
-        if (target && canAddRemarkToSubmission(target)) openRemarkModal(target);
+        if (target && canViewRemarkForSubmission(target)) openRemarkModal(target);
         else addToast('error', 'This document is unavailable or you do not have permission to review it.');
     });
 
@@ -180,6 +185,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
 
     function canViewRemarkForSubmission(sub: Submission): boolean {
         if (!$profile) return false;
+        if (sub.user_id === $profile.id) return true;
         if (!reviewsMap[sub.id]?.reviewer_comment) return canAddRemarkToSubmission(sub);
 
         if ($profile.role === "Teacher") {
@@ -309,39 +315,12 @@ import { fetchAllRows } from "$lib/utils/compliance";
         remarkTarget = null;
     }
 
-    async function saveRemark() {
-        if (!remarkTarget || !canAddRemarkToSubmission(remarkTarget)) {
-            addToast(
-                "error",
-                "You don't have permission to add remarks to this document",
-            );
-            return;
-        }
-        if (!remarkText.trim() || !$profile) return;
-        savingRemark = true;
-        const { error } = await supabase.from("dll_reviews").upsert({
-            submission_id: remarkTarget.id,
-            reviewer_id: $profile.id,
-            reviewer_comment: remarkText.trim(),
-            status: "needs-check",
-        }, { onConflict: "submission_id" });
-        savingRemark = false;
-        if (error) {
-            addToast("error", "Failed to save remark: " + error.message);
-        } else {
-            reviewsMap[remarkTarget.id] = {
-                reviewer_comment: remarkText.trim(),
-                status: "needs-check",
-                return_reason: null,
-                reviewer_id: $profile.id,
-                reviewer_name: $profile.full_name || "Checker",
-            };
-            addToast("success", "Remark saved successfully");
-            void logAudit($profile!.id, "remark.created", "submission", remarkTarget.id, { document_type: remarkTarget.doc_type });
-            closeRemarkModal();
-        }
+    async function refreshReviewSummary() {
+        if (!remarkTarget) return;
+        const id=remarkTarget.id;
+        const {data}=await supabase.from('dll_reviews').select('reviewer_comment,status,return_reason,reviewer_id').eq('submission_id',id).maybeSingle();
+        if(data) reviewsMap={...reviewsMap,[id]:{...data,reviewer_name:$profile?.full_name || 'Reviewer'}};
     }
-
     // â"€â"€ Lifecycle â"€â"€
     // Reactive on $profile?.id (not just onMount) as defense-in-depth: if the
     // resolved profile ever changes after mount (auth state event, token
@@ -407,11 +386,11 @@ import { fetchAllRows } from "$lib/utils/compliance";
         if (role === "Teacher") {
             const data = await fetchAllRows<Submission>(() => supabase
                 .from("submissions")
-                .select("*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)")
+                .select(ARCHIVE_COLUMNS)
                 .eq("user_id", userProfile.id)
                 .eq("school_year", currentSchoolYear)
                 .in("doc_type", ["DLL", "DLP"])
-                .order("created_at", { ascending: false }));
+                .order("created_at", { ascending: false }).order("id"));
             if (runId !== loadRun) return;
             allSubmissions = getRows<Submission>(data).filter((s) => s.user_id === userProfile.id);
             teachersMap = buildTeachersMap(allSubmissions);
@@ -433,12 +412,12 @@ import { fetchAllRows } from "$lib/utils/compliance";
             const data = await fetchAllRows<Submission>(() => supabase
                 .from("submissions")
                 .select(
-                    "*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)",
+                    ARCHIVE_COLUMNS,
                 )
                 .eq("profiles.school_id", userProfile.school_id)
                 .eq("school_year", currentSchoolYear)
                 .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
-                .order("created_at", { ascending: false }));
+                .order("created_at", { ascending: false }).order("id"));
             if (runId !== loadRun) return;
 
             allSubmissions = getRows<Submission>(data)
@@ -460,12 +439,12 @@ import { fetchAllRows } from "$lib/utils/compliance";
             const data = await fetchAllRows<Submission>(() => supabase
                 .from("submissions")
                 .select(
-                    "*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)",
+                    ARCHIVE_COLUMNS,
                 )
                 .eq("profiles.school_id", userProfile.school_id)
                 .eq("school_year", currentSchoolYear)
                 .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
-                .order("created_at", { ascending: false }));
+                .order("created_at", { ascending: false }).order("id"));
             if (runId !== loadRun) return;
 
             allSubmissions = getRows<Submission>(data)
@@ -511,11 +490,11 @@ import { fetchAllRows } from "$lib/utils/compliance";
             let submissionsQuery = supabase
                 .from("submissions")
                 .select(
-                    "*, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)",
+                    ARCHIVE_COLUMNS,
                 )
                 .eq("school_year", currentSchoolYear)
                 .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
-                .order("created_at", { ascending: false });
+                .order("created_at", { ascending: false }).order("id");
             if (role === "District Supervisor" || role === "Admin") {
                 if (userProfile.district_id) {
                     submissionsQuery = submissionsQuery.eq("profiles.district_id", userProfile.district_id);
@@ -646,15 +625,10 @@ import { fetchAllRows } from "$lib/utils/compliance";
         // Fetch dll_reviews for all loaded submissions
         const ids = allSubmissions.map((s) => s.id);
         if (ids.length > 0) {
-            const reviews: any[] = [];
-            const reviewBatchSize = 25;
-            for (let i = 0; i < ids.length; i += reviewBatchSize) {
-                const data = await fetchAllRows<any>(() => supabase
-                    .from("dll_reviews")
-                    .select("submission_id, reviewer_id, reviewer_comment, status, return_reason")
-                    .in("submission_id", ids.slice(i, i + reviewBatchSize)));
-                reviews.push(...data);
-            }
+            const reviews = await fetchRowsForIds<any>(ids, batch => supabase
+                .from("dll_reviews")
+                .select("submission_id, reviewer_id, reviewer_comment, status, return_reason")
+                .in("submission_id", batch).order("id"));
             if (reviews) {
                 const reviewerIds = [...new Set(reviews.map((r: any) => r.reviewer_id).filter(Boolean))];
                 const reviewerNames: Record<string, string> = {};
@@ -1269,14 +1243,8 @@ import { fetchAllRows } from "$lib/utils/compliance";
                 <!-- Academic period filters -->
                 <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2 lg:flex-none" aria-label="Filter archives by academic period">
                     <span class="px-1 text-xs font-bold uppercase tracking-wide text-text-muted">Period</span>
-                    <select value={archiveTerm} aria-label="Filter archives by term" onchange={(event) => { archiveTerm = event.currentTarget.value; archiveWeek = "all"; }} class="min-h-11 min-w-28 flex-1 rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-sm font-semibold outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20 sm:flex-none">
-                        <option value="all">All terms</option>
-                        {#each availableArchiveTerms as term}<option value={String(term)}>Term {term}</option>{/each}
-                    </select>
-                    <select bind:value={archiveWeek} aria-label="Filter archives by week" class="min-h-11 min-w-28 flex-1 rounded-lg border border-border-subtle bg-surface-white px-3 py-2 text-sm font-semibold outline-none focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20 sm:flex-none">
-                        <option value="all">All weeks</option>
-                        {#each availableArchiveWeeks as week}<option value={String(week)}>Week {week}</option>{/each}
-                    </select>
+                    <div class="min-w-36 flex-1 sm:flex-none"><CedimsSelect bind:value={archiveTerm} ariaLabel="Filter archives by term" compact options={[{value:'all',label:'All terms'}, ...availableArchiveTerms.map(term=>({value:String(term),label:`Term ${term}`}))]} onChange={() => archiveWeek = 'all'} /></div>
+                    <div class="min-w-36 flex-1 sm:flex-none"><CedimsSelect bind:value={archiveWeek} ariaLabel="Filter archives by week" compact options={[{value:'all',label:'All weeks'}, ...availableArchiveWeeks.map(week=>({value:String(week),label:`Week ${week}`}))]} /></div>
                     {#if archiveTerm !== "all" || archiveWeek !== "all"}
                         <button type="button" class="min-h-10 rounded-lg px-2.5 text-sm font-semibold text-gov-blue hover:bg-gov-blue/5" onclick={() => { archiveTerm = "all"; archiveWeek = "all"; }}>Clear</button>
                     {/if}
@@ -1524,28 +1492,16 @@ import { fetchAllRows } from "$lib/utils/compliance";
                 </div>
                 <div class="grid gap-4 sm:grid-cols-2">
                     <label class="block text-sm font-semibold text-text-primary sm:col-span-2">Teaching load
-                    <select bind:value={moveLoadId} class="mt-1.5 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
-                        <option value="">Select teaching load</option>
-                        {#each moveLoads as load}<option value={load.id}>{load.grade_level} · {load.subject}</option>{/each}
-                    </select>
+                    <span class="mt-1.5 block"><CedimsSelect bind:value={moveLoadId} ariaLabel="Teaching load" options={[{value:'',label:'Select teaching load'}, ...moveLoads.map(load=>({value:load.id,label:`${load.grade_level} · ${load.subject}`}))]} /></span>
                     </label>
                     <label class="block text-sm font-semibold text-text-primary">Term
-                        <select bind:value={moveTerm} class="mt-1.5 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
-                            <option value={null}>Select term</option>
-                            {#each [...new Set(moveCalendarEntries.map((entry) => entry.term))] as term}<option value={term}>Term {term}</option>{/each}
-                        </select>
+                        <span class="mt-1.5 block"><CedimsSelect bind:value={moveTerm} ariaLabel="Term" options={[{value:null,label:'Select term'}, ...[...new Set(moveCalendarEntries.map(entry=>entry.term))].map(term=>({value:term,label:`Term ${term}`}))]} /></span>
                     </label>
                     <label class="block text-sm font-semibold text-text-primary">Week
-                        <select bind:value={moveWeek} class="mt-1.5 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
-                            <option value={null}>Select week</option>
-                            {#each moveCalendarEntries.filter((entry) => !moveTerm || entry.term === Number(moveTerm)) as entry}<option value={entry.week_number}>Week {entry.week_number} · {entry.is_active ? "Open" : "Closed"}</option>{/each}
-                        </select>
+                        <span class="mt-1.5 block"><CedimsSelect bind:value={moveWeek} ariaLabel="Week" options={[{value:null,label:'Select week'}, ...moveCalendarEntries.filter(entry=>!moveTerm || entry.term===Number(moveTerm)).map(entry=>({value:entry.week_number,label:`Week ${entry.week_number} · ${entry.is_active?'Open':'Closed'}`}))]} /></span>
                     </label>
                     <label class="block text-sm font-semibold text-text-primary sm:col-span-2">Archive status
-                        <select bind:value={moveStatus} class="mt-1.5 w-full min-h-11 rounded-lg border border-border-subtle bg-surface-white px-3 text-sm">
-                            <option value="compliant">Compliant</option>
-                            <option value="supplementary">Supplementary</option>
-                        </select>
+                        <span class="mt-1.5 block"><CedimsSelect bind:value={moveStatus} ariaLabel="Archive status" options={[{value:'compliant',label:'Compliant'},{value:'supplementary',label:'Supplementary'}]} /></span>
                     </label>
                 </div>
                 {#if moveLoadId && moveTerm && moveWeek}
@@ -1626,106 +1582,7 @@ import { fetchAllRows } from "$lib/utils/compliance";
 
 <!-- Remarks Modal -->
 {#if remarkModalOpen && remarkTarget}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-        onclick={closeRemarkModal}
-        onkeydown={(e) => { if (e.key === 'Escape') closeRemarkModal(); }}
-        role="presentation"
-        tabindex="-1"
-    >
-        <div
-            class="bg-surface-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
-            onclick={(e) => e.stopPropagation()}
-            onkeydown={(e) => { if (e.key === 'Escape') closeRemarkModal(); }}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Document remarks"
-            tabindex="-1"
-            use:focusTrap
-        >
-            <div class="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
-                <div>
-                    <h3 class="text-lg font-bold text-text-primary">
-                        {#if existingRemark}
-                            Remark for {getDocumentLabel(remarkTarget?.doc_type)}
-                        {:else if canAddRemarkToSubmission(remarkTarget)}
-                            Add Remark to {getDocumentLabel(remarkTarget?.doc_type)}
-                        {:else}
-                            View Remarks
-                        {/if}
-                    </h3>
-                    <p class="text-xs text-text-muted mt-1">{remarkTarget?.file_name}</p>
-                </div>
-                <button
-                    onclick={closeRemarkModal}
-                    class="p-1 text-text-muted hover:text-text-primary hover:bg-surface-muted rounded-lg transition-colors flex-shrink-0"
-                >
-                    <X size={18} />
-                </button>
-            </div>
-
-            <div class="px-6 py-4">
-                {#if fromCompliance}<button class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-gov-blue" onclick={() => remarkTarget && handleView(remarkTarget)}><Eye size={16} />Open DLL document</button>{/if}
-                {#if existingRemark}
-                    <!-- View existing remark (everyone, including Master Teacher) -->
-                    <div class="p-4 bg-gov-green/10 border border-gov-green/30 rounded-xl mb-3">
-                        <p class="text-xs font-bold uppercase tracking-wider text-gov-green">Checked</p>
-                    </div>
-                    <div class="p-4 bg-gov-gold/5 border border-gov-gold/20 rounded-xl">
-                        <p class="text-sm text-text-primary leading-relaxed">{existingRemark}</p>
-                        <p class="text-xs text-text-muted mt-2 font-medium">Checked by {reviewsMap[remarkTarget.id]?.reviewer_name || "Checker"}</p>
-                    </div>
-                    <div class="flex justify-end mt-4">
-                        <button
-                            onclick={closeRemarkModal}
-                            class="px-5 py-2 bg-surface-muted text-text-primary text-sm font-bold rounded-xl hover:bg-surface-muted transition-colors"
-                        >
-                            Close
-                        </button>
-                    </div>
-                {:else}
-                    {#if canAddRemarkToSubmission(remarkTarget)}
-                        <!-- Add new remark (School Head for Master Teacher ISP/ISR, District Supervisor for any ISP/ISR, anyone for DLL) -->
-                        <textarea
-                            bind:value={remarkText}
-                            placeholder="Enter your remarks for this {getDocumentLabel(remarkTarget?.doc_type)}..."
-                            rows="4"
-                            class="w-full p-3 border border-border-subtle rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gov-blue/30"
-                        ></textarea>
-                        <div class="flex justify-end gap-2 mt-4">
-                            <button
-                                onclick={closeRemarkModal}
-                                class="px-4 py-2 text-sm font-semibold text-text-muted hover:text-text-primary transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onclick={saveRemark}
-                                disabled={!remarkText.trim() || savingRemark}
-                                class="px-5 py-2 bg-gov-gold-dark text-white text-sm font-bold rounded-xl hover:bg-gov-gold-dark/90 disabled:opacity-50 transition-colors"
-                            >
-                                {savingRemark ? "Saving..." : "Save Remark"}
-                            </button>
-                        </div>
-                    {:else}
-                        <div class="p-4 bg-surface-muted border border-border-subtle rounded-xl">
-                            <p class="text-xs font-bold uppercase tracking-wider text-text-muted mb-1">Remarks</p>
-                            <p class="text-sm text-text-muted">
-                                No remarks have been added for this document yet.
-                            </p>
-                        </div>
-                        <div class="flex justify-end mt-4">
-                            <button
-                                onclick={closeRemarkModal}
-                                class="px-5 py-2 bg-surface-muted text-text-primary text-sm font-bold rounded-xl hover:bg-surface-muted transition-colors"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    {/if}
-                {/if}
-            </div>
-        </div>
-    </div>
+    <DocumentReviewPanel document={remarkTarget} onClose={closeRemarkModal} onSaved={() => void refreshReviewSummary()} />
 {/if}
+
+
