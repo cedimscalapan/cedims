@@ -21,6 +21,20 @@ export function loadGrade(value: string | null | undefined): string {
     return roman[text] || text.match(/\d+/)?.[0] || '';
 }
 
+/** "Grade 6" or "Kinder", however the load's grade level was typed. */
+export function gradeLabel(value: string | null | undefined): string {
+    const grade = loadGrade(value);
+    if (grade === 'K') return 'Kinder';
+    return grade ? `Grade ${grade}` : String(value || '').trim() || 'No grade';
+}
+
+/** The grade a file name states outright, as in "WEEK 7 TERM 2 MATH G6.pdf". */
+export function gradeFromFileName(fileName: string): string {
+    const name = fileName.replace(/\.pdf$/i, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ');
+    const found = [...name.matchAll(/\b(?:GRADE|GR|G|BAITANG) ?([1-6]|III|II|IV|VI|V|I)\b/g)].map(match => loadGrade(match[1]));
+    return new Set(found).size === 1 ? found[0] : '';
+}
+
 /** Recognize named Kinder subjects, including Mathematics, in PDF filenames. */
 export function kindergartenAreasFromFileName(fileName: string): string[] {
     const name = fileName.replace(/\.pdf$/i, '').toUpperCase().replace(/&/g, ' AND ')
@@ -76,7 +90,10 @@ export function resolveTeachingLoadMatch(metadata: UploadMetadata, loads: Upload
     const filenameIsKinder = /\bKINDER(?:GARTEN)?\b/i.test(fileName) || loadGrade(fields.grade) === 'K';
     const preferFilename = !!filenameArea && filenameIsKinder && (!fields.grade || loadGrade(fields.grade) === 'K');
     const subject = preferFilename ? filenameArea : fields.subject || (filenameCanHelp ? filenameArea : null);
-    const grade = fields.grade || (filenameArea && (preferFilename || (filenameCanHelp && !fields.subject)) ? 'K' : '');
+    // A header subject with no readable grade can take the grade the file name states.
+    // This is what separates Math Grade 5 from Math Grade 6 on a scanned page.
+    const grade = fields.grade || (filenameArea && (preferFilename || (filenameCanHelp && !fields.subject)) ? 'K' : '')
+        || (subject ? gradeFromFileName(fileName) : '');
     if (!subject && loadGrade(grade) === 'K') {
         const areaCandidates = headerKinderCandidates;
         const eligible = loads.filter(load => validAssignedLoad(load) && loadGrade(load.grade_level) === 'K' &&
@@ -96,4 +113,34 @@ export function resolveTeachingLoadMatch(metadata: UploadMetadata, loads: Upload
     if (!matching.length) return { loadId: null, subject, grade, reason: 'grade_mismatch' as const };
     if (matching.length !== 1) return { loadId: null, subject, grade, reason: 'ambiguous' as const };
     return { loadId: matching[0].id, subject, grade, reason: 'matched' as const };
+}
+
+function joinWithAnd(items: string[]): string {
+    return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+}
+
+/** Explains why no load was filled in, naming the teacher's loads for that subject. */
+export function teachingLoadNotice(
+    match: { subject?: string | null; grade?: string | null; reason: string }, loads: UploadLoad[],
+): string {
+    const subject = match.subject || '';
+    const sameSubject = subject ? loads.filter(load => validAssignedLoad(load) && acceptsUploadSubject(load, subject, loads)) : [];
+    const grades = joinWithAnd([...new Set(sameSubject.map(load => gradeLabel(load.grade_level)))]);
+    const detected = match.grade ? gradeLabel(match.grade) : '';
+    switch (match.reason) {
+        case 'missing_grade':
+            return sameSubject.length > 1
+                ? `Detected ${subject}, but the grade could not be read. You teach ${subject} in ${grades}. Choose the correct one below.`
+                : `Detected ${subject}, but the grade could not be read. Choose the teaching load below.`;
+        case 'grade_mismatch':
+            return `This document says ${subject} ${detected}, but your ${subject} ${sameSubject.length > 1 ? 'loads are' : 'load is'} ${grades}. Choose the correct load, or update your Teaching Load if ${detected} was assigned to you.`;
+        case 'no_subject_match':
+            return `This document says ${subject}${detected ? ` ${detected}` : ''}, which is not in your active teaching loads. Choose the correct load below, or update your Teaching Load.`;
+        case 'ambiguous':
+            return subject
+                ? `You have more than one active ${subject} ${detected} load. Choose the correct one below.`
+                : 'This document lists several learning areas that match your loads. Choose the correct teaching load below.';
+        default:
+            return 'The Learning Area / Asignatura field could not identify one subject. Choose the correct teaching load below.';
+    }
 }

@@ -1,5 +1,7 @@
 import intentModel from '../models/intent_classifier_model.json';
 import { answerSystemHelp } from './systemHelp';
+import { isReportRequest, parseReportRequest, type ReportRequest } from './reportRequest';
+import {planChatDataQuestion,type ChatDataPlan} from './chatQueryPlan';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentSchoolYear as getDynamicSchoolYear } from './schoolYear';
 import { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, filterSubmissionsByPeriod, isReviewableSubmission, fetchRowsForIds, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type ComplianceReview } from './compliance';
@@ -1548,123 +1550,6 @@ function reportTier(rate: number): ReportTier {
     return 'critical';
 }
 
-async function queryCreateReport(
-    db: SupabaseClient,
-    profile: ChatContext['profile'],
-    slots: Record<string, string>,
-    lang: Lang = 'en'
-): Promise<DbResponse> {
-    const role = profile?.role;
-    if (role !== 'School Head' && role !== 'District Supervisor') {
-        return {
-            answer: lang === 'tl'
-                ? 'Paumanhin, available lang ang report generation para sa School Head at District Supervisor accounts.'
-                : 'Sorry, report generation is only available for School Head and District Supervisor accounts.'
-        };
-    }
-
-    // Same RPC the in-app Reports flow used — SECURITY DEFINER, scoped by
-    // the caller's own profile (role/school/district) via auth.uid(), so
-    // this can only ever return what this specific supervisor is already
-    // authorized to see.
-    const { data, error } = await db.rpc('get_compliance_report_rows', {});
-
-    if (error) {
-        console.error('[chatbot] create_report RPC error:', error);
-        return {
-            answer: lang === 'tl'
-                ? "Paumanhin po, hindi ko makuha ang report data ngayon. Mangyaring subukan muli mamaya."
-                : "Sorry, I couldn't pull the report data just now. Please try again in a moment."
-        };
-    }
-
-    const rows = (data || []) as {
-        teacher_name: string;
-        school_name: string | null;
-        district_name: string | null;
-        doc_type: string;
-        week_number: number | null;
-        school_year: string;
-        compliance_status: string;
-        submitted_at: string;
-    }[];
-
-    if (rows.length === 0) {
-        return {
-            answer: lang === 'tl'
-                ? 'Wala pang submission data na makikita para sa report na ito.'
-                : 'There is no submission data available for this report yet.'
-        };
-    }
-
-    const scopeName = (role === 'District Supervisor'
-        ? rows.find(r => r.district_name)?.district_name
-        : rows.find(r => r.school_name)?.school_name)
-        || (lang === 'tl' ? 'ang saklaw ninyo' : 'your scope');
-
-    const archiveTotal = rows.length;
-    const countedRows = rows.filter(r => !['supplementary', 'extra'].includes((r.compliance_status || '').toLowerCase()));
-    const total = countedRows.length;
-    const onTime = countedRows.filter(r => r.compliance_status === 'compliant' || r.compliance_status === 'on-time').length;
-    const late = countedRows.filter(r => r.compliance_status === 'late').length;
-    const fulfilled = onTime + late;
-    const supplementary = rows.filter(r => r.compliance_status === 'supplementary').length;
-    const rate = total > 0 ? Math.round((fulfilled / total) * 100) : 0;
-    const tier = reportTier(rate);
-    const reportSchoolYear = rows[0]?.school_year || '';
-
-    const opener = pick(REPORT_OPENERS[lang][tier]).replace('{scope}', scopeName);
-    const closer = pick(REPORT_CLOSERS[lang][tier]);
-
-    const summary = lang === 'tl'
-        ? `${opener}\n\nMayroong ${archiveTotal} archive uploads ngayong school year ${reportSchoolYear}: ${fulfilled} fulfilled (${onTime} on-time at ${late} late), at ${supplementary} supplementary. Ang submission completion rate ay ${rate}%.\n\n${closer}\n\nInihanda ko ang isang detalyadong report sa Excel at Word: makikita sa ibaba.`
-        : `${opener}\n\nThere are ${archiveTotal} archive uploads for school year ${reportSchoolYear}: ${fulfilled} fulfilled (${onTime} on-time and ${late} late), and ${supplementary} supplementary. The submission completion rate is ${rate}%.\n\nI've prepared a detailed report in Excel and Word: see below.\n\n${closer}`;
-
-    // Reuse the exact same shared, professionally-styled report builders the
-    // app already uses elsewhere (excelExport.ts for Archive exports),
-    // rather than a third, chat-specific format.
-    const { buildReportWorkbook } = await import('./excelExport');
-    const { buildReportDocument } = await import('./wordExport');
-
-    const headers = role === 'District Supervisor'
-        ? ['Teacher', 'School', 'District', 'Doc Type', 'Week', 'Status', 'Submitted']
-        : ['Teacher', 'School', 'Doc Type', 'Week', 'Status', 'Submitted'];
-
-    const tableRows = rows.map(r => {
-        const base: (string | number)[] = [r.teacher_name, r.school_name || '—'];
-        if (role === 'District Supervisor') base.push(r.district_name || '—');
-        base.push(r.doc_type, r.week_number ?? '—', r.compliance_status, new Date(r.submitted_at).toLocaleString('en-PH'));
-        return base;
-    });
-
-    const baseName = `compliance-report-${String(scopeName).replace(/\s+/g, '_')}-${reportSchoolYear}`;
-    const reportOptions = {
-        title: role === 'District Supervisor' ? 'District Compliance Report' : 'School Compliance Report',
-        subtitle: `${scopeName} · School Year ${reportSchoolYear}`,
-        meta: [
-            { label: 'Scope', value: String(scopeName) },
-            { label: 'Total Submissions', value: String(total) },
-            { label: 'Overall Rate', value: `${rate}%` }
-        ],
-        tables: [{ title: 'Submissions', headers, rows: tableRows }]
-    };
-
-    const [excelBuffer, wordBlob] = await Promise.all([
-        buildReportWorkbook({ ...reportOptions, fileName: `${baseName}.xlsx` }),
-        buildReportDocument({ ...reportOptions, fileName: `${baseName}.docx` })
-    ]);
-
-    return {
-        answer: summary,
-        attachments: [
-            {
-                fileName: `${baseName}.xlsx`,
-                blob: new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-            },
-            { fileName: `${baseName}.docx`, blob: wordBlob }
-        ]
-    };
-}
 
 interface DbResponse {
     answer: string;
@@ -1695,7 +1580,10 @@ async function generateDatabaseResponse(
             case 'calendar_info':
                 return { answer: await queryCalendarInfo(db, profile?.district_id ?? undefined, lang) };
             case 'create_report':
-                return await queryCreateReport(db, profile, slots, lang);
+                {
+                    const {createChatReport}=await import('./chatReports');
+                    return await createChatReport(db, profile, userId, slots.reportRequest ? JSON.parse(slots.reportRequest) : parseReportRequest(rawText || 'Create a report'), lang);
+                }
             default:
                 return { answer: generateTemplateResponse(intent, slots, lang) };
         }
@@ -1821,11 +1709,45 @@ function isClearlyOutOfScope(text: string, intent: Intent, confidence: number): 
 
 export async function processQuery(text: string, ctx?: ChatContext): Promise<ChatResponse> {
     const helpLang = detectLanguage(text) === 'tl' || (ctx?.memory?.lastLang === 'tl' && text.trim().split(/\s+/).length <= 3) ? 'tl' : 'en';
+    let previousData:ChatDataPlan|undefined;
+    try { previousData=ctx?.memory?.lastSlots?.dataPlan?JSON.parse(ctx.memory.lastSlots.dataPlan):undefined; } catch { /* A malformed old conversation does not supply filters. */ }
+    const dataPlan=!OUT_OF_SCOPE_PATTERNS.some(pattern=>pattern.test(text))?planChatDataQuestion(text,previousData):null;
+    if(dataPlan){
+        if(dataPlan.operation==='compliance'){
+            const {createChatReport}=await import('./chatReports');
+            const result=await createChatReport(ctx?.supabase,ctx?.profile,ctx?.userId,dataPlan.request,helpLang);
+            let answer=result.answer;
+            if(result.facts && dataPlan.metric==='missing'){
+                const f=result.facts;
+                const count=dataPlan.measure==='people'?f.overdueTeachers:f.overdue;
+                answer=helpLang==='tl'?`Para sa ${f.period}, may ${count} ${dataPlan.measure==='people'?'guro na may overdue requirements':'overdue na hindi pa naisusumiteng requirement'} sa ${f.scope}. May ${f.summary.upcoming} upcoming requirements at ${f.summary.onLeave} approved leave na hindi kasama sa expected. Hindi uploaded files ang missing o overdue requirements.`:`For ${f.period}, ${f.scope} has ${count} ${dataPlan.measure==='people'?'teachers with overdue requirements':'overdue unsubmitted requirements'}. There are ${f.summary.upcoming} upcoming requirements and ${f.summary.onLeave} approved leave exclusions. Missing or overdue requirements are not uploaded files.`;
+                if(f.pendingOverdue)answer+=` ${f.pendingOverdue} overdue requirements have pending leave requests.`;
+            }
+            if(result.facts)dataPlan.request=result.facts.request;
+            return {intent:'ask_compliance',confidence:100,answer,attachments:result.attachments,slots:{dataPlan:JSON.stringify(dataPlan)},lang:helpLang};
+        }
+        const {answerUploadFacts}=await import('./chatUploadFacts');
+        const result=await answerUploadFacts(dataPlan,ctx,helpLang);
+        if('resolvedRequest' in result && result.resolvedRequest)dataPlan.request=result.resolvedRequest;
+        return {intent:'ask_compliance',confidence:100,answer:result.answer,attachments:'attachments' in result?result.attachments:undefined,slots:{dataPlan:JSON.stringify(dataPlan)},lang:helpLang};
+    }
+    if(isReportRequest(text,ctx?.memory?.lastIntent) && !OUT_OF_SCOPE_PATTERNS.some(pattern=>pattern.test(text))) {
+        let previous:ReportRequest|undefined;
+        try { previous=ctx?.memory?.lastIntent==='create_report' && ctx.memory.lastSlots?.reportRequest ? JSON.parse(ctx.memory.lastSlots.reportRequest) : undefined; } catch { /* Ignore invalid old conversation state. */ }
+        const request=parseReportRequest(text,previous);
+        const slots={reportRequest:JSON.stringify(request)};
+        const {createChatReport}=await import('./chatReports');
+        const result=await createChatReport(ctx?.supabase,ctx?.profile,ctx?.userId,request,helpLang);
+        return {intent:'create_report',confidence:100,slots,lang:helpLang,...result};
+    }
     const help = answerSystemHelp(text, helpLang, ctx?.memory?.lastSlots?.helpTopic);
     if (help) return {intent:'general_help', confidence:100, answer:help.answer, slots:{helpTopic:help.topic}, lang:helpLang};
     const prediction = intentClassifier.predict(text);
     const outOfScope = isClearlyOutOfScope(text, prediction.intent, prediction.confidence);
     const intent = prediction.intent;
+    if(intent==='how_to_upload' && !/(?:how|paano|steps|guide|instructions?|where|saan|help me|teach me).*(?:upload|submit|magsumite)|^(?:upload|submit)\b/i.test(text)){
+        return {intent:'general_help',confidence:0,slots:{},lang:helpLang,answer:helpLang==='tl'?'Bilang ba ng uploaded documents, compliance status, o paraan ng pag-upload ang kailangan ninyo? Ilagay ang week at term kung tungkol ito sa records.':'Do you want the uploaded-document count, a compliance status, or the steps to upload? Include the week and term if you are asking about records.'};
+    }
     const confidence = outOfScope ? 0 : prediction.confidence;
     const slots = extractSlots(text, intent, ctx?.memory);
     if (ctx?.profile?.role === 'Master Teacher' && /school|teachers|paaralan|mga guro/i.test(text)) slots.scope = 'school';

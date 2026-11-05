@@ -1,7 +1,7 @@
 /** Bound metadata requests even when the browser reports online with no working connection. */
 export async function requestUploadTargets<T>(
     request: (signal: AbortSignal) => PromiseLike<T>,
-    timeoutMs = 8000,
+    timeoutMs = 15000,
 ): Promise<T> {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -16,6 +16,32 @@ export async function requestUploadTargets<T>(
     } finally {
         clearTimeout(timer!);
     }
+}
+
+/**
+ * For the lists an upload cannot go ahead without. Each attempt gets longer than
+ * the last, so a slow connection eventually gets through instead of being treated
+ * the same as an empty list. Rejects only after the final attempt fails.
+ */
+export async function requestUploadTargetsReliably<T extends { error?: unknown }>(
+    request: (signal: AbortSignal) => PromiseLike<T>,
+    { timeouts = [15000, 30000, 45000], retryDelayMs = 1500, keepTrying = () => true }: {
+        timeouts?: number[]; retryDelayMs?: number; keepTrying?: () => boolean;
+    } = {},
+): Promise<T> {
+    let lastError: unknown = new Error('Upload options request failed');
+    for (const [index, timeoutMs] of timeouts.entries()) {
+        try {
+            const response = await requestUploadTargets(request, timeoutMs);
+            if (!response?.error) return response;
+            lastError = response.error;
+        } catch (error) {
+            lastError = error;
+        }
+        if (index === timeouts.length - 1 || !keepTrying()) break;
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
+    throw lastError;
 }
 
 export interface UploadCalendarTarget {

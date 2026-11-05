@@ -1,0 +1,221 @@
+import {buildRequirements, scopedCalendar, summarizeRequirements, type Requirement, type CalendarSlot} from './compliance';
+import {getCurrentSchoolYear} from './schoolYear';
+import {normalizeReportName, resolveReportPeriod, type ReportRequest} from './reportRequest';
+import {effectiveDeadlineForSubject} from './deadlineRules';
+
+type Profile={id:string;role:string;full_name:string;school_id:string|null;district_id:string|null};
+type RecordRow=Record<string,any>;
+type Attachment={fileName:string;blob:Blob};
+export type ReportFacts={summary:ReturnType<typeof summarizeRequirements>;scope:string;period:string;overdue:number;overdueTeachers:number;pendingOverdue:number;request:ReportRequest};
+const dateLabel=(value:number|string)=>new Date(value).toLocaleString('en-PH',{timeZone:'Asia/Manila',year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+
+// Read every page or fail explicitly. A truncated query must never become a complete report.
+export async function readReportRows(query:()=>any):Promise<RecordRow[]> {
+    const result:RecordRow[]=[];
+    for(let start=0;start<50000;start+=500){
+        const {data,error}=await query().range(start,start+499);
+        if(error)throw new Error('Report records could not be loaded. Please check your connection and try again.');
+        result.push(...(data||[]));
+        if((data||[]).length<500)return result;
+    }
+    throw new Error('This report is too large to load completely. Please narrow the term, week, subject, or school.');
+}
+async function rowsForIds(db:any,table:string,select:string,field:string,ids:string[],year?:string,period?:ReportRequest){
+    const result:RecordRow[]=[];
+    for(let i=0;i<ids.length;i+=100){
+        result.push(...await readReportRows(()=>{
+            let q=db.from(table).select(select).in(field,ids.slice(i,i+100)).order('id');
+            if(year)q=q.eq('school_year',year);
+            if(period?.week)q=q.eq('week_number',period.week);
+            if(period?.term)q=table==='submissions'?q.or(`term_number.eq.${period.term},term_number.is.null`):q.eq('term_number',period.term);
+            if(table==='submissions')q=q.in('doc_type',['DLL','DLP']);
+            return q;
+        }));
+    }
+    return result;
+}
+function mentioned(rows:RecordRow[],question:string){
+    const text=` ${normalizeReportName(question)} `;
+    // Full names and unambiguous school stems come from actual visible records.
+    const matches=rows.filter(row=>{
+        const name=normalizeReportName(row.name||'');
+        const stem=name.replace(/\s+(?:elementary school|integrated school|national high school|high school)$/,'');
+        return name && (text.includes(` ${name} `)||(stem.length>=4 && text.includes(` ${stem} `)));
+    });
+    const lastLine=question.split('\n').at(-1)||question;
+    const recent=matches.filter(row=>normalizeReportName(lastLine).includes(normalizeReportName(row.name||'').replace(/\s+(?:elementary school|integrated school|national high school|high school)$/, '')));
+    return recent.length?recent:matches;
+}
+export function makeReportSnapshot(requirements:Requirement[],teachers:RecordRow[],schools:RecordRow[],request:ReportRequest,now=Date.now()){
+    const summary=summarizeRequirements(requirements,now);
+    const schoolMap=new Map(schools.map(s=>[s.id,s.name]));
+    const teacherMap=new Map(teachers.map(t=>[t.id,t]));
+    const details=requirements.map(r=>({
+        teacher:teacherMap.get(r.teacherId)?.full_name||'Teacher',school:schoolMap.get(teacherMap.get(r.teacherId)?.school_id)||'School',
+        subject:r.load.subject,grade:r.load.grade_level||'—',term:r.calendar.term,week:r.calendar.week_number,
+        status:r.status,review:r.submission ? r.review : '—',deadline:dateLabel(r.calendar.deadline_date),
+        submitted:r.submission?.created_at?dateLabel(r.submission.created_at):'—'
+    }));
+    const groupBy=(field:'school'|'subject')=>[...new Set(details.map(row=>row[field]))].sort().map(name=>{
+        const selected=requirements.filter((_r,i)=>details[i][field]===name);
+        return {name,...summarizeRequirements(selected,now)};
+    });
+    return {summary,details,schools:groupBy('school'),subjects:groupBy('subject'),teacherCount:new Set(requirements.map(r=>r.teacherId)).size,request,generatedAt:now};
+}
+export function reportNarrative(snapshot:ReturnType<typeof makeReportSnapshot>,scope:string,lang:'en'|'tl'='en'){
+    const {summary:s,request:r}=snapshot;
+    const period=[r.schoolYear,r.term?`Term ${r.term}`:'All terms',r.week?`Week ${r.week}`:'All weeks',r.subject,r.grade].filter(Boolean).join(' · ');
+    const rate=s.rate===null?'N/A':`${s.rate}%`;
+    const dueRate=s.dueRate===null?'N/A':`${s.dueRate}%`;
+    const paragraphs=lang==='tl' ? [
+        `Ulat ng lesson plan compliance para sa ${scope}. Saklaw: ${period}. Inihanda noong ${dateLabel(snapshot.generatedAt)} (oras sa Pilipinas), mula sa kasalukuyang CEDIMS records.`,
+        `May ${snapshot.teacherCount} guro at ${snapshot.schools.length} paaralan na may tugmang requirements. Sa ${s.expected} inaasahang submission, ${s.submitted} ang naisumite: ${s.onTime} on time at ${s.late} late. May ${s.missing} overdue na hindi pa naisumite at ${s.upcoming} paparating na requirement. Ang completion rate ay ${rate}; para sa mga due na requirement, ${dueRate}.`,
+        `May ${s.onLeave} approved leave na hindi kasama sa expected submissions. May ${s.leavePending} pending leave request; kasama pa rin ang mga ito sa expected submissions. Sa mga naisumiteng requirement, ${s.checked} ang checked at ${s.forChecking} ang for checking.`,
+        s.missing?`Kailangang i-follow up ang ${s.missing} overdue requirement. Suriin ang Tracker para sa bukas na submission periods at ang mga dokumentong for checking.`:'Walang requirement na may Missing status sa napiling saklaw. Hiwalay na nakatala ang pending leave requests.',
+        'Ang report ay para sa weekly lesson plans. Hindi nadaragdagan ang compliance count dahil sa supplementary copies o administrative ISP/ISR documents. Ang N/A ay nangangahulugang walang naaangkop na denominator; hindi ito 0%.'
+    ] : [
+        `Lesson plan compliance report for ${scope}. Scope: ${period}. Generated on ${dateLabel(snapshot.generatedAt)} (Philippine time) from current CEDIMS records.`,
+        `The report covers ${snapshot.teacherCount} ${snapshot.teacherCount===1?'teacher':'teachers'} and ${snapshot.schools.length} ${snapshot.schools.length===1?'school':'schools'} with matching requirements. Of ${s.expected} expected submissions, ${s.submitted} ${s.submitted===1?'has':'have'} been submitted: ${s.onTime} on time and ${s.late} late. Overdue missing requirements total ${s.missing}, and upcoming requirements total ${s.upcoming}. Overall completion is ${rate}; completion among requirements already due is ${dueRate}.`,
+        `${s.onLeave} approved leave requirements are excluded from expected submissions. Pending leave requests total ${s.leavePending} and remain expected. Among submitted requirements, checked documents total ${s.checked}, and documents for checking total ${s.forChecking}.`,
+        s.missing?`Follow-up is needed for ${s.missing} overdue requirements. Use Tracker to check open submission periods and documents awaiting checking.`:'No requirement is currently marked Missing within the selected scope. Pending leave requests are reported separately.',
+        'This report covers weekly lesson plans. Supplementary copies and administrative ISP/ISR documents do not increase the compliance count. N/A means there is no applicable denominator; it does not mean 0%.'
+    ];
+    const groups=[...snapshot.schools.map(g=>({label:lang==='tl'?'Paaralan':'School',...g})),...snapshot.subjects.map(g=>({label:lang==='tl'?'Asignatura':'Subject',...g}))].map(g=>
+        lang==='tl'?`${g.label}: ${g.name}. Naisumite ang ${g.submitted} sa ${g.expected} expected; on time ${g.onTime}, late ${g.late}, overdue missing ${g.missing}, upcoming ${g.upcoming}, approved leave ${g.onLeave}; completion ${g.rate===null?'N/A':`${g.rate}%`}.`
+        :`${g.label}: ${g.name}. ${g.submitted} of ${g.expected} expected requirements were submitted; ${g.onTime} on time, ${g.late} late, ${g.missing} overdue missing, ${g.upcoming} upcoming, and ${g.onLeave} approved leave; completion ${g.rate===null?'N/A':`${g.rate}%`}.`);
+    return {paragraphs,groups,period};
+}
+
+export async function resolveChatScope(db:any,profile:Profile|undefined|null,userId:string|undefined,request:ReportRequest,lang:'en'|'tl'='en',allUploaders=false){
+    if(!userId||!profile)return {answer:lang==='tl'?'Mag-sign in muna para makagawa ng report mula sa inyong records.':'Please sign in to create a report from your permitted records.'};
+    if(request.error)return {answer:request.error};
+    const roles=['Teacher','Master Teacher','School Head','District Supervisor','Admin'];
+    if(!roles.includes(profile.role))return {answer:'Your account is not authorized to generate this report.'};
+    if(profile.role==='Teacher' && request.scope && request.scope!=='self')return {answer:'Teacher reports cover your own submissions. School or district reports require an authorized supervisory account.'};
+    if(['Master Teacher','School Head'].includes(profile.role)&&request.scope==='district')return {answer:'Your report access covers your school. A district-wide report requires an authorized District Supervisor or Admin account.'};
+    if(['Teacher','Master Teacher','School Head'].includes(profile.role)&&!profile.school_id)return {answer:'Your account needs a school assignment before this report can be generated.'};
+    if(profile.role==='District Supervisor'&&!profile.district_id)return {answer:'Your account needs a district assignment before this report can be generated.'};
+        let schools=await readReportRows(()=>{
+            let q=db.from('schools').select('id,name,district_id').order('id');
+            if(['Teacher','Master Teacher','School Head'].includes(profile.role))q=q.eq('id',profile.school_id);
+            if(profile.role==='District Supervisor')q=q.eq('district_id',profile.district_id);
+            return q;
+        });
+        if(!schools.length)return {answer:'No schools are available within your permitted report scope.'};
+        const districtIds=[...new Set(schools.map(s=>s.district_id).filter(Boolean))];
+        const districts=await rowsForIds(db,'districts','id,name','id',districtIds);
+        if(/\b(?:my|this|our) district\b/i.test(request.question)){
+            if(!profile.district_id && districts.length>1)return {answer:'Which district should I use? Please enter its exact CEDIMS district name.'};
+            if(profile.district_id)schools=schools.filter(s=>s.district_id===profile.district_id);
+        }
+        const selectedDistricts=mentioned(districts,request.question);
+        const namedDistrict=request.question.match(/\b(?:for|in|of)\s+([a-z][a-z -]{2,60}\bdistrict)\b/i)?.[1];
+        if(namedDistrict && !/\b(?:my|this|our|the|whole|entire|all)\s+district$/i.test(namedDistrict) && !/^(?:my|this|our|the|whole|entire|all)\b/i.test(namedDistrict) && !selectedDistricts.length)return {answer:'I could not match that district within your access. Please use a district available to your account.'};
+        if(selectedDistricts.length)schools=schools.filter(s=>selectedDistricts.some(d=>d.id===s.district_id));
+        const selectedSchools=mentioned(schools,request.question);
+        if(selectedSchools.length)schools=selectedSchools;
+        else if(/\b(?:elementary school|integrated school|high school)\b/i.test(request.question))return {answer:'I could not match the named school within your access. Please use its exact school name from CEDIMS.'};
+        if(/\bthis school\b|paaralan namin/i.test(request.question)&&!profile.school_id&&schools.length>1)return {answer:'Which school should I use? Please enter its name as shown in CEDIMS.'};
+        if(profile.school_id && /\bthis school\b|paaralan namin/i.test(request.question))schools=schools.filter(s=>s.id===profile.school_id);
+        let teachers=await rowsForIds(db,'profiles','id,full_name,school_id,role,is_active','school_id',schools.map(s=>s.id));
+        teachers=teachers.filter(t=>t.is_active!==false && (allUploaders || ['Teacher','Master Teacher'].includes(t.role)));
+        if(profile.role==='Teacher'||request.scope==='self')teachers=teachers.filter(t=>t.id===userId);
+        if(!teachers.length)return {answer:'No active teachers match your permitted report scope.'};
+
+        return {schools,districts,teachers};
+}
+
+export async function createChatReport(db:any,profile:Profile|undefined|null,userId:string|undefined,request:ReportRequest,lang:'en'|'tl'='en'):Promise<{answer:string;attachments?:Attachment[];facts?:ReportFacts}> {
+    try{
+        const access=await resolveChatScope(db,profile,userId,request,lang);
+        if('answer' in access)return {answer:access.answer!};
+        if(!profile) return {answer:'Please sign in.'};
+        const {schools,districts,teachers}=access;
+        const year=request.schoolYear||getCurrentSchoolYear();
+        const ids=teachers.map(t=>t.id);
+        const [allLoads,calendar]=await Promise.all([
+            rowsForIds(db,'teaching_loads','id,user_id,subject,grade_level,is_active','user_id',ids),
+            readReportRows(()=>db.from('academic_calendar').select('id,school_year,term,week_number,deadline_date,district_id,is_active').eq('school_year',year).order('id'))
+        ]);
+        const scopedPeriods=calendar.filter(c=>!c.district_id||schools.some(s=>s.district_id===c.district_id));
+        const resolved=resolveReportPeriod({...request,schoolYear:year},scopedPeriods as CalendarSlot[]);
+        if(resolved.error)return {answer:resolved.error};
+        const r=resolved as ReportRequest;
+        const canonicalSubject=(subject:string)=>{
+            const value=normalizeReportName(subject).replace(/^physical education\b/,'pe');
+            const aliases:Record<string,string>={ap:'araling panlipunan',math:'mathematics',hgp:'homeroom guidance','epp tle':'epp',tle:'epp'};
+            return aliases[value]||value;
+        };
+        const availableSubjects=[...new Set(allLoads.filter(l=>l.is_active!==false).map(l=>String(l.subject||'')))];
+        if(r.subject){
+            const text=` ${normalizeReportName(r.question.split('\n').at(-1)||r.question)} `;
+            const fullMatch=availableSubjects.sort((a,b)=>b.length-a.length).find(s=>s.length>2 && canonicalSubject(s).startsWith(canonicalSubject(r.subject!)) && text.includes(` ${normalizeReportName(s)} `));
+            if(fullMatch && normalizeReportName(fullMatch).length>normalizeReportName(r.subject).length)r.subject=fullMatch;
+            const requested=canonicalSubject(r.subject);
+            if(!availableSubjects.some(s=>canonicalSubject(s)===requested)){
+                const expanded=availableSubjects.filter(s=>canonicalSubject(s).startsWith(`${requested} `));
+                if(expanded.length===1)r.subject=expanded[0];
+                else if(expanded.length>1)return {answer:`Which subject do you mean: ${expanded.join(', ')}? Please use the full teaching-load subject name.`};
+            }
+        }
+        if(!r.subject && !r.allSubjects){
+            const text=` ${normalizeReportName(r.question)} `;
+            r.subject=[...new Set(allLoads.map(l=>String(l.subject||'')))].sort((a,b)=>b.length-a.length).find(s=>s.length>2&&text.includes(` ${normalizeReportName(s)} `));
+            if(!r.subject && /\bthis subject\b|asignaturang ito/i.test(r.question))return {answer:'Which subject should I use? Please enter the teaching-load subject name.'};
+        }
+        const subjectMatch=(subject:string)=>{
+            const normalized=normalizeReportName(subject);
+            if(!r.subject)return true;
+            if(r.subject==='Mathematics')return /^(?:math|mathematics)$/.test(normalized);
+            if(r.subject==='Reading')return normalized.startsWith('reading');
+            return canonicalSubject(subject)===canonicalSubject(r.subject);
+        };
+        const gradeName=(value:string)=>/^kinder/i.test(value)?'kindergarten':normalizeReportName(value).replace(/^grade /,'');
+        const loads=allLoads.filter(l=>l.is_active!==false&&subjectMatch(l.subject||'')&&(!r.grade||gradeName(l.grade_level||'')===gradeName(r.grade)));
+        if(!loads.length)return {answer:'No active teaching loads match these filters within your access. Please check the subject, grade, or school.'};
+        const loadIds=loads.map(l=>l.id);
+        const [submissions,leaves]=await Promise.all([
+            rowsForIds(db,'submissions','id,user_id,teaching_load_id,school_year,term_number,week_number,calendar_id,file_path,doc_type,compliance_status,created_at,subject','teaching_load_id',loadIds,year,r),
+            rowsForIds(db,'submission_leave_requests','*','user_id',[...new Set(loads.map(l=>l.user_id))],year)
+        ]);
+        const weekly=submissions.filter(s=>['DLL','DLP'].includes(s.doc_type));
+        const reviews=await rowsForIds(db,'document_review_current','id,submission_id,status,comment','submission_id',weekly.map(s=>s.id));
+        const requirements=teachers.flatMap(t=>{
+            const school=schools.find(s=>s.id===t.school_id);
+            return buildRequirements(loads.filter(l=>l.user_id===t.id).map(l=>({...l,school_name:school?.name})) as any,
+                scopedCalendar(calendar as CalendarSlot[],school?.district_id).filter(c=>(!r.term||c.term===r.term)&&(!r.week||c.week_number===r.week)),
+                weekly.filter(s=>s.user_id===t.id) as any,[],Date.now(),leaves.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))) as any);
+        });
+        // Shared review status is authoritative even when a checked document has an empty remark.
+        for(const row of requirements){if(row.submission){const review=reviews.find(v=>v.submission_id===row.submission!.id);row.review=review?.status==='checked'?'checked':'for-checking';}}
+        if(!requirements.length)return {answer:'No calendar requirements match this report. Please check the school year, term, and week.'};
+        const snapshot=makeReportSnapshot(requirements,teachers,schools,r);
+        const districtNames=districts.filter(d=>schools.some(s=>s.district_id===d.id)).map(d=>d.name).join(', ');
+        const scope=profile.role==='Teacher'||r.scope==='self'?profile.full_name:(r.scope==='district'?`${districtNames} (${schools.length} schools)`:(schools.length<=3?schools.map(s=>s.name).join(', '):`${schools.length} schools in ${districtNames}`));
+        const narrative=reportNarrative(snapshot,scope,lang);
+        const overdue=requirements.filter(row=>!row.submission && row.status!=='on-leave' && effectiveDeadlineForSubject(row.calendar.deadline_date,row.load.subject,row.load.school_name).getTime()<=snapshot.generatedAt);
+        const facts:ReportFacts={summary:snapshot.summary,scope,period:narrative.period,overdue:overdue.length,overdueTeachers:new Set(overdue.map(row=>row.teacherId)).size,pendingOverdue:overdue.filter(row=>row.status==='leave-requested').length,request:r};
+        const prefix=r.style==='bullets'?'• ':'';
+        let answer=narrative.paragraphs.map(p=>prefix+p).join('\n\n');
+        answer+='\n\n'+narrative.groups.slice(0,12).map(p=>prefix+p).join('\n\n');
+        if(narrative.groups.length>12)answer+=`\n\n${narrative.groups.length-12} additional group summaries are available in the Word or Excel export.`;
+        if(r.format==='chat')return {answer,facts};
+        const tables=[
+            {title:'Summary',headers:['Expected','Submitted','On time','Late','Overdue missing','Upcoming','Approved leave','Pending leave','Checked','For checking','Completion'],rows:[[snapshot.summary.expected,snapshot.summary.submitted,snapshot.summary.onTime,snapshot.summary.late,snapshot.summary.missing,snapshot.summary.upcoming,snapshot.summary.onLeave,snapshot.summary.leavePending,snapshot.summary.checked,snapshot.summary.forChecking,snapshot.summary.rate===null?'N/A':`${snapshot.summary.rate}%`]]},
+            {title:'Requirements',headers:['Teacher','School','Subject','Grade','Term','Week','Status','Review','Deadline (Philippines)','Submitted (Philippines)'],rows:snapshot.details.map(d=>[d.teacher,d.school,d.subject,d.grade,d.term,d.week,d.status,d.review,d.deadline,d.submitted])}
+        ];
+        const base=`CEDIMS-report-${year}${r.term?`-T${r.term}`:''}${r.week?`-W${r.week}`:''}-${new Date().toISOString().slice(0,10)}`;
+        const options={title:'Lesson Plan Compliance Report',subtitle:`${scope} · ${narrative.period}`,meta:[{label:'Prepared by',value:profile.full_name},{label:'Source',value:'Current CEDIMS records; Philippine time'}],paragraphs:[...narrative.paragraphs,...narrative.groups],tables};
+        const attachments:Attachment[]=[];
+        if(r.format==='excel'||r.format==='both'){
+            const {buildReportWorkbook}=await import('./excelExport');
+            const buffer=await buildReportWorkbook({...options,fileName:`${base}.xlsx`});
+            attachments.push({fileName:`${base}.xlsx`,blob:new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})});
+        }
+        if(r.format==='word'||r.format==='both'){
+            const {buildReportDocument}=await import('./wordExport');
+            attachments.push({fileName:`${base}.docx`,blob:await buildReportDocument({...options,tables:[],fileName:`${base}.docx`})});
+        }
+        return {answer,attachments,facts};
+    }catch(error){return {answer:error instanceof Error?error.message:'The report could not be completed. Please try again.'};}
+}

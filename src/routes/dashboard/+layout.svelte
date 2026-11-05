@@ -1,4 +1,5 @@
 <script lang="ts">
+    import FailedUploadNotice from "$lib/components/FailedUploadNotice.svelte";
     import AppHeader from "$lib/components/AppHeader.svelte";
     import InstallPrompt from "$lib/components/InstallPrompt.svelte";
     import SystemWalkthrough from "$lib/components/SystemWalkthrough.svelte";
@@ -121,6 +122,7 @@
             aria-label="Dashboard content"
         >
             <div class="workspace-content w-full max-w-[96rem] mx-auto px-5 sm:px-8 lg:px-10 py-7 flex-1">
+                <FailedUploadNotice />
                 {@render children()}
             </div>
         </main>

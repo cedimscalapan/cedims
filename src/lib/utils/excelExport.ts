@@ -23,6 +23,8 @@ export interface ReportOptions {
     meta?: { label: string; value: string }[];
     casual?: { label: string; value: string | number }[];
     tables: ReportTable[];
+    /** Narrative paragraphs used by the Word report exporter. */
+    paragraphs?: string[];
     /** Color accent for headings, defaults to DepEd blue. */
     accent?: string;
     /** If true wraps clearMessage in a message sheet (unused, reserved). */
@@ -91,7 +93,8 @@ export function triggerDownload(
 export async function buildReportWorkbook(
     opts: ReportOptions,
 ): Promise<ArrayBuffer> {
-    const ExcelJS = await import("exceljs");
+    const ExcelModule = await import("exceljs");
+    const ExcelJS = ExcelModule.default || ExcelModule;
     const wb = new ExcelJS.Workbook();
     wb.created = new Date();
     wb.modified = new Date();

@@ -10,7 +10,7 @@ const {extractTeachingLoadFields}=await import(fieldsUrl);
 const deadlineUrl=url(readFileSync('src/lib/utils/deadlineRules.ts','utf8'));
 const headerUrl=url(readFileSync('src/lib/utils/headerPeriod.ts','utf8').replace("from './deadlineRules'",`from '${deadlineUrl}'`));
 const matcherUrl=url(readFileSync('src/lib/utils/teachingLoadMatching.ts','utf8').replace("from './teachingLoadFields'",`from '${fieldsUrl}'`));
-const {resolveTeachingLoadMatch,validAssignedLoad,loadGrade,inferUploadSubject}=await import(matcherUrl);
+const {resolveTeachingLoadMatch,validAssignedLoad,loadGrade,inferUploadSubject,teachingLoadNotice,gradeLabel,gradeFromFileName}=await import(matcherUrl);
 const copilotSource=readFileSync('src/lib/utils/copilot.ts','utf8').replace("from './teachingLoadFields'",`from '${fieldsUrl}'`).replace("from './teachingLoadMatching'",`from '${matcherUrl}'`).replace("import copilotConfig from '../models/copilot_model.json';",'const copilotConfig={};');
 const {validateSelection}=await import(url(copilotSource));
 const loads=[{id:'gmrc1',subject:'GMRC',grade_level:'Grade 1'},{id:'math1',subject:'Mathematics',grade_level:'Grade 1'},{id:'math5',subject:'Math',grade_level:'Grade 5'}];
@@ -120,6 +120,53 @@ test('Kinder filenames correct a conflicting scan for every official learning ar
  }
 });
 const metadata={subject:'GMRC',gradeLevel:'1',rawText:'Learning Area/s: Mathematics\nGrade Level and Section: 5 - Rose'};
+
+const sameSubject=[{id:'math5',subject:'Mathematics',grade_level:'Grade 5'},{id:'math6',subject:'Mathematics',grade_level:'6'},{id:'sci5',subject:'Science',grade_level:'Grade 5'}];
+test('the same subject in two grades selects the grade written in the document',()=>{
+ assert.equal(resolveTeachingLoadMatch({rawText:'Learning Area: Mathematics\nGrade Level: 5'},sameSubject).loadId,'math5');
+ assert.equal(resolveTeachingLoadMatch({rawText:'Learning Area: Mathematics\nGrade Level: 6'},sameSubject).loadId,'math6');
+});
+test('a scan with no readable grade uses the grade stated in the file name',()=>{
+ const scanned={rawText:'Learning Area: Mathematics'};
+ assert.equal(resolveTeachingLoadMatch(scanned,sameSubject,'WEEK 7 TERM 2 MATH G6.pdf').loadId,'math6');
+ assert.equal(resolveTeachingLoadMatch(scanned,sameSubject,'Math Grade 5 Week 7.pdf').loadId,'math5');
+ assert.equal(resolveTeachingLoadMatch(scanned,sameSubject,'Math_Baitang_VI.pdf').loadId,'math6');
+ assert.equal(resolveTeachingLoadMatch(scanned,sameSubject,'WEEK 7 MATH.pdf').reason,'missing_grade');
+ assert.equal(resolveTeachingLoadMatch(scanned,sameSubject,'MATH G5 and G6.pdf').reason,'missing_grade');
+ assert.equal(resolveTeachingLoadMatch({rawText:'Learning Area: Mathematics\nGrade Level: 5'},sameSubject,'MATH G6.pdf').loadId,'math5');
+ assert.equal(resolveTeachingLoadMatch({rawText:''},sameSubject,'MATH G6.pdf').loadId,null);
+});
+test('grade notices name the loads the teacher actually has',()=>{
+ const notice=meta=>teachingLoadNotice(resolveTeachingLoadMatch(meta,sameSubject),sameSubject);
+ assert.equal(notice({rawText:'Learning Area: Mathematics'}),'Detected Mathematics, but the grade could not be read. You teach Mathematics in Grade 5 and Grade 6. Choose the correct one below.');
+ assert.match(notice({rawText:'Learning Area: Mathematics\nGrade Level: 3'}),/says Mathematics Grade 3, but your Mathematics loads are Grade 5 and Grade 6/);
+ assert.match(notice({rawText:'Learning Area: Filipino\nGrade Level: 5'}),/says Filipino Grade 5, which is not in your active teaching loads/);
+ const twice=[...sameSubject,{id:'again',subject:'Math',grade_level:'V'}];
+ assert.equal(teachingLoadNotice(resolveTeachingLoadMatch({rawText:'Learning Area: Mathematics\nGrade Level: 5'},twice),twice),'You have more than one active Mathematics Grade 5 load. Choose the correct one below.');
+ assert.doesNotMatch(notice({rawText:'Learning Area: Mathematics\nGrade Level: 3'}),/Kindergarten/);
+});
+test('grade labels never double up',()=>{
+ assert.equal(gradeLabel('Grade 6'),'Grade 6');assert.equal(gradeLabel('6'),'Grade 6');assert.equal(gradeLabel('VI'),'Grade 6');assert.equal(gradeLabel('Kinder'),'Kinder');assert.equal(gradeLabel(undefined),'No grade');
+ assert.equal(gradeFromFileName('WEEK 7 TERM 2 MATH G6.pdf'),'6');assert.equal(gradeFromFileName('GMRC 1.pdf'),'');assert.equal(gradeFromFileName('TERM 2 WEEK 7.pdf'),'');
+});
+test('the wrong grade of the same subject warns and offers the right load',()=>{
+ const raw='Learning Area: Mathematics\nGrade Level: 6';
+ const warning=validateSelection('math5',raw,sameSubject);
+ assert.match(warning.message,/\*\*Grade 6\*\*.*\*\*Mathematics Grade 5\*\*/);
+ assert.equal(warning.action.teachingLoadId,'math6');
+ assert.equal(validateSelection('math6',raw,sameSubject),null);
+});
+test('a grade mismatch is still reported when the subject could not be read or only the file name states the grade',()=>{
+ assert.equal(validateSelection('math5','Grade Level: 6',sameSubject).action.teachingLoadId,'math6');
+ const fromName=validateSelection('math5','Learning Area: Mathematics',sameSubject,{},'MATH G6.pdf');
+ assert.match(fromName.message,/Grade 6/);
+ assert.equal(validateSelection('math6','Learning Area: Mathematics',sameSubject,{},'MATH G6.pdf'),null);
+});
+test('a wrong-subject warning offers a load only when exactly one fits',()=>{
+ assert.equal(validateSelection('math5','Learning Area: Science\nGrade Level: 5',sameSubject).action.teachingLoadId,'sci5');
+ const two=[...sameSubject,{id:'sci6',subject:'Science',grade_level:'Grade 6'}];
+ assert.equal(validateSelection('math5','Learning Area: Science',two).action.teachingLoadId,undefined);
+});
 
 test('HGP uses the same-grade GMRC assignment when HGP is not assigned',()=>{
  const meta={rawText:'Learning Area: HGP\nGrade Level and Section: 1-Daffodil'};

@@ -36,6 +36,11 @@ export function deadlineAtTenAM(deadlineDate: Date | string): Date {
     return deadlineOnWeekdayAtTenAM(deadlineDate);
 }
 
+/** The calendar date in the Philippines as YYYY-MM-DD, whatever the device's time zone is. */
+export function phDateKey(value: Date | string | number): string {
+    return new Date(new Date(value).getTime() + PH_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 function deadlineOnWeekdayAtTenAM(deadlineDate: Date | string, weekday?: number): Date {
     const phDate = new Date(new Date(deadlineDate).getTime() + PH_OFFSET_MS);
     const phDay = phDate.getUTCDay();

@@ -7,7 +7,7 @@ const url=source=>`data:text/javascript;base64,${Buffer.from(ts.transpileModule(
 const fuzzy=url(readFileSync('src/lib/utils/fuzzyClassifier.ts','utf8'));
 const fields=url(readFileSync('src/lib/utils/teachingLoadFields.ts','utf8').replace("from './fuzzyClassifier'",`from '${fuzzy}'`));
 const matcher=url(readFileSync('src/lib/utils/teachingLoadMatching.ts','utf8').replace("from './teachingLoadFields'",`from '${fields}'`));
-const {resolveTeachingLoadMatch}=await import(matcher);
+const {resolveTeachingLoadMatch,teachingLoadNotice}=await import(matcher);
 const deadline=url(readFileSync('src/lib/utils/deadlineRules.ts','utf8'));
 const header=url(readFileSync('src/lib/utils/headerPeriod.ts','utf8').replace("from './deadlineRules'",`from '${deadline}'`));
 const {resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod}=await import(header);
@@ -15,13 +15,13 @@ const {preserveUploadPeriod}=await import(url(readFileSync('src/lib/utils/upload
 let sequence=0;
 async function harness({online=false,refreshedCalendar=null,refreshedLoads=null}={}) {
  const requests=new Map();
- globalThis.__fileTest={resolveTeachingLoadMatch,resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod,online,refreshedCalendar,refreshedLoads,toasts:[],extractMetadata:(file,{signal})=>new Promise((resolve,reject)=>requests.set(file.name,{resolve,reject,signal}))};
+ globalThis.__fileTest={resolveTeachingLoadMatch,teachingLoadNotice,resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod,online,refreshedCalendar,refreshedLoads,toasts:[],extractMetadata:(file,{signal})=>new Promise((resolve,reject)=>requests.set(file.name,{resolve,reject,signal}))};
  const page=readFileSync('src/routes/dashboard/upload/+page.svelte','utf8');
  let fn=page.slice(page.indexOf('    function resetDocumentTargets()'),page.indexOf('    /** Auto-wait for profile'));
  fn=fn.replace('function resetDocumentTargets','export function resetDocumentTargets').replace('async function onFileSelected','export async function onFileSelected');
  let refresh=page.slice(page.indexOf('    let loadRefreshRun = 0;'),page.indexOf('    let showTermPicker = $state(false);')).replace('async function refreshTeachingLoads','export async function refreshTeachingLoads');
  let manual=page.slice(page.indexOf('    function useManualTargets()'),page.indexOf('    function resetDocumentTargets()')).replace('function useManualTargets','export function useManualTargets');
- const prefix=`const {resolveTeachingLoadMatch,resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod,extractMetadata}=globalThis.__fileTest; const getCurrentSchoolYear=()=>"2026-2027"; const uploaderSchoolName=""; const navigator={get onLine(){return globalThis.__fileTest.online}}; const requestUploadTargets=async request=>request(new AbortController().signal); const cacheMetadata=async()=>{}; const openUploadTargets=(entries,year)=>entries.filter(entry=>entry.school_year===year&&entry.is_active===true); const supabase={from:(table)=>({select(){return this},eq(){return this},order(){return this},abortSignal(){return Promise.resolve({data:table==='teaching_loads'?globalThis.__fileTest.refreshedLoads:globalThis.__fileTest.refreshedCalendar,error:null})}})};
+ const prefix=`const {resolveTeachingLoadMatch,teachingLoadNotice,resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod,extractMetadata}=globalThis.__fileTest; const getCurrentSchoolYear=()=>"2026-2027"; const uploaderSchoolName=""; const navigator={get onLine(){return globalThis.__fileTest.online}}; const requestUploadTargets=async request=>request(new AbortController().signal);const requestUploadTargetsReliably=requestUploadTargets;let loadsStatus='ready',calendarStatus='ready',optionsVersion=0,targetNotice='',targetsChosenByHand=false,scannedDocument=null,autofillWaiting=false; const cacheMetadata=async()=>{}; const openUploadTargets=(entries,year)=>entries.filter(entry=>entry.school_year===year&&entry.is_active===true); const supabase={from:(table)=>({select(){return this},eq(){return this},order(){return this},abortSignal(){return Promise.resolve({data:table==='teaching_loads'?globalThis.__fileTest.refreshedLoads:globalThis.__fileTest.refreshedCalendar,error:null})}})};
 let metadataRun=0,submissionCheckRun=0,scanController=null,trackerTarget=null,teachingLoadId='old',subject='Filipino',termNumber=1,weekNumber=6,currentDeadline={},detectedMetadata={},mismatchAlert={},ocrConfidence=100,detectingMetadata=false,scanProgress=100,slotAlreadyCovered=true,slotNotice='old',submissionAlreadyExists=true,submissionBlockReason='old',targetConfirmed=true,uploadConfirmed=true,confirmArchiveOpen=true,showLoadPicker=false,showTermPicker=false,showWeekPicker=false,result=null,showSuccessModal=false,completedDetails=null,awaitingArchive=null,progress=100,message='old',currentPhase='done',selectedFile=null,processing=false,checkingTarget=false,loadingTeachingLoads=false,docTypeManuallySelected=true,docType='DLL';
 const $settings={maintenance_mode:false},$profile={id:'teacher',district_id:'district'},MAX_SELECTED_PDF_BYTES=4000000,MAX_SELECTED_PDF_SIZE_MB=4,PDF_COMPRESSOR_URL='compressor';
 let teachingLoads=[{id:'filipino',subject:'Filipino',grade_level:'Grade 5'},{id:'math',subject:'Mathematics',grade_level:'Grade 5'}];
@@ -29,7 +29,7 @@ let calendarEntries=[{id:'one',term:1,week_number:6,is_active:true,school_year:'
 let allCalendarEntries=calendarEntries;
 const isWeeklyComplianceDocType=type=>type==='DLL';const addToast=(...args)=>globalThis.__fileTest.toasts.push(args);const debugLog=(...args)=>globalThis.__fileTest.toasts.push(args.map(String));const waitForDataReady=async()=>true;const setDocType=type=>docType=type;const validateSelection=()=>null;const createDefaultMetadata=()=>({rawText:''});const resolveWeekFromDates=()=>null;const parseDocDate=value=>new Date(value);const lookupWeekByDate=async()=>null;
 `;
- const snapshot=`export function snapshot(){return {teachingLoadId,termNumber,weekNumber,detectedMetadata,mismatchAlert,detectingMetadata,slotNotice,targetConfirmed};}export function getCalendar(){return allCalendarEntries;}export function getLoads(){return teachingLoads;}export function manualChoice(){teachingLoadId='math';termNumber=2;weekNumber=7;}export function setCalendar(entries){calendarEntries.splice(0,calendarEntries.length,...entries);}export function setLoads(entries){teachingLoads=entries;}\n//${sequence++}`;
+ const snapshot=`export function snapshot(){return {teachingLoadId,termNumber,weekNumber,detectedMetadata,mismatchAlert,detectingMetadata,slotNotice,targetConfirmed};}export function getCalendar(){return allCalendarEntries;}export function getLoads(){return teachingLoads;}export function manualChoice(){teachingLoadId='math';termNumber=2;weekNumber=7;}export function setCalendar(entries){calendarEntries.splice(0,calendarEntries.length,...entries);}export function setLoads(entries){teachingLoads=entries;}export function setTrackerTarget(target){trackerTarget=target;}export function setStatus(value){loadsStatus=value;calendarStatus=value;}export function notice(){return targetNotice;}export function autofillIsWaiting(){return autofillWaiting;}export function rerunScan(){const doc=scannedDocument;return applyScanToTargets(doc.file,doc.metadata,()=>true);}\n//${sequence++}`;
  const ui=await import(url(prefix+refresh+manual+fn+snapshot));return {ui,requests};
 }
 const file=name=>({name,type:'application/pdf',size:1000});
@@ -90,6 +90,26 @@ test('a failed PDF scan still fills only the unique Open period, leaving the loa
  const {ui,requests}=await harness();ui.setCalendar([{id:'open',term:2,week_number:8,is_active:true,school_year:'2026-2027'}]);
  const work=ui.onFileSelected(file('Unreadable.pdf'));requests.get('Unreadable.pdf').reject(new Error('OCR failed'));await work;
  assert.equal(ui.snapshot().teachingLoadId,'');assert.equal(ui.snapshot().termNumber,2);assert.equal(ui.snapshot().weekNumber,8);
+});
+test('a Tracker link keeps its grade when the scan cannot tell the grades apart',async()=>{
+ const roster=[{id:'math5',subject:'Mathematics',grade_level:'Grade 5'},{id:'math6',subject:'Mathematics',grade_level:'Grade 6'}];
+ const {ui,requests}=await harness();ui.setLoads(roster);ui.setTrackerTarget({loadId:'math6',term:2,week:7});
+ const work=ui.onFileSelected(file('Math.pdf'));requests.get('Math.pdf').resolve({docType:'DLL',rawText:'Learning Area: Mathematics',confidence:80});await work;
+ assert.equal(ui.snapshot().teachingLoadId,'math6');assert.equal(ui.snapshot().termNumber,2);assert.equal(ui.snapshot().weekNumber,7);
+});
+test('a Tracker link never overrides a document that clearly says another grade',async()=>{
+ const roster=[{id:'math5',subject:'Mathematics',grade_level:'Grade 5'},{id:'math6',subject:'Mathematics',grade_level:'Grade 6'}];
+ const {ui,requests}=await harness();ui.setLoads(roster);ui.setTrackerTarget({loadId:'math6',term:2,week:7});
+ const work=ui.onFileSelected(file('Math.pdf'));requests.get('Math.pdf').resolve(metadata('Mathematics'));await work;
+ assert.equal(ui.snapshot().teachingLoadId,'math5');assert.match(ui.notice(),/differs from the Tracker item/);
+});
+test('a scan that finishes before options load fills in once they arrive',async()=>{
+ const {ui,requests}=await harness();ui.setLoads([]);ui.setCalendar([]);ui.setStatus('loading');
+ const work=ui.onFileSelected(file('Math.pdf'));requests.get('Math.pdf').resolve(metadata('Mathematics'));await work;
+ assert.equal(ui.snapshot().teachingLoadId,'');assert.equal(ui.autofillIsWaiting(),true);assert.match(ui.notice(),/will fill in by themselves/);
+ ui.setLoads([{id:'math',subject:'Mathematics',grade_level:'Grade 5'}]);ui.setCalendar([{id:'two',term:2,week_number:7,is_active:true,school_year:'2026-2027'}]);ui.setStatus('ready');
+ await ui.rerunScan();
+ assert.equal(ui.snapshot().teachingLoadId,'math');assert.equal(ui.snapshot().termNumber,2);assert.equal(ui.snapshot().weekNumber,7);assert.equal(ui.autofillIsWaiting(),false);assert.equal(ui.notice(),'');
 });
 test('post-upload target reset clears the next form completely',async()=>{
  const {ui,requests}=await harness();const work=ui.onFileSelected(file('Math.pdf'));requests.get('Math.pdf').resolve(metadata('Mathematics'));await work;ui.resetDocumentTargets();

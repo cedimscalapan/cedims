@@ -17,10 +17,10 @@ export interface ComplianceReview {
     submission_id: string; status?: string | null; reviewer_comment?: string | null;
 }
 export interface LeaveRequest {
-    id: string; user_id: string; teaching_load_id: string; school_year: string;
-    term_number: number; week_number: number; status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+    id: string; user_id: string; teaching_load_id?: string | null; school_year: string;
+    term_number?: number | null; week_number?: number | null; status: 'pending' | 'approved' | 'rejected' | 'cancelled';
     leave_type?: string | null; reason?: string | null; start_date?: string | null; end_date?: string | null;
-    reviewer_comment?: string | null;
+    reviewer_comment?: string | null; created_at?: string | null;
 }
 export interface Requirement {
     key: string; teacherId: string; load: ComplianceLoad; calendar: CalendarSlot;
@@ -117,17 +117,77 @@ export function summarizeSubmissionReviews(submissions: ComplianceSubmission[], 
     return { forChecking: reviewable.length - checked, checked, reviewable: reviewable.length };
 }
 
+/** A dated request applies to every subject the teacher handles. */
+export function isTeacherWideLeave(request: Pick<LeaveRequest, 'teaching_load_id' | 'start_date' | 'end_date'>): boolean {
+    return !request.teaching_load_id && !!request.start_date && !!request.end_date;
+}
+
+/**
+ * Leave excuses a required upload when it includes the week's calendar deadline
+ * (normally Monday, which excuses every subject) or that subject's own later
+ * deadline, such as a Tuesday MAPEH deadline.
+ */
+export function leaveCoversDeadline(
+    request: Pick<LeaveRequest, 'start_date' | 'end_date'>, calendarDeadline: string,
+    subject?: string | null, schoolName?: string | null,
+): boolean {
+    if (!request.start_date || !request.end_date || !Number.isFinite(Date.parse(calendarDeadline))) return false;
+    const start = request.start_date.slice(0, 10);
+    const end = request.end_date.slice(0, 10);
+    // Effective deadlines are 10:00 AM in the Philippines, 02:00 UTC on the same
+    // date, so the UTC date below is always the Philippine calendar date.
+    const covers = (due: Date) => {
+        const day = due.toISOString().slice(0, 10);
+        return day >= start && day <= end;
+    };
+    return covers(effectiveDeadlineForSubject(calendarDeadline)) ||
+        covers(effectiveDeadlineForSubject(calendarDeadline, subject, schoolName));
+}
+
+/** What a dated request excuses, so teachers and reviewers see the effect before deciding. */
+export function summarizeLeaveCoverage(
+    request: Pick<LeaveRequest, 'start_date' | 'end_date'>, loads: ComplianceLoad[], calendar: CalendarSlot[],
+) {
+    const covered = loads.filter(load => load.is_active !== false).flatMap(load => calendar
+        .filter(slot => leaveCoversDeadline(request, slot.deadline_date, load.subject, load.school_name))
+        .map(slot => ({ load, slot })));
+    return {
+        count: covered.length,
+        slots: [...new Map(covered.map(({ slot }) => [slot.id, slot])).values()],
+        periods: [...new Set(covered.map(({ slot }) => `Term ${slot.term}, Week ${slot.week_number}`))],
+        subjects: [...new Set(covered.map(({ load }) => `${load.subject} · ${load.grade_level || 'No grade'}`))],
+    };
+}
+
+const LEAVE_PRIORITY: Record<string, number> = { approved: 3, pending: 2, rejected: 1 };
+
 export function buildRequirements(
     loads: ComplianceLoad[], calendar: CalendarSlot[], submissions: ComplianceSubmission[],
     reviews: ComplianceReview[] = [], now = Date.now(), leaveRequests: LeaveRequest[] = [],
 ): Requirement[] {
     const reviewMap = new Map(reviews.map(r => [r.submission_id, r]));
     const leaveMap = new Map<string, LeaveRequest>();
+    const teacherLeaves = new Map<string, LeaveRequest[]>();
     for (const request of leaveRequests) {
+        if (isTeacherWideLeave(request)) {
+            if (request.status === 'cancelled') continue;
+            const own = teacherLeaves.get(request.user_id) || [];
+            own.push(request);
+            teacherLeaves.set(request.user_id, own);
+            continue;
+        }
         const key = `${request.teaching_load_id}|${request.school_year}|${request.term_number}|${request.week_number}`;
         const current = leaveMap.get(key);
         if (!current) leaveMap.set(key, request);
     }
+    const leaveFor = (load: ComplianceLoad, c: CalendarSlot): LeaveRequest | undefined => {
+        let best = leaveMap.get(`${load.id}|${c.school_year}|${c.term}|${c.week_number}`);
+        for (const request of teacherLeaves.get(load.user_id) || []) {
+            if (!leaveCoversDeadline(request, c.deadline_date, load.subject, load.school_name)) continue;
+            if (!best || (LEAVE_PRIORITY[request.status] || 0) > (LEAVE_PRIORITY[best.status] || 0)) best = request;
+        }
+        return best;
+    };
     const candidates = new Map<string, ComplianceSubmission[]>();
     for (const s of submissions) {
         if (!isWeeklyComplianceDocType(s.doc_type) || !isCountedSubmission(s.compliance_status)) continue;
@@ -137,7 +197,7 @@ export function buildRequirements(
         candidates.set(key, group);
     }
     return loads.filter(l => l.is_active !== false).flatMap(load => calendar.map(c => {
-        const leaveRequest = leaveMap.get(`${load.id}|${c.school_year}|${c.term}|${c.week_number}`);
+        const leaveRequest = leaveFor(load, c);
         const group = candidates.get(`${load.id}|${c.school_year}|${c.week_number}`) || [];
         const matching = group.filter(s => {
             const term = submissionTerm(s);
@@ -150,15 +210,21 @@ export function buildRequirements(
         const review = submission ? reviewMap.get(submission.id) : undefined;
         const effectiveDeadline = effectiveDeadlineForSubject(c.deadline_date, load.subject, load.school_name);
         const submittedAt = submission?.created_at ? Date.parse(submission.created_at) : NaN;
+        // Approved leave moves the due date out of the way, so a document
+        // handed in after returning is not held against the teacher.
+        const excusedLate = leaveRequest?.status === 'approved';
+        const overdue = effectiveDeadline.getTime() <= now;
         const status = submission ? (
-            Number.isFinite(submittedAt)
+            excusedLate ? 'on-time'
+            : Number.isFinite(submittedAt)
                 ? (submittedAt > effectiveDeadline.getTime() ? 'late' : 'on-time')
                 : submission.compliance_status === 'late' ? 'late' : 'on-time'
         )
             : leaveRequest?.status === 'approved' ? 'on-leave'
                 : leaveRequest?.status === 'pending' ? 'leave-requested'
-                    : leaveRequest?.status === 'rejected' ? 'leave-rejected'
-                : (effectiveDeadline.getTime() <= now ? 'missing' : 'upcoming');
+                    // A declined request stops excusing the work once it is overdue.
+                    : leaveRequest?.status === 'rejected' && !overdue ? 'leave-rejected'
+                : (overdue ? 'missing' : 'upcoming');
         return {
             key: `${load.id}|${c.school_year}|${c.term}|${c.week_number}`, teacherId: load.user_id, load, calendar: c, submission, leaveRequest,
             status,

@@ -7,6 +7,7 @@ export function trackerLabel(row: Requirement, open: boolean): string {
     if (row.status === 'on-leave') return 'Leave approved';
     if (row.status === 'leave-requested') return 'Leave pending';
     if (row.status === 'leave-rejected') return open ? 'Leave declined' : 'Closed · Leave declined';
+    if (row.status === 'missing' && row.leaveRequest?.status === 'rejected') return open ? 'Overdue · Leave declined' : 'Closed · Leave declined';
     return open ? (row.status === 'missing' ? 'Overdue · Open' : 'Pending') : 'Closed';
 }
 

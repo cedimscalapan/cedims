@@ -1,26 +1,15 @@
 <script lang="ts">
-    import { pendingSyncCount, processQueue } from "$lib/utils/offline";
+    import { pendingSyncCount } from "$lib/utils/offline";
     import { onMount } from "svelte";
     import { fade, fly } from "svelte/transition";
 
     let isOnline = $state(true);
-    let isSyncing = $state(false);
 
     onMount(() => {
         isOnline = navigator.onLine;
         window.addEventListener("online", () => (isOnline = true));
         window.addEventListener("offline", () => (isOnline = false));
     });
-
-    async function handleSync() {
-        if (isSyncing || !isOnline) return;
-        isSyncing = true;
-        try {
-            await processQueue(true);
-        } finally {
-            isSyncing = false;
-        }
-    }
 </script>
 
 {#if $pendingSyncCount > 0 || !isOnline}
@@ -47,21 +36,13 @@
 
             {#if !isOnline}
                 <p class="text-[12px] text-text-muted leading-tight">
-                    You're offline. Uploads will be saved and synced
-                    automatically when back online.
+                    You're offline. Uploads are saved here and start by
+                    themselves when the internet returns.
                 </p>
             {:else if $pendingSyncCount > 0}
-                <button
-                    onclick={handleSync}
-                    disabled={isSyncing}
-                    class="w-full py-2.5 bg-gov-blue text-white rounded-xl text-[14px] font-bold hover:bg-gov-blue-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                    {#if isSyncing}
-                        Syncing...
-                    {:else}
-                        Sync Now
-                    {/if}
-                </button>
+                <p class="text-[12px] text-text-muted leading-tight">
+                    Uploading by itself. You can keep working.
+                </p>
             {/if}
         </div>
     </div>

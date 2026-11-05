@@ -111,6 +111,13 @@ export async function buildReportDocument(opts: ReportOptions): Promise<Blob> {
     }
     children.push(new Paragraph({ text: "", spacing: { after: 200 } }));
 
+    for (const text of opts.paragraphs || []) {
+        children.push(new Paragraph({
+            spacing: { after: 180, line: 276 },
+            children: [new TextRun({ text, color: BRAND.black, size: 24 })],
+        }));
+    }
+
     let hadTable = false;
     for (const table of opts.tables) {
         if (!table.headers?.length || table.rows.length === 0) continue;
@@ -211,7 +218,7 @@ export async function buildReportDocument(opts: ReportOptions): Promise<Blob> {
         children.push(new Paragraph({ text: "", spacing: { after: 300 } }));
     }
 
-    if (!hadTable) {
+    if (!hadTable && !opts.paragraphs?.length) {
         children.push(
             new Paragraph({
                 children: [

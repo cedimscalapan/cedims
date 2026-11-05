@@ -80,7 +80,7 @@ async function performAuthInit(): Promise<void> {
     }
 
     try {
-        const timeout = navigator.onLine ? 8000 : 3000;
+        const timeout = navigator.onLine ? 20000 : 3000;
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Session check timeout')), timeout)
@@ -100,7 +100,13 @@ async function performAuthInit(): Promise<void> {
             watchActiveProfile(session.user.id);
             await fetchProfile(session.user.id);
         }
+    } catch (err) {
+        console.error('[v0] Auth initialization error:', err instanceof Error ? err.message : String(err));
+    }
 
+    // Registered even when the session check above timed out on a slow
+    // connection, so the app still learns about the session when it arrives.
+    try {
         supabase.auth.onAuthStateChange((_event: string, session: any) => {
             if (session?.user) {
                 user.set(session.user);
@@ -146,7 +152,7 @@ function watchActiveProfile(userId: string): void {
         .subscribe();
 }
 
-async function fetchProfile(userId: string): Promise<void> {
+async function fetchProfile(userId: string, retriesLeft = 3): Promise<void> {
     const CACHE_KEY = `auth_profile_${userId}`;
 
     // 1. Try to load from cache first if offline or for immediate UI feedback
@@ -171,7 +177,15 @@ async function fetchProfile(userId: string): Promise<void> {
 
         if (error) {
             console.error('Error fetching profile:', error.message);
-            // If offline, we already set it from cache. If it's a real error (not just fetch), maybe don't clear it yet.
+            // A failed request says nothing about the account, so a cached
+            // identity stays. Clearing it here emptied every upload dropdown
+            // whenever a slow connection dropped this one request.
+            const profileGone = error.code === 'PGRST116';
+            if (cached && !profileGone) return;
+            if (retriesLeft > 0 && !profileGone) {
+                setTimeout(() => void fetchProfile(userId, retriesLeft - 1), 5000);
+                return;
+            }
             if (navigator.onLine) profile.set(null);
         } else if (data?.is_active === false) {
             // A cached profile may have let the dashboard render while this
@@ -189,6 +203,7 @@ async function fetchProfile(userId: string): Promise<void> {
         }
     } catch (err) {
         if (navigator.onLine) console.warn('[v0] Auth: fetchProfile failed:', err);
+        if (!cached && retriesLeft > 0) setTimeout(() => void fetchProfile(userId, retriesLeft - 1), 5000);
     }
 }
 

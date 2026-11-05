@@ -4,18 +4,32 @@
  * Auto-resumes when connectivity is restored.
  */
 
-import { assertNoDatabaseDuplicate } from './submissionDuplicates';
+import { assertNoDatabaseDuplicate, DuplicateUploadError } from './submissionDuplicates';
 import { get, set, del, keys } from 'idb-keyval';
 import { writable } from 'svelte/store';
 import { supabase } from './supabase';
-import { withTimeout } from './pipeline';
+import { withTimeout, xhrUpload } from './pipeline';
 import { getCurrentSchoolYear } from './schoolYear';
 import { deadlineAtTenAM, effectiveDeadlineForSubject } from './deadlineRules';
 import { logAudit } from './audit';
 import { logOnce } from './noise';
 import { isWeeklyComplianceDocType } from './compliance';
+import { classifyQueueFailure, httpUploadFailure, nextAttemptDelay, QUEUE_RETRY_MS, shouldCancelAfter, UploadRejectedError } from './uploadQueueRules';
 
 export const pendingSyncCount = writable<number>(0);
+
+/** Uploads the system had to cancel. Kept until the teacher has seen them. */
+export interface FailedUpload {
+    key: string;
+    userId: string;
+    fileName: string;
+    fileHash: string;
+    reason: string;
+    canRedo: boolean;
+    redoHref: string;
+    failedAt: number;
+}
+export const failedUploads = writable<FailedUpload[]>([]);
 
 const CACHE_PREFIX_DOCS = 'cached_docs_';
 const CACHE_PREFIX_HISTORY = 'cached_history_';
@@ -294,6 +308,9 @@ export interface QueueItem {
         teachingLoadId?: string;
     };
     timestamp: number;
+    /** Failed tries while the internet was working. Offline waiting does not count. */
+    attempts?: number;
+    nextAttemptAt?: number;
 }
 
 export interface QueuedUploadSummary {
@@ -322,10 +339,6 @@ export async function enqueue(item: QueueItem): Promise<void> {
     const key = `${QUEUE_PREFIX}${item.timestamp}_${shortHash}`;
     await set(key, storeItem);
     await updatePendingCount();
-
-    // NOTE: No auto-sync here. The sync engine handles sync separately
-    // via initOfflineSync listeners (online event, visibility change, etc.)
-    // This prevents unnecessary sync attempts while offline.
 }
 
 export async function getQueueSize(): Promise<number> {
@@ -377,372 +390,279 @@ export async function cancelQueuedUpload(queueKey: string): Promise<void> {
 }
 
 import { addToast } from '$lib/stores/toast';
-import { isMobileDevice } from './device';
 
-/**
- * Background-sync chatter ("Syncing N offline file(s)...", "Synced N file(s)
- * successfully!", and so on).
- *
- * On mobile every upload goes through the queue by design — the document is
- * processed, stamped and reported as archived before the transfer runs — so
- * these notices fire on every single upload and contradict the success the
- * teacher was just shown. They're plumbing, not information the teacher can
- * act on, so they stay silent there. Desktop only reaches the queue when a
- * direct upload actually failed, where the same notices are genuinely
- * informative, so they're kept.
- */
-function syncToast(type: 'info' | 'success' | 'warning' | 'error', message: string) {
-    if (isMobileDevice()) return;
-    addToast(type, message);
+const FAILED_PREFIX = 'sync_failed_';
+
+function redoLink(item: QueueItem): string {
+    const { teachingLoadId, termNumber, weekNumber } = item.options;
+    if (!teachingLoadId || !termNumber || !weekNumber) return '/dashboard/upload';
+    return `/dashboard/upload?load=${encodeURIComponent(teachingLoadId)}&term=${termNumber}&week=${weekNumber}`;
+}
+
+export async function loadFailedUploads(): Promise<void> {
+    const allKeys = await keys();
+    const failedKeys = allKeys.filter((k: any) => String(k).startsWith(FAILED_PREFIX));
+    const notices = await Promise.all(failedKeys.map((k) => get<FailedUpload>(k)));
+    failedUploads.set(notices.filter((n): n is FailedUpload => !!n).sort((a, b) => b.failedAt - a.failedAt));
+}
+
+export async function dismissFailedUpload(key: string): Promise<void> {
+    await del(key);
+    failedUploads.update((items) => items.filter((item) => item.key !== key));
+}
+
+/** Removes a document the server will not take and tells the teacher what to do. */
+async function cancelFailedItem(key: string, item: QueueItem, reason: string, canRedo: boolean): Promise<void> {
+    const notice: FailedUpload = {
+        key: `${FAILED_PREFIX}${item.timestamp}_${item.fileHash.slice(0, 8)}`,
+        userId: item.options.userId,
+        fileName: item.fileName,
+        fileHash: item.fileHash,
+        reason,
+        canRedo,
+        redoHref: redoLink(item),
+        failedAt: Date.now(),
+    };
+    await set(notice.key, notice);
+    await del(key);
+    await updatePendingCount();
+    failedUploads.update((items) => [notice, ...items.filter((other) => other.key !== notice.key)]);
+    addToast('error', canRedo
+        ? `${item.fileName} was not uploaded. ${reason} Please upload it again.`
+        : `${item.fileName} was not uploaded. ${reason}`);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('cedims:upload-cancelled', { detail: notice }));
+    }
 }
 
 let isSyncing = false;
-let lastSyncAttempt = 0;
-const SYNC_COOLDOWN_MS = 30000;
+let syncRequestedWhileBusy = false;
+let backgroundSyncActive = false;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-// ... (getQueueSize, getQueueItems remain same)
+function scheduleQueueSync(delayMs: number, ignoreBackoff = false) {
+    if (!backgroundSyncActive) return;
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+        retryTimer = null;
+        void processQueue(ignoreBackoff);
+    }, delayMs);
+}
 
-// Robust connectivity check
-// Robust connectivity check with timeout
 async function checkConnection(): Promise<boolean> {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-
-        // Try to reach the app itself (HEAD request is lightweight)
+        // Generous on purpose: a slow link is still a link, and it must not be
+        // treated as offline or its queue would never start.
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         const res = await fetch(window.location.origin, {
             method: 'HEAD',
             cache: 'no-store',
             signal: controller.signal
         });
-
         clearTimeout(timeoutId);
-        return res.ok || res.status === 405; // 405 is fine (method not allowed), just means server responded
+        return res.ok || res.status === 405;
     } catch (e) {
         return false;
     }
 }
 
-export async function processQueue(force = false): Promise<{ success: number; failed: number }> {
-    if (!force && Date.now() - lastSyncAttempt < SYNC_COOLDOWN_MS) {
-        return { success: 0, failed: 0 };
-    }
-    lastSyncAttempt = Date.now();
+/** Sends one queued document: every check runs before any bytes are transferred. */
+async function uploadQueuedItem(item: QueueItem, accessToken: string): Promise<string | null> {
+    const { data: committed, error: lookupError } = await withTimeout(
+        supabase.from('submissions').select('id').eq('user_id', item.options.userId)
+            .eq('file_hash', item.fileHash).limit(1).maybeSingle() as any,
+        30000, 'Submission lookup timed out.'
+    ) as { data: any; error: any };
+    if (lookupError) throw lookupError;
+    // A matching verification ID means an earlier attempt already finished.
+    if (committed) return null;
 
-    const allKeys = await keys();
-    const queueKeys = allKeys.filter((k: any) => String(k).startsWith(QUEUE_PREFIX));
-
-    if (queueKeys.length === 0) {
-        return { success: 0, failed: 0 };
-    }
-
-    // If not forcing, check connection status first
-    const isOnline = force ? true : await checkConnection();
-
-    if (!isOnline) {
-        return { success: 0, failed: 0 };
+    // Older queued files have no original-file fingerprint. Do not pretend a
+    // hash of their QR-stamped bytes is the original hash.
+    if (item.contentHash) {
+        await withTimeout(assertNoDatabaseDuplicate(supabase, item.options.userId, item.contentHash, item.fileHash),
+            30000, 'Duplicate check timed out.');
     }
 
-    // Never allow overlapping queue processors. Manual "Sync Now" uses
-    // force=true, but it must not bypass this lock or the same file can be
-    // uploaded more than once by a button click plus a background trigger.
-    if (isSyncing) {
-        return { success: 0, failed: 0 };
+    const docType = item.options.docType || 'Unknown';
+    const isWeeklyComplianceUpload = isWeeklyComplianceDocType(docType);
+    const schoolYear = item.options.schoolYear || getCurrentSchoolYear();
+    const { termNumber, weekNumber } = item.options;
+    let schoolName = item.options.schoolName;
+    let calendarId: string | null = null;
+    let deadlineDate: Date | undefined;
+
+    if (isWeeklyComplianceUpload) {
+        if (!termNumber || !weekNumber) {
+            throw new UploadRejectedError('A term and week are required for a weekly DLL/DLP upload.');
+        }
+        const { data: uploader, error: profileError } = await withTimeout(
+            supabase.from('profiles').select('district_id, school_id').eq('id', item.options.userId).single() as any,
+            30000, 'Profile lookup timed out.'
+        ) as { data: any; error: any };
+        if (profileError) throw profileError;
+
+        let calendarQuery = supabase.from('academic_calendar').select('id, deadline_date')
+            .eq('school_year', schoolYear).eq('term', termNumber).eq('week_number', weekNumber).eq('is_active', true);
+        calendarQuery = item.options.calendarId
+            ? calendarQuery.eq('id', item.options.calendarId)
+            : calendarQuery.eq('district_id', uploader?.district_id);
+        const { data: openEntry, error: calendarError } = await withTimeout(
+            calendarQuery.maybeSingle() as any, 30000, 'Calendar lookup timed out.'
+        ) as { data: any; error: any };
+        if (calendarError) throw calendarError;
+        if (!openEntry) throw new UploadRejectedError(`Term ${termNumber}, Week ${weekNumber} is Closed in the Academic Calendar.`);
+        calendarId = openEntry.id;
+        if (openEntry.deadline_date) deadlineDate = new Date(openEntry.deadline_date);
+
+        if (!schoolName && uploader?.school_id) {
+            const { data: school } = await withTimeout(
+                supabase.from('schools').select('name').eq('id', uploader.school_id).maybeSingle() as any,
+                30000, 'School lookup timed out.'
+            ) as { data: any };
+            schoolName = school?.name;
+        }
     }
 
-    isSyncing = true;
+    const sanitizedPath = item.filePath.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9./_-]/g, '');
+    const formData = new FormData();
+    formData.set('file', item.pdfBytes as Blob, item.fileName);
+    formData.set('key', sanitizedPath);
+    // Times out on inactivity rather than total duration, so a slow transfer
+    // that is still moving is allowed to finish.
+    const uploadResponse = await xhrUpload('/api/storage/upload', formData, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    if (!uploadResponse.ok) {
+        let detail = '';
+        try { detail = JSON.parse(uploadResponse.body)?.message || ''; } catch { /* no readable body */ }
+        throw httpUploadFailure(uploadResponse.status, detail);
+    }
+
+    // Lateness is judged by when the teacher submitted, not when the internet
+    // returned. Only the first document for a teaching load and week counts;
+    // later ones are archived as supplementary.
+    let complianceStatus: 'compliant' | 'late' | 'supplementary' = isWeeklyComplianceUpload
+        ? calculateComplianceStatus(new Date(item.timestamp), deadlineDate, item.options.subject, schoolName)
+        : 'supplementary';
+    if (isWeeklyComplianceUpload && item.options.teachingLoadId) {
+        const slotDocTypes = docType === 'DLL' || docType === 'DLP' ? ['DLL', 'DLP'] : [docType];
+        const { data: slotMatch, error: slotError } = await withTimeout(
+            supabase.from('submissions').select('id')
+                .eq('teaching_load_id', item.options.teachingLoadId)
+                .eq('week_number', weekNumber as number)
+                .eq('term_number', termNumber as number)
+                .eq('school_year', schoolYear)
+                .in('compliance_status', ['compliant', 'late'])
+                .in('doc_type', slotDocTypes)
+                .limit(1) as any,
+            30000, 'Duplicate slot check timed out.'
+        ) as { data: any; error: any };
+        if (slotError) throw slotError;
+        if (slotMatch?.length) complianceStatus = 'supplementary';
+    }
+
+    const { error: dbError } = await withTimeout(
+        supabase.from('submissions').insert({
+            user_id: item.options.userId,
+            file_name: item.fileName,
+            file_path: sanitizedPath,
+            file_hash: item.fileHash,
+            content_hash: item.contentHash || null,
+            file_size: item.fileSize,
+            doc_type: docType,
+            term_number: isWeeklyComplianceUpload ? termNumber ?? null : null,
+            week_number: isWeeklyComplianceUpload ? weekNumber ?? null : null,
+            school_year: schoolYear,
+            subject: item.options.subject,
+            calendar_id: calendarId,
+            teaching_load_id: item.options.teachingLoadId || null,
+            compliance_status: complianceStatus,
+            raw_text: item.rawText || null
+        }) as any,
+        30000, 'Sync DB insert timed out'
+    ) as { error: any };
+    if (dbError) {
+        if (dbError.code === '23505' && dbError.message?.includes('uniq_submission_content')) throw new DuplicateUploadError();
+        throw dbError;
+    }
+
+    void logAudit(item.options.userId, 'upload.created', 'submission', undefined, {
+        file_name: item.fileName,
+        doc_type: docType,
+        teaching_load_id: item.options.teachingLoadId || null,
+        term_number: termNumber || null,
+        week_number: weekNumber || null,
+        school_year: schoolYear,
+        source: 'offline-sync'
+    });
+    await cacheVerifiedDoc(item.fileHash, {
+        file_name: item.fileName,
+        doc_type: item.options.docType,
+        week_number: weekNumber,
+        school_year: schoolYear,
+        created_at: new Date().toISOString()
+    });
+    return `${docType}${weekNumber ? ` - Week ${weekNumber}` : ''}`;
+}
+
+async function runQueue(ignoreBackoff: boolean): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
-    // Labels for the completion message, phrased the way a direct upload
-    // phrases it ("DLL - Week 1") rather than as a sync summary.
     const archivedLabels: string[] = [];
+    const allKeys = await keys();
+    const queueKeys = allKeys.map(String).filter((k) => k.startsWith(QUEUE_PREFIX));
+    if (queueKeys.length === 0 || !(await checkConnection())) return { success, failed };
 
-    // Notify start
-    syncToast('info', `Syncing ${queueKeys.length} offline file(s)...`);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData?.session;
+    // Signed out, or the token could not be refreshed: the files stay safe here
+    // and sending starts again when the teacher is back in.
+    if (!session?.access_token) return { success, failed };
 
+    for (const key of queueKeys) {
+        const item = await get<QueueItem>(key);
+        if (!item) {
+            await del(key);
+            await updatePendingCount();
+            continue;
+        }
+        // A shared computer may hold another teacher's queue. It waits for them.
+        if (item.options.userId !== session.user?.id) continue;
+        if (!ignoreBackoff && item.nextAttemptAt && item.nextAttemptAt > Date.now()) continue;
 
-    try {
-        for (const key of queueKeys) {
-            // Re-check connection before each item
-            if (!force && !(await checkConnection())) {
-                break;
-            }
-
-            const item = await get<QueueItem>(key);
-            if (!item) {
-                await del(key);
-                await updatePendingCount();
+        try {
+            const label = await uploadQueuedItem(item, session.access_token);
+            await del(key);
+            await updatePendingCount();
+            success++;
+            if (label) archivedLabels.push(label);
+        } catch (err: any) {
+            const kind = classifyQueueFailure(err);
+            if (kind === 'auth') break;
+            if (kind === 'rejected') {
+                failed++;
+                await cancelFailedItem(key, item, err?.message || 'The server refused this upload.', err?.canRedo !== false && !(err instanceof DuplicateUploadError));
                 continue;
             }
-
-            // Set when the server already holds a document for this slot.
-            let forceSupplementary = false;
-
-            try {
-                // The live database is the only source of duplicate decisions.
-                // A matching verification ID means a previous sync already committed.
-                const { data: committed, error: lookupError } = await withTimeout(
-                    supabase.from('submissions').select('id').eq('user_id', item.options.userId)
-                        .eq('file_hash', item.fileHash).limit(1).maybeSingle() as any,
-                    20000, 'Submission lookup timed out.'
-                ) as { data: any; error: any };
-                if (lookupError) throw lookupError;
-                if (committed) {
-                    await del(key);
-                    await updatePendingCount();
-                    success++;
-                    continue;
-                }
-                // Older queued files have no original-file fingerprint. Do not
-                // pretend a hash of their QR-stamped bytes is the original hash.
-                if (item.contentHash) {
-                    await withTimeout(assertNoDatabaseDuplicate(supabase, item.options.userId, item.contentHash, item.fileHash),
-                        20000, 'Duplicate check timed out.');
-                }
-                const docType = item.options.docType || 'Unknown';
-                const isWeeklyComplianceUpload = isWeeklyComplianceDocType(docType);
-
-                // A queued weekly document is not sent to storage unless its
-                // exact school-year/term/week entry is still Open. Keep a
-                // blocked item in the local queue so reopening the same entry
-                // can resume it without losing the file.
-                if (isWeeklyComplianceUpload) {
-                    const { termNumber, weekNumber, schoolYear, calendarId } = item.options;
-                    if (!termNumber || !weekNumber) {
-                        throw new Error('A term and week are required for a weekly DLL/DLP upload.');
-                    }
-                    let calendarQuery = supabase
-                        .from('academic_calendar')
-                        .select('id')
-                        .eq('school_year', schoolYear || getCurrentSchoolYear())
-                        .eq('term', termNumber)
-                        .eq('week_number', weekNumber)
-                        .eq('is_active', true);
-                    if (calendarId) calendarQuery = calendarQuery.eq('id', calendarId);
-                    const { data: openEntry, error: calendarError } = await calendarQuery.maybeSingle();
-                    if (calendarError) throw new Error('Could not verify the academic calendar entry. The queued upload will retry.');
-                    if (!openEntry) throw new Error(`Term ${termNumber}, Week ${weekNumber} is Closed. The queued file is preserved; reopen this entry to sync it.`);
-                }
-
-                // ── Re-validate against server before upload ──
-                // (Items may have been uploaded by another device/session since queuing)
-
-                // 1. Strict Metadata Check (One per load/week/type)
-                if (item.options.teachingLoadId && item.options.weekNumber) {
-                    let metaCheckQuery = supabase
-                        .from('submissions')
-                        .select('id')
-                        .eq('teaching_load_id', item.options.teachingLoadId)
-                        .eq('week_number', item.options.weekNumber)
-                        .in('compliance_status', ['compliant', 'late'])
-                        .eq('school_year', item.options.schoolYear || getCurrentSchoolYear())
-                        .limit(1);
-                    if (item.options.termNumber) metaCheckQuery = metaCheckQuery.eq('term_number', item.options.termNumber);
-                    const slotDocTypes = (item.options.docType || 'DLL') === 'DLL' || item.options.docType === 'DLP'
-                        ? ['DLL', 'DLP']
-                        : [item.options.docType || 'DLL'];
-                    const metaCheckPromise = metaCheckQuery.in('doc_type', slotDocTypes).maybeSingle();
-
-                    const { data: metaMatch } = await withTimeout(
-                        metaCheckPromise as any,
-                        20000,
-                        'Meta check timed out'
-                    ) as { data: any };
-
-                    if (metaMatch) {
-                        // An additional document for a week/subject that already
-                        // has one is archived as supplementary, not discarded.
-                        // This used to del() the queued item and report it as
-                        // synced, which threw the teacher's second DLL away.
-                        forceSupplementary = true;
-                    }
-                }
-
-                // ── Upload to Backblaze B2 through our server ──
-                const { data: sessionData } = await supabase.auth.getSession();
-                const accessToken = sessionData?.session?.access_token;
-                if (!accessToken) throw new Error('Not authenticated for background sync');
-
-                const sanitizedPath = item.filePath.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9./_-]/g, '');
-
-                const formData = new FormData();
-                formData.set('file', item.pdfBytes as Blob, item.fileName);
-                formData.set('key', sanitizedPath);
-
-                const uploadResponse = await withTimeout(
-                    fetch('/api/storage/upload', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${accessToken}` },
-                        body: formData
-                    }),
-                    120000,
-                    'Archive upload timed out'
-                ).catch(err => {
-                    throw err;
-                });
-
-                if (!uploadResponse.ok) {
-                    let errStr = uploadResponse.statusText;
-                    try {
-                        const errJson = await uploadResponse.json();
-                        errStr = errJson.message || errStr;
-                    } catch { /* ignore */ }
-                    if (uploadResponse.status === 401 || uploadResponse.status === 403) {
-                        throw new Error('Not authenticated for background sync. Please sign in again.');
-                    }
-                    throw new Error(`Archive upload failed (${uploadResponse.status}): ${errStr}`);
-                }
-
-                // ── Fetch deadline for compliance + calendar_id ──
-                let deadlineDate: Date | undefined;
-                let schoolName = item.options.schoolName;
-                let calendarId = isWeeklyComplianceUpload ? item.options.calendarId || null : null;
-                if (isWeeklyComplianceUpload) {
-                    const { data: profileData } = await supabase.from('profiles').select('district_id, school_id').eq('id', item.options.userId).single();
-                    if (!schoolName && profileData?.school_id) {
-                        const { data: school } = await supabase.from('schools').select('name').eq('id', profileData.school_id).maybeSingle();
-                        schoolName = school?.name;
-                    }
-                    if (calendarId) {
-                        const { data } = await supabase.from('academic_calendar').select('deadline_date').eq('id', calendarId).single();
-                        if (data?.deadline_date) deadlineDate = new Date(data.deadline_date);
-                    } else if (item.options.weekNumber && profileData?.district_id) {
-                        let calendarQuery = supabase
-                            .from('academic_calendar')
-                            .select('id, deadline_date, is_active')
-                            .eq('district_id', profileData.district_id)
-                            .eq('school_year', item.options.schoolYear || getCurrentSchoolYear())
-                            .eq('week_number', item.options.weekNumber);
-                        if (item.options.termNumber) calendarQuery = calendarQuery.eq('term', item.options.termNumber);
-                        calendarQuery = calendarQuery.eq('is_active', true);
-
-                        const { data: calData } = await calendarQuery.maybeSingle();
-                        if (calData) {
-                            calendarId = calData.id;
-                            if (calData.deadline_date) deadlineDate = new Date(calData.deadline_date);
-                        }
-                    }
-                }
-
-                // ── Insert database record ──
-                // Detect whether this is an ADDITIONAL DLL for an already-covered
-                // slot (same teaching load + week + doc type). If so, mark it
-                // 'supplementary' so it's archived but doesn't affect compliance /
-                // missing / late / rate — mirrors the same check in
-                // pipeline.ts's runOnlinePipelineResilient, which this offline
-                // sync path had been missing (multiple uploads per week are
-                // intentionally allowed; only the first counts toward compliance).
-                // Judge lateness by when the teacher actually submitted, not by
-                // when connectivity happened to return. Using new Date() here
-                // meant a document queued at 11pm on the deadline and synced
-                // the next morning was recorded as LATE even though the teacher
-                // submitted on time — and with uploads now able to fall back to
-                // this queue silently, that would have the app report success
-                // and then quietly mark the submission late.
-                let complianceStatus: 'compliant' | 'late' | 'supplementary' = isWeeklyComplianceUpload
-                    ? calculateComplianceStatus(new Date(item.timestamp), deadlineDate, item.options.subject, schoolName)
-                    : 'supplementary';
-                if (isWeeklyComplianceUpload && item.options.teachingLoadId && item.options.weekNumber) {
-                    try {
-	                        let slotQuery = supabase
-	                            .from('submissions')
-	                            .select('id')
-	                            .eq('teaching_load_id', item.options.teachingLoadId)
-	                            .eq('week_number', item.options.weekNumber)
-	                            .eq('school_year', item.options.schoolYear || getCurrentSchoolYear())
-	                            .in('compliance_status', ['compliant', 'late'])
-	                            .limit(1);
-	                        if (item.options.termNumber) slotQuery = slotQuery.eq('term_number', item.options.termNumber);
-	                        const slotDocTypes = (item.options.docType || 'DLL') === 'DLL' || item.options.docType === 'DLP'
-	                            ? ['DLL', 'DLP']
-	                            : [item.options.docType || 'DLL'];
-	                        slotQuery = slotQuery.in('doc_type', slotDocTypes);
-	                        const { data: slotMatch } = await withTimeout(
-	                            slotQuery as any,
-                            20000,
-                            'Duplicate slot check timed out.'
-                        ) as { data: any };
-                        if (slotMatch && slotMatch.length > 0) {
-                            complianceStatus = 'supplementary';
-                        }
-                    } catch (e) {
-                        // Slot classification is advisory; continue quietly.
-                    }
-                }
-                if (forceSupplementary) complianceStatus = 'supplementary';
-
-                const insertPromise = supabase.from('submissions').insert({
-                    user_id: item.options.userId,
-                    file_name: item.fileName,
-                    file_path: sanitizedPath,
-                    file_hash: item.fileHash,
-                    content_hash: item.contentHash || null,
-                    file_size: item.fileSize,
-                    doc_type: item.options.docType || 'Unknown',
-                    term_number: isWeeklyComplianceUpload ? item.options.termNumber ?? null : null,
-                    week_number: isWeeklyComplianceUpload ? item.options.weekNumber ?? null : null,
-                    school_year: item.options.schoolYear || getCurrentSchoolYear(),
-                    subject: item.options.subject,
-                    calendar_id: isWeeklyComplianceUpload ? calendarId : null,
-                    teaching_load_id: item.options.teachingLoadId || null,
-                    compliance_status: complianceStatus,
-                    raw_text: item.rawText || null
-                });
-
-                const { error: dbError } = await withTimeout(
-                    insertPromise as any,
-                    30000,
-                    'Sync DB insert timed out'
-                ) as { error: any };
-
-                if (dbError) {
-                    throw new Error(`DB Insert failed: ${dbError.message}`);
-                }
-
-                // ── Success: clean up ──
-                void logAudit(item.options.userId, 'upload.created', 'submission', undefined, {
-                    file_name: item.fileName,
-                    doc_type: item.options.docType || 'Unknown',
-                    teaching_load_id: item.options.teachingLoadId || null,
-                    term_number: item.options.termNumber || null,
-                    week_number: item.options.weekNumber || null,
-                    school_year: item.options.schoolYear || getCurrentSchoolYear(),
-                    source: 'offline-sync'
-                });
-                await del(key);
-                await updatePendingCount();
-
-
-                // Cache the hash for future offline verification
-                await cacheVerifiedDoc(item.fileHash, {
-                    file_name: item.fileName,
-                    doc_type: item.options.docType,
-                    week_number: item.options.weekNumber,
-                    school_year: item.options.schoolYear,
-                    created_at: new Date().toISOString()
-                });
-
-                success++;
-                archivedLabels.push(
-                    `${item.options.docType || 'DLL'}${item.options.weekNumber ? ` - Week ${item.options.weekNumber}` : ''}`
-                );
-            } catch (err: any) {
-                logOnce('offline-sync-item-failed', 'warn', '[offline] Pending upload sync failed; it will retry later.', err);
-                failed++;
+            // No internet right now is a wait, not a failure.
+            if (!(await checkConnection())) break;
+            failed++;
+            const attempts = (item.attempts || 0) + 1;
+            if (shouldCancelAfter(attempts)) {
+                logOnce('offline-sync-item-failed', 'warn', '[offline] Queued upload cancelled after repeated failures.', err);
+                await cancelFailedItem(key, item, 'The upload kept failing even with internet available.', true);
+            } else {
+                await set(key, { ...item, attempts, nextAttemptAt: Date.now() + nextAttemptDelay(attempts) });
             }
         }
-    } finally {
-        isSyncing = false;
     }
 
     if (success > 0) {
-        // Worded exactly as the direct-upload path words its success, so a
-        // completed sync reads as an ordinary successful upload rather than
-        // as a separate, second-class "sync" event. Shown on every device —
-        // this one is a confirmation the teacher benefits from, unlike the
-        // sync plumbing notices which stay silent on mobile.
         addToast(
             'success',
             success === 1 && archivedLabels[0]
@@ -750,11 +670,45 @@ export async function processQueue(force = false): Promise<{ success: number; fa
                 : `Securely archived ${success} documents.`
         );
     }
-    if (failed > 0) {
-        syncToast('error', `Failed to sync ${failed} file(s). Will retry automatically.`);
-    }
-
     return { success, failed };
+}
+
+/**
+ * Sends everything in the queue. Runs by itself whenever the app opens, the
+ * internet returns, the teacher signs in or comes back to the app, and every
+ * 30 seconds while a file is still waiting.
+ */
+export async function processQueue(ignoreBackoff = false): Promise<{ success: number; failed: number }> {
+    // One sender at a time, or the same file could be uploaded twice.
+    if (isSyncing) {
+        syncRequestedWhileBusy = true;
+        return { success: 0, failed: 0 };
+    }
+    isSyncing = true;
+    let outcome = { success: 0, failed: 0 };
+    let busyElsewhere = false;
+    try {
+        const locks = typeof navigator !== 'undefined' ? (navigator as any).locks : undefined;
+        if (locks?.request) {
+            await locks.request('cedims-upload-queue', { ifAvailable: true }, async (lock: unknown) => {
+                if (!lock) { busyElsewhere = true; return; }
+                outcome = await runQueue(ignoreBackoff);
+            });
+        } else {
+            outcome = await runQueue(ignoreBackoff);
+        }
+    } catch (err) {
+        logOnce('offline-sync-run-failed', 'warn', '[offline] Queue run failed; it will retry.', err);
+    } finally {
+        isSyncing = false;
+    }
+    if (syncRequestedWhileBusy) {
+        syncRequestedWhileBusy = false;
+        scheduleQueueSync(0, true);
+    } else if (busyElsewhere || (await getQueueSize()) > 0) {
+        scheduleQueueSync(QUEUE_RETRY_MS);
+    }
+    return outcome;
 }
 
 /**
@@ -783,11 +737,12 @@ export function calculateComplianceStatus(
 }
 export { deadlineAtTenAM };
 
-// Auto-resume when online + Periodic Check
+/** Starts automatic sending. The teacher never needs to press anything. */
 export function initOfflineSync(): void {
     if (typeof window === 'undefined') return;
     if ((window as any).__cedimsOfflineSyncInitialized) return;
     (window as any).__cedimsOfflineSyncInitialized = true;
+    backgroundSyncActive = true;
 
     // Keep pending files protected from storage eviction, without keeping a duplicate ledger.
     void navigator.storage?.persist?.().catch(() => {});
@@ -797,43 +752,18 @@ export function initOfflineSync(): void {
         void clearLegacySubmissionLedger().catch(() => {});
     });
 
-    // 1. Event Listener for Network Status
-    window.addEventListener('online', () => {
-        syncToast('info', 'Connection restored. Syncing pending uploads...');
+    void updatePendingCount();
+    void loadFailedUploads();
 
-        // Wait a moment for connection to stabilize
-        setTimeout(() => {
-            processQueue();
-        }, 3000);
-    });
+    // Send right away when the app opens.
+    void processQueue(true);
 
-    // 2. Periodic heartbeat. Keep it sparse so idle dashboards do not create
-    // background app and provider traffic while still syncing automatically.
-    setInterval(() => {
-        if (navigator.onLine) {
-            processQueue();
-        }
-    }, 900000);
-
-    // 3. Initial check on load
-    updatePendingCount();
-    if (navigator.onLine) {
-        setTimeout(() => {
-            processQueue();
-        }, 5000);
-    }
-
-    // 4. Sync Triggers (Visibility & Focus)
+    window.addEventListener('online', () => scheduleQueueSync(500, true));
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && navigator.onLine) {
-            processQueue();
-        }
+        if (document.visibilityState === 'visible') void processQueue();
     });
-
-    window.addEventListener('focus', () => {
-        if (navigator.onLine) {
-            processQueue();
-        }
+    window.addEventListener('focus', () => void processQueue());
+    supabase.auth.onAuthStateChange((event: string, session: any) => {
+        if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) scheduleQueueSync(0, true);
     });
 }
-

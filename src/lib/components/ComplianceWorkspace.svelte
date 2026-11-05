@@ -1,8 +1,10 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { effectiveDeadlineForSubject } from '$lib/utils/deadlineRules';
-    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission } from '$lib/utils/compliance';
+    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, isTeacherWideLeave, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission } from '$lib/utils/compliance';
     import { supabase } from '$lib/utils/supabase';
+    import { addToast } from '$lib/stores/toast';
+    import { formatLeaveRange } from '$lib/utils/leaveDates';
     import { profile } from '$lib/utils/auth';
     import PaginationBar from '$lib/components/PaginationBar.svelte';
     import CedimsSelect from '$lib/components/CedimsSelect.svelte';
@@ -226,12 +228,15 @@
     }
     async function decideLeave(request: LeaveRequest, status: 'approved' | 'rejected') {
         if (!$profile) return;
-        await supabase.from('submission_leave_requests').update({
+        const { data, error } = await supabase.from('submission_leave_requests').update({
             status,
             reviewer_id: $profile.id,
             reviewed_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-        }).eq('id', request.id);
+        }).eq('id', request.id).eq('status', 'pending').select('id');
+        if (error) addToast('error', 'Could not save this decision. Check your connection and try again.');
+        else if (!data?.length) addToast('info', 'This leave request was already decided or withdrawn.');
+        else if (isTeacherWideLeave(request)) addToast('success', `Decision saved for ${formatLeaveRange(request.start_date, request.end_date)}. It applies to all of this teacher's subjects.`);
         onRefresh?.();
     }
     function pieStyle(items: { label: string; value: number }[]) {
@@ -514,9 +519,9 @@
             {:else}
                 {#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
                     <article>
-                        <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {formatRequirementDeadline(r)}</small></div>
+                        <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {formatRequirementDeadline(r)}</small>{#if r.leaveRequest && isTeacherWideLeave(r.leaveRequest)}<small>Leave: {formatLeaveRange(r.leaveRequest.start_date, r.leaveRequest.end_date)} · {r.leaveRequest.reason}</small>{/if}</div>
                         <div class="status-pill" class:missing={r.status === 'missing'} class:leave={r.status === 'on-leave' || r.status === 'leave-requested'}>{requirementLabel(r)}</div>
-                        {#if r.leaveRequest?.status === 'pending'}
+                        {#if r.leaveRequest?.status === 'pending' && r.teacherId !== $profile?.id}
                             <div class="leave-actions">
                                 <button type="button" onclick={() => decideLeave(r.leaveRequest!, 'approved')}>Approve</button>
                                 <button type="button" onclick={() => decideLeave(r.leaveRequest!, 'rejected')}>Reject</button>

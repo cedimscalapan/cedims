@@ -4,8 +4,10 @@
     import CedimsSelect from './CedimsSelect.svelte';
     import { profile } from '$lib/utils/auth';
     import { supabase } from '$lib/utils/supabase';
-    import { buildRequirements, scopedCalendar, summarizeRequirements } from '$lib/utils/compliance';
-    import { effectiveDeadlineForSubject, submissionWindowOpen } from '$lib/utils/deadlineRules';
+    import { buildRequirements, isTeacherWideLeave, scopedCalendar, summarizeRequirements } from '$lib/utils/compliance';
+    import { effectiveDeadlineForSubject, phDateKey, submissionWindowOpen } from '$lib/utils/deadlineRules';
+    import { formatLeaveRange } from '$lib/utils/leaveDates';
+    import LeaveRequestDialog from './LeaveRequestDialog.svelte';
     import { trackerLabel, prioritizeTrackerRows, documentReviewLabel, type ReviewEntry } from '$lib/utils/trackerView';
     import DocumentReviewPanel from './DocumentReviewPanel.svelte';
     export let submissions: any[] = [];
@@ -22,13 +24,10 @@
     let loadId = 'all';
     let reviewTarget: any = null;
     let page = 1;
-    let requesting: any = null;
-    let leaveType = 'Sick leave';
-    let reason = '';
-    let startDate = '';
-    let endDate = '';
-    let saving = false;
-    let error = '';
+    let leaveDialogOpen = false;
+    let leaveInitialDay = '';
+    let cancellingLeave = '';
+    let leaveListError = '';
     let now = Date.now();
     onMount(() => {
         const timer = window.setInterval(() => now = Date.now(), 30000);
@@ -44,7 +43,9 @@
     $: summary = summarizeRequirements(termRows);
     $: rows = prioritizeTrackerRows(termRows.filter(r => status === 'all' || (status === 'closed' ? !r.submission && r.status !== 'on-leave' && !actionsOpen(r, now) : r.status === status)));
     $: actionRows = prioritizeTrackerRows(termRows.filter(r => !r.submission && r.status !== 'on-leave' && r.status !== 'leave-requested' && actionsOpen(r, now))).slice(0, 3);
-    $: scopeLabel = `${term === 'all' ? 'All terms' : `Term ${term}`} · ${week === 'all' ? 'All weeks' : `Week ${week}`} · ${loadId === 'all' ? 'All teaching loads' : teachingLoads.find(load => load.id === loadId)?.subject || 'Selected teaching load'}`;
+    $: scopeLabel = `${term === 'all' ? 'All terms' : `Term ${term}`} · ${week === 'all' ? 'All weeks' : `Week ${week}`} · ${loadId === 'all' ? 'All teaching loads' : loadLabel(loadId)}`;
+    $: leaveCalendar = scopedCalendar(calendarWeeks, $profile?.district_id);
+    $: visibleLeaves = leaveRequests.filter(request => request.status !== 'cancelled').slice(0, 6);
     $: pages = Math.max(1, Math.ceil(rows.length / size));
     $: if (page > pages) page = pages;
     function label(row: any) {
@@ -69,56 +70,45 @@
         return effectiveDeadlineForSubject(row.calendar.deadline_date, row.load.subject, row.load.school_name)
             .toLocaleString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     }
-    function openLeave(row: any) {
-        if (!actionsOpen(row, Date.now())) return;
-        requesting = row;
-        reason = '';
-        error = '';
-        startDate = row.calendar.deadline_date?.slice(0, 10) || '';
-        endDate = startDate;
+    function loadLabel(id: string) {
+        const load = teachingLoads.find(item => item.id === id);
+        return load ? `${load.subject} · ${load.grade_level}` : 'Selected teaching load';
     }
-    async function submitLeave() {
-        if (!requesting || !$profile) return;
-        if (!reason.trim()) { error = 'Please add a short reason for the request.'; return; }
-        saving = true;
-        error = '';
-        const { data: calendar, error: calendarError } = await supabase.from('academic_calendar')
-            .select('is_active, deadline_date').eq('id', requesting.calendar.id).single();
-        if (calendarError || !calendar || !submissionWindowOpen(calendar, requesting.load.subject, requesting.load.school_name)) {
-            saving = false;
-            error = calendarError ? 'Could not confirm the calendar status. Please try again.' : 'This term and week are Closed in the Academic Calendar. Leave requests are no longer available.';
-            return;
+    function openLeave(row?: any) {
+        leaveInitialDay = row ? phDateKey(row.calendar.deadline_date) : '';
+        leaveDialogOpen = true;
+    }
+    function leaveTitle(request: any) {
+        if (isTeacherWideLeave(request)) return formatLeaveRange(request.start_date, request.end_date);
+        return `${loadLabel(request.teaching_load_id)} · Term ${request.term_number}, Week ${request.week_number}`;
+    }
+    function leaveStatusLabel(status: string) {
+        return status === 'approved' ? 'Approved' : status === 'rejected' ? 'Declined' : 'Waiting for review';
+    }
+    async function cancelLeave(request: any) {
+        if (cancellingLeave || !confirm(`Withdraw your leave request for ${leaveTitle(request)}?`)) return;
+        cancellingLeave = request.id;
+        leaveListError = '';
+        const { data, error } = await supabase.from('submission_leave_requests')
+            .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .eq('id', request.id).eq('status', 'pending').select('id');
+        cancellingLeave = '';
+        if (error || !data?.length) {
+            leaveListError = error ? 'Could not withdraw this request. Check your connection and try again.' : 'This request was already decided, so it can no longer be withdrawn.';
         }
-        const { error: requestError } = await supabase.from('submission_leave_requests').upsert({
-            user_id: $profile.id,
-            teaching_load_id: requesting.load.id,
-            school_id: $profile.school_id,
-            district_id: $profile.district_id,
-            school_year: requesting.calendar.school_year,
-            term_number: requesting.calendar.term,
-            week_number: requesting.calendar.week_number,
-            leave_type: leaveType,
-            reason: reason.trim(),
-            start_date: startDate || null,
-            end_date: endDate || null,
-            status: 'pending'
-        }, { onConflict: 'user_id,teaching_load_id,school_year,term_number,week_number' });
-        saving = false;
-        if (requestError) { error = requestError.message; return; }
-        requesting = null;
         onChanged?.();
     }
 </script>
 
 <section class="tracker">
     <header>
-        <div><h2>{title}</h2><p>{readOnly ? 'View deadlines, submission status and documents.' : 'Check deadlines, upload lesson plans and read remarks.'}</p></div>
-
+        <div class="title-row"><div><h2>{title}</h2><p>{readOnly ? 'View deadlines, submission status and documents.' : 'Check deadlines, upload lesson plans and read remarks.'}</p></div>{#if !readOnly}<button type="button" class="request-leave" on:click={() => openLeave()}>Request leave</button>{/if}</div>
     </header>
     <p class="scope">{scopeLabel} · Totals include all statuses</p>
     {#if !readOnly}<section class="next-actions" aria-labelledby="next-actions-title"><div class="section-heading"><div><h3 id="next-actions-title">Needs your attention</h3><p>{actionRows.length ? 'Upload a DLL or request leave for the relevant week.' : 'No open submissions need action in this view.'}</p></div><span>{actionRows.length} shown</span></div>{#each actionRows as row}<div class="next-row"><div><strong>{row.load.subject} · {row.load.grade_level}</strong><small>Term {row.calendar.term}, Week {row.calendar.week_number} · Due {formatDeadline(row)}</small></div><div class="next-action"><span class:missing={row.status === 'missing'}>{row.status === 'missing' ? 'Overdue' : 'Upcoming'}</span><button type="button" on:click={() => openLeave(row)}>Request leave</button><a href={`/dashboard/upload?load=${encodeURIComponent(row.load.id)}&term=${row.calendar.term}&week=${row.calendar.week_number}`}>Upload DLL</a></div></div>{/each}</section>{/if}
     <dl class="primary-counts">{#each [['Expected', summary.expected], ['Submitted', summary.submitted], ['Remaining', Math.max(0, summary.expected-summary.submitted)], ['Overdue', summary.missing]] as item}<div><dt>{item[0]}</dt><dd>{item[1]}</dd></div>{/each}</dl>
     {#if summary.onLeave || summary.leavePending}<details class="secondary-counts"><summary>Leave status <span>{summary.onLeave} approved · {summary.leavePending} awaiting review</span></summary><div class="leave-counts"><div><dt>On leave / excluded</dt><dd>{summary.onLeave}</dd></div><div><dt>Pending leave requests</dt><dd>{summary.leavePending}</dd></div></div></details>{/if}
+    {#if visibleLeaves.length}<section class="leave-list" aria-labelledby="leave-list-title"><h3 id="leave-list-title">{readOnly ? 'Leave requests' : 'My leave requests'}</h3>{#each visibleLeaves as request (request.id)}<div class="leave-row"><div><strong>{leaveTitle(request)}</strong><small>{request.leave_type} · {request.reason}</small>{#if request.reviewer_comment}<small>Reviewer remark: {request.reviewer_comment}</small>{/if}</div><div class="leave-side"><span class="leave-status {request.status}">{leaveStatusLabel(request.status)}</span>{#if !readOnly && request.status === 'pending'}<button type="button" disabled={cancellingLeave === request.id} on:click={() => cancelLeave(request)}>{cancellingLeave === request.id ? 'Withdrawing…' : 'Withdraw'}</button>{/if}</div></div>{/each}{#if leaveListError}<p class="error" role="alert">{leaveListError}</p>{/if}</section>{/if}
     <p class="formula"><strong>{summary.rate === null ? 'N/A' : `${summary.rate}%`} complete</strong> · {summary.submitted} of {summary.expected} submitted. Approved leave is excluded from expected work.</p>
     <details class="filters" ><summary>Find a submission <span>Term {term === 'all' ? '· All' : term} · {status === 'all' ? 'All statuses' : label({ status })}</span></summary>
             <div class="filter-fields">
@@ -135,19 +125,7 @@
     <PaginationBar bind:page pages={pages} total={rows.length} pageSize={size} itemLabel="requirements" />
 </section>
 {#if reviewTarget}<DocumentReviewPanel document={reviewTarget} onClose={() => reviewTarget = null} onSaved={onChanged} />{/if}
-{#if requesting}
-    <div class="modal-backdrop" role="presentation">
-        <form class="leave-modal" on:submit|preventDefault={submitLeave}>
-            <h3>Request Leave / Exclusion</h3>
-            <p>{requesting.load.subject} · Term {requesting.calendar.term}, Week {requesting.calendar.week_number}</p>
-            <label>Leave type <CedimsSelect bind:value={leaveType} ariaLabel="Leave type" options={['Sick leave','Official travel','Emergency leave','Maternity/Paternity leave','Other'].map(label=>({value:label,label}))} /></label>
-            <div class="date-grid"><label>Start date <input type="date" bind:value={startDate} /></label><label>End date <input type="date" bind:value={endDate} /></label></div>
-            <label>Reason <textarea bind:value={reason} rows="3" placeholder="Briefly explain why this submission should be excluded."></textarea></label>
-            {#if error}<p class="error">{error}</p>{/if}
-            <div class="modal-actions"><button type="button" on:click={() => requesting = null}>Cancel</button><button class="primary" disabled={saving}>{saving ? 'Sending...' : 'Submit request'}</button></div>
-        </form>
-    </div>
-{/if}
+{#if leaveDialogOpen}<LeaveRequestDialog loads={teachingLoads} calendar={leaveCalendar} {leaveRequests} initialDay={leaveInitialDay} onClose={() => leaveDialogOpen = false} onSaved={() => onChanged?.()} />{/if}
 <style>
     .tracker { min-width: 0; padding: 18px; color: var(--color-text-primary); border: 1px solid var(--color-border-subtle); border-radius: 12px; background: var(--color-surface-white); box-shadow: 0 8px 20px rgba(15, 23, 42, .04); }
     .scope { margin: 0 0 14px; color: var(--color-text-secondary); font-size: 14px; font-weight: 650; }
@@ -182,16 +160,19 @@
     .text-action { width: auto; min-width: 106px; padding: 0 12px; color: var(--color-gov-blue); background: #eef4ff; border-color: #b8c7ee; font-size: 13px; font-weight: 800; white-space: nowrap; }
     .text-action.primary-action { color: white; background: var(--color-gov-blue); border-color: var(--color-gov-blue); }
     button:disabled { opacity: .4; } .empty { padding: 24px 0; text-align: center; }
-    .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .35); }
-    .leave-modal { width: min(520px, 100%); display: grid; gap: 14px; padding: 20px; border-radius: 8px; background: var(--color-surface-white); box-shadow: 0 18px 44px rgba(15, 23, 42, .25); }
-    .leave-modal h3 { font-size: 20px; font-weight: 800; }
-    .leave-modal p { color: var(--color-text-secondary); }
-    .leave-modal label { display: grid; gap: 6px; font-weight: 800; }
-    .leave-modal input, .leave-modal textarea { width: 100%; border: 1px solid var(--color-border-subtle); border-radius: 6px; padding: 10px; color: var(--color-text-primary); background: var(--color-surface-white); }
-    .date-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .modal-actions { display: flex; justify-content: end; gap: 10px; }
-    .modal-actions button { width: auto; padding: 0 14px; font-weight: 800; }
-    .modal-actions .primary { color: white; background: var(--color-gov-blue); border-color: var(--color-gov-blue); }
+    .title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .request-leave { flex-shrink: 0; padding: 0 16px; color: var(--color-gov-blue); background: var(--color-surface-white); font-size: 14px; font-weight: 800; white-space: nowrap; }
+    .leave-list { margin-bottom: 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px 16px; }
+    .leave-list h3 { font-size: 16px; font-weight: 800; padding-bottom: 6px; }
+    .leave-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 1px solid var(--color-border-subtle); padding: 10px 0; }
+    .leave-row:last-of-type { padding-bottom: 0; }
+    .leave-row strong { font-size: 14px; }
+    .leave-row small { margin-top: 3px; color: var(--color-text-secondary); font-size: 13px; overflow-wrap: anywhere; }
+    .leave-side { display: flex; flex-shrink: 0; align-items: center; gap: 10px; }
+    .leave-side button { padding: 0 14px; color: var(--color-text-primary); background: var(--color-surface-white); font-size: 13px; font-weight: 800; }
+    .leave-status { font-size: 13px; font-weight: 800; color: var(--color-gov-gold-dark); white-space: nowrap; }
+    .leave-status.approved { color: var(--color-gov-green); }
+    .leave-status.rejected { color: var(--color-gov-red); }
     .error { color: var(--color-gov-red); font-weight: 800; }
-    @media (max-width: 760px) { .tracker { padding: 12px; } header { align-items: stretch; } .filters { width: 100%; } .primary-counts { grid-template-columns: repeat(2,minmax(0,1fr)); } .scroll { border:0; overflow:visible; } table,tbody { display:block; } thead { display:none; } tr { display:flex; flex-direction:column; padding:12px; border:1px solid var(--color-border-subtle); border-radius:10px; margin-bottom:10px; } td,th { border:0; padding:5px 0; } th { order:-1; font-size:16px; } td[data-label] { display:flex; justify-content:space-between; gap:12px; } td[data-label]::before { content:attr(data-label); color:var(--color-text-muted); font-size:12px; } .actions { justify-content:flex-start; margin-top:8px; } .leave-counts { grid-template-columns: 1fr; } .actions { min-width: 180px; } .next-row { align-items: stretch; flex-direction: column; gap: 9px; } .next-action { flex-wrap: wrap; justify-content: flex-start; } .next-action span { width: 100%; } }
+    @media (max-width: 760px) { .tracker { padding: 12px; } .leave-row { align-items: stretch; flex-direction: column; gap: 8px; } .leave-side { justify-content: space-between; } .title-row { flex-direction: column; } .request-leave { width: 100%; } header { align-items: stretch; } .filters { width: 100%; } .primary-counts { grid-template-columns: repeat(2,minmax(0,1fr)); } .scroll { border:0; overflow:visible; } table,tbody { display:block; } thead { display:none; } tr { display:flex; flex-direction:column; padding:12px; border:1px solid var(--color-border-subtle); border-radius:10px; margin-bottom:10px; } td,th { border:0; padding:5px 0; } th { order:-1; font-size:16px; } td[data-label] { display:flex; justify-content:space-between; gap:12px; } td[data-label]::before { content:attr(data-label); color:var(--color-text-muted); font-size:12px; } .actions { justify-content:flex-start; margin-top:8px; } .leave-counts { grid-template-columns: 1fr; } .actions { min-width: 180px; } .next-row { align-items: stretch; flex-direction: column; gap: 9px; } .next-action { flex-wrap: wrap; justify-content: flex-start; } .next-action span { width: 100%; } }
 </style>

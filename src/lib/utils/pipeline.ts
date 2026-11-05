@@ -19,6 +19,7 @@ import { isMobileDevice } from './device';
 import { logAudit } from './audit';
 import { isWeeklyComplianceDocType } from './compliance';
 import { validAssignedLoad } from './teachingLoadMatching';
+import { classifyQueueFailure, httpUploadFailure, redoMessage } from './uploadQueueRules';
 import type { PipelineEvent, PipelineOptions } from '$lib/types/pipeline';
 export type { PipelinePhase, PipelineResult } from '$lib/types/pipeline';
 
@@ -100,7 +101,7 @@ interface XhrUploadResult {
  *    upload runs as long as it needs while a genuinely dead one still fails
  *    promptly.
  */
-function xhrUpload(
+export function xhrUpload(
     url: string,
     body: XMLHttpRequestBodyInit,
     opts: {
@@ -390,12 +391,13 @@ async function* runOnlinePipelineResilient(
             });
 
             if (uploadResponse.ok) break;
-            if (uploadResponse.status === 401 || uploadResponse.status === 403) {
-                throw new Error('You have been signed out. Please sign in again and retry.');
-            }
-            throw new Error(`B2 upload failed (${uploadResponse.status})`);
+            let detail = '';
+            try { detail = JSON.parse(uploadResponse.body || '')?.message || ''; } catch { /* no readable body */ }
+            throw httpUploadFailure(uploadResponse.status, detail);
         } catch (err: any) {
             lastUploadError = err;
+            // Only network trouble is worth sending the same bytes again.
+            if (classifyQueueFailure(err) !== 'network') break;
             if (attempt < 2) {
                 const delay = 750 * 2 ** attempt + Math.floor(Math.random() * 250);
                 await new Promise((resolve) => setTimeout(resolve, delay));
@@ -404,8 +406,11 @@ async function* runOnlinePipelineResilient(
     }
 
     if (!uploadResponse?.ok) {
-        const message = lastUploadError?.message || 'Upload could not be completed.';
-        throw new Error('Upload could not be completed after 3 attempts. Please try again.');
+        if (lastUploadError && classifyQueueFailure(lastUploadError) === 'auth') {
+            throw new Error('You have been signed out. Please sign in again and retry.');
+        }
+        if (lastUploadError && classifyQueueFailure(lastUploadError) === 'rejected') throw lastUploadError;
+        throw new Error('Upload could not be completed after 3 attempts because of the connection.');
     }
 
     yield { phase: 'uploading', progress: 80, message: 'Finishing up...' };
@@ -462,7 +467,7 @@ async function* runOnlinePipelineResilient(
     ) as { error: any };
     if (dbError) {
         if (dbError.code === '23505' && dbError.message?.includes('uniq_submission_content')) throw new DuplicateUploadError();
-        throw new Error(`DB Error: ${dbError.message}`);
+        throw dbError;
     }
 
     void logAudit(options.userId, 'upload.created', 'submission', undefined, {
@@ -540,16 +545,12 @@ async function* runOfflinePipelineResilient(
 
     await cacheVerifiedDoc(fileHash, { file_name: fileName, doc_type: activeDocType, week_number: activeWeekNumber, pending_sync: true });
 
-    // Start pushing to the server right away rather than waiting for the 60s
-    // heartbeat. Deliberately not awaited: the transfer is the slow part on a
-    // phone, and the point of this path is that the teacher doesn't wait for
-    // it. With no usable connection it simply no-ops, and the existing
-    // reconnect/heartbeat/visibility triggers pick it up later.
-    if (typeof navigator !== 'undefined' && navigator.onLine) {
-        import('./offline')
-            .then(({ processQueue }) => processQueue())
-            .catch(() => {});
-    }
+    // Deliberately not awaited: the transfer is the slow part on a phone, and
+    // the point of this path is that the teacher doesn't wait for it. With no
+    // usable connection it starts by itself when the internet returns.
+    import('./offline')
+        .then(({ processQueue }) => processQueue(true))
+        .catch(() => {});
 
     yield {
         phase: 'queued',
@@ -597,13 +598,11 @@ export async function* runPipeline(
                 return;
             } catch (err: any) {
                 const msg: string = err?.message || '';
-                // Failures that queuing cannot fix must still surface: a real
-                // duplicate is a genuine rejection, and a missing session means
-                // the background sync would not be able to authenticate either.
-                // Queuing can't fix either of these: the same document will be
-                // refused whenever it syncs, and a missing session leaves the
-                // background sync with nothing to authenticate with.
-                const isTerminal = err instanceof DuplicateUploadError || msg.includes('signed out') || msg.includes('active assigned teaching load') || msg.includes('Closed in the Academic Calendar');
+                // Queuing cannot fix a refusal: the same document would be refused
+                // again whenever it synced, and a missing session leaves the
+                // background sync with nothing to authenticate with. Only
+                // connection trouble moves to the queue.
+                const isTerminal = msg.includes('active assigned teaching load') || msg.includes('Closed in the Academic Calendar') || classifyQueueFailure(err) !== 'network';
                 if (isTerminal) throw err;
             }
         }
@@ -613,7 +612,8 @@ export async function* runPipeline(
         yield* runOfflinePipelineResilient(core, options);
 
     } catch (err: any) {
-        yield { phase: 'error', progress: 0, message: err.message || 'Unknown error' };
+        const reason = err?.message || 'The upload could not be completed.';
+        yield { phase: 'error', progress: 0, message: err instanceof DuplicateUploadError ? reason : redoMessage(reason) };
     } finally {
         worker.terminate();
     }

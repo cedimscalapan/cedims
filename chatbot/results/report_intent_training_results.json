@@ -1,0 +1,76 @@
+{
+  "evaluation": "Seeded stratified 20% question holdout; measures intent recognition, not report factual accuracy.",
+  "n_samples": 7158,
+  "added_report_questions": 264,
+  "added_upload_count_questions": 108,
+  "test_accuracy": 99.3,
+  "per_intent": {
+    "ask_compliance": {
+      "precision": 0.9948979591836735,
+      "recall": 0.9848484848484849,
+      "f1-score": 0.9898477157360406,
+      "support": 198.0
+    },
+    "calendar_info": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 48.0
+    },
+    "check_deadline": {
+      "precision": 0.9921259842519685,
+      "recall": 1.0,
+      "f1-score": 0.9960474308300395,
+      "support": 126.0
+    },
+    "create_report": {
+      "precision": 1.0,
+      "recall": 0.9841269841269841,
+      "f1-score": 0.992,
+      "support": 126.0
+    },
+    "find_dll": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 177.0
+    },
+    "general_help": {
+      "precision": 0.9802816901408451,
+      "recall": 0.997134670487106,
+      "f1-score": 0.9886363636363636,
+      "support": 349.0
+    },
+    "how_to_upload": {
+      "precision": 1.0,
+      "recall": 0.968,
+      "f1-score": 0.983739837398374,
+      "support": 125.0
+    },
+    "school_compare": {
+      "precision": 0.992,
+      "recall": 1.0,
+      "f1-score": 0.9959839357429718,
+      "support": 124.0
+    },
+    "teacher_stats": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 159.0
+    },
+    "accuracy": 0.9930167597765364,
+    "macro avg": {
+      "precision": 0.9954784037307208,
+      "recall": 0.9926789043847306,
+      "f1-score": 0.9940283648159767,
+      "support": 1432.0
+    },
+    "weighted avg": {
+      "precision": 0.9931033378444625,
+      "recall": 0.9930167597765364,
+      "f1-score": 0.9930079627209059,
+      "support": 1432.0
+    }
+  }
+}

@@ -10,7 +10,6 @@
         getQueueSize,
         getQueuedUploads,
         cancelQueuedUpload,
-        processQueue,
         cacheMetadata,
         getCachedMetadata,
         pendingSyncCount,
@@ -27,7 +26,7 @@
     import { fade } from "svelte/transition";
     import { extractMetadata, warmPdfReader, resolveWeekFromDates, createDefaultMetadata, type DocMetadata } from "$lib/utils/ocr";
     import { resolveHeaderUploadPeriod, resolveUniqueOpenUploadPeriod } from "$lib/utils/headerPeriod";
-    import { resolveTeachingLoadMatch, validAssignedLoad } from "$lib/utils/teachingLoadMatching";
+    import { gradeLabel, resolveTeachingLoadMatch, teachingLoadNotice, validAssignedLoad } from "$lib/utils/teachingLoadMatching";
     import { validateSelection } from "$lib/utils/copilot";
     import {
         canUploadDocument,
@@ -41,7 +40,7 @@
     import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
     import { isWeeklyComplianceDocType } from "$lib/utils/compliance";
     import { effectiveDeadlineForSubject } from "$lib/utils/deadlineRules";
-    import { requestUploadTargets, openUploadTargets, preserveUploadPeriod, parseTrackerUploadTarget, type TrackerUploadTarget } from "$lib/utils/uploadTargets";
+    import { requestUploadTargets, requestUploadTargetsReliably, openUploadTargets, preserveUploadPeriod, parseTrackerUploadTarget, type TrackerUploadTarget } from "$lib/utils/uploadTargets";
 
     import type { PageData } from "./$types";
 
@@ -126,6 +125,17 @@
         }
     }
     let mismatchAlert = $state<any>(null);
+    // Whether the server has answered, kept apart from whether the lists have
+    // items. "No teaching loads" must only ever be said after a real answer.
+    let loadsStatus = $state<'loading' | 'ready' | 'failed'>('loading');
+    let calendarStatus = $state<'loading' | 'ready' | 'failed'>('loading');
+    let optionsVersion = $state(0);
+    let lastOptionsRefreshAt = 0;
+    let targetNotice = $state('');
+    let targetsChosenByHand = false;
+    let scannedDocument: { file: File; metadata: any } | null = null;
+    let autofillWaiting = false;
+    let autofillRunning = false;
     let queueCount = $state(0);
     let currentDeadline = $state<any>(null);
     let submissionAlreadyExists = $state(false);
@@ -147,7 +157,6 @@
     let metadataRun = 0;
     let submissionCheckRun = 0;
     let targetProfileId = "";
-    let optionsNoticeShown = false;
     let trackerTarget: TrackerUploadTarget | null = null;
     let trackerTargetApplied = false;
     function applyTrackerTarget() {
@@ -166,24 +175,30 @@
 
     let showLoadPicker = $state(false);
     let loadRefreshRun = 0;
+    let lastLoadsFetchAt = 0;
     async function refreshTeachingLoads(notifyOnFailure = true): Promise<TeachingLoad[] | null> {
         const profileId = $profile?.id;
         if (!profileId || !navigator.onLine) return null;
         const runId = ++loadRefreshRun;
         loadingTeachingLoads = true;
         try {
-            const { data, error } = await requestUploadTargets((signal) => supabase
+            const { data, error } = await requestUploadTargetsReliably((signal) => supabase
                 .from('teaching_loads').select('id, subject, grade_level')
                 .eq('user_id', profileId).eq('is_active', true)
                 .order('subject').order('grade_level').abortSignal(signal));
             if (error) throw error;
             if (!data || runId !== loadRefreshRun || $profile?.id !== profileId) return null;
+            if (JSON.stringify(data) !== JSON.stringify(teachingLoads)) optionsVersion++;
             teachingLoads = data;
+            loadsStatus = 'ready';
+            lastLoadsFetchAt = Date.now();
+            if (teachingLoadId && !data.some((load) => load.id === teachingLoadId)) teachingLoadId = '';
             void requestUploadTargets(() => cacheMetadata(`teaching_loads_${profileId}`, data), 1500).catch(() => {});
             return data;
         } catch (error) {
             debugLog('[upload] Could not refresh teaching loads:', error);
-            if (notifyOnFailure) addToast('warning', 'Could not refresh teaching loads. Check your connection and try again.');
+            if (runId === loadRefreshRun && !teachingLoads.length) loadsStatus = 'failed';
+            if (notifyOnFailure && !teachingLoads.length) addToast('warning', 'Your teaching loads have not loaded yet. The system keeps trying.');
             return null;
         } finally {
             if (runId === loadRefreshRun) loadingTeachingLoads = false;
@@ -192,7 +207,8 @@
     function openTeachingLoadPicker() {
         useManualTargets();
         showLoadPicker = true;
-        void refreshTeachingLoads();
+        // The saved list opens at once. A refresh only runs when it may be out of date.
+        if (!teachingLoads.length || Date.now() - lastLoadsFetchAt > 60000) void refreshTeachingLoads();
     }
     let showTermPicker = $state(false);
     let showWeekPicker = $state(false);
@@ -240,6 +256,20 @@
             .filter((w) => !termNumber || w.term === termNumber)
             .map((w) => w.week_number),
     );
+
+    const loadsConfirmedEmpty = $derived(!teachingLoads.length && loadsStatus === 'ready');
+    const loadsPendingLabel = $derived(!teachingLoads.length && loadsStatus !== 'ready' ? 'Loading your teaching loads…' : '');
+    const calendarPendingLabel = $derived(!calendarEntries.length && calendarStatus !== 'ready' ? 'Loading…' : !calendarEntries.length ? 'No Open period' : '');
+    const periodLocked = $derived(!calendarEntries.length || (requiresTeachingLoadSelection($profile?.role || '', docType) && loadsConfirmedEmpty));
+    const suggestedLoad = $derived(mismatchAlert?.action?.teachingLoadId ? teachingLoads.find((load) => load.id === mismatchAlert.action.teachingLoadId) : undefined);
+    const optionsStatusMessage = $derived.by(() => {
+        const waiting = (!teachingLoads.length && loadsStatus !== 'ready') || (!calendarEntries.length && calendarStatus !== 'ready');
+        if (!waiting) return '';
+        if (!isOnline) return 'You are offline and this device has no saved teaching loads or weeks yet. They will load by themselves when the internet returns.';
+        return loadsStatus === 'failed' || calendarStatus === 'failed'
+            ? 'Slow connection. Your teaching loads and weeks have not loaded yet. The system keeps trying by itself.'
+            : 'Loading your teaching loads and weeks…';
+    });
 
     // Header subtitle reflects only the document types this role can actually submit.
     const uploadSubtitle = $derived(
@@ -289,7 +319,7 @@
             const existingSlot = slotMatches?.[0];
             if (existingSlot) {
                 slotAlreadyCovered = true;
-                slotNotice = `${selectedLoad ? `${selectedLoad.subject} Grade ${selectedLoad.grade_level}` : "This teaching load"} already has a counted DLL for Week ${weekNumber}. This upload will be saved as supplementary and will not add another compliant count.`;
+                slotNotice = `${selectedLoad ? `${selectedLoad.subject} ${gradeLabel(selectedLoad.grade_level)}` : "This teaching load"} already has a counted DLL for Week ${weekNumber}. This upload will be saved as supplementary and will not add another compliant count.`;
             }
         }
 
@@ -311,6 +341,20 @@
 
     $effect(() => {
         if (!selectedFile) resetDocumentTargets();
+    });
+
+    // A document scanned before its options arrived fills in as soon as they do.
+    $effect(() => {
+        optionsVersion;
+        untrack(() => {
+            const scanned = scannedDocument;
+            if (!autofillWaiting || autofillRunning || targetsChosenByHand || detectingMetadata || processing) return;
+            if (!scanned || scanned.file !== selectedFile) return;
+            autofillRunning = true;
+            void applyScanToTargets(scanned.file, scanned.metadata, () => scannedDocument === scanned && selectedFile === scanned.file && !targetsChosenByHand)
+                .catch((error) => debugLog('[upload] Autofill retry failed:', error))
+                .finally(() => { autofillRunning = false; });
+        });
     });
 
     // Keep this page's pending-sync panel in sync with the shared queue store
@@ -347,9 +391,27 @@
             }
         };
         window.addEventListener("cedims:refresh-visible-route", onRefresh);
+        // The notice for a cancelled queue item is shown by FailedUploadNotice;
+        // this only stops the page from waiting on a file that will never arrive.
+        const onUploadCancelled = (event: Event) => {
+            const cancelled = (event as CustomEvent).detail;
+            void refreshPendingItems();
+            if (cancelled?.fileHash === awaitingArchive?.fileHash) {
+                awaitingArchive = null;
+                message = '';
+                progress = 0;
+                currentPhase = 'transcoding';
+            }
+        };
+        window.addEventListener("cedims:upload-cancelled", onUploadCancelled);
         const retryOptions = window.setInterval(() => {
-            if (navigator.onLine && $profile && !processing && !detectingMetadata && !confirmArchiveOpen && !showLoadPicker && !showTermPicker && !showWeekPicker) void fetchInitialData($profile);
-        }, 30000);
+            if (!navigator.onLine || !$profile || processing) return;
+            const missing = (!teachingLoads.length && loadsStatus !== 'ready') || (!calendarEntries.length && calendarStatus !== 'ready');
+            const busy = detectingMetadata || confirmArchiveOpen || showLoadPicker || showTermPicker || showWeekPicker;
+            // Missing options are fetched whatever the teacher is doing. Complete
+            // ones are only refreshed now and then, to spare a slow connection.
+            if (missing || (!busy && Date.now() - lastOptionsRefreshAt > 180000)) void fetchInitialData($profile);
+        }, 10000);
 
         // Handle files launched from OS (PWA File Handling API)
         if (
@@ -372,6 +434,7 @@
             window.removeEventListener("online", onOnline);
             window.removeEventListener("offline", onOffline);
             window.removeEventListener("cedims:refresh-visible-route", onRefresh);
+            window.removeEventListener("cedims:upload-cancelled", onUploadCancelled);
             window.clearInterval(retryOptions);
             window.clearInterval(archiveTimer);
             window.clearTimeout(warmTimer);
@@ -488,6 +551,8 @@
             termNumber = undefined;
             weekNumber = undefined;
             uploaderSchoolName = "";
+            loadsStatus = 'loading';
+            calendarStatus = 'loading';
         }
         const runId = ++initialDataRun;
         const isCurrent = () => runId === initialDataRun && $profile?.id === userProfile.id && $profile?.district_id === userProfile.district_id;
@@ -498,6 +563,7 @@
         loadingTeachingLoads = isWeeklyComplianceDocType(docType) && (teachingLoads.length === 0 || calendarEntries.length === 0);
 
         const applyLoads = (loads: TeachingLoad[]) => {
+            if (JSON.stringify(loads) !== JSON.stringify(teachingLoads)) optionsVersion++;
             teachingLoads = loads;
             if (!loads.some((load) => load.id === teachingLoadId)) {
                 teachingLoadId = "";
@@ -507,7 +573,9 @@
             applyTrackerTarget();
         };
         const applyCalendar = (entries: CalendarEntry[]) => {
-            allCalendarEntries = entries.filter(entry => entry.school_year === year);
+            const nextEntries = entries.filter(entry => entry.school_year === year);
+            if (JSON.stringify(nextEntries) !== JSON.stringify(allCalendarEntries)) optionsVersion++;
+            allCalendarEntries = nextEntries;
             calendarEntries = openUploadTargets(entries, year);
             if (!isWeeklyComplianceDocType(docType)) return;
             const period = preserveUploadPeriod(calendarEntries, termNumber, weekNumber);
@@ -539,29 +607,50 @@
             if (!calendarEntries.length && Array.isArray(savedCalendar?.data)) applyCalendar(savedCalendar.data);
             if (savedSchool?.data) uploaderSchoolName = savedSchool.data;
             if (teachingLoads.length && calendarEntries.length) loadingTeachingLoads = false;
-            if (!navigator.onLine) return;
+            if (!navigator.onLine) {
+                if (!teachingLoads.length) loadsStatus = 'failed';
+                if (!calendarEntries.length) calendarStatus = 'failed';
+                return;
+            }
+            if (!teachingLoads.length) loadsStatus = 'loading';
+            if (!calendarEntries.length) calendarStatus = 'loading';
+            lastOptionsRefreshAt = Date.now();
 
             // Refresh independently: a slow school lookup must never block the targets.
             await Promise.allSettled([
                 (async () => {
-                    const { data: loads, error } = await requestUploadTargets((signal) => supabase
-                        .from("teaching_loads").select("id, subject, grade_level")
-                        .eq("user_id", userProfile.id).eq("is_active", true)
-                        .order("subject").order("grade_level").abortSignal(signal));
-                    if (!isCurrent() || processing || error || !loads) return;
-                    applyLoads(loads);
-                    await save(loadsKey, loads);
+                    try {
+                        const { data: loads, error } = await requestUploadTargetsReliably((signal) => supabase
+                            .from("teaching_loads").select("id, subject, grade_level")
+                            .eq("user_id", userProfile.id).eq("is_active", true)
+                            .order("subject").order("grade_level").abortSignal(signal), { keepTrying: isCurrent });
+                        if (error || !loads) throw error;
+                        if (!isCurrent() || processing) return;
+                        applyLoads(loads);
+                        loadsStatus = 'ready';
+                        await save(loadsKey, loads);
+                    } catch (failure) {
+                        debugLog("[upload] Teaching loads did not load:", failure);
+                        if (isCurrent() && !teachingLoads.length) loadsStatus = 'failed';
+                    }
                 })(),
                 (async () => {
-                    if (!userProfile.district_id) return;
-                    const { data: entries, error } = await requestUploadTargets((signal) => supabase
-                        .from("academic_calendar")
-                        .select("id, school_year, term, week_number, deadline_date, description, is_active")
-                        .eq("district_id", userProfile.district_id).eq("school_year", year)
-                        .order("term").order("week_number").abortSignal(signal));
-                    if (!isCurrent() || processing || error || !entries) return;
-                    applyCalendar(entries);
-                    await save(calendarKey, entries);
+                    if (!userProfile.district_id) { calendarStatus = 'ready'; return; }
+                    try {
+                        const { data: entries, error } = await requestUploadTargetsReliably((signal) => supabase
+                            .from("academic_calendar")
+                            .select("id, school_year, term, week_number, deadline_date, description, is_active")
+                            .eq("district_id", userProfile.district_id).eq("school_year", year)
+                            .order("term").order("week_number").abortSignal(signal), { keepTrying: isCurrent });
+                        if (error || !entries) throw error;
+                        if (!isCurrent() || processing) return;
+                        applyCalendar(entries);
+                        calendarStatus = 'ready';
+                        await save(calendarKey, entries);
+                    } catch (failure) {
+                        debugLog("[upload] Calendar did not load:", failure);
+                        if (isCurrent() && !calendarEntries.length) calendarStatus = 'failed';
+                    }
                 })(),
                 (async () => {
                     if (!userProfile.school_id) return;
@@ -574,18 +663,16 @@
                 })(),
             ]);
         } finally {
-            if (isCurrent()) {
-                loadingTeachingLoads = false;
-                if (teachingLoads.length && calendarEntries.length) optionsNoticeShown = false;
-                if (!optionsNoticeShown && (!teachingLoads.length || !calendarEntries.length) && isWeeklyComplianceDocType(docType)) {
-                    optionsNoticeShown = true;
-                    addToast("info", navigator.onLine
-                        ? "Some upload options are unavailable. Check your teaching loads and Open calendar periods, or reconnect to retry."
-                        : "Connect once to save your teaching loads and Open calendar periods for offline uploads.");
-                }
-            }
+            if (isCurrent()) loadingTeachingLoads = false;
         }
     }
+    /** A choice the teacher made outranks anything a later scan or refresh suggests. */
+    function markTargetChosen() {
+        targetsChosenByHand = true;
+        autofillWaiting = false;
+        targetNotice = '';
+    }
+
     function useManualTargets() {
         if (!detectingMetadata) return;
         metadataRun++;
@@ -593,6 +680,7 @@
         detectingMetadata = false;
         scanProgress = 100;
         detectedMetadata = createDefaultMetadata();
+        autofillWaiting = false;
     }
 
     function resetDocumentTargets() {
@@ -615,11 +703,105 @@
         submissionAlreadyExists = false;
         submissionBlockReason = '';
         targetConfirmed = false;
+        targetNotice = '';
+        targetsChosenByHand = false;
+        scannedDocument = null;
+        autofillWaiting = false;
         uploadConfirmed = false;
         confirmArchiveOpen = false;
         showLoadPicker = false;
         showTermPicker = false;
         showWeekPicker = false;
+    }
+
+    function trackerLinkedTargets() {
+        if (!trackerTarget) return null;
+        const load = teachingLoads.find(item => item.id === trackerTarget?.loadId);
+        const period = calendarEntries.find(entry => entry.term === trackerTarget?.term && entry.week_number === trackerTarget?.week);
+        return load && period ? { load, period } : null;
+    }
+
+    /** Fills the targets from a finished scan. Runs again if the options arrive late. */
+    async function applyScanToTargets(file: File, metadata: any, isCurrentScan: () => boolean) {
+        const nextDocType = !docTypeManuallySelected && metadata.docType !== 'Unknown' ? metadata.docType : docType;
+        let nextTerm: number | undefined;
+        let nextWeek: number | undefined;
+        let nextLoad = '';
+        let nextMetadata = metadata;
+        let notice = '';
+        if (isWeeklyComplianceDocType(nextDocType)) {
+            let match = resolveTeachingLoadMatch(metadata, teachingLoads, file.name);
+            if (!match.loadId && (match.reason === 'grade_mismatch' || match.reason === 'no_subject_match') && navigator.onLine) {
+                const refreshed = await refreshTeachingLoads(false);
+                if (!isCurrentScan()) return;
+                if (refreshed) match = resolveTeachingLoadMatch(metadata, refreshed, file.name);
+            }
+            const year = getCurrentSchoolYear();
+            const periodOptions = {
+                schoolYear: year, subject: teachingLoads.find(load => load.id === match.loadId)?.subject || match.subject, schoolName: uploaderSchoolName
+            };
+            let scannedPeriod = resolveHeaderUploadPeriod(metadata.rawText || '', allCalendarEntries, periodOptions);
+            let period = scannedPeriod || resolveUniqueOpenUploadPeriod(metadata.rawText || '', allCalendarEntries, year, periodOptions);
+            // Cached options can be from the week that just closed. Refresh the
+            // calendar before using its sole Open period as a fallback.
+            if (!scannedPeriod && typeof navigator !== 'undefined' && navigator.onLine && $profile?.district_id) {
+                try {
+                    const { data: currentCalendar, error: calendarError } = await requestUploadTargets((signal) => supabase
+                        .from('academic_calendar')
+                        .select('id, school_year, term, week_number, deadline_date, description, is_active')
+                        .eq('district_id', $profile!.district_id).eq('school_year', year)
+                        .order('term').order('week_number').abortSignal(signal));
+                    if (!isCurrentScan()) return;
+                    if (!calendarError && currentCalendar) {
+                        allCalendarEntries = currentCalendar;
+                        calendarEntries = openUploadTargets(currentCalendar, year);
+                        calendarStatus = 'ready';
+                        scannedPeriod = resolveHeaderUploadPeriod(metadata.rawText || '', currentCalendar, periodOptions);
+                        period = scannedPeriod || resolveUniqueOpenUploadPeriod(metadata.rawText || '', currentCalendar, year, periodOptions);
+                    }
+                } catch (error) { debugLog('[upload] Could not refresh the Open calendar period:', error); }
+            }
+            nextTerm = period?.term;
+            nextWeek = period?.week_number;
+            nextLoad = match.loadId || '';
+            const linked = trackerLinkedTargets();
+            if (linked) {
+                if ((nextLoad && nextLoad !== linked.load.id) || (nextTerm && nextWeek && (nextTerm !== linked.period.term || nextWeek !== linked.period.week_number))) {
+                    notice = 'The scanned document differs from the Tracker item you opened. Review the teaching load and period before uploading.';
+                } else {
+                    nextLoad ||= linked.load.id;
+                    if (!nextTerm || !nextWeek) {
+                        nextTerm = linked.period.term;
+                        nextWeek = linked.period.week_number;
+                    }
+                }
+            }
+            nextMetadata = { ...metadata, subject: match.subject, gradeLevel: match.grade || metadata.gradeLevel };
+            if (!nextLoad && !notice) notice = teachingLoadNotice(match, teachingLoads);
+            else if ((!nextTerm || !nextWeek) && !notice) notice = 'Confirm the term and week for this document. No unique Open period could be matched.';
+            else if (match.subject === 'HGP' && teachingLoads.find(load => load.id === match.loadId)?.subject !== 'HGP')
+                notice = 'HGP will be filed under your assigned GMRC teaching load for the same grade. Please review before uploading.';
+            if (!notice && period && !scannedPeriod)
+                notice = `Term ${period.term}, Week ${period.week_number} was filled because it is the only Open period. Please review before uploading.`;
+        }
+        if (!isCurrentScan()) return;
+        // Commit one file's complete result together; previous scans never own these fields.
+        const weekly = isWeeklyComplianceDocType(nextDocType);
+        const optionsMissing = weekly && (!teachingLoads.length || !allCalendarEntries.length);
+        const optionsUnconfirmed = loadsStatus !== 'ready' || calendarStatus !== 'ready';
+        autofillWaiting = weekly && (optionsMissing || ((!nextLoad || !nextTerm || !nextWeek) && optionsUnconfirmed));
+        if (nextDocType !== docType) setDocType(nextDocType, false);
+        teachingLoadId = nextLoad;
+        termNumber = nextTerm;
+        weekNumber = nextWeek;
+        if (!autofillWaiting) trackerTarget = null;
+        detectedMetadata = nextMetadata;
+        ocrConfidence = metadata.confidence || null;
+        mismatchAlert = nextLoad && weekly
+            ? validateSelection(nextLoad, metadata.rawText, teachingLoads, nextMetadata, file.name) : null;
+        targetNotice = optionsMissing
+            ? 'Document scanned. Your teaching load, term and week will fill in by themselves as soon as they load.'
+            : notice;
     }
 
     async function onFileSelected(file: File) {
@@ -653,103 +835,30 @@
         try {
             const metadata = await extractMetadata(file, { signal: controller.signal });
             if (!isCurrentScan()) return;
+            scannedDocument = { file, metadata };
             if (loadingTeachingLoads || !$profile) {
-                const ready = await waitForDataReady(15000);
+                await waitForDataReady(15000);
                 if (!isCurrentScan()) return;
-                if (!ready) { addToast('warning', 'Document scanned, but upload options could not load. Please reconnect and try again.'); return; }
             }
             scanProgress = 82;
-            const nextDocType = !docTypeManuallySelected && metadata.docType !== 'Unknown' ? metadata.docType : docType;
-            let nextTerm: number | undefined;
-            let nextWeek: number | undefined;
-            let nextLoad = '';
-            let nextMetadata = metadata;
-            let notice = '';
-            if (isWeeklyComplianceDocType(nextDocType)) {
-                let match = resolveTeachingLoadMatch(metadata, teachingLoads, file.name);
-                if (!match.loadId && (match.reason === 'grade_mismatch' || match.reason === 'no_subject_match') && navigator.onLine) {
-                    const refreshed = await refreshTeachingLoads(false);
-                    if (!isCurrentScan()) return;
-                    if (refreshed) match = resolveTeachingLoadMatch(metadata, refreshed, file.name);
-                }
-                const year = getCurrentSchoolYear();
-                const periodOptions = {
-                    schoolYear: year, subject: teachingLoads.find(load => load.id === match.loadId)?.subject || match.subject, schoolName: uploaderSchoolName
-                };
-                let scannedPeriod = resolveHeaderUploadPeriod(metadata.rawText || '', allCalendarEntries, periodOptions);
-                let period = scannedPeriod || resolveUniqueOpenUploadPeriod(metadata.rawText || '', allCalendarEntries, year, periodOptions);
-                // Cached options can be from the week that just closed. Refresh the
-                // calendar before using its sole Open period as a fallback.
-                if (!scannedPeriod && typeof navigator !== 'undefined' && navigator.onLine && $profile?.district_id) {
-                    try {
-                        const { data: currentCalendar, error: calendarError } = await requestUploadTargets((signal) => supabase
-                            .from('academic_calendar')
-                            .select('id, school_year, term, week_number, deadline_date, description, is_active')
-                            .eq('district_id', $profile!.district_id).eq('school_year', year)
-                            .order('term').order('week_number').abortSignal(signal));
-                        if (!isCurrentScan()) return;
-                        if (!calendarError && currentCalendar) {
-                            allCalendarEntries = currentCalendar;
-                            calendarEntries = openUploadTargets(currentCalendar, year);
-                            scannedPeriod = resolveHeaderUploadPeriod(metadata.rawText || '', currentCalendar, periodOptions);
-                            period = scannedPeriod || resolveUniqueOpenUploadPeriod(metadata.rawText || '', currentCalendar, year, periodOptions);
-                        }
-                    } catch (error) { debugLog('[upload] Could not refresh the Open calendar period:', error); }
-                }
-                nextTerm = period?.term;
-                nextWeek = period?.week_number;
-                nextLoad = match.loadId || '';
-                if (trackerTarget && teachingLoadId === trackerTarget.loadId && termNumber === trackerTarget.term && weekNumber === trackerTarget.week) {
-                    const linkedLoad = teachingLoads.find(load => load.id === trackerTarget?.loadId);
-                    const linkedPeriod = calendarEntries.find(entry => entry.term === trackerTarget?.term && entry.week_number === trackerTarget?.week);
-                    if (linkedLoad && linkedPeriod) {
-                        if ((nextLoad && nextLoad !== linkedLoad.id) || (nextTerm && nextWeek && (nextTerm !== linkedPeriod.term || nextWeek !== linkedPeriod.week_number))) {
-                            notice = 'The scanned document differs from the tracker target. Review the teaching load and period before uploading.';
-                        } else {
-                            nextLoad ||= linkedLoad.id;
-                            if (!nextTerm || !nextWeek) {
-                                nextTerm = linkedPeriod.term;
-                                nextWeek = linkedPeriod.week_number;
-                            }
-                        }
-                    }
-                }
-                nextMetadata = { ...metadata, subject: match.subject, gradeLevel: match.grade || metadata.gradeLevel };
-                if (!nextLoad && !notice) notice = match.reason === 'missing_grade'
-                    ? `Detected ${match.subject}, but the Grade Level and Section field could not be read. Please choose the load below.`
-                    : match.reason === 'ambiguous' ? 'Several Kindergarten learning areas match your assigned loads. Choose the correct teaching load below.'
-                    : match.subject ? `Detected ${match.subject}${match.grade ? ` Grade ${match.grade}` : ''}. Choose a matching active teaching load below.`
-                    : 'The Learning Area / Asignatura field could not identify one subject. Please choose the correct load below.';
-                else if ((!nextTerm || !nextWeek) && !notice) notice = 'Confirm the term and week for this document. No unique Open period could be matched.';
-                else if (match.subject === 'HGP' && teachingLoads.find(load => load.id === match.loadId)?.subject !== 'HGP')
-                    notice = 'HGP will be filed under your assigned GMRC teaching load for the same grade. Please review before uploading.';
-                if (!notice && period && !scannedPeriod)
-                    notice = `Term ${period.term}, Week ${period.week_number} was filled because it is the only Open period. Please review before uploading.`;
-            }
+            await applyScanToTargets(file, metadata, isCurrentScan);
             if (!isCurrentScan()) return;
-            // Commit one file's complete result together; previous scans never own these fields.
-            if (nextDocType !== docType) setDocType(nextDocType, false);
-            teachingLoadId = nextLoad;
-            termNumber = nextTerm;
-            weekNumber = nextWeek;
-            trackerTarget = null;
-            detectedMetadata = nextMetadata;
-            ocrConfidence = metadata.confidence || null;
-            mismatchAlert = nextLoad && isWeeklyComplianceDocType(nextDocType)
-                ? validateSelection(nextLoad, metadata.rawText, teachingLoads, nextMetadata, file.name) : null;
             scanProgress = 100;
-            if (notice) addToast('info', notice);
         } catch (error) {
             if (isCurrentScan()) {
                 if (isWeeklyComplianceDocType(docType)) {
                     const period = resolveUniqueOpenUploadPeriod('', allCalendarEntries, getCurrentSchoolYear());
-                    termNumber = period?.term;
-                    weekNumber = period?.week_number;
+                    const linked = trackerLinkedTargets();
+                    teachingLoadId = linked?.load.id || '';
+                    termNumber = linked?.period.term ?? period?.term;
+                    weekNumber = linked?.period.week_number ?? period?.week_number;
                 }
                 detectedMetadata = createDefaultMetadata();
-                addToast('info', termNumber && weekNumber
+                targetNotice = teachingLoadId
+                    ? 'The scan could not read this file. The load and week from your Tracker link are filled in; please review them.'
+                    : termNumber && weekNumber
                     ? `The scan could not read this file. Term ${termNumber}, Week ${weekNumber} is the only Open period; please choose the teaching load and review the period.`
-                    : 'The scan could not read this file. Please choose its load, term, and week manually.');
+                    : 'The scan could not read this file. Please choose its load, term, and week.';
             }
         } finally {
             if (isCurrentScan()) { detectingMetadata = false; scanProgress = 100; }
@@ -809,12 +918,11 @@
             return;
         }
 
-        // Auto-wait for profile and teaching load list to be ready (up to 5s)
-        if (loadingTeachingLoads || !$profile) {
-            addToast("info", "Syncing data, please wait...");
+        // A target already chosen does not need to wait for a background refresh.
+        if (!$profile || (loadingTeachingLoads && !teachingLoads.length)) {
             const ready = await waitForDataReady(15000);
             if (!ready) {
-                addToast("error", "Timeout: Could not sync profile data.");
+                addToast("error", "Your account details are still loading on this connection. Please press Review upload again in a moment.");
                 return;
             }
         }
@@ -1119,17 +1227,9 @@
                         >
                     </div>
                 </div>
-                {#if isOnline}
-                    <button
-                        onclick={async () => {
-                            await processQueue(true);
-                            await refreshPendingItems();
-                        }}
-                        class="w-full px-3 py-2 bg-gov-blue text-white text-xs font-semibold rounded-lg hover:bg-gov-blue-dark transition-colors shadow-sm"
-                    >
-                        Sync All Now
-                    </button>
-                {/if}
+                <p class="px-1 text-xs font-medium text-text-muted" role="status">
+                    {isOnline ? "Uploading by itself. You can keep working." : "Starts by itself when the internet returns."}
+                </p>
                 {#if showPendingPanel && pendingItems.length > 0}
                     <div
                         class="bg-surface-white border border-border-subtle rounded-xl p-3 space-y-2 max-h-48 overflow-y-auto animate-fade-in"
@@ -1300,12 +1400,24 @@
                                             >
                                                 {mismatchAlert.message.replace(/\*\*/g, "")}
                                             </p>
+                                            {#if suggestedLoad}
+                                                <button
+                                                    type="button"
+                                                    class="mt-2 min-h-11 rounded-lg border border-gov-blue/30 bg-surface-white px-3 text-sm font-bold text-gov-blue"
+                                                    onclick={() => { teachingLoadId = suggestedLoad.id; targetConfirmed = false; markTargetChosen(); }}
+                                                >
+                                                    Use {suggestedLoad.subject} · {gradeLabel(suggestedLoad.grade_level)}
+                                                </button>
+                                            {/if}
                                         </div>
                                     </div>
                                 </div>
                             {/if}
 
                             {#if docType === "DLL"}
+                            {#if targetNotice && !detectingMetadata}
+                                <p class="rounded-lg border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm font-semibold text-gov-gold-dark" role="status" aria-live="polite">{targetNotice}</p>
+                            {/if}
                             {#if !detectingMetadata && detectedMetadata}
                                 <div class="rounded-lg border border-border-subtle bg-surface-muted p-3" role="status">
                                     <p class="text-xs font-bold text-text-secondary uppercase tracking-wide">Learning area detected from PDF or filename</p>
@@ -1343,21 +1455,21 @@
                                             <p
                                                 class="text-xs font-bold text-text-secondary mt-0.5"
                                             >
-                                                {teachingLoads.find(
+                                                {gradeLabel(teachingLoads.find(
                                                     (l) =>
                                                         l.id === teachingLoadId,
-                                                )?.grade_level || ""}
+                                                )?.grade_level)}
                                             </p>
                                         {:else}
                                             <p
                                                 class="text-base font-semibold text-gov-red"
                                             >
-                                                Tap to Select Load
+                                                {loadsPendingLabel || "Tap to Select Load"}
                                             </p>
                                             <p
                                                 class="text-xs font-medium text-gov-red/60 uppercase"
                                             >
-                                                Manual selection required
+                                                {loadsPendingLabel ? "Trying automatically" : "Manual selection required"}
                                             </p>
                                         {/if}
                                     </div>
@@ -1383,7 +1495,10 @@
                             {/if}
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {#if docType === "DLL" && teachingLoads.length === 0 && ($profile?.role === "Teacher" || $profile?.role === "Master Teacher")}
+                                {#if docType === "DLL" && optionsStatusMessage}
+                                    <p class="rounded-lg border border-gov-blue/20 bg-gov-blue/5 px-4 py-3 text-sm font-semibold text-gov-blue sm:col-span-2 lg:col-span-3" role="status" aria-live="polite">{optionsStatusMessage}</p>
+                                {/if}
+                                {#if docType === "DLL" && loadsConfirmedEmpty && ($profile?.role === "Teacher" || $profile?.role === "Master Teacher")}
                                     <div class="rounded-lg border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm text-gov-gold-dark" role="status">
                                         <p class="font-bold">Daily Lesson Plan uploads need a teaching load first.</p>
                                         <p class="mt-1 text-xs font-medium">{#if $profile?.role === "Teacher"}Open Teaching Load to add your subjects and schedule.{:else}You can still upload ISP — Instructional Supervisory Plan or ISR — Instructional Supervisory Report. Configure a teaching load before submitting a Daily Lesson Plan.{/if}</p>
@@ -1401,12 +1516,9 @@
                                         >Target Term</span
                                     >
                                     <button
-                                        onclick={() =>
-                                            (requiresTeachingLoadSelection($profile?.role || '', docType) ? teachingLoads.length > 0 : true) &&
-                                            (useManualTargets(), showTermPicker = true)
-                                        }
-                                        disabled={requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0}
-                                        class="w-full p-3 rounded-md bg-surface-muted border border-border-subtle transition-colors text-left flex items-center justify-between group {requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0
+                                        onclick={() => !periodLocked && (useManualTargets(), showTermPicker = true)}
+                                        disabled={periodLocked}
+                                        class="w-full p-3 rounded-md bg-surface-muted border border-border-subtle transition-colors text-left flex items-center justify-between group {periodLocked
                                             ? 'opacity-60 cursor-not-allowed'
                                             : 'hover:border-gov-blue/30'}"
                                     >
@@ -1420,12 +1532,12 @@
                                                 </p>
                                             {:else}
                                                 <p class="text-base font-semibold text-text-muted">
-                                                    Select Term
+                                                    {calendarPendingLabel || "Select Term"}
                                                 </p>
                                             {/if}
                                         </div>
                                         <div class="px-2 py-1 rounded bg-gov-blue/10 text-gov-blue text-xs font-semibold uppercase">
-                                            {teachingLoads.length === 0 ? 'Pending' : 'Edit'}
+                                            {periodLocked ? 'Wait' : 'Edit'}
                                         </div>
                                     </button>
                                 </div>
@@ -1437,17 +1549,14 @@
                                         >Target Week</span
                                     >
                                     <button
-                                        onclick={() =>
-                                            (requiresTeachingLoadSelection($profile?.role || '', docType) ? teachingLoads.length > 0 : true) &&
-                                            (useManualTargets(), showWeekPicker = true)
-                                        }
-                                        disabled={requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0}
-                                        class="w-full p-3 rounded-md bg-surface-muted border border-border-subtle transition-colors text-left flex items-center justify-between group {requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0
+                                        onclick={() => !periodLocked && (useManualTargets(), showWeekPicker = true)}
+                                        disabled={periodLocked}
+                                        class="w-full p-3 rounded-md bg-surface-muted border border-border-subtle transition-colors text-left flex items-center justify-between group {periodLocked
                                             ? 'opacity-60 cursor-not-allowed'
                                             : 'hover:border-gov-blue/30'}"
                                     >
                                         <div>
-                                            {#if requiresTeachingLoadSelection($profile?.role || '', docType) && teachingLoads.length === 0}
+                                            {#if requiresTeachingLoadSelection($profile?.role || '', docType) && loadsConfirmedEmpty}
                                                 <p
                                                     class="text-base font-semibold text-text-muted"
                                                 >
@@ -1473,7 +1582,7 @@
                                                 <p
                                                     class="text-base font-semibold text-text-muted"
                                                 >
-                                                    Select Week
+                                                    {calendarPendingLabel || "Select Week"}
                                                 </p>
                                                 {#if termNumber}
                                                     <p class="text-xs font-medium text-text-muted mt-0.5">
@@ -1485,9 +1594,7 @@
                                         <div
                                             class="px-2 py-1 rounded bg-gov-blue/10 text-gov-blue text-xs font-semibold uppercase"
                                         >
-                                            {teachingLoads.length === 0
-                                                ? 'Pending'
-                                                : 'Edit'}
+                                            {periodLocked ? 'Wait' : 'Edit'}
                                         </div>
                                     </button>
                                 </div>
@@ -1611,7 +1718,7 @@
                 <p class="text-sm text-text-secondary">OCR may have suggested these values. Review them carefully before the file is archived.</p>
                 <div class="rounded-xl border border-border-subtle bg-surface-muted p-4 space-y-2 text-sm">
                     {#if isWeeklyComplianceDocType(docType)}
-                        <p><strong>Teaching Load:</strong> {teachingLoads.find((load) => load.id === teachingLoadId)?.subject || "Not selected"} · Grade {teachingLoads.find((load) => load.id === teachingLoadId)?.grade_level || "—"}</p>
+                        <p><strong>Teaching Load:</strong> {teachingLoads.find((load) => load.id === teachingLoadId)?.subject || "Not selected"} · {gradeLabel(teachingLoads.find((load) => load.id === teachingLoadId)?.grade_level)}</p>
                     {/if}
                     <p><strong>Document Type:</strong> {docType}</p>
                     {#if isWeeklyComplianceDocType(docType)}
@@ -1660,7 +1767,7 @@
                 <div class="flex items-center gap-2">
                 <button onclick={() => void refreshTeachingLoads()} disabled={loadingTeachingLoads}
                     class="min-h-11 rounded-lg px-3 text-sm font-semibold text-gov-blue hover:bg-surface-muted disabled:opacity-50">
-                    Refresh loads
+                    {loadingTeachingLoads ? "Updating…" : "Refresh loads"}
                 </button>
                 <button
                     onclick={() => (showLoadPicker = false)}
@@ -1683,7 +1790,7 @@
                 </div>
             </div>
             <div class="max-h-[60vh] overflow-y-auto p-4 space-y-2">
-                {#if loadingTeachingLoads}
+                {#if loadingTeachingLoads && !teachingLoads.length}
                     <div class="gov-card-static p-4" role="status" aria-live="polite">
                         <p class="text-sm font-semibold text-text-secondary mb-2">Loading teaching loads...</p>
                         <div class="h-2 w-full overflow-hidden rounded-full bg-surface-muted" role="progressbar" aria-label="Loading teaching loads">
@@ -1697,6 +1804,7 @@
                                 teachingLoadId = load.id;
                                 targetConfirmed = false;
                                 showLoadPicker = false;
+                                markTargetChosen();
                             }}
                             role="option"
                             aria-selected={teachingLoadId === load.id}
@@ -1706,10 +1814,8 @@
                         >
                             <div>
                                 <p class="font-bold text-lg">{load.subject}</p>
-                                <p
-                                    class="text-xs font-medium text-text-muted uppercase tracking-wider"
-                                >
-                                    {load.grade_level}
+                                <p class="text-sm font-semibold text-text-secondary">
+                                    {gradeLabel(load.grade_level)}
                                 </p>
                             </div>
                             {#if teachingLoadId === load.id}
@@ -1729,12 +1835,13 @@
                         </button>
                     {:else}
                         <div class="py-12 text-center">
-                            <p class="text-text-muted text-sm italic">
-                                No teaching loads found.
-                            </p>
-                            <p class="text-xs text-text-muted mt-2">
-                                Check your profile or connection.
-                            </p>
+                            {#if loadsConfirmedEmpty}
+                                <p class="text-sm font-semibold text-text-primary">You have no active teaching loads.</p>
+                                <a class="mt-2 inline-block text-sm font-bold text-gov-blue underline" href="/dashboard/load">Open Teaching Load</a>
+                            {:else}
+                                <p class="text-sm font-semibold text-text-primary">Your teaching loads have not loaded yet.</p>
+                                <p class="text-sm text-text-muted mt-2">The connection is slow. The system keeps trying by itself.</p>
+                            {/if}
                         </div>
                     {/each}
                 {/if}
@@ -1808,6 +1915,7 @@
                             termNumber = calendarEntries.find((w) => w.week_number === wk && (!termNumber || w.term === termNumber))?.term || termNumber;
                             targetConfirmed = !!teachingLoadId && !!termNumber && !!wk;
                             showWeekPicker = false;
+                            markTargetChosen();
                         }}
                         role="option"
                         aria-selected={weekNumber === wk}
@@ -1866,6 +1974,7 @@
                         onclick={() => {
                             termNumber = term.value;
                             targetConfirmed = false;
+                            markTargetChosen();
                             if (weekNumber && !calendarEntries.some((w) => w.week_number === weekNumber && w.term === term.value)) {
                                 weekNumber = undefined;
                             }

@@ -1,0 +1,1490 @@
+[
+  {
+    "text": "Prepare a report for this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Prepare a report for my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Write a narrative report about my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for this week in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for this term in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for week 7 term 2 in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for Mathematics this week in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for Filipino for Grade 2 in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for Science in Bulusan Elementary School in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for all schools in my district in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for Salong Elementary School this term in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for Calapan East District in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for last week in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for this school year in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for GMRC week 5 in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for HGP this term in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Summarize compliance for my own submissions in complete sentences.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a bullet report for my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export an Excel report for my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a Word document report for my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make an xlsx compliance report for my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the this week report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the this term report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the week 7 term 2 report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the Mathematics this week report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the Filipino for Grade 2 report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the Science in Bulusan Elementary School report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the all schools in my district report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the Salong Elementary School this term report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the Calapan East District report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the last week report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the this school year report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the GMRC week 5 report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the HGP this term report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Put the my own submissions report in a docx file.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gumawa ng ulat para sa my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang this week sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang this term sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang week 7 term 2 sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang Mathematics this week sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang Filipino for Grade 2 sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang Science in Bulusan Elementary School sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang all schools in my district sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang Salong Elementary School this term sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang Calapan East District sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang last week sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang this school year sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang GMRC week 5 sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang HGP this term sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Paki report ang my own submissions sa pangungusap.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawan ng Excel report ang my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gusto ko ng Word na ulat para sa my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for this week?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for this term?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for week 7 term 2?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for Mathematics this week?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for Filipino for Grade 2?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for Science in Bulusan Elementary School?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for all schools in my district?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for Salong Elementary School this term?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for Calapan East District?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for last week?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for this school year?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for GMRC week 5?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for HGP this term?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can I have a detailed submission report for my own submissions?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for this week with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for this term with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for week 7 term 2 with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for Mathematics this week with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for Filipino for Grade 2 with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for Science in Bulusan Elementary School with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for all schools in my district with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for Salong Elementary School this term with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for Calapan East District with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for last week with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for this school year with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for GMRC week 5 with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for HGP this term with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Generate a report for my own submissions with on-time, late, missing, and leave totals.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Please create both Word and Excel reports for my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for this week here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for this term here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for week 7 term 2 here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for Mathematics this week here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for Filipino for Grade 2 here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for Science in Bulusan Elementary School here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for all schools in my district here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for Salong Elementary School this term here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for Calapan East District here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for last week here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for this school year here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for GMRC week 5 here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for HGP this term here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Show a report for my own submissions here in chat.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for week 7 term 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for Mathematics this week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for Filipino for Grade 2.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for Science in Bulusan Elementary School.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for all schools in my district.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for Salong Elementary School this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for Calapan East District.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for last week.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for this school year.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for GMRC week 5.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for HGP this term.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Create a sentneces reprot for my own submissions.",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for this week?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for this term?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for week 7 term 2?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for Mathematics this week?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for Filipino for Grade 2?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for Science in Bulusan Elementary School?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for all schools in my district?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for Salong Elementary School this term?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for Calapan East District?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for last week?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for this school year?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for GMRC week 5?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for HGP this term?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Can you make a compliance summary for my own submissions?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Same report but in Word",
+    "intent": "create_report"
+  },
+  {
+    "text": "Export that to Excel",
+    "intent": "create_report"
+  },
+  {
+    "text": "Make it bullets instead",
+    "intent": "create_report"
+  },
+  {
+    "text": "Now for week 6",
+    "intent": "create_report"
+  },
+  {
+    "text": "What about term 3?",
+    "intent": "create_report"
+  },
+  {
+    "text": "Gawin mong Word file",
+    "intent": "create_report"
+  },
+  {
+    "text": "Sa Excel naman",
+    "intent": "create_report"
+  },
+  {
+    "text": "For another subject: English",
+    "intent": "create_report"
+  },
+  {
+    "text": "For the whole district instead",
+    "intent": "create_report"
+  },
+  {
+    "text": "Give me a report ngayong linggo",
+    "intent": "create_report"
+  },
+  {
+    "text": "Ulat para sa kasalukuyang termino",
+    "intent": "create_report"
+  },
+  {
+    "text": "Report para sa paaralan namin",
+    "intent": "create_report"
+  },
+  {
+    "text": "week 7 total uploaded documents",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "week 6 term 2 total uploaded documents",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this week total uploaded documents",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this term total uploaded documents",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Mathematics week 7 total uploaded documents",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Filipino in my school total uploaded documents",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "my district this week total uploaded documents",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Bulusan Elementary School week 7 total uploaded documents",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this school year total uploaded documents",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many files were uploaded for week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many files were uploaded for week 6 term 2?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many files were uploaded for this week?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many files were uploaded for this term?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many files were uploaded for Mathematics week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many files were uploaded for Filipino in my school?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many files were uploaded for my district this week?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many files were uploaded for Bulusan Elementary School week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many files were uploaded for this school year?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count all uploads for week 7, including supplementary files.",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count all uploads for week 6 term 2, including supplementary files.",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count all uploads for this week, including supplementary files.",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count all uploads for this term, including supplementary files.",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count all uploads for Mathematics week 7, including supplementary files.",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count all uploads for Filipino in my school, including supplementary files.",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count all uploads for my district this week, including supplementary files.",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count all uploads for Bulusan Elementary School week 7, including supplementary files.",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count all uploads for this school year, including supplementary files.",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Ilan ang na-upload na dokumento sa week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Ilan ang na-upload na dokumento sa week 6 term 2?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Ilan ang na-upload na dokumento sa this week?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Ilan ang na-upload na dokumento sa this term?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Ilan ang na-upload na dokumento sa Mathematics week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Ilan ang na-upload na dokumento sa Filipino in my school?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Ilan ang na-upload na dokumento sa my district this week?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Ilan ang na-upload na dokumento sa Bulusan Elementary School week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Ilan ang na-upload na dokumento sa this school year?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Total compliant uploaded files for week 7",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Total compliant uploaded files for week 6 term 2",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Total compliant uploaded files for this week",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Total compliant uploaded files for this term",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Total compliant uploaded files for Mathematics week 7",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Total compliant uploaded files for Filipino in my school",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Total compliant uploaded files for my district this week",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Total compliant uploaded files for Bulusan Elementary School week 7",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Total compliant uploaded files for this school year",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many late uploads for week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many late uploads for week 6 term 2?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many late uploads for this week?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many late uploads for this term?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many late uploads for Mathematics week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many late uploads for Filipino in my school?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many late uploads for my district this week?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many late uploads for Bulusan Elementary School week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many late uploads for this school year?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count supplementary uploads for week 7",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count supplementary uploads for week 6 term 2",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count supplementary uploads for this week",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count supplementary uploads for this term",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count supplementary uploads for Mathematics week 7",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count supplementary uploads for Filipino in my school",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count supplementary uploads for my district this week",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count supplementary uploads for Bulusan Elementary School week 7",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Count supplementary uploads for this school year",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "week 7 missing or overdue requirements count",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "week 6 term 2 missing or overdue requirements count",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this week missing or overdue requirements count",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this term missing or overdue requirements count",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Mathematics week 7 missing or overdue requirements count",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Filipino in my school missing or overdue requirements count",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "my district this week missing or overdue requirements count",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Bulusan Elementary School week 7 missing or overdue requirements count",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this school year missing or overdue requirements count",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "week 7 total uploads by status",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "week 6 term 2 total uploads by status",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this week total uploads by status",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this term total uploads by status",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Mathematics week 7 total uploads by status",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Filipino in my school total uploads by status",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "my district this week total uploads by status",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Bulusan Elementary School week 7 total uploads by status",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this school year total uploads by status",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many teachers uploaded documents for week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many teachers uploaded documents for week 6 term 2?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many teachers uploaded documents for this week?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many teachers uploaded documents for this term?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many teachers uploaded documents for Mathematics week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many teachers uploaded documents for Filipino in my school?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many teachers uploaded documents for my district this week?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many teachers uploaded documents for Bulusan Elementary School week 7?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "How many teachers uploaded documents for this school year?",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Show the upload count per school for week 7",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Show the upload count per school for week 6 term 2",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Show the upload count per school for this week",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Show the upload count per school for this term",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Show the upload count per school for Mathematics week 7",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Show the upload count per school for Filipino in my school",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Show the upload count per school for my district this week",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Show the upload count per school for Bulusan Elementary School week 7",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Show the upload count per school for this school year",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "week 7 document count, not upload instructions",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "week 6 term 2 document count, not upload instructions",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this week document count, not upload instructions",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this term document count, not upload instructions",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Mathematics week 7 document count, not upload instructions",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Filipino in my school document count, not upload instructions",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "my district this week document count, not upload instructions",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "Bulusan Elementary School week 7 document count, not upload instructions",
+    "intent": "ask_compliance"
+  },
+  {
+    "text": "this school year document count, not upload instructions",
+    "intent": "ask_compliance"
+  }
+]

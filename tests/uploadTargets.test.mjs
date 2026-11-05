@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = readFileSync(new URL('../src/lib/utils/uploadTargets.ts', import.meta.url), 'utf8');
 const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { requestUploadTargets, openUploadTargets, chooseUploadPeriod, parseTrackerUploadTarget } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { requestUploadTargets, requestUploadTargetsReliably, openUploadTargets, chooseUploadPeriod, parseTrackerUploadTarget } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const year = '2026-2027';
 const entries = [1, 2, 3].map(term => ({ id: `term-${term}`, term, week_number: 6, school_year: year, is_active: true, deadline_date: `2026-${String(term + 7).padStart(2, '0')}-19T02:00:00Z` }));
 
@@ -49,6 +49,34 @@ test('failed connection rejects without changing saved targets', async () => {
     const saved = structuredClone(entries);
     await assert.rejects(requestUploadTargets(async () => { throw new Error('offline'); }), /offline/);
     assert.deepEqual(saved, entries);
+});
+
+test('a slow connection gets further attempts before an upload option counts as failed', async () => {
+    let calls = 0;
+    const answer = await requestUploadTargetsReliably(async () => {
+        calls += 1;
+        if (calls === 1) return { data: null, error: { message: 'Failed to fetch' } };
+        if (calls === 2) return new Promise(() => {});
+        return { data: entries, error: null };
+    }, { timeouts: [10, 10, 10], retryDelayMs: 1 });
+    assert.equal(calls, 3);
+    assert.deepEqual(answer.data, entries);
+});
+
+test('an empty list is a real answer and is not retried', async () => {
+    let calls = 0;
+    const answer = await requestUploadTargetsReliably(async () => { calls += 1; return { data: [], error: null }; }, { timeouts: [10, 10], retryDelayMs: 1 });
+    assert.equal(calls, 1);
+    assert.deepEqual(answer.data, []);
+});
+
+test('a request that keeps failing rejects, and stops early once it is no longer wanted', async () => {
+    let calls = 0;
+    await assert.rejects(requestUploadTargetsReliably(async () => { calls += 1; return { data: null, error: new Error('down') }; }, { timeouts: [10, 10, 10], retryDelayMs: 1 }), /down/);
+    assert.equal(calls, 3);
+    calls = 0;
+    await assert.rejects(requestUploadTargetsReliably(async () => { calls += 1; return { data: null, error: new Error('down') }; }, { timeouts: [10, 10, 10], retryDelayMs: 1, keepTrying: () => false }), /down/);
+    assert.equal(calls, 1);
 });
 
 test('online but stalled connection times out and aborts, preserving saved choices', async () => {

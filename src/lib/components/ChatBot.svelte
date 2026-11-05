@@ -34,21 +34,25 @@
     // Gabay answers in English or Tagalog (see detectLanguage in
     // utils/chatbot.ts), which a user has no way to discover unless the
     // opening message says so.
-    const greeting =
-        "Hello. I’m Gabay, your CEDIMS guide. Ask about uploads, teaching loads, deadlines, remarks, archives, or password resets in English or Tagalog. Sign in to ask about your records.";
+    function getGreeting() {
+        return currentProfile
+            ? 'Hello. I’m Gabay. I can check your permitted CEDIMS records, count uploads, explain missing or overdue requirements, and prepare reports. Try “Week 7 total uploaded documents” or “Show this week’s uploads by status.” You can ask in English or Tagalog.'
+            : 'Hello. I’m Gabay, your CEDIMS guide. I can explain how the system works. Sign in to ask about your records, uploaded-document counts, or reports in chat, Excel, or Word.';
+    }
 
     const suggestions = [
-        "What is my compliance rate?",
+        "How many documents were uploaded this week?",
         "When is the next deadline?",
         "How do I upload a Daily Lesson Plan?",
         "Find Daily Lesson Plans about fractions",
         "Compare schools in the district",
-        "Generate a compliance report",
+        "Write a report for this week in sentences",
         "Kailan ang susunod na deadline?"
     ];
 
     const roleSuggestions: Record<string, string[]> = {
         Teacher: [
+            "Write my report for this week in sentences",
             "What is my compliance rate?",
             "What Daily Lesson Plan submissions are missing?",
             "When is my next submission deadline?",
@@ -57,7 +61,7 @@
         ],
         "Master Teacher": [
             "How does the Master Teacher tracker work?",
-            "How do I write a remark?",
+            "Create an Excel report for this term",
             "What is my compliance rate?",
             "How do I upload a Daily Lesson Plan?",
         ],
@@ -74,6 +78,8 @@
             "Generate a compliance report",
         ],
         "District Supervisor": [
+            "Show total uploads this week by status",
+            "Create a Word report for my district this term",
             "Compare schools in my district",
             "Show district compliance statistics",
             "Which schools have the lowest compliance?",
@@ -87,12 +93,15 @@
     }
 
     onMount(() => {
-        messages.push({ role: 'bot', text: greeting, intent: 'general_help' });
+        messages.push({ role: 'bot', text: getGreeting(), intent: 'general_help' });
         const unsubUser = user.subscribe((u) => {
             if (currentUser?.id !== u?.id) resetChat();
             currentUser = u as { id: string } | null;
         });
-        const unsubProfile = profile.subscribe((p) => currentProfile = p as any);
+        const unsubProfile = profile.subscribe((p) => {
+            currentProfile = p as any;
+            if(messages.length <= 1) messages = [{role:'bot',text:getGreeting(),intent:'general_help'}];
+        });
         return () => { unsubUser(); unsubProfile(); };
     });
 
@@ -104,7 +113,7 @@
     $effect(() => {
         if (isOpen) {
 
-            tick().then(() => inputEl?.focus());
+            tick().then(() => inputEl?.focus({preventScroll:true}));
         }
     });
 
@@ -151,7 +160,7 @@
 
     function resetChat() {
         conversationVersion++;
-        messages = [{ role: 'bot', text: greeting, intent: 'general_help' }];
+        messages = [{ role: 'bot', text: getGreeting(), intent: 'general_help' }];
         lastIntent = undefined;
         lastSlots = {};
         lastLang = undefined;
@@ -405,7 +414,8 @@
 <style>
 .chat-launcher { display:flex; align-items:center; justify-content:center; width:48px; height:48px; padding:0; border:1px solid var(--color-border-subtle,#cbd5e1); border-radius:50%; background:var(--color-surface-white,#fff); color:var(--color-text-primary,#172033); box-shadow:0 2px 10px #0002; cursor:pointer; }
 .chat-launcher:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
-.chat-panel { position:absolute; right:60px; bottom:0; width:min(400px,calc(100vw - 92px)); min-width:0; height:min(520px,65dvh); text-align:left; box-shadow:0 4px 24px #0003; }
+.chat-panel { position:absolute; right:60px; bottom:0; width:min(400px,calc(100vw - 92px)); min-width:0; min-height:0; height:min(520px,65dvh); overflow:clip; text-align:left; box-shadow:0 4px 24px #0003; }
+.chat-panel [role='log'] { min-height:0; overscroll-behavior:contain; }
 .chat-panel :global(button) { min-height:44px; min-width:44px; }
 .chat-panel :global(input) { min-height:44px; min-width:0; }
 </style>

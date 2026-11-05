@@ -2,7 +2,8 @@
     import { onDestroy } from 'svelte';
     import { profile } from '$lib/utils/auth';
     import { supabase } from '$lib/utils/supabase';
-    import { buildRequirements, scopedCalendar, summarizeRequirements, fetchRowsForIds, submissionTerm } from '$lib/utils/compliance';
+    import { buildRequirements, isTeacherWideLeave, leaveCoversDeadline, scopedCalendar, summarizeLeaveCoverage, summarizeRequirements, fetchRowsForIds, submissionTerm } from '$lib/utils/compliance';
+    import { formatLeaveRange } from '$lib/utils/leaveDates';
     import { effectiveDeadlineForSubject } from '$lib/utils/deadlineRules';
     import { type ReviewEntry } from '$lib/utils/trackerView';
     import TeacherChecklist from './TeacherChecklist.svelte';
@@ -26,6 +27,29 @@
         return /^(?:k|kinder|kindergarten)$/i.test(grade) ? 'Kinder' : grade;
     }
     $: ownRole = $profile?.role || '';
+    $: canReviewLeave = ownRole === 'School Head' || ownRole === 'Master Teacher';
+    function leaveInView(r: any, ownId: string | undefined, ids: Set<string>, shownLoads: any[], slots: any[], t: string, w: string, g: string, s: string) {
+        if (r.status !== 'pending' || r.user_id === ownId || !ids.has(r.user_id)) return false;
+        if (!isTeacherWideLeave(r)) return (t === 'all' || r.term_number === Number(t)) && (w === 'all' || r.week_number === Number(w))
+            && ((g === 'all' && s === 'all') || shownLoads.some(l => l.id === r.teaching_load_id));
+        const ownLoads = shownLoads.filter(l => l.user_id === r.user_id);
+        if ((g !== 'all' || s !== 'all') && !ownLoads.length) return false;
+        if (t === 'all' && w === 'all') return true;
+        return ownLoads.some(l => slots.some(c => (t === 'all' || c.term === Number(t)) && (w === 'all' || c.week_number === Number(w)) && leaveCoversDeadline(r, c.deadline_date, l.subject, l.school_name)));
+    }
+    function teacherName(id: string) { return teachers.find(t => t.id === id)?.full_name || 'Teacher'; }
+    function leaveDates(r: any) {
+        if (isTeacherWideLeave(r)) return formatLeaveRange(r.start_date, r.end_date);
+        const load = loads.find(l => l.id === r.teaching_load_id);
+        return `${load ? `${load.subject} · ${load.grade_level}` : 'Teaching load'} · Term ${r.term_number}, Week ${r.week_number}`;
+    }
+    function leaveEffect(r: any) {
+        if (!isTeacherWideLeave(r)) return 'If approved, this one requirement is excluded from expected submissions.';
+        const coverage = summarizeLeaveCoverage(r, loads.filter(l => l.user_id === r.user_id), periods);
+        return coverage.count
+            ? `If approved, ${coverage.count} required upload${coverage.count === 1 ? '' : 's'} will be excluded (${coverage.periods.join('; ')}): ${coverage.subjects.join(', ')}. Supplementary uploads are not affected.`
+            : 'No required upload is due on these days, so approval does not change compliance.';
+    }
     $: reviewKey = submissions.map(s => s.id).sort().join(',');
     $: if (reviewKey) void loadReviews(reviewKey);
     async function loadReviews(key: string) {
@@ -58,7 +82,7 @@
     $: selectedTeacher = teachers.find(t=>t.id===selected);
     $: selectedDocs = filteredDocs.filter(s=>s.user_id===selected);
     $: pendingCount = filteredDocs.filter(s=>s.user_id!==$profile?.id&&!reviews.some(r=>r.submission_id===s.id)).length;
-    $: pendingLeaves = leaveRequests.filter(r=>r.status==='pending'&&visibleIds.has(r.user_id)&&(term==='all'||r.term_number===Number(term))&&(week==='all'||r.week_number===Number(week))&&(grade==='all'&&subject==='all'||visibleLoads.some(l=>l.id===r.teaching_load_id)));
+    $: pendingLeaves = leaveRequests.filter(r => leaveInView(r, $profile?.id, visibleIds, visibleLoads, periods, term, week, grade, subject));
     $: actionQueue = [
         ...requirements.filter(r => r.status === 'missing' && (!selected || r.teacherId === selected) && (status === 'all' || status === 'overdue')).map(r => ({ key: `missing-${r.teacherId}-${r.load.id}-${r.calendar.id}`, kind: 'missing', teacherId: r.teacherId, teacher: teachers.find(t => t.id === r.teacherId)?.full_name || 'Teacher', detail: `${r.load.subject} · ${r.load.grade_level} · Term ${r.calendar.term}, Week ${r.calendar.week_number}`, doc: null as any, deadline: effectiveDeadlineForSubject(r.calendar.deadline_date, r.load.subject, r.load.school_name).getTime() })),
         ...filteredDocs.filter(doc => !reviewsLoading && doc.user_id !== $profile?.id && (!selected || doc.user_id === selected) && (status === 'all' || status === 'review') && !reviews.some(r => r.submission_id === doc.id)).map(doc => ({ key: `review-${doc.id}`, kind: 'review', teacherId: doc.user_id, teacher: teachers.find(t => t.id === doc.user_id)?.full_name || 'Teacher', detail: `${loads.find(load => load.id === doc.teaching_load_id)?.subject || doc.subject || 'Document'} · Term ${submissionTerm(doc) || '—'}, Week ${doc.week_number || '—'}`, doc, deadline: Number.MAX_SAFE_INTEGER })),
@@ -73,10 +97,11 @@
         if(!leaveTarget || savingLeave || !$profile) return;
         if(leaveDecision==='rejected'&&!leaveComment.trim()) {leaveError='Explain why this request is declined.';return;}
         savingLeave=leaveTarget.id;leaveError='';
-        const {error}=await supabase.from('submission_leave_requests').update({status:leaveDecision,reviewer_id:$profile.id,reviewed_at:new Date().toISOString(),reviewer_comment:leaveComment.trim()||null}).eq('id',leaveTarget.id).eq('status','pending');
+        const {data,error}=await supabase.from('submission_leave_requests').update({status:leaveDecision,reviewer_id:$profile.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString(),reviewer_comment:leaveComment.trim()||null}).eq('id',leaveTarget.id).eq('status','pending').select('id');
         savingLeave='';
-        if(error) {leaveError='Could not save this decision. Please try again.';return;}
-        leaveRequests=leaveRequests.map(r=>r.id===leaveTarget.id?{...r,status:leaveDecision}:r);leaveTarget=null;onChanged?.();
+        if(error) {leaveError='Could not save this decision. Check your connection and try again.';return;}
+        if(!data?.length) {leaveError='This request was already decided or withdrawn.';onChanged?.();return;}
+        leaveRequests=leaveRequests.map(r=>r.id===leaveTarget.id?{...r,status:leaveDecision,reviewer_comment:leaveComment.trim()||null}:r);leaveTarget=null;onChanged?.();
     }
 </script>
 
@@ -95,7 +120,7 @@
     <p class="context">{scopeLabel} · {selected ? 1 : visibleTeachers.length} teacher{selected || visibleTeachers.length === 1 ? '' : 's'} · Totals include all statuses · {summary.onLeave} approved leave excluded</p>
     <section class="action-queue" aria-labelledby="school-actions-title"><div class="queue-heading"><div><h3 id="school-actions-title">Needs follow-up</h3><p class="context">Missing work and documents awaiting remarks</p></div><span>{actionQueue.length} shown</span></div>{#each actionQueue as item}<div class="queue-row"><div><strong>{item.teacher}</strong><small>{item.detail}</small></div><span class:overdue={item.kind === 'missing'}>{item.kind === 'missing' ? 'Missing DLL' : 'For checking'}</span><button class="primary" on:click={() => item.doc ? openReview(item.doc) : selected = item.teacherId}>{item.kind === 'missing' ? 'View teacher' : 'Review document'}</button></div>{:else}<p class="empty">{reviewsLoading ? 'Checking document review status…' : 'No missing DLLs or documents awaiting remarks in this view.'}</p>{/each}</section>
     <dl class="summary"><div><dt>Expected</dt><dd>{summary.expected}</dd></div><div><dt>Submitted</dt><dd>{summary.submitted}</dd></div><div><dt>Remaining</dt><dd>{Math.max(0,summary.expected-summary.submitted)}</dd></div><div><dt>Overdue</dt><dd class="overdue">{summary.missing}</dd></div></dl>
-    <div class="attention"><button on:click={()=>{status='review';selected='';page=1;}} disabled={reviewsLoading}>Documents to check <strong>{reviewsLoading?'…':pendingCount}</strong></button>{#if ownRole==='School Head'}<a href="#tracker-leave">Pending leave requests <strong>{pendingLeaves.length}</strong></a>{/if}</div>
+    <div class="attention"><button on:click={()=>{status='review';selected='';page=1;}} disabled={reviewsLoading}>Documents to check <strong>{reviewsLoading?'…':pendingCount}</strong></button>{#if canReviewLeave}<a href="#tracker-leave">Pending leave requests <strong>{pendingLeaves.length}</strong></a>{/if}</div>
     {#if reviewError}<p role="alert">{reviewError} <button on:click={()=>loadReviews(reviewKey)}>Retry</button></p>{/if}
     {#if selectedTeacher}
         <div class="detail-heading"><button on:click={()=>selected=''}>← All teachers</button><h3>{selectedTeacher.full_name || selectedTeacher.name}</h3></div>
@@ -104,10 +129,10 @@
         <div class="roster"><table><thead><tr><th>Teacher</th><th>Expected</th><th>Submitted</th><th>Remaining</th><th>Overdue</th><th>For checking</th><th>Action</th></tr></thead><tbody>{#each rows.slice((page-1)*8,page*8) as teacher (teacher.id)}<tr><th scope="row">{teacher.full_name||teacher.name}{#if teacher.id===$profile?.id}<small>My submissions</small>{/if}</th><td data-label="Expected">{teacher.expected}</td><td data-label="Submitted">{teacher.submitted}</td><td data-label="Remaining">{Math.max(0,teacher.expected-teacher.submitted)}</td><td data-label="Overdue" class:overdue={teacher.missing>0}>{teacher.missing}</td><td data-label="For checking">{teacher.id===$profile?.id?'—':teacher.pending}</td><td><button class="primary" on:click={()=>selected=teacher.id}>View details →</button></td></tr>{:else}<tr><td colspan="7" class="empty">No teachers match these filters. <button on:click={reset}>Reset filters</button></td></tr>{/each}</tbody></table></div>
         <PaginationBar bind:page {pages} total={rows.length} pageSize={8} itemLabel="teachers" />
     {/if}
-    {#if ownRole==='School Head'}<section id="tracker-leave" class="leave-section"><h3>Pending leave requests</h3><p class="context">A request is excluded from expected submissions only after approval.</p>{#each pendingLeaves as request (request.id)}<div class="document-row"><div><strong>{teachers.find(t=>t.id===request.user_id)?.full_name || 'Teacher'}</strong><p>{loads.find(l=>l.id===request.teaching_load_id)?.subject} · Term {request.term_number} · Week {request.week_number}</p><p>{request.leave_type} · {request.reason}</p></div><button on:click={()=>{leaveTarget=request;leaveComment='';leaveDecision='approved';leaveError='';}}>Review request</button></div>{:else}<p class="empty">No pending leave requests for these filters.</p>{/each}</section>{/if}
+    {#if canReviewLeave}<section id="tracker-leave" class="leave-section"><h3>Pending leave requests</h3><p class="context">A request is excluded from expected submissions only after approval. Your own requests go to another reviewer.</p>{#each pendingLeaves as request (request.id)}<div class="document-row"><div><strong>{teacherName(request.user_id)}</strong><p class="leave-dates">{leaveDates(request)}</p><p>{request.leave_type} · {request.reason}</p></div><button on:click={()=>{leaveTarget=request;leaveComment='';leaveDecision='approved';leaveError='';}}>Review request</button></div>{:else}<p class="empty">No pending leave requests for these filters.</p>{/each}</section>{/if}
 </section>
 {#if reviewTarget}<DocumentReviewPanel document={reviewTarget} onClose={()=>reviewTarget=null} onSaved={savedReview} />{/if}
-{#if leaveTarget}<div class="leave-backdrop"><div class="leave-dialog" role="dialog" aria-modal="true" aria-label="Review leave request" tabindex="-1" use:focusTrap><form on:submit|preventDefault={saveLeave}><h3>Review leave request</h3><p>{leaveTarget.reason}</p><label>Decision<CedimsSelect bind:value={leaveDecision} ariaLabel="Decision" options={[{value:'approved',label:'Approve exclusion'},{value:'rejected',label:'Decline request'}]} /></label><label>Remarks {leaveDecision==='rejected'?'(required)':'(optional)'}<textarea rows="3" bind:value={leaveComment}></textarea></label>{#if leaveError}<p role="alert" class="overdue">{leaveError}</p>{/if}<div class="dialog-actions"><button type="button" disabled={!!savingLeave} on:click={()=>leaveTarget=null}>Cancel</button><button class="primary" disabled={!!savingLeave}>{savingLeave?'Saving…':'Save decision'}</button></div></form></div></div>{/if}
+{#if leaveTarget}<div class="leave-backdrop"><div class="leave-dialog" role="dialog" aria-modal="true" aria-label="Review leave request" tabindex="-1" use:focusTrap><form on:submit|preventDefault={saveLeave}><h3>Review leave request</h3><div class="leave-facts"><p><strong>{teacherName(leaveTarget.user_id)}</strong></p><p class="leave-dates">{leaveDates(leaveTarget)}</p><p><strong>{leaveTarget.leave_type}:</strong> {leaveTarget.reason}</p><p class="context">{leaveEffect(leaveTarget)}</p></div><label>Decision<CedimsSelect bind:value={leaveDecision} ariaLabel="Decision" options={[{value:'approved',label:'Approve leave'},{value:'rejected',label:'Decline request'}]} /></label><label>Remarks {leaveDecision==='rejected'?'(required)':'(optional)'}<textarea rows="3" bind:value={leaveComment}></textarea></label>{#if leaveError}<p role="alert" class="overdue">{leaveError}</p>{/if}<div class="dialog-actions"><button type="button" disabled={!!savingLeave} on:click={()=>leaveTarget=null}>Cancel</button><button class="primary" disabled={!!savingLeave}>{savingLeave?'Saving…':'Save decision'}</button></div></form></div></div>{/if}
 
 <style>
     .school-tracker { padding:22px; background:var(--color-surface-white); color:var(--color-text-primary); border:1px solid var(--color-border-subtle); border-radius:14px; }
@@ -120,6 +145,7 @@
     button { min-height:48px; padding:9px 14px; border:1px solid var(--color-border-subtle); border-radius:8px; font-size:13px; font-weight:700; background:var(--color-surface-white); } button:disabled { opacity:.5; } .primary { background:var(--color-gov-blue); border-color:transparent; color:white; white-space:nowrap; } .attention { display:flex; flex-wrap:wrap; gap:12px; margin:18px 0; } .attention button,.attention a { display:flex; gap:12px; align-items:center; border:1px solid var(--color-border-subtle); border-radius:8px; padding:10px 16px; font-size:13px; color:var(--color-gov-blue); } .attention strong { background:var(--color-surface-muted); padding:2px 10px; border-radius:20px; }
     .roster { overflow:auto; } table { width:100%; border-collapse:collapse; text-align:left; font-size:13px; } th,td { padding:14px 10px; border-bottom:1px solid var(--color-border-subtle); } thead { background:var(--color-surface-muted); font-size:12px; } small { display:block; font-size:12px; color:var(--color-text-muted); font-weight:400; } .empty { text-align:center; padding:24px; font-size:13px; color:var(--color-text-muted); }
     .detail-heading { display:flex; gap:16px; align-items:center; margin:18px 0; } .document-row { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:16px 0; border-bottom:1px solid var(--color-border-subtle); font-size:14px; } .document-row p { color:var(--color-text-muted); font-size:12px; margin:5px 0; } .leave-section { margin-top:24px; padding-top:20px; border-top:1px solid var(--color-border-subtle); scroll-margin-top:100px; }
+    .leave-facts { display:grid; gap:6px; padding:12px; border:1px solid var(--color-border-subtle); border-radius:8px; background:var(--color-surface-muted); font-size:14px; overflow-wrap:anywhere; } .document-row p.leave-dates,.leave-dates { color:var(--color-text-primary); font-size:14px; font-weight:750; }
     .leave-backdrop { position:fixed; inset:0; background:#0f172a88; display:grid; place-items:center; z-index:80; padding:20px; } .leave-dialog { display:grid; gap:16px; padding:24px; width:min(500px,100%); border-radius:12px; background:var(--color-surface-white); } .leave-dialog form { display:contents; } .dialog-actions { display:flex; justify-content:end; gap:10px; }
     @media(max-width:700px) { .school-tracker { padding:14px; } .summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .summary div { padding:12px; } table,tbody { display:block; } thead { display:none; } tr { display:flex; flex-direction:column; border:1px solid var(--color-border-subtle); border-radius:10px; padding:12px; margin-bottom:12px; } td,th { border:0; padding:5px 0; } td[data-label] { display:flex; justify-content:space-between; } td[data-label]::before { content:attr(data-label); color:var(--color-text-muted); } th { font-size:16px; margin-bottom:6px; } td:last-child button { width:100%; margin-top:8px; } .document-row { flex-wrap:wrap; } .filters { padding:12px; } .queue-row { display:grid; grid-template-columns:1fr auto; }.queue-row > div { grid-column:1/-1; }.queue-row button { width:auto; }.queue-heading { align-items:flex-start; } }
 </style>

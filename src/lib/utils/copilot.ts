@@ -1,5 +1,5 @@
 import { extractTeachingLoadFields } from './teachingLoadFields';
-import { resolveTeachingLoadMatch, inferUploadSubject, canonicalSubject, loadGrade, acceptsUploadSubject, type UploadMetadata } from './teachingLoadMatching';
+import { resolveTeachingLoadMatch, inferUploadSubject, loadGrade, acceptsUploadSubject, gradeFromFileName, gradeLabel, validAssignedLoad, type UploadMetadata } from './teachingLoadMatching';
 /**
  * Smart Copilot — Contextual Upload Assistant
  * 
@@ -331,33 +331,36 @@ function detectMismatches(ctx: CopilotContext, startId: number): CopilotSuggesti
 export function validateSelection(selectedLoadId: string, ocrText: string, teachingLoads: any[], metadata: UploadMetadata = {}, fileName = ""): CopilotSuggestion | null {
     const selectedLoad = teachingLoads.find(l => l.id === selectedLoadId);
     if (!selectedLoad) return null;
-    const detectedSubject = inferUploadSubject({ ...metadata, rawText: metadata.rawText || ocrText }, fileName);
-    if (!detectedSubject) return null;
-    const prediction = { value: detectedSubject };
-    const isMatch = acceptsUploadSubject(selectedLoad, detectedSubject, teachingLoads);
+    const rawText = metadata.rawText || ocrText;
+    const detectedSubject = inferUploadSubject({ ...metadata, rawText }, fileName);
+    const detectedGrade = extractTeachingLoadFields(rawText).grade || gradeFromFileName(fileName);
+    const selectedLabel = `${selectedLoad.subject} ${gradeLabel(selectedLoad.grade_level)}`;
+    // The one assigned load this document fits, so the warning can offer it directly.
+    const betterLoads = teachingLoads.filter(load => load.id !== selectedLoadId && validAssignedLoad(load)
+        && acceptsUploadSubject(load, detectedSubject || selectedLoad.subject, teachingLoads)
+        && (!detectedGrade || loadGrade(load.grade_level) === loadGrade(detectedGrade)));
+    const betterLoad = betterLoads.length === 1 ? betterLoads[0] : undefined;
 
-    if (!isMatch) {
+    if (detectedSubject && !acceptsUploadSubject(selectedLoad, detectedSubject, teachingLoads)) {
         return {
             id: `mismatch_${Date.now()}`,
             type: 'mismatch',
             priority: 'high',
             title: 'Content Mismatch Detected',
-            message: `This document looks like **${prediction.value}**, but you've selected **${selectedLoad.subject}**. Please verify.`,
+            message: `This document looks like **${detectedSubject}**, but you've selected **${selectedLabel}**. Please verify.`,
             icon: '',
-            action: {
-                subject: prediction.value
-            }
+            action: { subject: detectedSubject, teachingLoadId: betterLoad?.id }
         };
     }
 
-    const detectedGrade = extractTeachingLoadFields(metadata.rawText || ocrText).grade;
     const selectedGrade = loadGrade(selectedLoad.grade_level);
     if (detectedGrade && selectedGrade && loadGrade(detectedGrade) !== selectedGrade) {
         return {
             id: `mismatch_${Date.now()}`, type: 'mismatch', priority: 'high',
             title: 'Grade Mismatch Detected',
-            message: `This document looks like **${detectedGrade === 'Kinder' ? 'Kinder' : `Grade ${detectedGrade}`}**, but you've selected **${selectedLoad.subject} ${selectedGrade === 'K' ? 'Kinder' : `Grade ${selectedGrade}`}**. Please verify.`,
-            icon: ''
+            message: `This document looks like **${gradeLabel(detectedGrade)}**, but you've selected **${selectedLabel}**. Please verify.`,
+            icon: '',
+            action: { teachingLoadId: betterLoad?.id }
         };
     }
     return null;

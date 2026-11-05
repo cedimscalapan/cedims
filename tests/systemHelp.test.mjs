@@ -9,9 +9,13 @@ const {answerSystemHelp}=await import(helpUrl);
 const deadlineUrl=url(source('src/lib/utils/deadlineRules.ts'));
 const complianceUrl=url(source('src/lib/utils/compliance.ts').replace("from './deadlineRules'",`from '${deadlineUrl}'`));
 const yearUrl=url(source('src/lib/utils/schoolYear.ts'));
+const requestUrl=url(source('src/lib/utils/reportRequest.ts'));
+const planUrl=url(source('src/lib/utils/chatQueryPlan.ts').replace("from './reportRequest'",`from '${requestUrl}'`));
 const chatbotSource=source('src/lib/utils/chatbot.ts')
     .replace("import intentModel from '../models/intent_classifier_model.json';",`const intentModel=${source('src/lib/models/intent_classifier_model.json')};`)
     .replace("from './systemHelp'",`from '${helpUrl}'`)
+    .replace("from './reportRequest'",`from '${requestUrl}'`)
+    .replace("from './chatQueryPlan'",`from '${planUrl}'`)
     .replace("from './schoolYear'",`from '${yearUrl}'`)
     .replace("from './compliance'",`from '${complianceUrl}'`);
 const {processQuery}=await import(url(chatbotSource));
