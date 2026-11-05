@@ -132,7 +132,16 @@
     {#if canReviewLeave}<section id="tracker-leave" class="leave-section"><h3>Pending leave requests</h3><p class="context">A request is excluded from expected submissions only after approval. Your own requests go to another reviewer.</p>{#each pendingLeaves as request (request.id)}<div class="document-row"><div><strong>{teacherName(request.user_id)}</strong><p class="leave-dates">{leaveDates(request)}</p><p>{request.leave_type} · {request.reason}</p></div><button on:click={()=>{leaveTarget=request;leaveComment='';leaveDecision='approved';leaveError='';}}>Review request</button></div>{:else}<p class="empty">No pending leave requests for these filters.</p>{/each}</section>{/if}
 </section>
 {#if reviewTarget}<DocumentReviewPanel document={reviewTarget} onClose={()=>reviewTarget=null} onSaved={savedReview} />{/if}
-{#if leaveTarget}<div class="leave-backdrop"><div class="leave-dialog" role="dialog" aria-modal="true" aria-label="Review leave request" tabindex="-1" use:focusTrap><form on:submit|preventDefault={saveLeave}><h3>Review leave request</h3><div class="leave-facts"><p><strong>{teacherName(leaveTarget.user_id)}</strong></p><p class="leave-dates">{leaveDates(leaveTarget)}</p><p><strong>{leaveTarget.leave_type}:</strong> {leaveTarget.reason}</p><p class="context">{leaveEffect(leaveTarget)}</p></div><label>Decision<CedimsSelect bind:value={leaveDecision} ariaLabel="Decision" options={[{value:'approved',label:'Approve leave'},{value:'rejected',label:'Decline request'}]} /></label><label>Remarks {leaveDecision==='rejected'?'(required)':'(optional)'}<textarea rows="3" bind:value={leaveComment}></textarea></label>{#if leaveError}<p role="alert" class="overdue">{leaveError}</p>{/if}<div class="dialog-actions"><button type="button" disabled={!!savingLeave} on:click={()=>leaveTarget=null}>Cancel</button><button class="primary" disabled={!!savingLeave}>{savingLeave?'Saving…':'Save decision'}</button></div></form></div></div>{/if}
+{#if leaveTarget}<div class="leave-backdrop" role="presentation"><div class="leave-dialog" role="dialog" aria-modal="true" aria-labelledby="leave-review-title" tabindex="-1" use:focusTrap on:keydown={(event)=>{if(event.key==='Escape'&&!savingLeave)leaveTarget=null;}}><form on:submit|preventDefault={saveLeave}>
+    <h3 id="leave-review-title">Review leave request</h3>
+    <div class="leave-body">
+        <div class="leave-facts"><p class="leave-teacher">{teacherName(leaveTarget.user_id)}</p><p class="leave-dates">{leaveDates(leaveTarget)}</p><p><strong>{leaveTarget.leave_type}:</strong> {leaveTarget.reason}</p><p class="leave-effect">{leaveEffect(leaveTarget)}</p></div>
+        <fieldset class="decision"><legend>Decision</legend><div class="choices"><label class="choice approve"><input type="radio" name="leave-decision" value="approved" bind:group={leaveDecision} />Approve leave</label><label class="choice decline"><input type="radio" name="leave-decision" value="rejected" bind:group={leaveDecision} />Decline request</label></div></fieldset>
+        <label class="remarks">Remarks {leaveDecision==='rejected'?'(required)':'(optional)'}<textarea rows="2" bind:value={leaveComment}></textarea></label>
+    </div>
+    {#if leaveError}<p role="alert" class="overdue leave-error">{leaveError}</p>{/if}
+    <div class="dialog-actions"><button type="button" disabled={!!savingLeave} on:click={()=>leaveTarget=null}>Cancel</button><button class="primary" class:danger={leaveDecision==='rejected'} disabled={!!savingLeave}>{savingLeave?'Saving…':leaveDecision==='rejected'?'Decline request':'Approve leave'}</button></div>
+</form></div></div>{/if}
 
 <style>
     .school-tracker { padding:22px; background:var(--color-surface-white); color:var(--color-text-primary); border:1px solid var(--color-border-subtle); border-radius:14px; }
@@ -146,7 +155,28 @@
     .roster { overflow:auto; } table { width:100%; border-collapse:collapse; text-align:left; font-size:13px; } th,td { padding:14px 10px; border-bottom:1px solid var(--color-border-subtle); } thead { background:var(--color-surface-muted); font-size:12px; } small { display:block; font-size:12px; color:var(--color-text-muted); font-weight:400; } .empty { text-align:center; padding:24px; font-size:13px; color:var(--color-text-muted); }
     .detail-heading { display:flex; gap:16px; align-items:center; margin:18px 0; } .document-row { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:16px 0; border-bottom:1px solid var(--color-border-subtle); font-size:14px; } .document-row p { color:var(--color-text-muted); font-size:12px; margin:5px 0; } .leave-section { margin-top:24px; padding-top:20px; border-top:1px solid var(--color-border-subtle); scroll-margin-top:100px; }
     .leave-facts { display:grid; gap:6px; padding:12px; border:1px solid var(--color-border-subtle); border-radius:8px; background:var(--color-surface-muted); font-size:14px; overflow-wrap:anywhere; } .document-row p.leave-dates,.leave-dates { color:var(--color-text-primary); font-size:14px; font-weight:750; }
-    .leave-backdrop { position:fixed; inset:0; background:#0f172a88; display:grid; place-items:center; z-index:80; padding:20px; } .leave-dialog { display:grid; gap:16px; padding:24px; width:min(500px,100%); border-radius:12px; background:var(--color-surface-white); } .leave-dialog form { display:contents; } .dialog-actions { display:flex; justify-content:end; gap:10px; }
-    @media(max-width:700px) { .school-tracker { padding:14px; } .summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .summary div { padding:12px; } table,tbody { display:block; } thead { display:none; } tr { display:flex; flex-direction:column; border:1px solid var(--color-border-subtle); border-radius:10px; padding:12px; margin-bottom:12px; } td,th { border:0; padding:5px 0; } td[data-label] { display:flex; justify-content:space-between; } td[data-label]::before { content:attr(data-label); color:var(--color-text-muted); } th { font-size:16px; margin-bottom:6px; } td:last-child button { width:100%; margin-top:8px; } .document-row { flex-wrap:wrap; } .filters { padding:12px; } .queue-row { display:grid; grid-template-columns:1fr auto; }.queue-row > div { grid-column:1/-1; }.queue-row button { width:auto; }.queue-heading { align-items:flex-start; } }
+    .leave-backdrop { position:fixed; inset:0; background:#0f172a88; display:grid; place-items:center; z-index:80; padding:16px; }
+    .leave-dialog { width:min(520px,100%); max-height:calc(100dvh - 32px); display:flex; border-radius:12px; background:var(--color-surface-white); overflow:hidden; }
+    .leave-dialog form { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; }
+    .leave-dialog h3 { padding:20px 24px 12px; font-size:20px; font-weight:800; }
+    .leave-body { display:grid; gap:16px; flex:1; min-height:0; overflow-y:auto; padding:0 24px 16px; }
+    .leave-teacher { font-size:17px; font-weight:800; }
+    .leave-effect { color:var(--color-text-secondary); font-size:14px; line-height:1.5; }
+    .decision { min-width:0; margin:0; padding:0; border:0; }
+    .decision legend { padding:0; margin-bottom:6px; font-size:14px; font-weight:800; }
+    .choices { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .choice { display:flex; align-items:center; gap:10px; min-height:52px; padding:10px 14px; border:1px solid var(--color-border-subtle); border-radius:8px; color:var(--color-text-primary); font-size:15px; font-weight:750; cursor:pointer; }
+    .choice input { flex:none; width:18px; height:18px; min-height:0; padding:0; accent-color:var(--color-gov-blue); }
+    .choice.approve:has(input:checked) { border:2px solid var(--color-gov-green); padding:9px 13px; }
+    .choice.approve input { accent-color:var(--color-gov-green); }
+    .choice.decline:has(input:checked) { border:2px solid var(--color-gov-red); padding:9px 13px; }
+    .choice.decline input { accent-color:var(--color-gov-red); }
+    .choice:has(input:focus-visible) { outline:3px solid var(--color-gov-blue); outline-offset:2px; }
+    .remarks { font-size:14px; }
+    .leave-error { padding:10px 24px 0; font-size:14px; }
+    .dialog-actions { display:flex; justify-content:end; gap:10px; padding:14px 24px; border-top:1px solid var(--color-border-subtle); }
+    .dialog-actions button { min-width:96px; }
+    .dialog-actions .primary.danger { background:var(--color-gov-red); }
+    @media(max-width:700px) { .leave-dialog h3 { padding:16px 16px 10px; } .leave-body { padding:0 16px 14px; } .leave-error { padding:10px 16px 0; } .dialog-actions { padding:12px 16px; } .dialog-actions button { flex:1; } .school-tracker { padding:14px; } .summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .summary div { padding:12px; } table,tbody { display:block; } thead { display:none; } tr { display:flex; flex-direction:column; border:1px solid var(--color-border-subtle); border-radius:10px; padding:12px; margin-bottom:12px; } td,th { border:0; padding:5px 0; } td[data-label] { display:flex; justify-content:space-between; } td[data-label]::before { content:attr(data-label); color:var(--color-text-muted); } th { font-size:16px; margin-bottom:6px; } td:last-child button { width:100%; margin-top:8px; } .document-row { flex-wrap:wrap; } .filters { padding:12px; } .queue-row { display:grid; grid-template-columns:1fr auto; }.queue-row > div { grid-column:1/-1; }.queue-row button { width:auto; }.queue-heading { align-items:flex-start; } }
 </style>
 

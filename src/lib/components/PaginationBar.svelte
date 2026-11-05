@@ -23,10 +23,10 @@
                 disabled={page <= 1}
                 onclick={() => page = Math.max(1, page - 1)}
             >Previous</button>
-            <span class="pagination-page" aria-current="page">{page} / {safePages}</span>
+            <span class="pagination-page" aria-current="page">Page {page} of {safePages}</span>
             <button
                 type="button"
-                class="pagination-button next"
+                class="pagination-button"
                 aria-label="Next page"
                 disabled={page >= safePages}
                 onclick={() => page = Math.min(safePages, page + 1)}
@@ -62,37 +62,29 @@
 
     .pagination-controls {
         align-items: center;
-        background: var(--color-surface-white, #fff);
-        border: 1px solid var(--color-border-subtle, #dce3ef);
-        border-radius: 999px;
         display: inline-flex;
         flex: 0 0 auto;
-        gap: 4px;
-        padding: 5px;
+        gap: 8px;
     }
 
-    .pagination-button,
-    .pagination-page {
+    .pagination-button {
         align-items: center;
-        border: 0;
-        border-radius: 999px;
+        background: var(--color-surface-white, #fff);
+        border: 1px solid var(--color-border-subtle, #dce3ef);
+        border-radius: 10px;
+        color: var(--color-gov-blue, #2345b8);
+        cursor: pointer;
         display: inline-flex;
         font: inherit;
         font-size: 14px;
         font-weight: 750;
         justify-content: center;
         line-height: 1;
-        min-height: 42px;
-        min-width: 76px;
+        min-height: 44px;
+        min-width: 92px;
         padding: 0 16px;
+        transition: background-color 140ms ease;
         white-space: nowrap;
-    }
-
-    .pagination-button {
-        background: transparent;
-        color: var(--color-gov-blue, #2345b8);
-        cursor: pointer;
-        transition: background-color 140ms ease, color 140ms ease;
     }
 
     .pagination-button:not(:disabled):hover {
@@ -105,29 +97,19 @@
     }
 
     .pagination-button:disabled {
-        background: #f4f5f7;
-        color: #b7c0cc;
+        color: var(--color-text-muted, #64748b);
         cursor: not-allowed;
-    }
-
-    .pagination-button.next:not(:disabled) {
-        background: var(--color-gov-blue, #2345b8);
-        color: #fff;
-    }
-
-    .pagination-button.next:not(:disabled):hover {
-        background: var(--color-gov-blue-dark, #193894);
-    }
-
-    .pagination-button.next:disabled {
-        background: #f4f5f7;
-        color: #b7c0cc;
+        opacity: .55;
     }
 
     .pagination-page {
-        background: #eef0f3;
-        color: var(--color-gov-blue, #2345b8);
-        min-width: 88px;
+        color: var(--color-text-primary, #1e293b);
+        font-size: 14px;
+        font-weight: 750;
+        min-width: 96px;
+        padding: 0 4px;
+        text-align: center;
+        white-space: nowrap;
     }
 
     @media (max-width: 520px) {
@@ -142,7 +124,11 @@
             width: 100%;
         }
 
-        .pagination-button,
+        .pagination-button {
+            flex: 1;
+            min-width: 0;
+        }
+
         .pagination-page {
             min-width: 0;
         }

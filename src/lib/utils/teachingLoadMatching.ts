@@ -1,4 +1,4 @@
-import { extractTeachingLoadFields, kindergartenLearningArea } from './teachingLoadFields';
+import { extractFileNameFields, extractTeachingLoadFields, kindergartenLearningArea } from './teachingLoadFields';
 
 export interface UploadLoad { id: string; subject: string; grade_level?: string | null; is_active?: boolean; }
 export interface UploadMetadata { subject?: string | null; subjectConfidence?: number; gradeLevel?: string | null; rawText?: string; }
@@ -11,6 +11,9 @@ export function canonicalSubject(value: string | null | undefined): string {
     if (/\bHGP\b|HOMEROOM GUIDANCE/.test(text)) return 'HGP';
     if (/\bGMRC\b|PAGPAPAKATAO|\bVALUES\b|\bESP\b/.test(text)) return 'GMRC';
     if (/^AP(?: |$)|ARALING PANLIPUNAN|SOCIAL STUDIES/.test(text)) return 'AP';
+    if (/\bEPP\b|\bTLE\b/.test(text)) return 'EPP TLE';
+    if (/\bAGHAM\b/.test(text)) return 'SCIENCE';
+    if (/\bINGLES\b/.test(text)) return 'ENGLISH';
     return text;
 }
 
@@ -51,8 +54,25 @@ export function kindergartenAreasFromFileName(fileName: string): string[] {
     return patterns.filter(([pattern]) => pattern.test(name)).map(([, area]) => area);
 }
 
+/**
+ * Last resort for an unreadable header. It never overrides a subject the document
+ * names, and a grade in the document that disagrees with the file name stops it.
+ */
+function fileNameFallback(fields: ReturnType<typeof extractTeachingLoadFields>, fileName: string) {
+    if (fields.subject || fields.subjectCandidates.length) return null;
+    const named = extractFileNameFields(fileName);
+    if (!named.subject) return null;
+    const namedGrade = gradeFromFileName(fileName) || named.grade || (/\bKINDER(?:GARTEN)?\b/i.test(fileName) ? 'K' : '');
+    if (fields.grade && namedGrade && loadGrade(fields.grade) !== loadGrade(namedGrade)) return null;
+    return { subject: named.subject, grade: fields.grade || namedGrade };
+}
+
 export function inferUploadSubject(metadata: UploadMetadata, fileName = ''): string | null {
     const fields = extractTeachingLoadFields(metadata.rawText || '');
+    return inferFromHeaderOrKinderName(fields, fileName) ?? fileNameFallback(fields, fileName)?.subject ?? null;
+}
+
+function inferFromHeaderOrKinderName(fields: ReturnType<typeof extractTeachingLoadFields>, fileName: string): string | null {
     const areas = kindergartenAreasFromFileName(fileName);
     const filenameArea = areas.length === 1 ? areas[0] : null;
     if (filenameArea && (!fields.grade || loadGrade(fields.grade) === 'K') &&
@@ -79,7 +99,15 @@ export function validAssignedLoad(load: UploadLoad | undefined): load is UploadL
     return !!load && load.is_active !== false && !!load.subject?.trim() && /^(?:K|[1-6])$/.test(loadGrade(load.grade_level));
 }
 
-export function resolveTeachingLoadMatch(metadata: UploadMetadata, loads: UploadLoad[], fileName = '') {
+export interface TeachingLoadMatch {
+    loadId: string | null;
+    subject: string | null;
+    grade: string;
+    reason: 'matched' | 'ambiguous' | 'unrecognized' | 'missing_grade' | 'no_subject_match' | 'grade_mismatch';
+    fromFileName?: boolean;
+}
+
+export function resolveTeachingLoadMatch(metadata: UploadMetadata, loads: UploadLoad[], fileName = ''): TeachingLoadMatch {
     const fields = extractTeachingLoadFields(metadata.rawText || '');
     const filenameAreas = kindergartenAreasFromFileName(fileName);
     const filenameArea = filenameAreas.length === 1 ? filenameAreas[0] : null;
@@ -89,10 +117,10 @@ export function resolveTeachingLoadMatch(metadata: UploadMetadata, loads: Upload
         !fields.subjectCandidates.some(candidate => !kindergartenLearningArea(candidate));
     const filenameIsKinder = /\bKINDER(?:GARTEN)?\b/i.test(fileName) || loadGrade(fields.grade) === 'K';
     const preferFilename = !!filenameArea && filenameIsKinder && (!fields.grade || loadGrade(fields.grade) === 'K');
-    const subject = preferFilename ? filenameArea : fields.subject || (filenameCanHelp ? filenameArea : null);
+    let subject = preferFilename ? filenameArea : fields.subject || (filenameCanHelp ? filenameArea : null);
     // A header subject with no readable grade can take the grade the file name states.
     // This is what separates Math Grade 5 from Math Grade 6 on a scanned page.
-    const grade = fields.grade || (filenameArea && (preferFilename || (filenameCanHelp && !fields.subject)) ? 'K' : '')
+    let grade = fields.grade || (filenameArea && (preferFilename || (filenameCanHelp && !fields.subject)) ? 'K' : '')
         || (subject ? gradeFromFileName(fileName) : '');
     if (!subject && loadGrade(grade) === 'K') {
         const areaCandidates = headerKinderCandidates;
@@ -105,14 +133,19 @@ export function resolveTeachingLoadMatch(metadata: UploadMetadata, loads: Upload
         !headerKinderCandidates.some(candidate => canonicalSubject(candidate) === canonicalSubject(filenameArea))) {
         return { loadId: null, subject: null, grade, reason: 'ambiguous' as const };
     }
+    if (!subject) {
+        const fallback = fileNameFallback(fields, fileName);
+        if (fallback) { subject = fallback.subject; grade = fallback.grade; }
+    }
+    const fromFileName = !!subject && !fields.subject;
     if (!subject) return { loadId: null, subject, grade, reason: 'unrecognized' as const };
-    if (!grade) return { loadId: null, subject, grade, reason: 'missing_grade' as const };
+    if (!grade) return { loadId: null, subject, grade, reason: 'missing_grade' as const, fromFileName };
     const candidates = loads.filter(load => validAssignedLoad(load) && acceptsUploadSubject(load, subject, loads));
-    if (!candidates.length) return { loadId: null, subject, grade, reason: 'no_subject_match' as const };
+    if (!candidates.length) return { loadId: null, subject, grade, reason: 'no_subject_match' as const, fromFileName };
     const matching = grade ? candidates.filter(load => loadGrade(load.grade_level) === loadGrade(grade)) : candidates;
-    if (!matching.length) return { loadId: null, subject, grade, reason: 'grade_mismatch' as const };
-    if (matching.length !== 1) return { loadId: null, subject, grade, reason: 'ambiguous' as const };
-    return { loadId: matching[0].id, subject, grade, reason: 'matched' as const };
+    if (!matching.length) return { loadId: null, subject, grade, reason: 'grade_mismatch' as const, fromFileName };
+    if (matching.length !== 1) return { loadId: null, subject, grade, reason: 'ambiguous' as const, fromFileName };
+    return { loadId: matching[0].id, subject, grade, reason: 'matched' as const, fromFileName };
 }
 
 function joinWithAnd(items: string[]): string {

@@ -25,7 +25,7 @@
     import { onMount, untrack } from "svelte";
     import { fade } from "svelte/transition";
     import { extractMetadata, warmPdfReader, resolveWeekFromDates, createDefaultMetadata, type DocMetadata } from "$lib/utils/ocr";
-    import { resolveHeaderUploadPeriod, resolveUniqueOpenUploadPeriod } from "$lib/utils/headerPeriod";
+    import { fileNameAsHeaderText, readHeaderPeriod, resolveHeaderUploadPeriod, resolveUniqueOpenUploadPeriod } from "$lib/utils/headerPeriod";
     import { gradeLabel, resolveTeachingLoadMatch, teachingLoadNotice, validAssignedLoad } from "$lib/utils/teachingLoadMatching";
     import { validateSelection } from "$lib/utils/copilot";
     import {
@@ -132,6 +132,7 @@
     let optionsVersion = $state(0);
     let lastOptionsRefreshAt = 0;
     let targetNotice = $state('');
+    let targetsFromFileName = $state(false);
     let targetsChosenByHand = false;
     let scannedDocument: { file: File; metadata: any } | null = null;
     let autofillWaiting = false;
@@ -257,6 +258,19 @@
             .map((w) => w.week_number),
     );
 
+    const detectedFields = $derived.by(() => {
+        const found = detectedMetadata;
+        if (!found) return [];
+        const header = readHeaderPeriod(found.rawText || '');
+        const dayParts = [found.day, found.dayNumber ? `Day ${found.dayNumber}` : ''].filter(Boolean);
+        return [
+            { label: 'Learning area', value: found.subject },
+            { label: 'Grade', value: found.gradeLevel ? gradeLabel(found.gradeLevel) : '' },
+            { label: 'Term', value: (header.termNumber ?? found.termNumber) ? `Term ${header.termNumber ?? found.termNumber}` : '' },
+            { label: 'Week', value: (header.weekNumber ?? found.weekNumber) ? `Week ${header.weekNumber ?? found.weekNumber}` : '' },
+            { label: 'Day', value: dayParts.join(' · ') },
+        ];
+    });
     const loadsConfirmedEmpty = $derived(!teachingLoads.length && loadsStatus === 'ready');
     const loadsPendingLabel = $derived(!teachingLoads.length && loadsStatus !== 'ready' ? 'Loading your teaching loads…' : '');
     const calendarPendingLabel = $derived(!calendarEntries.length && calendarStatus !== 'ready' ? 'Loading…' : !calendarEntries.length ? 'No Open period' : '');
@@ -671,6 +685,7 @@
         targetsChosenByHand = true;
         autofillWaiting = false;
         targetNotice = '';
+        targetsFromFileName = false;
     }
 
     function useManualTargets() {
@@ -704,6 +719,7 @@
         submissionBlockReason = '';
         targetConfirmed = false;
         targetNotice = '';
+        targetsFromFileName = false;
         targetsChosenByHand = false;
         scannedDocument = null;
         autofillWaiting = false;
@@ -723,7 +739,8 @@
 
     /** Fills the targets from a finished scan. Runs again if the options arrive late. */
     async function applyScanToTargets(file: File, metadata: any, isCurrentScan: () => boolean) {
-        const nextDocType = !docTypeManuallySelected && metadata.docType !== 'Unknown' ? metadata.docType : docType;
+        const nextDocType = !docTypeManuallySelected && metadata.docType && metadata.docType !== 'Unknown' ? metadata.docType : docType;
+        let usedFileName = false;
         let nextTerm: number | undefined;
         let nextWeek: number | undefined;
         let nextLoad = '';
@@ -740,8 +757,14 @@
             const periodOptions = {
                 schoolYear: year, subject: teachingLoads.find(load => load.id === match.loadId)?.subject || match.subject, schoolName: uploaderSchoolName
             };
-            let scannedPeriod = resolveHeaderUploadPeriod(metadata.rawText || '', allCalendarEntries, periodOptions);
-            let period = scannedPeriod || resolveUniqueOpenUploadPeriod(metadata.rawText || '', allCalendarEntries, year, periodOptions);
+            // The file name only supplies a period when the document states none at all.
+            const documentPeriod = readHeaderPeriod(metadata.rawText || '');
+            const documentHasPeriod = documentPeriod.invalid || !!documentPeriod.termNumber || !!documentPeriod.weekNumber || documentPeriod.ranges.length > 0;
+            const namePeriod = readHeaderPeriod(fileNameAsHeaderText(file.name));
+            const nameHasPeriod = !documentHasPeriod && (!!namePeriod.termNumber || !!namePeriod.weekNumber || namePeriod.ranges.length > 0);
+            const periodText = nameHasPeriod ? `${fileNameAsHeaderText(file.name)}\n${metadata.rawText || ''}` : metadata.rawText || '';
+            let scannedPeriod = resolveHeaderUploadPeriod(periodText, allCalendarEntries, periodOptions);
+            let period = scannedPeriod || resolveUniqueOpenUploadPeriod(periodText, allCalendarEntries, year, periodOptions);
             // Cached options can be from the week that just closed. Refresh the
             // calendar before using its sole Open period as a fallback.
             if (!scannedPeriod && typeof navigator !== 'undefined' && navigator.onLine && $profile?.district_id) {
@@ -756,8 +779,8 @@
                         allCalendarEntries = currentCalendar;
                         calendarEntries = openUploadTargets(currentCalendar, year);
                         calendarStatus = 'ready';
-                        scannedPeriod = resolveHeaderUploadPeriod(metadata.rawText || '', currentCalendar, periodOptions);
-                        period = scannedPeriod || resolveUniqueOpenUploadPeriod(metadata.rawText || '', currentCalendar, year, periodOptions);
+                        scannedPeriod = resolveHeaderUploadPeriod(periodText, currentCalendar, periodOptions);
+                        period = scannedPeriod || resolveUniqueOpenUploadPeriod(periodText, currentCalendar, year, periodOptions);
                     }
                 } catch (error) { debugLog('[upload] Could not refresh the Open calendar period:', error); }
             }
@@ -776,13 +799,20 @@
                     }
                 }
             }
-            nextMetadata = { ...metadata, subject: match.subject, gradeLevel: match.grade || metadata.gradeLevel };
+            const periodFromName = nameHasPeriod && !!scannedPeriod;
+            usedFileName = !!(match.fromFileName && match.subject) || periodFromName;
+            nextMetadata = { ...metadata, subject: match.subject, gradeLevel: match.grade || metadata.gradeLevel,
+                ...(periodFromName ? { termNumber: nextTerm, weekNumber: nextWeek } : {}) };
             if (!nextLoad && !notice) notice = teachingLoadNotice(match, teachingLoads);
             else if ((!nextTerm || !nextWeek) && !notice) notice = 'Confirm the term and week for this document. No unique Open period could be matched.';
             else if (match.subject === 'HGP' && teachingLoads.find(load => load.id === match.loadId)?.subject !== 'HGP')
                 notice = 'HGP will be filed under your assigned GMRC teaching load for the same grade. Please review before uploading.';
             if (!notice && period && !scannedPeriod)
                 notice = `Term ${period.term}, Week ${period.week_number} was filled because it is the only Open period. Please review before uploading.`;
+            if (usedFileName) {
+                const fromName = 'Filled from the file name because the document header could not be read. Check that it is correct before uploading.';
+                notice = nextLoad && nextTerm && nextWeek ? fromName : `${fromName} ${notice}`.trim();
+            }
         }
         if (!isCurrentScan()) return;
         // Commit one file's complete result together; previous scans never own these fields.
@@ -799,6 +829,7 @@
         ocrConfidence = metadata.confidence || null;
         mismatchAlert = nextLoad && weekly
             ? validateSelection(nextLoad, metadata.rawText, teachingLoads, nextMetadata, file.name) : null;
+        targetsFromFileName = usedFileName;
         targetNotice = optionsMissing
             ? 'Document scanned. Your teaching load, term and week will fill in by themselves as soon as they load.'
             : notice;
@@ -846,19 +877,13 @@
             scanProgress = 100;
         } catch (error) {
             if (isCurrentScan()) {
-                if (isWeeklyComplianceDocType(docType)) {
-                    const period = resolveUniqueOpenUploadPeriod('', allCalendarEntries, getCurrentSchoolYear());
-                    const linked = trackerLinkedTargets();
-                    teachingLoadId = linked?.load.id || '';
-                    termNumber = linked?.period.term ?? period?.term;
-                    weekNumber = linked?.period.week_number ?? period?.week_number;
-                }
-                detectedMetadata = createDefaultMetadata();
-                targetNotice = teachingLoadId
-                    ? 'The scan could not read this file. The load and week from your Tracker link are filled in; please review them.'
-                    : termNumber && weekNumber
-                    ? `The scan could not read this file. Term ${termNumber}, Week ${weekNumber} is the only Open period; please choose the teaching load and review the period.`
-                    : 'The scan could not read this file. Please choose its load, term, and week.';
+                // The file could not be read, but its name, a Tracker link or the
+                // only Open period can still fill the form.
+                const unread = createDefaultMetadata();
+                scannedDocument = { file, metadata: unread };
+                try { await applyScanToTargets(file, unread, isCurrentScan); }
+                catch (failure) { debugLog('[upload] Could not fill targets for an unread file:', failure); detectedMetadata = unread; }
+                if (isCurrentScan()) targetNotice = `The scan could not read this file. ${targetNotice}`.trim();
             }
         } finally {
             if (isCurrentScan()) { detectingMetadata = false; scanProgress = 100; }
@@ -1145,7 +1170,7 @@
 </script>
 
 <svelte:head>
-    <title>Upload Document â€” CEDIMS</title>
+    <title>Upload Document — CEDIMS</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-5xl">
@@ -1176,7 +1201,7 @@
                 >
                     Deadline: {formatCurrentDeadline(currentDeadline.deadline_date)}
                     {#if currentDeadline.week_number}
-                        Â· Week {currentDeadline.week_number}
+                        · Week {currentDeadline.week_number}
                     {/if}
                 </div>
             {/if}
@@ -1420,9 +1445,16 @@
                             {/if}
                             {#if !detectingMetadata && detectedMetadata}
                                 <div class="rounded-lg border border-border-subtle bg-surface-muted p-3" role="status">
-                                    <p class="text-xs font-bold text-text-secondary uppercase tracking-wide">Learning area detected from PDF or filename</p>
-                                    <p class="mt-1 text-base font-semibold text-text-primary">{detectedMetadata.subject || 'Not identified'}</p>
-                                    <p class="mt-1 text-xs text-text-muted">{detectedMetadata.subject && teachingLoadId && !mismatchAlert ? 'Matches the selected teaching load. Confirm it before uploading.' : 'Check the teaching load below before uploading.'}</p>
+                                    <p class="text-xs font-bold text-text-secondary uppercase tracking-wide">{targetsFromFileName ? 'Found in this document and its file name' : 'Found in this document'}</p>
+                                    <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+                                        {#each detectedFields as field}
+                                            <div class="min-w-0">
+                                                <dt class="text-xs font-semibold text-text-muted">{field.label}</dt>
+                                                <dd class="text-base font-semibold {field.value ? 'text-text-primary' : 'text-text-muted'}">{field.value || 'Not found'}</dd>
+                                            </div>
+                                        {/each}
+                                    </dl>
+                                    <p class="mt-2 text-xs text-text-muted">{detectedMetadata.subject && teachingLoadId && !mismatchAlert ? 'Matches the selected teaching load. Confirm it before uploading.' : 'Check the teaching load below before uploading.'}</p>
                                 </div>
                             {/if}
                             <!-- Matched Teaching Load -->
@@ -1730,6 +1762,7 @@
                     <p><strong>File:</strong> {selectedFile?.name || "—"}</p>
                 </div>
                 {#if mismatchAlert}<p class="rounded-xl border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm text-gov-gold-dark">Scanner mismatch detected. Confirm only if the selected target is correct.</p>{/if}
+                {#if targetsFromFileName}<p class="rounded-xl border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm text-gov-gold-dark">These details came from the file name, not the document. Confirm only if the file is named correctly.</p>{/if}
             </div>
             <div class="px-6 py-4 bg-surface-muted border-t border-border-subtle flex justify-end gap-3">
                 <button onclick={() => (confirmArchiveOpen = false)} class="min-h-11 px-4 rounded-xl border border-border-subtle bg-surface-white text-sm font-bold">Review again</button>

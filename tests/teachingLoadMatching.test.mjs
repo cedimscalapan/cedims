@@ -8,7 +8,7 @@ const fuzzyUrl=url(readFileSync('src/lib/utils/fuzzyClassifier.ts','utf8'));
 const fieldsUrl=url(readFileSync('src/lib/utils/teachingLoadFields.ts','utf8').replace("from './fuzzyClassifier'",`from '${fuzzyUrl}'`));
 const {extractTeachingLoadFields}=await import(fieldsUrl);
 const deadlineUrl=url(readFileSync('src/lib/utils/deadlineRules.ts','utf8'));
-const headerUrl=url(readFileSync('src/lib/utils/headerPeriod.ts','utf8').replace("from './deadlineRules'",`from '${deadlineUrl}'`));
+const headerUrl=url(readFileSync('src/lib/utils/headerPeriod.ts','utf8').replace("from './deadlineRules'",`from '${deadlineUrl}'`).replace("from './fuzzyClassifier'",`from '${fuzzyUrl}'`));
 const matcherUrl=url(readFileSync('src/lib/utils/teachingLoadMatching.ts','utf8').replace("from './teachingLoadFields'",`from '${fieldsUrl}'`));
 const {resolveTeachingLoadMatch,validAssignedLoad,loadGrade,inferUploadSubject,teachingLoadNotice,gradeLabel,gradeFromFileName}=await import(matcherUrl);
 const copilotSource=readFileSync('src/lib/utils/copilot.ts','utf8').replace("from './teachingLoadFields'",`from '${fieldsUrl}'`).replace("from './teachingLoadMatching'",`from '${matcherUrl}'`).replace("import copilotConfig from '../models/copilot_model.json';",'const copilotConfig={};');
@@ -107,7 +107,7 @@ test('reported Kindergarten Mathematics filename corrects a wrong Socio-Emotiona
  assert.equal(resolveTeachingLoadMatch({rawText:'Learning Area: Socio-Emotional Development'},assigned,fileName).loadId,'math-k');
  assert.equal(resolveTeachingLoadMatch(metadata,assigned.filter(load=>load.id!=='math-k'),fileName).loadId,null);
  assert.equal(resolveTeachingLoadMatch({rawText:'Grade Level: 5'},assigned,fileName).loadId,null);
- assert.equal(resolveTeachingLoadMatch({rawText:''},assigned,'MATH GRADE 5.pdf').loadId,null);
+ assert.equal(resolveTeachingLoadMatch({rawText:''},assigned,'MATH GRADE 5.pdf').loadId,'math-5');
 });
 test('Kinder filenames correct a conflicting scan for every official learning area',()=>{
  const subjects=['Literacy, Language, and Communication','Socio-Emotional Development','Values Development','Physical Health and Motor Development','Aesthetic/Creative Development','Cognitive Development'];
@@ -134,7 +134,7 @@ test('a scan with no readable grade uses the grade stated in the file name',()=>
  assert.equal(resolveTeachingLoadMatch(scanned,sameSubject,'WEEK 7 MATH.pdf').reason,'missing_grade');
  assert.equal(resolveTeachingLoadMatch(scanned,sameSubject,'MATH G5 and G6.pdf').reason,'missing_grade');
  assert.equal(resolveTeachingLoadMatch({rawText:'Learning Area: Mathematics\nGrade Level: 5'},sameSubject,'MATH G6.pdf').loadId,'math5');
- assert.equal(resolveTeachingLoadMatch({rawText:''},sameSubject,'MATH G6.pdf').loadId,null);
+ assert.equal(resolveTeachingLoadMatch({rawText:''},sameSubject,'MATH G6.pdf').loadId,'math6');
 });
 test('grade notices name the loads the teacher actually has',()=>{
  const notice=meta=>teachingLoadNotice(resolveTeachingLoadMatch(meta,sameSubject),sameSubject);
@@ -199,8 +199,38 @@ test('Tagalog fields identify Asignatura and Baitang at Seksyon',()=>{
 test('inline PDF table fields identify the same Math load',()=>{
  assert.equal(resolveTeachingLoadMatch({rawText:'Learning Area/s Mathematics Grade Level and Section 5 - Rose'},loads).loadId,'math5');
 });
-test('a filename and lesson body cannot select a teaching load',()=>{
- assert.equal(resolveTeachingLoadMatch({subject:'Mathematics',gradeLevel:'5',rawText:'Mathematics Grade 5 exercises'},loads,'Math Grade 5.pdf').loadId,null);
+test('lesson text alone never selects a load, but the file name can when the header has no subject',()=>{
+ assert.equal(resolveTeachingLoadMatch({subject:'Mathematics',gradeLevel:'5',rawText:'Mathematics Grade 5 exercises'},loads).loadId,null);
+ const named=resolveTeachingLoadMatch({rawText:'Mathematics Grade 5 exercises'},loads,'Math Grade 5.pdf');
+ assert.equal(named.loadId,'math5');assert.equal(named.fromFileName,true);
+});
+test('the reported file name fills an unreadable scan and says where it came from',()=>{
+ const roster=[{id:'math5',subject:'Mathematics',grade_level:'Grade 5'},{id:'math6',subject:'Mathematics',grade_level:'Grade 6'},{id:'sci6',subject:'Science',grade_level:'Grade 6'}];
+ const match=resolveTeachingLoadMatch({rawText:''},roster,'WEEK 7 TERM 2 MATH G6.pdf');
+ assert.equal(match.loadId,'math6');assert.equal(match.fromFileName,true);
+ for(const [name,id] of [['WEEK_7_TERM_2_SCIENCE_G6.pdf','sci6'],['Matematika 5.pdf','math5'],['MATH 6 (1).pdf','math6'],['DLL Math Grade 5 Final.pdf','math5'],['Agham Baitang 6.pdf','sci6']]) assert.equal(resolveTeachingLoadMatch({rawText:''},roster,name).loadId,id,name);
+});
+test('a readable header always outranks the file name',()=>{
+ const roster=[{id:'math5',subject:'Mathematics',grade_level:'Grade 5'},{id:'math6',subject:'Mathematics',grade_level:'Grade 6'},{id:'sci6',subject:'Science',grade_level:'Grade 6'}];
+ const match=resolveTeachingLoadMatch({rawText:'Learning Area: Science\nGrade Level: 6'},roster,'WEEK 7 TERM 2 MATH G5.pdf');
+ assert.equal(match.loadId,'sci6');assert.equal(match.fromFileName,false);
+ assert.equal(resolveTeachingLoadMatch({rawText:'Learning Area: Mathematics\nGrade Level: 5'},roster,'MATH G6.pdf').loadId,'math5');
+});
+test('a file name never guesses when it is unclear or conflicts with the document',()=>{
+ const roster=[{id:'math5',subject:'Mathematics',grade_level:'Grade 5'},{id:'math6',subject:'Mathematics',grade_level:'Grade 6'},{id:'sci6',subject:'Science',grade_level:'Grade 6'}];
+ const load=(rawText,name)=>resolveTeachingLoadMatch({rawText},roster,name);
+ assert.equal(load('Grade Level: 5','MATH G6.pdf').loadId,null,'document grade disagrees');
+ assert.equal(load('','MATH.pdf').reason,'missing_grade');
+ assert.equal(load('','Math and Science G6.pdf').loadId,null,'two subjects');
+ assert.equal(load('','MATH G5 and G6.pdf').loadId,null,'two grades');
+ assert.equal(load('','scan0001.pdf').loadId,null,'no subject');
+ assert.equal(load('','Filipino G6.pdf').reason,'no_subject_match');
+ assert.equal(load('Learning Area: Mathematics\nAsignatura: Agham\nGrade 6','Math G6.pdf').loadId,null,'document is ambiguous');
+});
+test('choosing a different load than the file name states still warns',()=>{
+ const roster=[{id:'math6',subject:'Mathematics',grade_level:'Grade 6'},{id:'sci6',subject:'Science',grade_level:'Grade 6'}];
+ assert.equal(validateSelection('sci6','',roster,{},'WEEK 7 TERM 2 MATH G6.pdf').action.teachingLoadId,'math6');
+ assert.equal(validateSelection('math6','',roster,{},'WEEK 7 TERM 2 MATH G6.pdf'),null);
 });
 test('both named fields are required even if only one Math load exists',()=>{
  assert.equal(resolveTeachingLoadMatch({rawText:'Learning Area: Mathematics'},loads.slice(0,2)).reason,'missing_grade');

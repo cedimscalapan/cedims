@@ -33,6 +33,7 @@ export interface DocMetadata {
     teacher: string | null;
     date: string | null;
     day: string | null;
+    dayNumber?: number | null;
     dateRange: DateRange | null;
     weekSource?: 'calendar' | 'header-date' | 'regex' | 'none';
 }
@@ -361,11 +362,11 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
     // Detect document type
     let docType: DocMetadata['docType'] = 'Unknown';
     // Tier 1: Regex-based detection (highest confidence)
-    if (/DAILY\s*LESSON\s*(LOG|PLAN)|D\.?L\.?L\.?|DETALYADONG\s*PLANO|ARAW-ARAW\s*LEKSYON|LINGGUHANG\s*ARALIN|BANGHAY\s*ARALIN|MATATAG|PANG-ARAW-ARAW\s*NA\s*TALA|WEEKLY\s*LESSON\s*LOG/i.test(upper)) {
+    if (/DAILY\s*LESSON\s*(LOG|PLAN)|\bD\.?L\.?L\b|\bD\.?L\.?P\b|DETALYADONG\s*PLANO|ARAW-ARAW\s*LEKSYON|LINGGUHANG\s*ARALIN|BANGHAY\s*ARALIN|MATATAG|PANG-ARAW-ARAW\s*NA\s*TALA|WEEKLY\s*LESSON\s*LOG/i.test(upper)) {
         docType = 'DLL';
-    } else if (/INSTRUCTIONAL\s*SUPERVISORY\s*PLAN|I\.?S\.?P\.?|SUPERVISORY\s*PLAN/i.test(upper)) {
+    } else if (/INSTRUCTIONAL\s*SUPERVISORY\s*PLAN|\bI\.?S\.?P\b|SUPERVISORY\s*PLAN/i.test(upper)) {
         docType = 'ISP';
-    } else if (/INSTRUCTIONAL\s*SUPERVISORY\s*REPORT|I\.?S\.?R\.?|SUPERVISORY\s*REPORT/i.test(upper)) {
+    } else if (/INSTRUCTIONAL\s*SUPERVISORY\s*REPORT|\bI\.?S\.?R\b|SUPERVISORY\s*REPORT/i.test(upper)) {
         docType = 'ISR';
     }
 
@@ -385,8 +386,11 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
     let termNumber: number | null = null;
     let weekNumber: number | null = null;
     let weekSource: 'calendar' | 'header-date' | 'regex' | 'none' = 'none';
+    let headerDay: string | null = null;
+    let dayNumber: number | null = null;
 
-    if (docType === 'DLL') {
+    // A document whose title is missing is still read: only ISP and ISR skip these fields.
+    if (docType === 'DLL' || docType === 'Unknown') {
         // Load classification uses only the named subject and grade fields.
         const loadFields = extractTeachingLoadFields(text);
         subject = loadFields.subject;
@@ -397,6 +401,9 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
         termNumber = headerPeriod.invalid ? null : headerPeriod.termNumber;
         weekNumber = headerPeriod.invalid ? null : headerPeriod.weekNumber;
         weekSource = weekNumber ? 'regex' : 'none';
+        const fromName = filenameText ? readHeaderPeriod(filenameText) : null;
+        headerDay = headerPeriod.day ?? fromName?.day ?? null;
+        dayNumber = headerPeriod.dayNumber ?? fromName?.dayNumber ?? null;
     }
 
     // Extract school year
@@ -414,7 +421,7 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
 
     const dateMatch = headerText.match(/(?:Teaching\s*Dates?(?:\s*and\s*Time)?|DATE|PETSA(?:\s*(?:at|[/|])\s*(?:ORAS|DATE))?(?:\s*ng\s*Pagtuturo)?)\s*[:\t\-\s]*\s*([^\n\t|]{5,})/i);
     const date = dateMatch ? dateMatch[1].trim() : null;
-    const day = extractDay(headerAndFilename);
+    const day = headerDay ?? extractDay(headerAndFilename);
 
     const dateRange = parseDateRange(headerText);
     if (dateRange && !weekNumber) {
@@ -438,6 +445,7 @@ export function parseMetadata(text: string, fileName: string = ''): Omit<DocMeta
         teacher,
         date,
         day,
+        dayNumber,
         dateRange,
         weekSource
     };

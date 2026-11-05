@@ -9,19 +9,19 @@ const fields=url(readFileSync('src/lib/utils/teachingLoadFields.ts','utf8').repl
 const matcher=url(readFileSync('src/lib/utils/teachingLoadMatching.ts','utf8').replace("from './teachingLoadFields'",`from '${fields}'`));
 const {resolveTeachingLoadMatch,teachingLoadNotice}=await import(matcher);
 const deadline=url(readFileSync('src/lib/utils/deadlineRules.ts','utf8'));
-const header=url(readFileSync('src/lib/utils/headerPeriod.ts','utf8').replace("from './deadlineRules'",`from '${deadline}'`));
-const {resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod}=await import(header);
+const header=url(readFileSync('src/lib/utils/headerPeriod.ts','utf8').replace("from './deadlineRules'",`from '${deadline}'`).replace("from './fuzzyClassifier'",`from '${fuzzy}'`));
+const {resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod,readHeaderPeriod,fileNameAsHeaderText}=await import(header);
 const {preserveUploadPeriod}=await import(url(readFileSync('src/lib/utils/uploadTargets.ts','utf8')));
 let sequence=0;
 async function harness({online=false,refreshedCalendar=null,refreshedLoads=null}={}) {
  const requests=new Map();
- globalThis.__fileTest={resolveTeachingLoadMatch,teachingLoadNotice,resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod,online,refreshedCalendar,refreshedLoads,toasts:[],extractMetadata:(file,{signal})=>new Promise((resolve,reject)=>requests.set(file.name,{resolve,reject,signal}))};
+ globalThis.__fileTest={readHeaderPeriod,fileNameAsHeaderText,resolveTeachingLoadMatch,teachingLoadNotice,resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod,online,refreshedCalendar,refreshedLoads,toasts:[],extractMetadata:(file,{signal})=>new Promise((resolve,reject)=>requests.set(file.name,{resolve,reject,signal}))};
  const page=readFileSync('src/routes/dashboard/upload/+page.svelte','utf8');
  let fn=page.slice(page.indexOf('    function resetDocumentTargets()'),page.indexOf('    /** Auto-wait for profile'));
  fn=fn.replace('function resetDocumentTargets','export function resetDocumentTargets').replace('async function onFileSelected','export async function onFileSelected');
  let refresh=page.slice(page.indexOf('    let loadRefreshRun = 0;'),page.indexOf('    let showTermPicker = $state(false);')).replace('async function refreshTeachingLoads','export async function refreshTeachingLoads');
  let manual=page.slice(page.indexOf('    function useManualTargets()'),page.indexOf('    function resetDocumentTargets()')).replace('function useManualTargets','export function useManualTargets');
- const prefix=`const {resolveTeachingLoadMatch,teachingLoadNotice,resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod,extractMetadata}=globalThis.__fileTest; const getCurrentSchoolYear=()=>"2026-2027"; const uploaderSchoolName=""; const navigator={get onLine(){return globalThis.__fileTest.online}}; const requestUploadTargets=async request=>request(new AbortController().signal);const requestUploadTargetsReliably=requestUploadTargets;let loadsStatus='ready',calendarStatus='ready',optionsVersion=0,targetNotice='',targetsChosenByHand=false,scannedDocument=null,autofillWaiting=false; const cacheMetadata=async()=>{}; const openUploadTargets=(entries,year)=>entries.filter(entry=>entry.school_year===year&&entry.is_active===true); const supabase={from:(table)=>({select(){return this},eq(){return this},order(){return this},abortSignal(){return Promise.resolve({data:table==='teaching_loads'?globalThis.__fileTest.refreshedLoads:globalThis.__fileTest.refreshedCalendar,error:null})}})};
+ const prefix=`const {readHeaderPeriod,fileNameAsHeaderText,resolveTeachingLoadMatch,teachingLoadNotice,resolveHeaderUploadPeriod,resolveUniqueOpenUploadPeriod,extractMetadata}=globalThis.__fileTest; const getCurrentSchoolYear=()=>"2026-2027"; const uploaderSchoolName=""; const navigator={get onLine(){return globalThis.__fileTest.online}}; const requestUploadTargets=async request=>request(new AbortController().signal);const requestUploadTargetsReliably=requestUploadTargets;let targetsFromFileName=false,loadsStatus='ready',calendarStatus='ready',optionsVersion=0,targetNotice='',targetsChosenByHand=false,scannedDocument=null,autofillWaiting=false; const cacheMetadata=async()=>{}; const openUploadTargets=(entries,year)=>entries.filter(entry=>entry.school_year===year&&entry.is_active===true); const supabase={from:(table)=>({select(){return this},eq(){return this},order(){return this},abortSignal(){return Promise.resolve({data:table==='teaching_loads'?globalThis.__fileTest.refreshedLoads:globalThis.__fileTest.refreshedCalendar,error:null})}})};
 let metadataRun=0,submissionCheckRun=0,scanController=null,trackerTarget=null,teachingLoadId='old',subject='Filipino',termNumber=1,weekNumber=6,currentDeadline={},detectedMetadata={},mismatchAlert={},ocrConfidence=100,detectingMetadata=false,scanProgress=100,slotAlreadyCovered=true,slotNotice='old',submissionAlreadyExists=true,submissionBlockReason='old',targetConfirmed=true,uploadConfirmed=true,confirmArchiveOpen=true,showLoadPicker=false,showTermPicker=false,showWeekPicker=false,result=null,showSuccessModal=false,completedDetails=null,awaitingArchive=null,progress=100,message='old',currentPhase='done',selectedFile=null,processing=false,checkingTarget=false,loadingTeachingLoads=false,docTypeManuallySelected=true,docType='DLL';
 const $settings={maintenance_mode:false},$profile={id:'teacher',district_id:'district'},MAX_SELECTED_PDF_BYTES=4000000,MAX_SELECTED_PDF_SIZE_MB=4,PDF_COMPRESSOR_URL='compressor';
 let teachingLoads=[{id:'filipino',subject:'Filipino',grade_level:'Grade 5'},{id:'math',subject:'Mathematics',grade_level:'Grade 5'}];
@@ -29,7 +29,7 @@ let calendarEntries=[{id:'one',term:1,week_number:6,is_active:true,school_year:'
 let allCalendarEntries=calendarEntries;
 const isWeeklyComplianceDocType=type=>type==='DLL';const addToast=(...args)=>globalThis.__fileTest.toasts.push(args);const debugLog=(...args)=>globalThis.__fileTest.toasts.push(args.map(String));const waitForDataReady=async()=>true;const setDocType=type=>docType=type;const validateSelection=()=>null;const createDefaultMetadata=()=>({rawText:''});const resolveWeekFromDates=()=>null;const parseDocDate=value=>new Date(value);const lookupWeekByDate=async()=>null;
 `;
- const snapshot=`export function snapshot(){return {teachingLoadId,termNumber,weekNumber,detectedMetadata,mismatchAlert,detectingMetadata,slotNotice,targetConfirmed};}export function getCalendar(){return allCalendarEntries;}export function getLoads(){return teachingLoads;}export function manualChoice(){teachingLoadId='math';termNumber=2;weekNumber=7;}export function setCalendar(entries){calendarEntries.splice(0,calendarEntries.length,...entries);}export function setLoads(entries){teachingLoads=entries;}export function setTrackerTarget(target){trackerTarget=target;}export function setStatus(value){loadsStatus=value;calendarStatus=value;}export function notice(){return targetNotice;}export function autofillIsWaiting(){return autofillWaiting;}export function rerunScan(){const doc=scannedDocument;return applyScanToTargets(doc.file,doc.metadata,()=>true);}\n//${sequence++}`;
+ const snapshot=`export function snapshot(){return {teachingLoadId,termNumber,weekNumber,detectedMetadata,mismatchAlert,detectingMetadata,slotNotice,targetConfirmed};}export function getCalendar(){return allCalendarEntries;}export function getLoads(){return teachingLoads;}export function manualChoice(){teachingLoadId='math';termNumber=2;weekNumber=7;}export function setCalendar(entries){calendarEntries.splice(0,calendarEntries.length,...entries);}export function setLoads(entries){teachingLoads=entries;}export function setTrackerTarget(target){trackerTarget=target;}export function setStatus(value){loadsStatus=value;calendarStatus=value;}export function fromName(){return targetsFromFileName;}export function notice(){return targetNotice;}export function autofillIsWaiting(){return autofillWaiting;}export function rerunScan(){const doc=scannedDocument;return applyScanToTargets(doc.file,doc.metadata,()=>true);}\n//${sequence++}`;
  const ui=await import(url(prefix+refresh+manual+fn+snapshot));return {ui,requests};
 }
 const file=name=>({name,type:'application/pdf',size:1000});
@@ -110,6 +110,30 @@ test('a scan that finishes before options load fills in once they arrive',async(
  ui.setLoads([{id:'math',subject:'Mathematics',grade_level:'Grade 5'}]);ui.setCalendar([{id:'two',term:2,week_number:7,is_active:true,school_year:'2026-2027'}]);ui.setStatus('ready');
  await ui.rerunScan();
  assert.equal(ui.snapshot().teachingLoadId,'math');assert.equal(ui.snapshot().termNumber,2);assert.equal(ui.snapshot().weekNumber,7);assert.equal(ui.autofillIsWaiting(),false);assert.equal(ui.notice(),'');
+});
+const namedRoster=[{id:'math5',subject:'Mathematics',grade_level:'Grade 5'},{id:'math6',subject:'Mathematics',grade_level:'Grade 6'}];
+const namedCalendar=[{id:'one',term:1,week_number:7,is_active:false,school_year:'2026-2027'},{id:'seven',term:2,week_number:7,is_active:true,school_year:'2026-2027'},{id:'eight',term:2,week_number:8,is_active:true,school_year:'2026-2027'}];
+test('an unreadable scan fills load, term and week from the file name with a visible note',async()=>{
+ const {ui,requests}=await harness();ui.setLoads(namedRoster);ui.setCalendar(namedCalendar);
+ const work=ui.onFileSelected(file('WEEK 7 TERM 2 MATH G6.pdf'));requests.get('WEEK 7 TERM 2 MATH G6.pdf').resolve({docType:'DLL',rawText:'',confidence:0});await work;
+ assert.deepEqual([ui.snapshot().teachingLoadId,ui.snapshot().termNumber,ui.snapshot().weekNumber],['math6',2,7]);
+ assert.equal(ui.fromName(),true);assert.match(ui.notice(),/Filled from the file name/);
+});
+test('a scan that fails outright still uses the file name',async()=>{
+ const {ui,requests}=await harness();ui.setLoads(namedRoster);ui.setCalendar(namedCalendar);
+ const work=ui.onFileSelected(file('T2W8_MATH_G5.pdf'));requests.get('T2W8_MATH_G5.pdf').reject(new Error('OCR failed'));await work;
+ assert.deepEqual([ui.snapshot().teachingLoadId,ui.snapshot().termNumber,ui.snapshot().weekNumber],['math5',2,8]);
+ assert.match(ui.notice(),/could not read this file.*Filled from the file name/);
+});
+test('the file name never replaces a period the document states',async()=>{
+ const {ui,requests}=await harness();ui.setLoads(namedRoster);ui.setCalendar(namedCalendar);
+ const work=ui.onFileSelected(file('WEEK 8 TERM 2 MATH G6.pdf'));requests.get('WEEK 8 TERM 2 MATH G6.pdf').resolve({docType:'DLL',rawText:'Learning Area: Mathematics\nGrade Level: 6\nTerm 2\nWeek 7',confidence:90});await work;
+ assert.deepEqual([ui.snapshot().teachingLoadId,ui.snapshot().weekNumber],['math6',7]);assert.equal(ui.fromName(),false);
+});
+test('a file naming a Closed week does not fall through to another Open week',async()=>{
+ const {ui,requests}=await harness();ui.setLoads(namedRoster);ui.setCalendar([namedCalendar[0],namedCalendar[1]]);
+ const work=ui.onFileSelected(file('TERM 1 WEEK 7 MATH G6.pdf'));requests.get('TERM 1 WEEK 7 MATH G6.pdf').resolve({docType:'DLL',rawText:'',confidence:0});await work;
+ assert.equal(ui.snapshot().teachingLoadId,'math6');assert.equal(ui.snapshot().weekNumber,undefined);
 });
 test('post-upload target reset clears the next form completely',async()=>{
  const {ui,requests}=await harness();const work=ui.onFileSelected(file('Math.pdf'));requests.get('Math.pdf').resolve(metadata('Mathematics'));await work;ui.resetDocumentTargets();

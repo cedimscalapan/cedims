@@ -64,8 +64,7 @@
 .tracker-page .school-tracker .document-row strong { font-size: 18px; }
 .tracker-page .school-tracker .document-name { color: var(--color-text-primary); }
 .tracker-page .pagination-bar :is(.pagination-summary, .pagination-button, .pagination-page) { font-size: 16px; }
-.tracker-page .pagination-bar :is(.pagination-button, .pagination-page) { min-height: 48px; min-width: 80px; }
-.tracker-page .pagination-bar .pagination-button:not(:disabled):not(.next) { color: var(--color-text-primary); }
+.tracker-page .pagination-bar .pagination-button { min-height: 48px; min-width: 96px; }
 .tracker-page .review-dialog :is(label, textarea, button, .remark) { font-size: 16px; line-height: 1.6; }
 .tracker-page .review-dialog :is(small, .help, .preview-title, .status) { font-size: 14px; line-height: 1.6; }
 .tracker-page .review-dialog h3 { font-size: 19px; }

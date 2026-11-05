@@ -38,9 +38,13 @@
         const rect = trigger.getBoundingClientRect();
         const below = window.innerHeight - rect.bottom - 12;
         const above = rect.top - 12;
-        const height = Math.min(280, Math.max(120, Math.max(below, above)));
+        // Sized to the options it actually holds, so a short list opening upward
+        // stays against its field instead of floating over the content above it.
+        const wanted = Math.min(280, options.length * 48 + 2);
+        const opensDown = below >= wanted || below >= above;
+        const height = Math.min(wanted, Math.max(120, opensDown ? below : above));
         position = {
-            top: below >= Math.min(220, height) || below >= above ? rect.bottom + 6 : Math.max(8, rect.top - height - 6),
+            top: opensDown ? rect.bottom + 6 : Math.max(8, rect.top - height - 6),
             left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
             width: Math.min(rect.width, window.innerWidth - 16),
             maxHeight: height
