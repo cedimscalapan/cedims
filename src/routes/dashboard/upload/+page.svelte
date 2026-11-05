@@ -258,19 +258,6 @@
             .map((w) => w.week_number),
     );
 
-    const detectedFields = $derived.by(() => {
-        const found = detectedMetadata;
-        if (!found) return [];
-        const header = readHeaderPeriod(found.rawText || '');
-        const dayParts = [found.day, found.dayNumber ? `Day ${found.dayNumber}` : ''].filter(Boolean);
-        return [
-            { label: 'Learning area', value: found.subject },
-            { label: 'Grade', value: found.gradeLevel ? gradeLabel(found.gradeLevel) : '' },
-            { label: 'Term', value: (header.termNumber ?? found.termNumber) ? `Term ${header.termNumber ?? found.termNumber}` : '' },
-            { label: 'Week', value: (header.weekNumber ?? found.weekNumber) ? `Week ${header.weekNumber ?? found.weekNumber}` : '' },
-            { label: 'Day', value: dayParts.join(' · ') },
-        ];
-    });
     const loadsConfirmedEmpty = $derived(!teachingLoads.length && loadsStatus === 'ready');
     const loadsPendingLabel = $derived(!teachingLoads.length && loadsStatus !== 'ready' ? 'Loading your teaching loads…' : '');
     const calendarPendingLabel = $derived(!calendarEntries.length && calendarStatus !== 'ready' ? 'Loading…' : !calendarEntries.length ? 'No Open period' : '');
@@ -1442,20 +1429,6 @@
                             {#if docType === "DLL"}
                             {#if targetNotice && !detectingMetadata}
                                 <p class="rounded-lg border border-gov-gold/30 bg-gov-gold/10 px-4 py-3 text-sm font-semibold text-gov-gold-dark" role="status" aria-live="polite">{targetNotice}</p>
-                            {/if}
-                            {#if !detectingMetadata && detectedMetadata}
-                                <div class="rounded-lg border border-border-subtle bg-surface-muted p-3" role="status">
-                                    <p class="text-xs font-bold text-text-secondary uppercase tracking-wide">{targetsFromFileName ? 'Found in this document and its file name' : 'Found in this document'}</p>
-                                    <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
-                                        {#each detectedFields as field}
-                                            <div class="min-w-0">
-                                                <dt class="text-xs font-semibold text-text-muted">{field.label}</dt>
-                                                <dd class="text-base font-semibold {field.value ? 'text-text-primary' : 'text-text-muted'}">{field.value || 'Not found'}</dd>
-                                            </div>
-                                        {/each}
-                                    </dl>
-                                    <p class="mt-2 text-xs text-text-muted">{detectedMetadata.subject && teachingLoadId && !mismatchAlert ? 'Matches the selected teaching load. Confirm it before uploading.' : 'Check the teaching load below before uploading.'}</p>
-                                </div>
                             {/if}
                             <!-- Matched Teaching Load -->
                             <div class="space-y-2">
