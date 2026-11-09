@@ -1,0 +1,20 @@
+.workspace-content .tracker-page .simple-tracker { min-width:0; }
+.workspace-content .tracker-page .simple-tracker details > summary { cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px; padding:10px 12px; font-size:16px; font-weight:700; color:var(--color-text-primary); }
+.workspace-content .tracker-page .simple-tracker :is(.scope-details,.action-queue,.leave-section,.leave-list,.next-actions) { margin:12px 0; padding:0; border:1px solid var(--color-border-subtle); border-radius:10px; background:var(--color-surface-white); }
+.workspace-content .tracker-page .simple-tracker :is(.scope-details,.action-queue,.leave-section,.leave-list,.next-actions)[open] { padding-bottom:12px; }
+.workspace-content .tracker-page .simple-tracker details > :not(summary) { margin-inline:12px; }
+.workspace-content .tracker-page .simple-tracker .tracker-actions { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.workspace-content .tracker-page .simple-tracker .tracker-actions :is(button,a) { min-height:44px; padding:8px 12px; font-size:16px; }
+.workspace-content .tracker-page .simple-tracker .tracker-actions button[aria-pressed='true'] { background:var(--color-gov-blue); color:white; border-color:var(--color-gov-blue); }
+.workspace-content .tracker-page .simple-tracker .tracker-actions strong { color:inherit; background:transparent; padding:0; font-size:16px; }
+.workspace-content .tracker-page .simple-tracker .direct-reviews { display:grid; gap:10px; }
+.workspace-content .tracker-page .simple-tracker .direct-review { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:14px; border:1px solid var(--color-border-subtle); border-radius:10px; }
+.workspace-content .tracker-page .simple-tracker .direct-review > div { flex:1 1 220px; min-width:0; }
+.workspace-content .tracker-page .simple-tracker .direct-review :is(p,small) { overflow-wrap:anywhere; line-height:1.5; font-size:14px; margin:4px 0 0; }
+.workspace-content .tracker-page .simple-tracker .direct-review strong { font-size:16px; }
+.workspace-content .tracker-page .simple-tracker .detail-heading { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:0 0 16px; }
+@media(max-width:600px) {
+  .workspace-content .tracker-page .simple-tracker .tracker-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .workspace-content .tracker-page .simple-tracker .tracker-actions a { grid-column:1 / -1; }
+  .workspace-content .tracker-page .simple-tracker .tracker-actions :is(button,a) { justify-content:center; font-size:14px; padding:8px; }
+}

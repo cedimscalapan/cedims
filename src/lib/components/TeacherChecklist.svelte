@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import '$lib/styles/simpleTracker.css';
     import PaginationBar from './PaginationBar.svelte';
     import CedimsSelect from './CedimsSelect.svelte';
     import { profile } from '$lib/utils/auth';
@@ -100,15 +101,15 @@
     }
 </script>
 
-<section class="tracker">
+<section class="tracker simple-tracker">
     <header>
         <div class="title-row"><div><h2>{title}</h2><p>{readOnly ? 'View deadlines, submission status and documents.' : 'Check deadlines, upload lesson plans and read remarks.'}</p></div>{#if !readOnly}<button type="button" class="request-leave" on:click={() => openLeave()}>Request leave</button>{/if}</div>
     </header>
     <p class="scope">{scopeLabel} · Totals include all statuses</p>
-    {#if !readOnly}<section class="next-actions" aria-labelledby="next-actions-title"><div class="section-heading"><div><h3 id="next-actions-title">Needs your attention</h3><p>{actionRows.length ? 'Upload a DLL or request leave for the relevant week.' : 'No open submissions need action in this view.'}</p></div><span>{actionRows.length} shown</span></div>{#each actionRows as row}<div class="next-row"><div><strong>{row.load.subject} · {row.load.grade_level}</strong><small>Term {row.calendar.term}, Week {row.calendar.week_number} · Due {formatDeadline(row)}</small></div><div class="next-action"><span class:missing={row.status === 'missing'}>{row.status === 'missing' ? 'Overdue' : 'Upcoming'}</span><button type="button" on:click={() => openLeave(row)}>Request leave</button><a href={`/dashboard/upload?load=${encodeURIComponent(row.load.id)}&term=${row.calendar.term}&week=${row.calendar.week_number}`}>Upload DLL</a></div></div>{/each}</section>{/if}
+
     <dl class="primary-counts">{#each [['Expected', summary.expected], ['Submitted', summary.submitted], ['Remaining', Math.max(0, summary.expected-summary.submitted)], ['Overdue', summary.missing]] as item}<div><dt>{item[0]}</dt><dd>{item[1]}</dd></div>{/each}</dl>
     {#if summary.onLeave || summary.leavePending}<details class="secondary-counts"><summary>Leave status <span>{summary.onLeave} approved · {summary.leavePending} awaiting review</span></summary><div class="leave-counts"><div><dt>On leave / excluded</dt><dd>{summary.onLeave}</dd></div><div><dt>Pending leave requests</dt><dd>{summary.leavePending}</dd></div></div></details>{/if}
-    {#if visibleLeaves.length}<section class="leave-list" aria-labelledby="leave-list-title"><h3 id="leave-list-title">{readOnly ? 'Leave requests' : 'My leave requests'}</h3>{#each visibleLeaves as request (request.id)}<div class="leave-row"><div><strong>{leaveTitle(request)}</strong><small>{request.leave_type} · {request.reason}</small>{#if request.reviewer_comment}<small>Reviewer remark: {request.reviewer_comment}</small>{/if}</div><div class="leave-side"><span class="leave-status {request.status}">{leaveStatusLabel(request.status)}</span>{#if !readOnly && request.status === 'pending'}<button type="button" disabled={cancellingLeave === request.id} on:click={() => cancelLeave(request)}>{cancellingLeave === request.id ? 'Withdrawing…' : 'Withdraw'}</button>{/if}</div></div>{/each}{#if leaveListError}<p class="error" role="alert">{leaveListError}</p>{/if}</section>{/if}
+    {#if visibleLeaves.length}<details class="leave-list"><summary>{readOnly ? 'Leave requests' : 'My leave requests'} ({visibleLeaves.length})</summary>{#each visibleLeaves as request (request.id)}<div class="leave-row"><div><strong>{leaveTitle(request)}</strong><small>{request.leave_type} · {request.reason}</small>{#if request.reviewer_comment}<small>Reviewer remark: {request.reviewer_comment}</small>{/if}</div><div class="leave-side"><span class="leave-status {request.status}">{leaveStatusLabel(request.status)}</span>{#if !readOnly && request.status === 'pending'}<button type="button" disabled={cancellingLeave === request.id} on:click={() => cancelLeave(request)}>{cancellingLeave === request.id ? 'Withdrawing…' : 'Withdraw'}</button>{/if}</div></div>{/each}{#if leaveListError}<p class="error" role="alert">{leaveListError}</p>{/if}</details>{/if}
     <p class="formula"><strong>{summary.rate === null ? 'N/A' : `${summary.rate}%`} complete</strong> · {summary.submitted} of {summary.expected} submitted. Approved leave is excluded from expected work.</p>
     <details class="filters" ><summary>Find a submission <span>Term {term === 'all' ? '· All' : term} · {status === 'all' ? 'All statuses' : label({ status })}</span></summary>
             <div class="filter-fields">
@@ -118,11 +119,12 @@
         </details>
     <div class="scroll"><table><thead><tr><th>Term</th><th>Week</th><th>Subject / Grade</th><th>Deadline</th><th>Submission status</th><th>Action</th></tr></thead><tbody>
         {#each rows.slice((page - 1) * size, page * size) as row}
-            <tr><td data-label="Term">{row.calendar.term}</td><td data-label="Week">{row.calendar.week_number}</td><th scope="row">{row.load.subject}<small>{row.load.grade_level}</small></th><td data-label="Deadline">{formatDeadline(row)}</td><td data-label="Submission status" class:missing={row.status === 'missing'} class:leave={row.status === 'on-leave' || row.status === 'leave-requested'}>{submissionStatus(row)}{#if readOnly && row.submission}<small class="review-state">Review: {reviewStatus(row)}</small>{/if}</td><td class="actions">{#if row.submission}<button class="text-action" on:click={() => openReview(row)}>{readOnly && reviewStatus(row) === 'For checking' ? 'Review document' : 'View document'}</button>{:else if !readOnly && actionsOpen(row, now) && row.status !== 'on-leave'}<a class="text-action primary-action" href={`/dashboard/upload?load=${encodeURIComponent(row.load.id)}&term=${row.calendar.term}&week=${row.calendar.week_number}`}>Upload DLL</a>{#if row.status !== 'leave-requested'}<button class="text-action" type="button" on:click={() => openLeave(row)}>Request leave</button>{/if}{:else}<span class="closed-hint">{row.status === 'on-leave' ? 'Excluded from expected' : 'No submission yet'}</span>{/if}</td></tr>
+            <tr><td data-label="Term">{row.calendar.term}</td><td data-label="Week">{row.calendar.week_number}</td><th scope="row">{row.load.subject}<small>{row.load.grade_level}</small></th><td data-label="Deadline">{formatDeadline(row)}</td><td data-label="Submission status" class:missing={row.status === 'missing'} class:leave={row.status === 'on-leave' || row.status === 'leave-requested'}>{submissionStatus(row)}{#if readOnly && row.submission}<small class="review-state">Review: {reviewStatus(row)}</small>{/if}</td><td class="actions">{#if row.submission}<button class="text-action" on:click={() => openReview(row)}>{readOnly && reviewStatus(row) === 'For checking' ? 'Review document' : 'View document'}</button>{:else if !readOnly && actionsOpen(row, now) && row.status !== 'on-leave'}<a class="text-action primary-action" href={`/dashboard/upload?load=${encodeURIComponent(row.load.id)}&term=${row.calendar.term}&week=${row.calendar.week_number}`}>Upload DLL</a>{#if row.status !== 'leave-requested'}<button class="text-action" type="button" on:click={() => openLeave(row)}>Request leave</button>{/if}{:else if !readOnly && row.status !== 'on-leave' && row.status !== 'leave-requested'}<button class="text-action" type="button" on:click={() => openLeave(row)}>Request leave</button>{:else}<span class="closed-hint">{row.status === 'on-leave' ? 'Excluded from expected' : row.status === 'leave-requested' ? 'Waiting for leave review' : 'No submission yet'}</span>{/if}</td></tr>
         {/each}
     </tbody></table></div>
     {#if rows.length === 0}<p class="empty">No requirements match this view.</p>{/if}
     <PaginationBar bind:page pages={pages} total={rows.length} pageSize={size} itemLabel="requirements" />
+    {#if !readOnly}<details class="next-actions"><summary>Upload and leave shortcuts <span>{actionRows.length}</span></summary>{#each actionRows as row}<div class="next-row"><div><strong>{row.load.subject} · {row.load.grade_level}</strong><small>Term {row.calendar.term}, Week {row.calendar.week_number} · Due {formatDeadline(row)}</small></div><div class="next-action"><span class:missing={row.status === 'missing'}>{row.status === 'missing' ? 'Overdue' : 'Upcoming'}</span><button type="button" on:click={() => openLeave(row)}>Request leave</button><a href={`/dashboard/upload?load=${encodeURIComponent(row.load.id)}&term=${row.calendar.term}&week=${row.calendar.week_number}`}>Upload DLL</a></div></div>{/each}</details>{/if}
 </section>
 {#if reviewTarget}<DocumentReviewPanel document={reviewTarget} onClose={() => reviewTarget = null} onSaved={onChanged} />{/if}
 {#if leaveDialogOpen}<LeaveRequestDialog loads={teachingLoads} calendar={leaveCalendar} {leaveRequests} initialDay={leaveInitialDay} onClose={() => leaveDialogOpen = false} onSaved={() => onChanged?.()} />{/if}
@@ -130,8 +132,8 @@
     .tracker { min-width: 0; padding: 18px; color: var(--color-text-primary); border: 1px solid var(--color-border-subtle); border-radius: 12px; background: var(--color-surface-white); box-shadow: 0 8px 20px rgba(15, 23, 42, .04); }
     .scope { margin: 0 0 14px; color: var(--color-text-secondary); font-size: 14px; font-weight: 650; }
     .next-actions { margin-bottom: 18px; border: 1px solid var(--color-border-subtle); border-left: 4px solid var(--color-gov-blue); border-radius: 8px; padding: 16px 18px; background: var(--color-surface-white); }
-    .section-heading, .next-row, .next-action { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .section-heading { padding-bottom: 8px; }.section-heading h3 { font-size: 19px; font-weight: 800; }.section-heading p, .section-heading > span { color: var(--color-text-muted); font-size: 13px; }
+    .next-row, .next-action { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    
     .next-row { border-top: 1px solid var(--color-border-subtle); padding: 12px 0; }.next-row:last-child { padding-bottom: 0; }.next-row strong { font-size: 15px; }.next-row small { color: var(--color-text-muted); font-size: 13px; margin-top: 3px; }
     .next-action span { font-size: 13px; font-weight: 700; }.next-action button, .next-action a { padding: 8px 15px; font-weight: 750; white-space: nowrap; }.next-action button { color: var(--color-gov-blue); background: var(--color-surface-white); }.next-action a { background: var(--color-gov-blue); color: white; border-color: var(--color-gov-blue); }
     .review-state { margin-top: 4px; color: var(--color-text-secondary); font-size: 12px; }
@@ -163,7 +165,7 @@
     .title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .request-leave { flex-shrink: 0; padding: 0 16px; color: var(--color-gov-blue); background: var(--color-surface-white); font-size: 14px; font-weight: 800; white-space: nowrap; }
     .leave-list { margin-bottom: 14px; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px 16px; }
-    .leave-list h3 { font-size: 16px; font-weight: 800; padding-bottom: 6px; }
+    
     .leave-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-top: 1px solid var(--color-border-subtle); padding: 10px 0; }
     .leave-row:last-of-type { padding-bottom: 0; }
     .leave-row strong { font-size: 14px; }

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { supabase, getRows } from "$lib/utils/supabase";
     import DocumentReviewPanel from "$lib/components/DocumentReviewPanel.svelte";
+    import BackButton from '$lib/components/BackButton.svelte';
     import PageHeader from '$lib/components/PageHeader.svelte';
     import { profile } from "$lib/utils/auth";
     import StatusBadge from "$lib/components/StatusBadge.svelte";
@@ -681,6 +682,10 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         currentPath = currentPath.slice(0, index + 1);
     }
 
+    function backToTeachers() {
+        const teacherIndex = currentPath.findIndex(segment => segment.type === 'teacher');
+        if (teacherIndex > 0) currentPath = currentPath.slice(0, teacherIndex);
+    }
     function goBack() {
         if (currentPath.length > 1) {
             currentPath = currentPath.slice(0, -1);
@@ -1184,18 +1189,22 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
             <span class="rounded-full bg-gov-blue/5 px-3 py-1.5 text-xs font-bold text-gov-blue">{isFileLevel ? `${filteredByPath.length} files` : `${currentFolders.length} folders`}</span>
         </header>
         <!-- Breadcrumb -->
-        <nav class="flex min-w-0 max-w-full items-center gap-1 overflow-x-auto pb-1" aria-label="Archive location">
+        <div class="archive-navigation">
+            <div class="archive-back-actions">
             {#if currentPath.length > 1}
                 <button
                     onclick={goBack}
                     class="cedims-back-button flex-shrink-0"
-                    title="Go back"
-                    aria-label="Go back"
+                    title={`Back to ${currentPath[currentPath.length - 2]?.label || 'Archives'}`}
+                    aria-label={`Back to ${currentPath[currentPath.length - 2]?.label || 'Archives'}`}
                 >
                     <ArrowLeft size={18} />
-                    Back
+                    {currentLevel.type === 'teacher' && $profile?.role !== 'Teacher' ? 'Back to teachers' : 'Back'}
                 </button>
             {/if}
+            {#if $profile?.role !== 'Teacher' && currentPath.some((segment, index) => segment.type === 'teacher' && index < currentPath.length - 1)}<BackButton label="Back to teachers" onBack={backToTeachers} />{/if}
+            </div>
+            <nav class="archive-breadcrumb" aria-label="Archive location">
             {#each currentPath as seg, i}
                 {#if i > 0}
                     <ChevronRight
@@ -1220,9 +1229,10 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
                     {/if}
                 </button>
             {/each}
-        </nav>
+            </nav>
+        </div>
 
-        <div class="grid grid-cols-1 gap-3 border-t border-border-subtle pt-3 lg:grid-cols-[minmax(16rem,1fr)_auto] lg:items-center">
+        <div class="archive-toolbar">
             <!-- Search -->
             <label class="relative block min-w-0">
                 <span class="sr-only">Search archive files</span>
@@ -1230,9 +1240,9 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
                 <input type="search" bind:value={searchQuery} placeholder="Search files, teachers, or subjects…" class="min-h-11 w-full rounded-lg border border-border-subtle bg-surface-muted py-2 pl-10 pr-3 text-sm outline-none transition focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20" />
             </label>
 
-            <div class="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+            <div class="archive-filter-groups">
                 <!-- Review state -->
-                <div class="flex min-h-11 items-center gap-1 overflow-x-auto rounded-lg border border-border-subtle bg-surface-muted p-1" aria-label="Filter by review status">
+                <div class="archive-review-filter" aria-label="Filter by review status">
                     {#each ["all", "for-checking", "checked"] as opt}
                         <button type="button" aria-pressed={statusFilter === opt} onclick={() => (statusFilter = opt as typeof statusFilter)} class="min-h-9 whitespace-nowrap rounded-md px-3 text-xs font-bold transition-colors {statusFilter === opt ? 'bg-gov-blue text-white shadow-sm' : 'text-text-muted hover:bg-surface-white hover:text-text-primary'}">
                             {opt === "all" ? "All files" : opt === "for-checking" ? "For checking" : "Checked"}
@@ -1241,10 +1251,10 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
                 </div>
 
                 <!-- Academic period filters -->
-                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2 lg:flex-none" aria-label="Filter archives by academic period">
+                <div class="archive-period-filter" aria-label="Filter archives by academic period">
                     <span class="px-1 text-xs font-bold uppercase tracking-wide text-text-muted">Period</span>
-                    <div class="min-w-36 flex-1 sm:flex-none"><CedimsSelect bind:value={archiveTerm} ariaLabel="Filter archives by term" compact options={[{value:'all',label:'All terms'}, ...availableArchiveTerms.map(term=>({value:String(term),label:`Term ${term}`}))]} onChange={() => archiveWeek = 'all'} /></div>
-                    <div class="min-w-36 flex-1 sm:flex-none"><CedimsSelect bind:value={archiveWeek} ariaLabel="Filter archives by week" compact options={[{value:'all',label:'All weeks'}, ...availableArchiveWeeks.map(week=>({value:String(week),label:`Week ${week}`}))]} /></div>
+                    <div class="archive-period-picker"><CedimsSelect bind:value={archiveTerm} ariaLabel="Filter archives by term" compact options={[{value:'all',label:'All terms'}, ...availableArchiveTerms.map(term=>({value:String(term),label:`Term ${term}`}))]} onChange={() => archiveWeek = 'all'} /></div>
+                    <div class="archive-period-picker"><CedimsSelect bind:value={archiveWeek} ariaLabel="Filter archives by week" compact options={[{value:'all',label:'All weeks'}, ...availableArchiveWeeks.map(week=>({value:String(week),label:`Week ${week}`}))]} /></div>
                     {#if archiveTerm !== "all" || archiveWeek !== "all"}
                         <button type="button" class="min-h-10 rounded-lg px-2.5 text-sm font-semibold text-gov-blue hover:bg-gov-blue/5" onclick={() => { archiveTerm = "all"; archiveWeek = "all"; }}>Clear</button>
                     {/if}
@@ -1305,14 +1315,15 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         >
             {#each paginatedData as sub, i (sub.id)}
                 <div
-                    class="gov-card p-0 overflow-hidden flex flex-col group h-[202px]"
+                    class="gov-card archive-file-card"
                 >
                     <!-- Card Top: Icon & Status -->
                     <div
-                            class="p-3 flex-1 flex flex-col items-center text-center relative min-h-0"
+                            class="archive-card-body"
                     >
-                        <!-- Top Floating Status -->
-                        <div class="absolute top-3 right-3">
+                        <div class="archive-card-heading">
+                        <div class="archive-file-icon"><FileText size={22} class="text-gov-blue" /></div>
+                        <div>
                             <StatusBadge
                                 status={normalizeComplianceStatus(
                                     sub.compliance_status,
@@ -1321,17 +1332,12 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
                             />
                         </div>
 
-                        <!-- Centered Icon -->
-                        <div
-                            class="w-10 h-10 rounded-md bg-gov-blue/10 flex items-center justify-center mb-2 group-hover:scale-105 group-hover:bg-gov-blue/15 transition-[color,background-color,border-color,transform] duration-300 shadow-sm"
-                        >
-                            <FileText size={20} class="text-gov-blue" />
                         </div>
 
                         <!-- Filename -->
-                        <div class="w-full min-h-[2.5rem] px-2 mb-2 flex items-start justify-center">
+                        <div class="archive-file-title">
                             <h4
-                                class="text-sm font-bold text-text-primary leading-tight line-clamp-2 break-words overflow-hidden max-w-full"
+                                class="archive-filename"
                                 title={sub.file_name}
                             >
                                 {sub.file_name}
@@ -1340,7 +1346,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
 
                         <!-- Metadata Row -->
                         <div
-                            class="flex flex-wrap items-center justify-center gap-1 mt-auto"
+                            class="archive-card-badges"
                         >
                             {#if isLessonPlanDoc(sub.doc_type)}
                                 {#if reviewsMap[sub.id]?.reviewer_comment}
@@ -1377,9 +1383,9 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
 
                     <!-- Card Footer: Metadata & Actions -->
                     <div
-                        class="px-3 py-2 bg-surface-muted border-t border-border-subtle rounded-b-xl flex items-center justify-between gap-2"
+                        class="archive-card-footer"
                     >
-                        <div class="flex flex-col min-w-0">
+                        <div class="archive-file-facts">
                             <span
                                 class="text-xs font-semibold text-text-muted uppercase tracking-tight whitespace-nowrap"
                             >
@@ -1395,7 +1401,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
                         </div>
 
                         <!-- Action Buttons -->
-                        <div class="flex items-center gap-1 flex-shrink-0">
+                        <div class="archive-card-actions">
                             <button
                                 onclick={(e) => {
                                     e.stopPropagation();
@@ -1406,7 +1412,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
                                 aria-label={openingSubmissionId === sub.id ? "Opening document" : `View ${sub.file_name}`}
                                 disabled={openingSubmissionId !== null}
                             >
-                                <Eye size={16} />
+                                <Eye size={18} /><span>Open</span>
                             </button>
                             {#if canViewRemarkForSubmission(sub)}
                                 <button
@@ -1418,7 +1424,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
                                     title={canAddRemarkToSubmission(sub) ? "Add Remarks" : "View Remarks"}
                                     aria-label={canAddRemarkToSubmission(sub) ? `Add remarks to ${sub.file_name}` : `View remarks for ${sub.file_name}`}
                                 >
-                                    <MessageSquare size={16} />
+                                    <MessageSquare size={18} /><span>{canAddRemarkToSubmission(sub) ? 'Review' : 'Remarks'}</span>
                                 </button>
                             {/if}
                             <button
@@ -1439,6 +1445,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
                                 }}
                                 class="w-8 h-8 flex items-center justify-center text-text-muted hover:text-gov-gold-dark hover:bg-gov-gold/10 rounded-lg transition-colors"
                                 title="Share Verification Link"
+                                aria-label={`Share verification link for ${sub.file_name}`}
                             >
                                 <Share2 size={16} />
                             </button>
@@ -1586,3 +1593,33 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
 {/if}
 
 
+
+<style>
+    .archive-navigation { display:grid; gap:10px; min-width:0; }
+    .archive-back-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+    .archive-back-actions:empty { display:none; }
+    .archive-back-actions :global(button) { flex-shrink:0; white-space:nowrap; }
+    .archive-breadcrumb { display:flex; align-items:center; gap:4px; overflow-x:auto; max-width:100%; min-width:0; padding-bottom:6px; }
+    .archive-toolbar { display:grid; gap:12px; border-top:1px solid var(--color-border-subtle); padding-top:12px; min-width:0; }
+    .archive-filter-groups { display:flex; flex-wrap:wrap; align-items:center; gap:12px; min-width:0; }
+    .archive-review-filter { display:flex; flex-wrap:wrap; gap:4px; padding:4px; background:var(--color-surface-muted); border:1px solid var(--color-border-subtle); border-radius:10px; max-width:100%; }
+    .archive-review-filter button { min-height:44px; padding:8px 12px; }
+    .archive-period-filter { display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; flex:1; }
+    .archive-period-picker { min-width:0; flex:1 1 140px; }
+    .archive-file-card { padding:0; display:flex; flex-direction:column; min-width:0; height:auto; overflow:hidden; }
+    .archive-card-body { display:grid; gap:12px; padding:16px; min-width:0; flex:1; }
+    .archive-card-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+    .archive-file-icon { display:grid; place-items:center; width:40px; height:40px; border-radius:8px; background:var(--color-surface-muted); }
+    .archive-file-title { min-width:0; }
+    .archive-filename { font-size:16px; line-height:1.5; font-weight:750; color:var(--color-text-primary); overflow-wrap:anywhere; }
+    .archive-card-badges { display:flex; flex-wrap:wrap; align-items:flex-start; gap:6px; min-width:0; }
+    .archive-card-badges span { font-size:12px; line-height:1.5; max-width:100%; overflow-wrap:anywhere; }
+    .archive-card-footer { display:grid; gap:10px; padding:12px 16px; background:var(--color-surface-muted); border-top:1px solid var(--color-border-subtle); }
+    .archive-file-facts { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 12px; min-width:0; }
+    .archive-file-facts span { font-size:13px; line-height:1.5; }
+    .archive-card-actions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+    .archive-card-actions button { display:inline-flex; justify-content:center; align-items:center; gap:6px; min-width:44px; width:auto; height:auto; min-height:44px; padding:8px; border:1px solid var(--color-border-subtle); background:var(--color-surface-white); color:var(--color-text-primary); border-radius:8px; }
+    .archive-card-actions button span { font-size:14px; }
+    @media(min-width:1200px) { .archive-toolbar { grid-template-columns:minmax(220px,1fr) minmax(0,2fr); align-items:start; } }
+    @media(max-width:600px) { .archive-filter-groups { display:grid; gap:10px; } .archive-review-filter { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); } .archive-review-filter button { padding:8px 4px; white-space:normal; font-size:14px; } .archive-period-filter > span { flex-basis:100%; } .archive-card-body { padding:14px; } }
+</style>
