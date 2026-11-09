@@ -10,6 +10,7 @@
     import { effectiveDeadlineForSubject } from '$lib/utils/deadlineRules';
     import { type ReviewEntry } from '$lib/utils/trackerView';
     import TeacherChecklist from './TeacherChecklist.svelte';
+    import TeacherUploadHistory from './TeacherUploadHistory.svelte';
     import DocumentReviewPanel from './DocumentReviewPanel.svelte';
     import PaginationBar from './PaginationBar.svelte';
     import CedimsSelect from './CedimsSelect.svelte';
@@ -116,7 +117,10 @@
 <section class="school-tracker simple-tracker">
     {#if selectedTeacher}
         <div class="detail-heading"><BackButton focusOnMount={true} label="Back to teachers" onBack={() => void backToTeachers()} /><h2>{selectedTeacher.full_name || selectedTeacher.name}</h2></div>
+        {#key selectedTeacher.id}<TeacherUploadHistory teacherId={selectedTeacher.id} teacherName={selectedTeacher.full_name || selectedTeacher.name} onChanged={savedReview} />{/key}
+        <details class="compliance-details"><summary>Weekly compliance and leave</summary>
         <TeacherChecklist title="Weekly submission details" submissions={selectedDocs} teachingLoads={visibleLoads.filter(l=>l.user_id===selected)} calendarWeeks={periods.filter(c=>(term==='all'||c.term===Number(term))&&(week==='all'||c.week_number===Number(week)))} leaveRequests={leaveRequests.filter(r=>r.user_id===selected)} reviewEntries={reviews} readOnly={true} onChanged={savedReview} />
+        </details>
     {:else}
     <header><div><h2>School submissions</h2><p>Check missing work and documents waiting for review.</p></div><a href="/dashboard/compliance">Full compliance report ↗</a></header>
     <dl class="summary"><div><dt>Expected</dt><dd>{summary.expected}</dd></div><div><dt>Submitted</dt><dd>{summary.submitted}</dd></div><div><dt>Remaining</dt><dd>{Math.max(0,summary.expected-summary.submitted)}</dd></div><div><dt>Overdue</dt><dd class="overdue">{summary.missing}</dd></div></dl>
