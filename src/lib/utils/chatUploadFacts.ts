@@ -12,7 +12,7 @@ export async function answerUploadFacts(plan:ChatDataPlan,ctx:ChatContext|undefi
         if('answer' in access)return {answer:access.answer!};
         const {schools,districts,teachers:people}=access;
         const db=ctx!.supabase,year=plan.request.schoolYear||getCurrentSchoolYear();
-        const calendar=await readReportRows(()=>db.from('academic_calendar').select('id,school_year,term,week_number,deadline_date,district_id,is_active').eq('school_year',year).order('id'));
+        const calendar=await readReportRows(()=>db.from('academic_calendar').select('id,school_year,term,week_number,deadline_date,district_id,is_active').eq('school_year',year).eq('is_published',true).order('id'));
         const resolution=resolveReportPeriod({...plan.request,schoolYear:year},calendar.filter(c=>!c.district_id||schools.some(s=>s.district_id===c.district_id)) as CalendarSlot[]);
         if(resolution.error)return {answer:resolution.error};
         const request=resolution as ReportRequest;

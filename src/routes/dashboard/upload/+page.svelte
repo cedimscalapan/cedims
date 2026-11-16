@@ -302,7 +302,9 @@
 
         if (teachingLoadId && weekNumber && docType === "DLL" && $profile) {
             const selectedLoad = teachingLoads.find((load) => load.id === teachingLoadId);
-            const resolvedTerm = termNumber || calendarEntries.find((w) => w.week_number === weekNumber)?.term || Math.min(3, Math.max(1, Math.ceil(weekNumber / 14)));
+            const matchingTerms = [...new Set(calendarEntries.filter((w) => w.week_number === weekNumber).map((w) => w.term))];
+            const resolvedTerm = termNumber || (matchingTerms.length === 1 ? matchingTerms[0] : undefined);
+            if (!resolvedTerm) return;
             const query = supabase
                 .from("submissions")
                 .select("id, file_name")
@@ -641,7 +643,7 @@
                         const { data: entries, error } = await requestUploadTargetsReliably((signal) => supabase
                             .from("academic_calendar")
                             .select("id, school_year, term, week_number, deadline_date, description, is_active")
-                            .eq("district_id", userProfile.district_id).eq("school_year", year)
+                            .eq("district_id", userProfile.district_id).eq("school_year", year).eq("is_published", true)
                             .order("term").order("week_number").abortSignal(signal), { keepTrying: isCurrent });
                         if (error || !entries) throw error;
                         if (!isCurrent() || processing) return;
@@ -759,7 +761,7 @@
                     const { data: currentCalendar, error: calendarError } = await requestUploadTargets((signal) => supabase
                         .from('academic_calendar')
                         .select('id, school_year, term, week_number, deadline_date, description, is_active')
-                        .eq('district_id', $profile!.district_id).eq('school_year', year)
+                        .eq('district_id', $profile!.district_id).eq('school_year', year).eq('is_published', true)
                         .order('term').order('week_number').abortSignal(signal));
                     if (!isCurrentScan()) return;
                     if (!calendarError && currentCalendar) {
@@ -1994,7 +1996,7 @@
                     >
                         <span class="text-base font-bold">{term.label}</span>
                         <span class="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                            Weeks {(term.value - 1) * 14 + 1}-{term.value * 14}
+                            Weeks 1–14
                         </span>
                     </button>
                 {:else}

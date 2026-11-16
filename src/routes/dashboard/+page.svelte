@@ -346,6 +346,7 @@
                 .from("academic_calendar")
                 .select("*")
                 .eq("school_year", getDynamicSchoolYear())
+                .eq("is_published", true)
                 .order("week_number", { ascending: true }),
             supabase
                 .from("submission_leave_requests")
@@ -478,6 +479,7 @@
             .from("academic_calendar")
             .select("*")
             .eq("school_year", getDynamicSchoolYear())
+            .eq("is_published", true)
             .order("week_number", { ascending: true });
 
         // Scope to this supervisor's own district (academic_calendar rows

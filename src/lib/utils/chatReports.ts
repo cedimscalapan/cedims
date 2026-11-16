@@ -135,7 +135,7 @@ export async function createChatReport(db:any,profile:Profile|undefined|null,use
         const ids=teachers.map(t=>t.id);
         const [allLoads,calendar]=await Promise.all([
             rowsForIds(db,'teaching_loads','id,user_id,subject,grade_level,is_active','user_id',ids),
-            readReportRows(()=>db.from('academic_calendar').select('id,school_year,term,week_number,deadline_date,district_id,is_active').eq('school_year',year).order('id'))
+            readReportRows(()=>db.from('academic_calendar').select('id,school_year,term,week_number,deadline_date,district_id,is_active').eq('school_year',year).eq('is_published',true).order('id'))
         ]);
         const scopedPeriods=calendar.filter(c=>!c.district_id||schools.some(s=>s.district_id===c.district_id));
         const resolved=resolveReportPeriod({...request,schoolYear:year},scopedPeriods as CalendarSlot[]);

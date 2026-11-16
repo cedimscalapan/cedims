@@ -120,7 +120,7 @@ export function readHeaderPeriod(text: string) {
     }
     const schoolYear = header.match(/(?:S\.?Y\.?|SCHOOL\s*YEAR|TAONG\s*PANURUAN)\s*[: -]*\s*(20\d{2})\s*[-\u2013]\s*(20\d{2})/i);
     return { header, termNumber:terms.size===1?[...terms][0]:null, weekNumber:weeks.size===1?[...weeks][0]:null,
-        invalid:terms.size>1 || weeks.size>1 || [...terms].some(value=>value<1||value>3) || [...weeks].some(value=>value<1||value>42),
+        invalid:terms.size>1 || weeks.size>1 || [...terms].some(value=>value<1||value>3) || [...weeks].some(value=>value<1||value>14),
         ranges, schoolYear:schoolYear?`${schoolYear[1]}-${schoolYear[2]}`:null, ...readHeaderDay(header) };
 }
 function dayNumber(part: DatePart, year: number) {
@@ -133,7 +133,7 @@ function dayNumber(part: DatePart, year: number) {
 export function resolveHeaderUploadPeriod<T extends UploadCalendarTarget>(text: string, calendar: T[], options: {schoolYear: string; subject?: string | null; schoolName?: string | null}) {
     const header = readHeaderPeriod(text);
     if (header.invalid || header.schoolYear && header.schoolYear !== options.schoolYear) return null;
-    const candidates = calendar.filter(entry => entry.school_year === options.schoolYear && Number.isInteger(entry.term) && entry.term >= 1 && entry.term <= 3 && Number.isInteger(entry.week_number) && entry.week_number >= 1 && entry.week_number <= 42 &&
+    const candidates = calendar.filter(entry => entry.school_year === options.schoolYear && Number.isInteger(entry.term) && entry.term >= 1 && entry.term <= 3 && Number.isInteger(entry.week_number) && entry.week_number >= 1 && entry.week_number <= 14 &&
         (!header.termNumber || entry.term === header.termNumber) && (!header.weekNumber || entry.week_number === header.weekNumber));
     if (header.weekNumber && candidates.length === 1) return candidates[0].is_active === true ? candidates[0] : null;
     if (!candidates.length) return null;
@@ -175,7 +175,7 @@ export function resolveUniqueOpenUploadPeriod<T extends UploadCalendarTarget>(te
         (header.termNumber && header.weekNumber)) return null;
     const open = calendar.filter(entry => entry.school_year === schoolYear && entry.is_active === true &&
         Number.isInteger(entry.term) && entry.term >= 1 && entry.term <= 3 &&
-        Number.isInteger(entry.week_number) && entry.week_number >= 1 && entry.week_number <= 42);
+        Number.isInteger(entry.week_number) && entry.week_number >= 1 && entry.week_number <= 14);
     if (open.length !== 1) return null;
     const only = open[0];
     if (header.termNumber && header.termNumber !== only.term) return null;

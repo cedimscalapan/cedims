@@ -18,6 +18,7 @@
         deadline_date: string;
         description: string;
         is_active?: boolean;
+        is_published?: boolean;
     }
 
     let schoolYear = $state("2026-2027");
@@ -103,12 +104,14 @@
         const districtId = resolvedDistrictId;
         const selectedYear = schoolYear;
         const selectedTerm = term;
-        const { data, error } = await supabase
+        let query = supabase
             .from("academic_calendar")
             .select("*")
             .eq("school_year", selectedYear)
             .eq("district_id", districtId)
             .order("week_number", { ascending: true });
+        if (!isAdmin) query = query.eq("is_published", true);
+        const { data, error } = await query;
 
         if (request !== loadRequest || districtId !== resolvedDistrictId || selectedYear !== schoolYear || selectedTerm !== term) return;
         loadingWeeks = false;
@@ -126,6 +129,7 @@
                 deadline_date: row.deadline_date ? dateInManila(row.deadline_date) : "",
                 description: row.description || "",
                 is_active: row.is_active,
+                is_published: row.is_published,
             }));
     }
 
@@ -201,9 +205,12 @@
             return;
         }
         const next = !d.is_active;
+        if (next && d.is_published === false && !confirm(
+            `Open Term ${term}, Week ${d.week_number} with deadline ${d.deadline_date}? This will add the week to compliance reporting.`,
+        )) return;
         const { error } = await supabase
             .from("academic_calendar")
-            .update({ is_active: next })
+            .update(next ? { is_active: true, is_published: true } : { is_active: false })
             .eq("id", d.id);
 
         if (error) {
@@ -216,6 +223,7 @@
         }
 
         d.is_active = next;
+        if (next) d.is_published = true;
         addToast(
             "success",
             next
@@ -403,7 +411,7 @@
                                             class="flex items-center gap-1 text-xs font-semibold uppercase text-text-muted"
                                         >
                                             <Clock size={10} />
-                                            Closed
+                                            {d.is_published === false ? "Draft" : "Closed"}
                                         </div>
                                     {/if}
                                 </div>
@@ -418,9 +426,9 @@
                                         class="px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-colors shadow-sm flex items-center gap-1.5 {d.is_active
                                             ? 'bg-gov-green/10 text-[#166534] dark:text-[#4ade80] hover:bg-gov-green hover:text-white'
                                             : 'bg-surface-muted text-text-muted border border-border-subtle hover:bg-gov-gold/10 hover:text-gov-gold-dark'}"
-                                        title="Week {d.week_number} is {d.is_active ? 'Open' : 'Closed'}. Click to {d.is_active ? 'close (hide from Upload)' : 'open this week for Upload'}"
+                                        title="Week {d.week_number} is {d.is_active ? 'Open' : d.is_published === false ? 'Draft' : 'Closed'}. Click to {d.is_active ? 'close (hide from Upload)' : 'open this week for Upload'}"
                                     >
-                                        {d.is_active ? "Open" : "Closed"}
+                                        {d.is_active ? "Open" : d.is_published === false ? "Draft" : "Closed"}
                                     </button>
                                 {/if}
                                 <button
@@ -516,7 +524,8 @@
                                 cutoff on the applicable due date; some subjects have a different
                                 due weekday. Later submissions are marked <strong>Late</strong>.
                                 Use <strong>Open</strong> or <strong>Closed</strong> to control whether
-                                teachers can upload for that week. Closing a week does not delete
+                                teachers can upload for that week. Draft weeks enter reporting when
+                                first opened. Closing a week does not delete
                                 its saved submissions or reviews.
                             </p>
                         </div>

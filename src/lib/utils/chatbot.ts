@@ -1000,7 +1000,7 @@ async function queryCompliance(
     const [loadsResult, submissionsResult, calendarResult, leaveResult] = await Promise.all([
         loadsQuery,
         db.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at, subject').eq('school_year', schoolYear).in('user_id', teacherIds).in('doc_type', ['DLL', 'DLP', 'ISP', 'ISR']),
-        db.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active').eq('school_year', schoolYear).eq('is_active', true),
+        db.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active').eq('school_year', schoolYear).eq('is_published', true).eq('is_active', true),
         db.from('submission_leave_requests').select('*').eq('school_year', schoolYear).in('user_id', teacherIds),
     ]);
     if (loadsResult.error || submissionsResult.error || calendarResult.error || leaveResult.error) {
@@ -1072,6 +1072,7 @@ async function queryDeadline(
         .from('academic_calendar')
         .select('*')
         .eq('school_year', getDynamicSchoolYear())
+        .eq('is_published', true)
         .eq('is_active', true)
         .order('deadline_date', { ascending: true });
 
@@ -1251,7 +1252,7 @@ async function querySchoolCompare(
         db.from('teaching_loads').select('id, user_id, subject, grade_level, is_active')
             .eq('is_active', true).in('user_id', teacherIds),
         db.from('academic_calendar').select('id, school_year, term, week_number, deadline_date, district_id, is_active')
-            .eq('school_year', schoolYear).eq('is_active', true),
+            .eq('school_year', schoolYear).eq('is_published', true).eq('is_active', true),
         db.from('submissions').select('id, user_id, teaching_load_id, school_year, term_number, week_number, calendar_id, file_path, doc_type, compliance_status, created_at')
             .in('user_id', teacherIds).eq('school_year', schoolYear).in('doc_type', ['DLL', 'DLP'])
             .not('file_hash', 'like', 'nc_%'),
@@ -1425,6 +1426,8 @@ async function queryCalendarInfo(
     let query = db
         .from('academic_calendar')
         .select('*')
+        .eq('school_year', getDynamicSchoolYear())
+        .eq('is_published', true)
         .order('deadline_date', { ascending: true });
 
     if (districtId) {

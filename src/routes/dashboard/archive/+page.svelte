@@ -230,6 +230,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
             .from("academic_calendar")
             .select("id, term, week_number, deadline_date, is_active, school_year")
             .eq("school_year", getCurrentSchoolYear())
+            .eq("is_published", true)
             .order("term")
             .order("week_number");
         moveTarget = sub;
