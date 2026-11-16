@@ -41,7 +41,7 @@ interface CoreResult {
 
 function resolveTermNumber(termNumber: number | undefined, weekNumber: number | undefined): number | undefined {
     if (termNumber && Number.isFinite(termNumber)) return Math.min(3, Math.max(1, termNumber));
-    if (weekNumber && Number.isFinite(weekNumber)) return Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
+    if (weekNumber && Number.isFinite(weekNumber)) return Math.min(3, Math.max(1, Math.ceil(weekNumber / 14)));
     return undefined;
 }
 

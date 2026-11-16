@@ -302,7 +302,7 @@
 
         if (teachingLoadId && weekNumber && docType === "DLL" && $profile) {
             const selectedLoad = teachingLoads.find((load) => load.id === teachingLoadId);
-            const resolvedTerm = termNumber || calendarEntries.find((w) => w.week_number === weekNumber)?.term || Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
+            const resolvedTerm = termNumber || calendarEntries.find((w) => w.week_number === weekNumber)?.term || Math.min(3, Math.max(1, Math.ceil(weekNumber / 14)));
             const query = supabase
                 .from("submissions")
                 .select("id, file_name")
@@ -1994,7 +1994,7 @@
                     >
                         <span class="text-base font-bold">{term.label}</span>
                         <span class="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                            Weeks {(term.value - 1) * 13 + 1}-{term.value * 13}
+                            Weeks {(term.value - 1) * 14 + 1}-{term.value * 14}
                         </span>
                     </button>
                 {:else}

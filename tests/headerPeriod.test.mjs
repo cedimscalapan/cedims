@@ -42,6 +42,12 @@ test('week numbers repeated in different terms are disambiguated with header dat
 test('a week without a term does not invent a term number',()=>{
  assert.equal(readHeaderPeriod('Week 7').termNumber,null);
 });
+test('the final week in a 14-week term is accepted',()=>{
+ const finalWeek=entry('final',3,42,'2027-04-07T02:00:00Z');
+ assert.equal(readHeaderPeriod('Term 3 Week 42').invalid,false);
+ assert.equal(match('Term 3 Week 42',[finalWeek]).id,'final');
+ assert.equal(readHeaderPeriod('Week 43').invalid,true);
+});
 test('date ranges spanning the deadline match that week',()=>{
  assert.equal(match('Teaching Dates: October 25-29, 2026').id,'oct26');
  assert.equal(match('Teaching Dates: October 30-November 3, 2026').id,'nov2');
