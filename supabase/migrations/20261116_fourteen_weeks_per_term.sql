@@ -14,6 +14,7 @@ DECLARE
     term_one_count integer;
     term_two_count integer;
     term_three_count integer;
+    added_weeks integer;
 BEGIN
     FOR calendar_scope IN
         SELECT DISTINCT district_id, school_year
@@ -104,6 +105,16 @@ BEGIN
         WHERE district_id = calendar_scope.district_id
           AND school_year = calendar_scope.school_year
           AND (term, week_number) IN ((1, 13), (2, 27), (3, 41));
+
+        GET DIAGNOSTICS added_weeks = ROW_COUNT;
+        IF added_weeks <> 3 OR (
+            SELECT count(*) FROM public.academic_calendar
+            WHERE district_id = calendar_scope.district_id
+              AND school_year = calendar_scope.school_year
+        ) <> 42 THEN
+            RAISE EXCEPTION 'Calendar expansion did not create exactly 14 weeks per term for district % and school year %',
+                calendar_scope.district_id, calendar_scope.school_year;
+        END IF;
     END LOOP;
 END $$;
 
