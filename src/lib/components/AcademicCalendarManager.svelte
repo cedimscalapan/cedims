@@ -27,11 +27,20 @@
     let loading = $state(true);
     let saving = $state(false);
     let generating = $state(false);
+    let adding = $state(false);
+    let loadingWeeks = $state(false);
+    let loadRequest = 0;
     let resolvedDistrictId = $state<string | null>(null);
+    let availableDistricts = $state<{ id: string; name: string }[]>([]);
+    let usedWeekNumbers = $state<number[]>([]);
+    let newWeekNumber = $state("");
+    let newDeadlineDate = $state("");
+    let newDescription = $state("");
     let yearOpen = $state(false);
     let termOpen = $state(false);
 
     const schoolYears = ["2026-2027", "2027-2028"];
+    const suggestedWeekNumber = $derived(Math.max(0, ...usedWeekNumbers) + 1);
 
     const terms = [
         { value: 1, label: "1st Term" },
@@ -47,19 +56,19 @@
         ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((w, i) => ({
             term: 1,
             week_number: w,
-            deadline_date: new Date(2026, 5, 8 + i * 7).toISOString(),
+            deadline_date: new Date(Date.UTC(2026, 5, 8 + i * 7)).toISOString().slice(0, 10),
         })),
         // Term 2 (Weeks 14–26, Sep 16 – Dec 18, 2026; first Monday Sep 21)
         ...[14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26].map((w, i) => ({
             term: 2,
             week_number: w,
-            deadline_date: new Date(2026, 8, 21 + i * 7).toISOString(),
+            deadline_date: new Date(Date.UTC(2026, 8, 21 + i * 7)).toISOString().slice(0, 10),
         })),
         // Term 3 (Weeks 27–39, Jan 4 – Apr 8, 2027)
         ...[27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39].map((w, i) => ({
             term: 3,
             week_number: w,
-            deadline_date: new Date(2027, 0, 4 + i * 7).toISOString(),
+            deadline_date: new Date(Date.UTC(2027, 0, 4 + i * 7)).toISOString().slice(0, 10),
         })),
     ];
 
@@ -86,6 +95,14 @@
                 } else {
                     resolvedDistrictId = data?.district_id || null;
                 }
+            } else if (isAdmin) {
+                const { data, error } = await supabase
+                    .from("districts")
+                    .select("id, name")
+                    .order("name");
+                if (error) throw error;
+                availableDistricts = data || [];
+                resolvedDistrictId = availableDistricts[0]?.id || null;
             } else {
                 console.error(
                     "[calendar] No district_id or school_id found in profile:",
@@ -112,45 +129,97 @@
     async function loadDeadlines() {
         if (!resolvedDistrictId) return;
 
+        const request = ++loadRequest;
+        loadingWeeks = true;
+        deadlines = [];
+        usedWeekNumbers = [];
+        const districtId = resolvedDistrictId;
+        const selectedYear = schoolYear;
+        const selectedTerm = term;
         const { data, error } = await supabase
             .from("academic_calendar")
             .select("*")
-            .eq("school_year", schoolYear)
-            .eq("term", term)
-            .eq("district_id", resolvedDistrictId)
+            .eq("school_year", selectedYear)
+            .eq("district_id", districtId)
             .order("week_number", { ascending: true });
 
+        if (request !== loadRequest || districtId !== resolvedDistrictId || selectedYear !== schoolYear || selectedTerm !== term) return;
+        loadingWeeks = false;
         if (error) {
             console.error("[calendar] Error loading calendar:", error);
+            addToast("error", "Failed to load calendar weeks");
             return;
         }
 
-        // Always ensure we have 10 weeks
-        const existingWeeks = data || [];
-        deadlines = Array.from({ length: 10 }, (_, i) => {
-            const weekNum = i + 1;
-            const weekData = existingWeeks.find(
-                (w: any) => w.week_number === weekNum,
-            );
-            return {
-                id: weekData?.id,
-                week_number: weekNum,
-                deadline_date: weekData?.deadline_date
-                    ? (weekData.deadline_date as string).split("T")[0]
-                    : "",
-                description:
-                    weekData?.description || `Week ${weekNum} Submission`,
-                is_active: weekData?.is_active ?? false,
-            };
-        });
+        usedWeekNumbers = (data || []).map((row) => row.week_number);
+        deadlines = (data || [])
+            .filter((row) => row.term === selectedTerm)
+            .map((row) => ({
+                id: row.id,
+                week_number: row.week_number,
+                deadline_date: row.deadline_date ? dateInManila(row.deadline_date) : "",
+                description: row.description || "",
+                is_active: row.is_active,
+            }));
     }
 
-    function selectedDateAtTenAMIso(dateValue: string): string {
-        const [year, month, day] = dateValue.split("-").map(Number);
-        return new Date(year, month - 1, day, 10, 0, 0, 0).toISOString();
+    function dateInManila(value: string): string {
+        const parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",
+        }).formatToParts(new Date(value));
+        const part = (type: string) => parts.find((item) => item.type === type)?.value || "";
+        return `${part("year")}-${part("month")}-${part("day")}`;
     }
 
-    async function saveWeek(weekData: any) {
+    function selectedDeadlineIso(dateValue: string): string {
+        return new Date(`${dateValue}T23:59:00+08:00`).toISOString();
+    }
+
+    async function addWeek() {
+        if (!canEdit || !resolvedDistrictId || adding || loadingWeeks) return;
+        const weekNumber = Number(newWeekNumber);
+        if (!Number.isInteger(weekNumber) || weekNumber < 1 || weekNumber > 52) {
+            addToast("error", "Enter a week number from 1 to 52");
+            return;
+        }
+        if (usedWeekNumbers.includes(weekNumber)) {
+            addToast("error", `Week ${weekNumber} already exists in this school year`);
+            return;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(newDeadlineDate) || Number.isNaN(Date.parse(`${newDeadlineDate}T23:59:00+08:00`))) {
+            addToast("error", "Choose a valid deadline date");
+            return;
+        }
+
+        adding = true;
+        const selectedYear = schoolYear;
+        const selectedTerm = term;
+        const districtId = resolvedDistrictId;
+        try {
+            const { error } = await supabase.from("academic_calendar").insert({
+                district_id: districtId,
+                school_year: selectedYear,
+                term: selectedTerm,
+                week_number: weekNumber,
+                deadline_date: selectedDeadlineIso(newDeadlineDate),
+                description: newDescription.trim() || `Week ${weekNumber} — Term ${selectedTerm} Submission`,
+                is_active: false,
+            });
+            if (error) {
+                addToast("error", error.code === "23505" ? `Week ${weekNumber} already exists in this term` : `Failed to add week: ${error.message}`);
+                return;
+            }
+            newWeekNumber = "";
+            newDeadlineDate = "";
+            newDescription = "";
+            addToast("success", `Week ${weekNumber} added as Closed. Open it when submissions should begin.`);
+            if (selectedYear === schoolYear && selectedTerm === term && districtId === resolvedDistrictId) await loadDeadlines();
+        } finally {
+            adding = false;
+        }
+    }
+
+    async function saveWeek(weekData: Deadline) {
         if (!canEdit) {
             addToast("error", "You don't have permission to edit the calendar");
             return;
@@ -175,7 +244,7 @@
             school_year: schoolYear,
             term: term,
             week_number: weekData.week_number,
-            deadline_date: selectedDateAtTenAMIso(weekData.deadline_date),
+            deadline_date: selectedDeadlineIso(weekData.deadline_date),
             description: weekData.description,
             ...(typeof weekData.is_active === "boolean"
                 ? { is_active: weekData.is_active }
@@ -185,7 +254,7 @@
 
         const { data, error } = await supabase
             .from("academic_calendar")
-            .upsert(payload)
+            .upsert(payload, { onConflict: "district_id,school_year,term,week_number" })
             .select();
 
         if (error) {
@@ -203,7 +272,7 @@
     }
 
     $effect(() => {
-        if (schoolYear || term) {
+        if (schoolYear && term && resolvedDistrictId) {
             loadDeadlines();
         }
     });
@@ -265,6 +334,10 @@
 
     async function generateFromDepEd() {
         if (!canEdit || !resolvedDistrictId) return;
+        if (schoolYear !== "2026-2027") {
+            addToast("error", "The DepEd template is only for school year 2026-2027");
+            return;
+        }
         if (
             !confirm(
                 "Generate the full DepEd SY 2026-2027 three-term calendar for this district? Entries start Closed and can be opened individually. Existing dates will be overwritten.",
@@ -278,7 +351,7 @@
                 school_year: schoolYear,
                 term: w.term,
                 week_number: w.week_number,
-                deadline_date: w.deadline_date,
+                deadline_date: selectedDeadlineIso(w.deadline_date),
                 description: `Week ${w.week_number} — Term ${w.term} Submission`,
                 is_active: false,
                 district_id: resolvedDistrictId,
@@ -404,6 +477,73 @@
             </div>
         </div>
     </div>
+
+        {#if canEdit && availableDistricts.length > 0}
+            <div class="mb-6">
+                <label for="calendar-district" class="block mb-2 text-sm font-semibold text-text-primary">District</label>
+                <select
+                    id="calendar-district"
+                    bind:value={resolvedDistrictId}
+                    class="w-full sm:w-auto min-w-64 px-4 py-3 bg-surface-white border border-border-subtle rounded-xl text-text-primary"
+                >
+                    {#each availableDistricts as district}
+                        <option value={district.id}>{district.name}</option>
+                    {/each}
+                </select>
+            </div>
+        {/if}
+
+        {#if canEdit && resolvedDistrictId}
+            <form
+                class="mb-8 gov-card-static p-6"
+                onsubmit={(event) => { event.preventDefault(); void addWeek(); }}
+            >
+                <h2 class="text-lg font-semibold text-text-primary">Add a week</h2>
+                <p class="mt-1 text-sm text-text-secondary">Create a week for {schoolYear}, Term {term}. It will start Closed.</p>
+                <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="new-week-number" class="block mb-2 text-sm font-semibold text-text-primary">Week number</label>
+                        <input
+                            id="new-week-number"
+                            type="number"
+                            min="1"
+                            max="52"
+                            step="1"
+                            value={newWeekNumber}
+                            oninput={(event) => newWeekNumber = event.currentTarget.value}
+                            placeholder={suggestedWeekNumber <= 52 ? String(suggestedWeekNumber) : "1–52"}
+                            required
+                            class="w-full px-4 py-3 bg-surface-white border border-border-subtle rounded-xl text-text-primary"
+                        />
+                    </div>
+                    <div>
+                        <label for="new-week-date" class="block mb-2 text-sm font-semibold text-text-primary">Deadline date</label>
+                        <DatePicker id="new-week-date" bind:value={newDeadlineDate} placeholder="Select deadline" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="new-week-description" class="block mb-2 text-sm font-semibold text-text-primary">Notes / purpose (optional)</label>
+                        <input
+                            id="new-week-description"
+                            type="text"
+                            bind:value={newDescription}
+                            placeholder="e.g. DLL submission"
+                            class="w-full px-4 py-3 bg-surface-white border border-border-subtle rounded-xl text-text-primary"
+                        />
+                    </div>
+                </div>
+                <button
+                    type="submit"
+                    disabled={adding || loadingWeeks}
+                    class="mt-5 px-5 py-3 rounded-xl bg-gov-blue text-white text-sm font-semibold disabled:opacity-60"
+                >{adding ? "Adding…" : loadingWeeks ? "Loading weeks…" : "Add week"}</button>
+            </form>
+        {/if}
+
+        {#if !loading && !loadingWeeks && resolvedDistrictId && deadlines.length === 0}
+            <p class="mb-8 p-6 rounded-xl border border-border-subtle text-sm text-text-secondary">
+                No weeks have been added for this term and school year.
+            </p>
+        {/if}
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             {#each deadlines as d, i (d.week_number)}
@@ -542,7 +682,7 @@
                                 Operational Guidelines
                             </h4>
                             <p class="text-sm text-text-secondary leading-relaxed">
-                                Each week is saved individually by clicking the <span
+                                Changes to each week are saved individually by clicking the <span
                                     class="inline-flex items-center justify-center px-2 py-0.5 rounded bg-gov-blue/10 text-gov-blue-dark dark:text-[#5a8fde] font-bold text-xs uppercase"
                                     >Save</span
                                 >
@@ -558,7 +698,7 @@
                             <button
                                 type="button"
                                 onclick={() => generateFromDepEd()}
-                                disabled={generating}
+                                disabled={generating || schoolYear !== "2026-2027"}
                                 class="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gov-blue text-white text-sm font-bold hover:bg-gov-blue-dark active:scale-95 transition-[color,background-color,border-color,transform] duration-200 ease-out shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 <CalendarDays size={18} />
