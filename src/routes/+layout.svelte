@@ -1,7 +1,6 @@
 <script lang="ts">
 	import "../app.css";
 	import Toast from "$lib/components/Toast.svelte";
-	import DisplayZoom from "$lib/components/DisplayZoom.svelte";
 	import LoadingScreen from "$components/LoadingScreen.svelte";
 	import { showQRScanner } from "$lib/stores/ui";
 	import { hideLoading } from "$stores/loadingStore";
@@ -251,8 +250,7 @@
 	<QRScannerComponent onScan={handleScan} onClose={() => showQRScanner.set(false)} />
 {/if}
 
-<aside class="system-tools" aria-label="Display and help tools">
-	<DisplayZoom />
+<aside class="system-tools" aria-label="Help tools">
 	{#if ChatBotComponent}<ChatBotComponent />{/if}
 </aside>
 
