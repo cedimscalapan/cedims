@@ -42,15 +42,21 @@ test('week numbers repeated in different terms are disambiguated with header dat
 test('a week without a term does not invent a term number',()=>{
  assert.equal(readHeaderPeriod('Week 7').termNumber,null);
 });
+test('the final week in a 14-week term is accepted',()=>{
+ const finalWeek=entry('final',3,14,'2027-04-07T02:00:00Z');
+ assert.equal(readHeaderPeriod('Term 3 Week 14').invalid,false);
+ assert.equal(match('Term 3 Week 14',[finalWeek]).id,'final');
+ assert.equal(readHeaderPeriod('Week 15').invalid,true);
+});
 test('date ranges spanning the deadline match that week',()=>{
  assert.equal(match('Teaching Dates: October 25-29, 2026').id,'oct26');
  assert.equal(match('Teaching Dates: October 30-November 3, 2026').id,'nov2');
 });
 test('dates without a year use the available calendar year across New Year',()=>{
- const rows=[entry('jan4',2,16,'2027-01-04T02:00:00Z')];assert.equal(match('Date: January 3',rows).id,'jan4');assert.equal(match('Date: December 31',rows).id,'jan4');
+ const rows=[entry('jan4',3,2,'2027-01-04T02:00:00Z')];assert.equal(match('Date: January 3',rows).id,'jan4');assert.equal(match('Date: December 31',rows).id,'jan4');
 });
 test('explicit wrong year or impossible date cannot be silently reassigned',()=>{
- assert.equal(match('Date: October 25,2025'),null);assert.equal(match('Date: February 30,2027',[entry('mar1',3,25,'2027-03-01T02:00:00Z')]),null);
+ assert.equal(match('Date: October 25,2025'),null);assert.equal(match('Date: February 30,2027',[entry('mar1',3,10,'2027-03-01T02:00:00Z')]),null);
 });
 test('conflicting header terms/weeks and tied date matches require confirmation',()=>{
  assert.equal(match('Term 1\nTerm 2\nWeek 7\nDate: October 25,2026'),null);

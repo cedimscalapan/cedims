@@ -41,7 +41,7 @@ interface CoreResult {
 
 function resolveTermNumber(termNumber: number | undefined, weekNumber: number | undefined): number | undefined {
     if (termNumber && Number.isFinite(termNumber)) return Math.min(3, Math.max(1, termNumber));
-    if (weekNumber && Number.isFinite(weekNumber)) return Math.min(3, Math.max(1, Math.ceil(weekNumber / 13)));
+    // Week numbers restart each term, so a week alone cannot identify its term.
     return undefined;
 }
 
@@ -304,6 +304,7 @@ async function* runOnlinePipelineResilient(
                 .eq('school_year', options.schoolYear || getCurrentSchoolYear())
                 .eq('term', activeTermNumber)
                 .eq('week_number', activeWeekNumber)
+                .eq('is_published', true)
                 .eq('is_active', true);
             if (options.calendarId) calendarQuery = calendarQuery.eq('id', options.calendarId);
 
@@ -331,6 +332,7 @@ async function* runOnlinePipelineResilient(
                         .eq('district_id', profileData.district_id)
                         .eq('term', activeTermNumber)
                         .eq('week_number', activeWeekNumber)
+                        .eq('is_published', true)
                         .eq('is_active', true);
                     if (options.calendarId) districtCalendarQuery = districtCalendarQuery.eq('id', options.calendarId);
 

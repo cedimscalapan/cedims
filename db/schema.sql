@@ -65,6 +65,7 @@ CREATE TABLE academic_calendar (
     deadline_date TIMESTAMPTZ NOT NULL,
     description TEXT,
     is_active BOOLEAN NOT NULL DEFAULT FALSE,
+    is_published BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(district_id, school_year, term, week_number)
 );

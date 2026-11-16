@@ -192,6 +192,7 @@
       .from("academic_calendar")
       .select("*")
       .eq("school_year", getDynamicSchoolYear())
+      .eq("is_published", true)
       .order("week_number", { ascending: true });
 
     const calendar = (calendarData || []).filter(

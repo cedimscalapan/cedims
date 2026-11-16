@@ -129,6 +129,7 @@ export async function prefetchOfflineMetadata(userId: string, districtId?: strin
                 .select('id, school_year, term, week_number, deadline_date, description, is_active')
                 .eq('district_id', districtId)
                 .eq('school_year', getCurrentSchoolYear())
+                .eq('is_published', true)
                 .order('week_number', { ascending: true });
 
             if (!calErr && calendar) {
@@ -145,6 +146,7 @@ export async function prefetchOfflineMetadata(userId: string, districtId?: strin
                 .from('academic_calendar')
                 .select('id, school_year, term, week_number, deadline_date, description, is_active')
                 .eq('school_year', getCurrentSchoolYear())
+                .eq('is_published', true)
                 .order('week_number', { ascending: true });
 
             if (!globalCalErr && globalCal) {
@@ -506,7 +508,7 @@ async function uploadQueuedItem(item: QueueItem, accessToken: string): Promise<s
         if (profileError) throw profileError;
 
         let calendarQuery = supabase.from('academic_calendar').select('id, deadline_date')
-            .eq('school_year', schoolYear).eq('term', termNumber).eq('week_number', weekNumber).eq('is_active', true);
+            .eq('school_year', schoolYear).eq('term', termNumber).eq('week_number', weekNumber).eq('is_published', true).eq('is_active', true);
         calendarQuery = item.options.calendarId
             ? calendarQuery.eq('id', item.options.calendarId)
             : calendarQuery.eq('district_id', uploader?.district_id);

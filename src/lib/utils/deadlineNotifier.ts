@@ -13,6 +13,7 @@ export async function checkUpcomingDeadlines(userId: string, districtId: string)
             .from('academic_calendar')
             .select('id, week_number, deadline_date, description')
             .eq('district_id', districtId)
+            .eq('is_published', true)
             .gte('deadline_date', new Date().toISOString())
             .lte('deadline_date', new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString())
             .order('deadline_date', { ascending: true });
