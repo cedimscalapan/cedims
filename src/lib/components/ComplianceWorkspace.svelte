@@ -1,7 +1,8 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { effectiveDeadlineForSubject } from '$lib/utils/deadlineRules';
-    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, isTeacherWideLeave, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, documentTypeCounts, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission } from '$lib/utils/compliance';
+    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, isTeacherWideLeave, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission, isWeeklyComplianceDocType } from '$lib/utils/compliance';
+    import { uploadsBySchool, uploadsByTeacher } from '$lib/utils/complianceUploadComparison';
     import { supabase } from '$lib/utils/supabase';
     import { addToast } from '$lib/stores/toast';
     import { formatLeaveRange } from '$lib/utils/leaveDates';
@@ -26,6 +27,7 @@
         refreshing?: boolean;
         onRefresh?: () => void;
     } = $props();
+    const schoolPieColors = ['#2447ad', '#087f8c', '#ac5a00', '#7546a3', '#17804f', '#b63e57', '#5b6472', '#6d5e17'];
     let term = $state('all');
     let week = $state('all');
     let openPeriodMenu = $state<'year' | 'term' | 'week' | null>(null);
@@ -84,8 +86,7 @@
     const scoped = $derived(requirements.filter(r => scopedTeacherIds.has(r.teacherId) &&
         (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week))));
     const scopedSubmissionUserIds = $derived(new Set(scopedSubmissionUsers.map(t => t.id)));
-    const scopedUploadTotals = $derived(submissions.filter(s => s.user_id && scopedSubmissionUserIds.has(s.user_id) && s.school_year === year && isUploadSubmission(s)));
-    const scopedUploads = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedSubmissionUserIds.has(s.user_id) && isUploadSubmission(s)), term, week));
+    const scopedUploads = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedSubmissionUserIds.has(s.user_id) && s.school_year === year && isUploadSubmission(s)), term, week));
     const scopedReviewSubmissions = $derived(scopedUploads.filter(isRemarkRequiredSubmission));
     const reviewSummary = $derived(summarizeSubmissionReviews(scopedReviewSubmissions, reviews));
     const teacherRows = $derived(scopedTeachers.map(t => {
@@ -161,8 +162,21 @@
     const visibleSchoolOverdueBars = $derived(schoolOverdueBars.filter(item => item.missing > 0).slice(0, 6));
     const maxTermOverdue = $derived(Math.max(1, ...termOverdueBars.map(b => b.missing)));
     const maxSchoolOverdue = $derived(Math.max(1, ...visibleSchoolOverdueBars.map(s => s.missing)));
-    const docTypeData = $derived(documentTypeCounts(scopedUploadTotals));
-    const docTypeTotal = $derived(docTypeData.reduce((sum, item) => sum + item.value, 0));
+    const schoolPieData = $derived(uploadsBySchool(scopedUploads, scopedSubmissionUsers, schools).map((item, index) => ({
+        ...item,
+        color: schoolPieColors[index % schoolPieColors.length],
+        completion: schoolRows.find(row => row.id === item.id)?.rate ?? null,
+        role: null as string | null,
+    })));
+    const teacherPieData = $derived(uploadsByTeacher(scopedUploads.filter(s => isWeeklyComplianceDocType(s.doc_type)), scopedSubmissionUsers).map((item, index) => ({
+        ...item,
+        color: `hsl(${Math.round((index * 137.508 + 220) % 360)} 62% 38%)`,
+        completion: null as number | null,
+    })));
+    const pieData = $derived(districtOverview ? schoolPieData : teacherPieData);
+    const pieTotal = $derived(pieData.reduce((sum, item) => sum + item.value, 0));
+    const piePeriod = $derived(`${year} · ${term === 'all' ? 'all terms' : `Term ${term}`} · ${week === 'all' ? 'all weeks' : `Week ${week}`}`);
+    const pieAltText = $derived(`${districtOverview ? 'Confirmed uploads by school' : 'DLL and DLP uploads by teacher'} for ${piePeriod}: ${pieData.map(item => `${item.label}, ${item.value} files`).join('; ')}`);
     const supplementaryUploads = $derived(scopedReviewSubmissions.filter(s => ['supplementary', 'extra'].includes((s.compliance_status || '').toLowerCase())).length);
     const uploadDays = $derived(uploadDayCounts(scopedUploads));
     const maxUploadDay = $derived(Math.max(1, ...uploadDays.map(d => d.total)));
@@ -217,7 +231,6 @@
             .toLocaleString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     }
     function clusterLabelFor(id: string) { return clusterMap.get(id) || ''; }
-    function docColor(label: string) { return label === 'DLP' ? 'var(--color-gov-blue)' : label === 'ISP' ? 'var(--color-gov-green)' : 'var(--color-gov-gold)'; }
     function requirementLabel(r: Requirement) {
         if (r.status === 'on-time') return 'On time';
         if (r.status === 'late') return 'Late submitted';
@@ -239,13 +252,14 @@
         else if (isTeacherWideLeave(request)) addToast('success', `Decision saved for ${formatLeaveRange(request.start_date, request.end_date)}. It applies to all of this teacher's subjects.`);
         onRefresh?.();
     }
-    function pieStyle(items: { label: string; value: number }[]) {
-        if (!docTypeTotal) return 'background: var(--color-surface-muted)';
+    function pieStyle(items: { value: number; color: string }[]) {
+        const total = items.reduce((sum, item) => sum + item.value, 0);
+        if (!total) return 'background: var(--color-surface-muted)';
         let cursor = 0;
         const stops = items.filter(item => item.value > 0).map(item => {
             const start = cursor;
-            cursor += item.value / docTypeTotal * 100;
-            return `${docColor(item.label)} ${start}% ${cursor}%`;
+            cursor += item.value / total * 100;
+            return `${item.color} ${start}% ${cursor}%`;
         });
         return `background: conic-gradient(${stops.join(', ')})`;
     }
@@ -421,23 +435,31 @@
         </section>
         </details>
     {/if}
-    {#if !selectedTeacher && (docTypeTotal > 0 || scopedUploads.length > 0 || visibleTermOverdueBars.length > 1 || districtOverview && visibleSchoolOverdueBars.length)}
+    {#if !selectedTeacher && (scopedUploads.length > 0 || visibleTermOverdueBars.length > 1 || districtOverview && visibleSchoolOverdueBars.length)}
     <details class="insights-panel">
-    <summary>Explore trends <span>Uploads, missing DLLs, and school patterns</span></summary>
+    <summary>Explore trends <span>Upload comparisons and missing DLLs</span></summary>
     <div class="charts">
-        {#if docTypeTotal > 0}
             <div class="chart-card pie-card">
-                <h4>Upload totals this school year</h4>
+                <h4>{districtOverview ? 'Uploads by school and lesson-plan completion' : 'DLL/DLP uploads by teacher'}</h4>
+                <p class="chart-description">{piePeriod}. {districtOverview ? 'Each slice shows one school’s share of confirmed uploads. Required lesson-plan completion is listed separately.' : 'Each slice shows one Teacher or Master Teacher’s saved DLL/DLP files, including supplementary uploads. This compares file counts, not compliance rates.'}</p>
+                {#if pieTotal > 0}
                 <div class="pie-wrap">
-                    <div class="pie" style={pieStyle(docTypeData)} aria-label="Document type pie chart"></div>
+                    <div class="pie" style={pieStyle(pieData)} role="img" aria-label={pieAltText}></div>
                     <div class="legend">
-                        {#each docTypeData as item}
-                            <span><i style={"background: " + docColor(item.label)}></i>{item.label}<strong>{item.value}</strong></span>
+                        {#each pieData as item}
+                            <div class="pie-legend-row">
+                                <i style={`background: ${item.color}`} aria-hidden="true"></i>
+                                <span class="pie-legend-label">{item.label}<small>{districtOverview ? `${Math.round(item.value / pieTotal * 100)}% of school uploads · ${item.completion === null ? 'No required lesson plans' : `${item.completion}% lesson-plan completion`}` : `${item.role} · ${Math.round(item.value / pieTotal * 100)}% of DLL/DLP uploads`}</small></span>
+                                <strong>{item.value}</strong>
+                            </div>
                         {/each}
                     </div>
                 </div>
+                <p class="chart-total">{pieTotal} confirmed {pieTotal === 1 ? 'file' : 'files'} in this comparison</p>
+                {:else}
+                    <p class="chart-empty">No confirmed {districtOverview ? 'school uploads' : 'Teacher or Master Teacher DLL/DLP uploads'} for this period.</p>
+                {/if}
             </div>
-        {/if}
         {#if scopedUploads.length > 0}
             <div class="chart-card">
                 <h4>Uploads from Monday to Sunday</h4>
@@ -682,6 +704,10 @@
     .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
     .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; min-width: 0; }
     .chart-card h4 { font-size: 14px; font-weight: 700; color: var(--color-text-muted); margin: 0 0 12px 0; }
+    .pie-card { grid-column: 1 / -1; }
+    .chart-description { margin: -4px 0 14px; color: var(--color-text-muted); font-size: 14px; line-height: 1.45; }
+    .chart-total { margin: 12px 0 0; color: var(--color-text-primary); font-size: 14px; font-weight: 700; }
+    .chart-empty { margin: 20px 0 4px; color: var(--color-text-muted); font-size: 15px; }
     .spark-bars { display: grid; grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); gap: 10px; align-items: end; min-height: 92px; }
     .spark-bars div { display: grid; justify-items: center; align-items: end; gap: 5px; min-width: 0; }
     .spark-bars span { width: 100%; max-width: 30px; min-height: 6px; border-radius: 4px 4px 0 0; background: var(--color-gov-red); }
@@ -693,12 +719,14 @@
     .bar-container-small { width: 100%; height: 24px; background: var(--color-surface-white); border-radius: 4px; position: relative; overflow: hidden; }
     .bar-fill { height: 100%; background: var(--color-gov-red); border-radius: 4px; transition: width 0.3s ease; }
     .bar-fill.overdue { background: var(--color-gov-red); }
-    .pie-wrap { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 16px; align-items: center; }
-    .pie { width: 132px; height: 132px; border-radius: 50%; border: 10px solid var(--color-surface-white); box-shadow: inset 0 0 0 1px var(--color-border-subtle), 0 0 0 1px var(--color-border-subtle); }
-    .legend { display: grid; gap: 8px; }
-    .legend span { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 8px; align-items: center; color: var(--color-text-primary); font-size: 15px; }
-    .legend i { width: 12px; height: 12px; border-radius: 3px; }
-    .legend strong { color: var(--color-text-primary); }
+    .pie-wrap { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; align-items: center; }
+    .pie { width: 150px; height: 150px; border-radius: 50%; border: 10px solid var(--color-surface-white); box-shadow: inset 0 0 0 1px var(--color-border-subtle), 0 0 0 1px var(--color-border-subtle); }
+    .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; min-width: 0; }
+    .pie-legend-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 9px; align-items: start; min-width: 0; color: var(--color-text-primary); font-size: 15px; }
+    .pie-legend-row i { width: 14px; height: 14px; border-radius: 3px; margin-top: 3px; }
+    .pie-legend-row strong { color: var(--color-text-primary); font-size: 17px; }
+    .pie-legend-label { min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+    .pie-legend-label small { display: block; margin-top: 2px; color: var(--color-text-muted); font-size: 13px; font-weight: 500; line-height: 1.35; }
     .upload-bars { display: grid; grid-template-columns: repeat(7, minmax(28px, 1fr)); gap: 10px; align-items: end; min-height: 144px; }
     .upload-bars div { display: grid; justify-items: center; align-items: end; gap: 5px; min-width: 0; }
     .upload-bars .stack { display: flex; flex-direction: column-reverse; width: 100%; max-width: 34px; min-height: 6px; border-radius: 5px 5px 0 0; overflow: hidden; background: var(--color-surface-muted); }
@@ -717,7 +745,7 @@
         .decision-strip { grid-template-columns: auto minmax(0, 1fr); }
         .primary-action { grid-column: 1 / -1; width: 100%; }
     }
-    @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } .secondary-stats { grid-template-columns: 1fr; } .secondary-metrics > summary, .insights-panel > summary { align-items: flex-start; flex-wrap: wrap; } .secondary-metrics > summary span, .insights-panel > summary span { flex-basis: 100%; margin-left: 0; text-align: left; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } .pie-wrap { grid-template-columns: 1fr; justify-items: center; } }
+    @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } .secondary-stats { grid-template-columns: 1fr; } .secondary-metrics > summary, .insights-panel > summary { align-items: flex-start; flex-wrap: wrap; } .secondary-metrics > summary span, .insights-panel > summary span { flex-basis: 100%; margin-left: 0; text-align: left; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } .pie-wrap { grid-template-columns: 1fr; justify-items: center; } .legend { width: 100%; } }
     @media (max-width: 700px) {
         .control-panel { padding: 12px; }
         .filters { grid-template-columns: 1fr; gap: 12px; }
