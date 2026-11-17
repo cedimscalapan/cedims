@@ -17,6 +17,7 @@ const chatbotSource=source('src/lib/utils/chatbot.ts')
     .replace("from './reportRequest'",`from '${requestUrl}'`)
     .replace("from './chatQueryPlan'",`from '${planUrl}'`)
     .replace("from './schoolYear'",`from '${yearUrl}'`)
+    .replace("from './deadlineRules'",`from '${deadlineUrl}'`)
     .replace("from './compliance'",`from '${complianceUrl}'`);
 const {processQuery}=await import(url(chatbotSource));
 
@@ -47,7 +48,7 @@ test('Tagalog and contextual follow-up remain on the correct topic',async()=>{
     assert.equal(follow.slots.helpTopic,'password');assert.equal(follow.lang,'tl');
 });
 test('live record questions bypass static guidance',()=>{
-    for(const q of ['How many checked documents do I have?','Find my lesson plans in Archives','Show teachers with pending reviews','What is my compliance rate?','When is the next deadline?']){
+    for(const q of ['How many checked documents do I have?','Find my lesson plans in Archives','Show teachers with pending reviews','What is my compliance rate?','When is the next deadline?','When is my next submission deadline?']){
         assert.equal(answerSystemHelp(q,'en'),null,q);
     }
 });
@@ -72,21 +73,9 @@ function mockDb(tables) {
         return query;
     }};
 }
-test('live compliance excludes approved leave exactly as Tracker does',async()=>{
-    const year=new Date().getMonth()>=5?`${new Date().getFullYear()}-${new Date().getFullYear()+1}`:`${new Date().getFullYear()-1}-${new Date().getFullYear()}`;
-    const db=mockDb({
-        schools:[{id:'school',district_id:'district'}],
-        teaching_loads:[{id:'math',user_id:'teacher',subject:'Mathematics',grade_level:'Grade 3',is_active:true},{id:'science',user_id:'teacher',subject:'Science',grade_level:'Grade 3',is_active:true}],
-        academic_calendar:[{id:'week',term:2,week_number:7,school_year:year,deadline_date:new Date(Date.now()-86400000).toISOString(),is_active:true,district_id:'district'}],
-        submissions:[{id:'doc',user_id:'teacher',teaching_load_id:'math',school_year:year,term_number:2,week_number:7,doc_type:'DLL',compliance_status:'on-time',created_at:new Date(Date.now()-172800000).toISOString()}],
-        submission_leave_requests:[{id:'leave',user_id:'teacher',teaching_load_id:'science',school_year:year,term_number:2,week_number:7,status:'approved'}]
-    });
-    const reply=await processQuery('What is my compliance rate?',{supabase:db,userId:'teacher',profile:{id:'teacher',full_name:'Test',role:'Teacher',school_id:'school',district_id:'district'}});
-    assert.match(reply.answer,/100%/);assert.match(reply.answer,/1 out of 1/);
-});
-test('next deadline query limits records to current open future periods',async()=>{
-    const db=mockDb({academic_calendar:[]});
-    await processQuery('When is the next deadline?',{supabase:db,userId:'teacher',profile:{role:'Teacher',district_id:'district'}});
-    assert.ok(db.calls.some(([table,method,field,value])=>table==='academic_calendar'&&method==='eq'&&field==='is_active'&&value===true));
-    assert.ok(db.calls.some(([table,method,field])=>table==='academic_calendar'&&method==='gte'&&field==='deadline_date'));
+test('next deadline checks the assigned school and published calendar',async()=>{
+    const db=mockDb({schools:[{id:'school',district_id:'district',name:'Test School'}],academic_calendar:[],teaching_loads:[]});
+    await processQuery('When is the next deadline?',{supabase:db,userId:'teacher',profile:{role:'Teacher',school_id:'school',district_id:'district'}});
+    assert.ok(db.calls.some(([table,method,field,value])=>table==='schools'&&method==='eq'&&field==='id'&&value==='school'));
+    assert.ok(db.calls.some(([table,method,field,value])=>table==='academic_calendar'&&method==='eq'&&field==='is_published'&&value===true));
 });

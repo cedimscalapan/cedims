@@ -5,6 +5,7 @@ import {planChatDataQuestion,type ChatDataPlan} from './chatQueryPlan';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentSchoolYear as getDynamicSchoolYear } from './schoolYear';
 import { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, filterSubmissionsByPeriod, isReviewableSubmission, fetchRowsForIds, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type ComplianceReview } from './compliance';
+import { effectiveDeadlineForSubject } from './deadlineRules';
 
 // Text Normalization
 // Makes the bot robust to typos, wrong grammar, repeated characters, emojis,
@@ -1064,46 +1065,52 @@ async function queryCompliance(
 
 async function queryDeadline(
     db: SupabaseClient,
-    districtId: string | undefined,
+    userId: string | undefined,
+    profile: ChatContext['profile'],
     slots: Record<string, string>,
     lang: Lang = 'en'
 ): Promise<string> {
-    let query = db
-        .from('academic_calendar')
-        .select('*')
-        .eq('school_year', getDynamicSchoolYear())
-        .eq('is_published', true)
-        .eq('is_active', true)
-        .order('deadline_date', { ascending: true });
-
-    if (districtId) {
-        query = query.or(`district_id.eq.${districtId},district_id.is.null`);
+    if (!userId || !profile) return lang==='tl'?'Mag-sign in muna upang makita ang inyong deadline.':'Please sign in to check your deadline.';
+    let districtId=profile.district_id;
+    let schoolName:string|undefined;
+    if (['Teacher','Master Teacher','School Head'].includes(profile.role)) {
+        if (!profile.school_id) return 'Your account needs a school assignment to check its deadlines.';
+        const {data:school,error}=await db.from('schools').select('id,name,district_id').eq('id',profile.school_id);
+        if (error || !school?.[0]?.district_id) return 'I could not verify the district assigned to your school. Please check your account assignment.';
+        districtId=school[0].district_id;
+        schoolName=school[0].name;
     }
-    if (slots.week) query = query.eq('week_number', parseInt(slots.week));
-    if (slots.term) query = query.eq('term', parseInt(slots.term));
-    if (!slots.week) query = query.gte('deadline_date', new Date().toISOString()).limit(5);
-
-    const { data, error } = await query;
-
-    if (error) return lang === 'tl' ? 'Paumanhin po, hindi ma-access ngayon ang academic calendar.' : "Sorry, I couldn't access the academic calendar right now.";
-    if (!data || data.length === 0) {
-        if (slots.week) return lang === 'tl' ? `Walang nahanap na deadline para sa Week ${slots.week} sa academic calendar.` : `I couldn't find a deadline for Week ${slots.week} in the academic calendar.`;
-        return lang === 'tl' ? 'Walang paparating na deadline. Baka hindi pa naka-set up ang academic calendar para sa distrito ninyo.' : 'No upcoming deadlines found. The academic calendar may not be set up yet for your district.';
+    if (!districtId) return 'Your account needs a district assignment to check its deadlines.';
+    const {data,error}=await db.from('academic_calendar')
+        .select('id,school_year,term,week_number,deadline_date,district_id,is_active')
+        .eq('school_year',getDynamicSchoolYear()).eq('is_published',true)
+        .or(`district_id.eq.${districtId},district_id.is.null`)
+        .order('deadline_date',{ascending:true});
+    if (error) return lang==='tl'?'Hindi ko ma-access ang academic calendar ngayon. Subukan muli.':'I could not access the academic calendar right now. Please try again.';
+    let calendar=scopedCalendar((data||[]) as CalendarSlot[],districtId).filter(slot=>Number.isFinite(Date.parse(slot.deadline_date)));
+    if (slots.week) calendar=calendar.filter(slot=>slot.week_number===Number(slots.week));
+    if (slots.term) calendar=calendar.filter(slot=>slot.term===Number(slots.term));
+    if (slots.week && !slots.term && new Set(calendar.map(slot=>slot.term)).size>1)
+        return `Week ${slots.week} appears in more than one term. Please include the term number.`;
+    if (!calendar.length) return slots.week?`No published deadline was found for ${slots.term?`Term ${slots.term}, `:''}Week ${slots.week} in your district.`:'No published deadlines are available for your district in the current school year.';
+    let subjects:{subject?:string;grade?:string}[]=[{}];
+    if (profile.role==='Teacher') {
+        const {data:loads,error:loadsError}=await db.from('teaching_loads').select('subject,grade_level').eq('user_id',userId).eq('is_active',true);
+        if (loadsError) return 'I could not check your assigned subjects right now. Please try again.';
+        if (!loads?.length) return 'No active teaching loads are assigned to your account. Ask your school administrator to check Loads.';
+        subjects=loads.map((load:any)=>({subject:load.subject,grade:load.grade_level}));
     }
-
-    if (slots.week) {
-        const entry = data[0] as any;
-        return lang === 'tl'
-            ? `Ang deadline para sa Week ${entry.week_number}${entry.school_year ? ` (${entry.school_year})` : ''} ay ${formatDate(entry.deadline_date)}.`
-            : `The deadline for Week ${entry.week_number}${entry.school_year ? ` (${entry.school_year})` : ''} is ${formatDate(entry.deadline_date)}.`;
-    }
-
-    const lines = (data as any[]).map((d: any) =>
-        `${formatDate(d.deadline_date)}${d.description ? ': ' + d.description : ''}`
-    );
-    return lang === 'tl'
-        ? `Narito ang mga paparating na deadline:\n${lines.join('\n')}`
-        : `Here are the upcoming deadlines:\n${lines.join('\n')}`;
+    const deadlines=calendar.flatMap(slot=>subjects.map(item=>({slot,subject:item.subject,grade:item.grade,date:effectiveDeadlineForSubject(slot.deadline_date,item.subject,schoolName)})))
+        .filter(item=>Number.isFinite(item.date.getTime()))
+        .sort((a,b)=>a.date.getTime()-b.date.getTime()||a.slot.term-b.slot.term||a.slot.week_number-b.slot.week_number);
+    const next=slots.week?deadlines[0]:deadlines.find(item=>item.slot.is_active===true&&item.date.getTime()>=Date.now());
+    if (!next) return lang==='tl'?'Wala nang paparating na deadline sa mga naka-publish at Open na linggo ng inyong distrito para sa school year na ito.':'There is no upcoming deadline among the published, Open weeks in your district for this school year.';
+    const due=next.date.toLocaleString('en-PH',{timeZone:'Asia/Manila',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+    const label=`Term ${next.slot.term}, Week ${next.slot.week_number}${next.subject?` · ${next.subject}${next.grade?` (${next.grade})`:''}`:''}`;
+    const availability=next.slot.is_active===true?'Open':'Closed';
+    return lang==='tl'
+        ? `${slots.week?'Ang deadline':'Ang susunod na deadline'} para sa ${label} ay ${due} (oras sa Pilipinas). ${availability} ang upload period. Kung lumampas sa deadline ngunit Open pa rin, mamarkahang Late ang bagong submission.`
+        : `The ${slots.week?'deadline':'next scheduled deadline'} for ${label} is ${due} (Philippine time). The upload period is ${availability}. A submission after the deadline is Late while the period remains Open.`;
 }
 
 async function queryDlls(
@@ -1577,19 +1584,20 @@ async function generateDatabaseResponse(
         switch (intent) {
             case 'ask_compliance':
                 {
-                    const {createChatReport}=await import('./chatReports');
+                    const {createChatReport,uploadStatusText}=await import('./chatReports');
                     const request=parseReportRequest(rawText || 'Compliance report');
                     if (profile?.role === 'Teacher' || (profile?.role === 'Master Teacher' && /\b(my|own|personal)\s+compliance\b/i.test(rawText || ''))) request.scope='self';
                     const result=await createChatReport(db,profile,userId,request,lang);
                     if (!result.facts) return {answer:result.answer};
                     const {summary,scope,period}=result.facts;
                     const rate=summary.rate===null?'N/A':`${summary.rate}%`;
-                    return {answer:lang==='tl'
+                    const answer=lang==='tl'
                         ? `Ang lesson plan compliance para sa ${scope} (${period}) ay ${rate}: ${summary.submitted} sa ${summary.expected} inaasahang submission. On time: ${summary.onTime}; late: ${summary.late}; overdue missing: ${summary.missing}; upcoming: ${summary.upcoming}; approved leave: ${summary.onLeave}; checked: ${summary.checked}; for checking: ${summary.forChecking}.`
-                        : `Lesson plan compliance for ${scope} (${period}) is ${rate}: ${summary.submitted} of ${summary.expected} expected submissions. On time: ${summary.onTime}; late: ${summary.late}; overdue missing: ${summary.missing}; upcoming: ${summary.upcoming}; approved leave: ${summary.onLeave}; checked: ${summary.checked}; for checking: ${summary.forChecking}.`};
+                        : `Lesson plan compliance for ${scope} (${period}) is ${rate}: ${summary.submitted} of ${summary.expected} expected submissions. On time: ${summary.onTime}; late: ${summary.late}; overdue missing: ${summary.missing}; upcoming: ${summary.upcoming}; approved leave: ${summary.onLeave}; checked: ${summary.checked}; for checking: ${summary.forChecking}.`;
+                    return {answer:answer+(result.facts.uploads?`\n\n${uploadStatusText(result.facts.uploads,lang)}`:'')};
                 }
             case 'check_deadline':
-                return { answer: await queryDeadline(db, profile?.district_id ?? undefined, slots, lang) };
+                return { answer: await queryDeadline(db, userId, profile, slots, lang) };
             case 'find_dll':
                 return { answer: await queryDlls(db, slots, rawText, lang, userId, profile) };
             case 'school_compare':
@@ -1746,7 +1754,7 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
     const dataPlan=!OUT_OF_SCOPE_PATTERNS.some(pattern=>pattern.test(text))?planChatDataQuestion(text,previousData):null;
     if(dataPlan){
         if(dataPlan.operation==='compliance'){
-            const {createChatReport}=await import('./chatReports');
+            const {createChatReport,uploadStatusText}=await import('./chatReports');
             const result=await createChatReport(ctx?.supabase,ctx?.profile,ctx?.userId,dataPlan.request,helpLang);
             let answer=result.answer;
             if(result.facts && dataPlan.metric==='missing'){
@@ -1755,7 +1763,10 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
                 answer=helpLang==='tl'?`Para sa ${f.period}, may ${count} ${dataPlan.measure==='people'?'guro na may overdue requirements':'overdue na hindi pa naisusumiteng requirement'} sa ${f.scope}. May ${f.summary.upcoming} upcoming requirements at ${f.summary.onLeave} approved leave na hindi kasama sa expected. Hindi uploaded files ang missing o overdue requirements.`:`For ${f.period}, ${f.scope} has ${count} ${dataPlan.measure==='people'?'teachers with overdue requirements':'overdue unsubmitted requirements'}. There are ${f.summary.upcoming} upcoming requirements and ${f.summary.onLeave} approved leave exclusions. Missing or overdue requirements are not uploaded files.`;
                 if(f.pendingOverdue)answer+=` ${f.pendingOverdue} overdue requirements have pending leave requests.`;
             }
-            if(result.facts)dataPlan.request=result.facts.request;
+            if(result.facts){
+                dataPlan.request=result.facts.request;
+                if(result.facts.uploads)answer+=`\n\n${uploadStatusText(result.facts.uploads,helpLang)}`;
+            }
             return {intent:'ask_compliance',confidence:100,answer,attachments:result.attachments,slots:{dataPlan:JSON.stringify(dataPlan)},lang:helpLang};
         }
         const {answerUploadFacts}=await import('./chatUploadFacts');

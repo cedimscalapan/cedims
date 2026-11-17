@@ -218,3 +218,73 @@ test('teacher suggestions stay with own requirements and urgent system help',asy
     const remarks=await processQuery('How do I check remarks on my submitted lesson plan?',ctx);
     assert.match(remarks.answer,/Tracker|Archives/);
 });
+
+test('school reports and compliance answers separate every saved upload status from required work',async()=>{
+    const data=fixture();
+    data.profiles.push({id:'head',full_name:'School Head',school_id:'s1',role:'School Head',is_active:true});
+    data.submissions[0].file_path='documents/Term_2/Lesson.pdf';
+    data.submissions[1].file_path='documents/Term_2/Extra.pdf';
+    data.submissions.push(
+        {id:'late-school',user_id:'a',teaching_load_id:'sa',school_year:year,term_number:2,week_number:7,doc_type:'DLP',compliance_status:'late',file_path:'documents/Term_2/Late.pdf',created_at:'2026-10-27T02:00:00Z'},
+        {id:'isp-school',user_id:'head',school_year:year,term_number:2,week_number:7,doc_type:'ISP',compliance_status:'compliant',file_path:'documents/Term_2/ISP.pdf',created_at:'2026-10-27T02:00:00Z'},
+        {id:'isr-school',user_id:'head',school_year:year,term_number:2,week_number:7,doc_type:'ISR',compliance_status:'compliant',file_path:'documents/Term_2/ISR.pdf',created_at:'2026-10-27T02:00:00Z'},
+        {id:'other-school',user_id:'b',school_year:year,term_number:2,week_number:7,doc_type:'DLL',compliance_status:'late',file_path:'documents/Term_2/Other.pdf',created_at:'2026-10-27T02:00:00Z'}
+    );
+    for(const role of ['School Head','Master Teacher']){
+        const actor={...profile,id:role==='School Head'?'head':'mt',role};
+        const ctx={supabase:mockDb(data),userId:actor.id,profile:actor};
+        const report=await processQuery('Create a report for my school this school year',ctx);
+        assert.match(report.answer,/Saved uploads.*5 total; 3 on time\/compliant, 1 late, 1 supplementary/);
+        assert.match(report.answer,/By document type: 3 DLL\/DLP, 1 ISP, 1 ISR/);
+        assert.doesNotMatch(report.answer,/Other\.pdf|Teacher B|Salong Elementary School/);
+        const compliance=await processQuery("What is my school's lesson plan compliance rate?",ctx);
+        assert.match(compliance.answer,/5 total; 3 on time\/compliant, 1 late, 1 supplementary/);
+        assert.match(compliance.answer,/supplementary uploads do not increase required lesson-plan completion/);
+        const statuses=await processQuery("Show my school's uploaded documents by status this school year",ctx);
+        assert.match(statuses.answer,/has 5 uploaded documents/);
+        assert.match(statuses.answer,/Saved-file statuses: 3 on time\/compliant; 1 late; 1 supplementary/);
+        const extra=await processQuery('How many supplementary uploads does my school have this school year?',ctx);
+        assert.match(extra.answer,/has 1 supplementary uploaded document/);
+    }
+    const exported=await createChatReport(mockDb(data),profile,profile.id,parseReportRequest('Create Excel and Word reports for my school this school year'));
+    assert.equal(exported.attachments?.length,2,exported.answer);
+    const JSZip=(await import('jszip')).default;
+    const word=exported.attachments.find(file=>file.fileName.endsWith('.docx'));
+    const xml=await (await JSZip.loadAsync(await word.blob.arrayBuffer())).file('word/document.xml').async('string');
+    assert.match(xml,/Saved uploads/);assert.match(xml,/1 supplementary/);
+    const ExcelModule=await import('exceljs');const ExcelJS=ExcelModule.default||ExcelModule;
+    const workbook=new ExcelJS.Workbook();
+    await workbook.xlsx.load(await exported.attachments.find(file=>file.fileName.endsWith('.xlsx')).blob.arrayBuffer());
+    assert.match(JSON.stringify(workbook.worksheets[0].getSheetValues()),/SAVED UPLOAD STATUSES/);
+});
+
+test('next deadline uses assigned school district and names the first open future term and week',async()=>{
+    const data=fixture();
+    const future=new Date(Date.now()+7*86400000).toISOString();
+    const later=new Date(Date.now()+14*86400000).toISOString();
+    data.academic_calendar=[
+        {id:'closed',school_year:year,term:2,week_number:9,deadline_date:future,district_id:'d1',is_active:false,is_published:true},
+        {id:'next',school_year:year,term:2,week_number:10,deadline_date:later,district_id:'d1',is_active:true,is_published:true},
+        {id:'outside',school_year:year,term:2,week_number:11,deadline_date:future,district_id:'d2',is_active:true,is_published:true}
+    ];
+    const actor={...profile,id:'head',district_id:'d2'};
+    const reply=await processQuery('When is the next deadline?',{supabase:mockDb(data),userId:actor.id,profile:actor});
+    assert.match(reply.answer,/Term 2, Week 10/);
+    assert.match(reply.answer,/Philippine time/);
+    assert.match(reply.answer,/Open/);
+    assert.doesNotMatch(reply.answer,/Week 9|Week 11/);
+});
+
+test('teacher next deadline uses the subject-specific due day in the assigned school',async()=>{
+    const data=fixture();
+    const phNow=new Date(Date.now()+8*3600000);
+    const daysUntilMonday=((8-phNow.getUTCDay())%7)||7;
+    const nextMonday=new Date(Date.UTC(phNow.getUTCFullYear(),phNow.getUTCMonth(),phNow.getUTCDate()+daysUntilMonday,2)).toISOString();
+    data.academic_calendar=[{id:'hgp-week',school_year:year,term:2,week_number:10,deadline_date:nextMonday,district_id:'d1',is_active:true,is_published:true}];
+    data.teaching_loads=[{id:'hgp',user_id:'a',subject:'HGP',grade_level:'Grade 3',is_active:true}];
+    const actor={...profile,id:'a',full_name:'Teacher A',role:'Teacher'};
+    const reply=await processQuery('When is my next submission deadline?',{supabase:mockDb(data),userId:actor.id,profile:actor});
+    assert.match(reply.answer,/Term 2, Week 10 · HGP/);
+    const friday=new Date(Date.parse(nextMonday)+4*86400000).toLocaleString('en-PH',{timeZone:'Asia/Manila',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+    assert.ok(reply.answer.includes(friday),reply.answer);
+});
