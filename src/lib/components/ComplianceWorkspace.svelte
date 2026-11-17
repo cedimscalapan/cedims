@@ -107,6 +107,10 @@
     }
     const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id)), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
     const summary = $derived({ ...summarizeRequirements(scoped), ...reviewSummary });
+    const riskEntities = $derived(districtOverview ? schoolRows : scopedTeachers.map(t => summarizeRequirements(scoped.filter(r => r.teacherId === t.id))));
+    const multipleMissingCount = $derived(riskEntities.filter(item => item.missing >= 2).length);
+    const lateEntityCount = $derived(riskEntities.filter(item => item.late > 0).length);
+    const pendingLeaveEntityCount = $derived(riskEntities.filter(item => item.leavePending > 0).length);
     const reviewMap = $derived(new Map(reviews.map(r => [r.submission_id, r])));
     const termNumber = $derived(term === 'all' ? null : Number(term));
     const clusterSubmissions = $derived(submissions.filter((s): s is ComplianceSubmission & { user_id: string } => {
@@ -506,6 +510,15 @@
                 </div>
             </div>
         {/if}
+            <div class="chart-card risk-card">
+                <h4>Risk indicators</h4>
+                <p class="risk-description">{districtOverview ? 'Schools' : 'Teachers'} affected in the selected period. One {districtOverview ? 'school' : 'teacher'} may appear in several rows.</p>
+                <div class="risk-indicators">
+                    <div><span>2 or more missing DLLs</span><strong>{multipleMissingCount}</strong></div>
+                    <div><span>At least 1 late DLL</span><strong>{lateEntityCount}</strong></div>
+                    <div><span>Pending leave review</span><strong>{pendingLeaveEntityCount}</strong></div>
+                </div>
+            </div>
     </div>
     </details>
     {/if}
@@ -704,6 +717,10 @@
     .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
     .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; min-width: 0; }
     .chart-card h4 { font-size: 14px; font-weight: 700; color: var(--color-text-muted); margin: 0 0 12px 0; }
+    .risk-description { margin: -4px 0 12px; color: var(--color-text-muted); font-size: 13px; line-height: 1.4; }
+    .risk-indicators { display: grid; gap: 0; }
+    .risk-indicators div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 8px 0; border-top: 1px solid var(--color-border-subtle); color: var(--color-text-primary); font-size: 14px; font-weight: 600; }
+    .risk-indicators strong { flex: 0 0 auto; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
     .pie-card { grid-column: 1 / -1; }
     .chart-description { margin: -4px 0 14px; color: var(--color-text-muted); font-size: 14px; line-height: 1.45; }
     .chart-total { margin: 12px 0 0; color: var(--color-text-primary); font-size: 14px; font-weight: 700; }
