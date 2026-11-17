@@ -288,3 +288,17 @@ test('teacher next deadline uses the subject-specific due day in the assigned sc
     const friday=new Date(Date.parse(nextMonday)+4*86400000).toLocaleString('en-PH',{timeZone:'Asia/Manila',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
     assert.ok(reply.answer.includes(friday),reply.answer);
 });
+
+test('school heads and district supervisors see the latest Open week when its deadline has passed',async()=>{
+    const data=fixture();
+    data.academic_calendar=[
+        {id:'open-past',school_year:year,term:2,week_number:10,deadline_date:new Date(Date.now()-4*86400000).toISOString(),district_id:'d1',is_active:true,is_published:true},
+        {id:'unpublished-future',school_year:year,term:2,week_number:11,deadline_date:new Date(Date.now()+4*86400000).toISOString(),district_id:'d1',is_active:false,is_published:false}
+    ];
+    for(const actor of [profile,district]){
+        const reply=await processQuery('When is the next submission deadline?',{supabase:mockDb(data),userId:actor.id,profile:actor});
+        assert.match(reply.answer,/Term 2, Week 10 is still Open/);
+        assert.match(reply.answer,/marked Late/);
+        assert.doesNotMatch(reply.answer,/Term 2, Week 11/);
+    }
+});

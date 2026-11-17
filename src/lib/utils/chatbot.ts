@@ -1104,7 +1104,19 @@ async function queryDeadline(
         .filter(item=>Number.isFinite(item.date.getTime()))
         .sort((a,b)=>a.date.getTime()-b.date.getTime()||a.slot.term-b.slot.term||a.slot.week_number-b.slot.week_number);
     const next=slots.week?deadlines[0]:deadlines.find(item=>item.slot.is_active===true&&item.date.getTime()>=Date.now());
-    if (!next) return lang==='tl'?'Wala nang paparating na deadline sa mga naka-publish at Open na linggo ng inyong distrito para sa school year na ito.':'There is no upcoming deadline among the published, Open weeks in your district for this school year.';
+    if (!next) {
+        const latestOpen=deadlines.filter(item=>item.slot.is_active===true).at(-1);
+        const latest=latestOpen||deadlines.at(-1);
+        if (!latest) return lang==='tl'?'Walang valid na deadline sa academic calendar ng inyong distrito.':'No valid deadline is available in your district calendar.';
+        const pastDue=latest.date.toLocaleString('en-PH',{timeZone:'Asia/Manila',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+        const period=`Term ${latest.slot.term}, Week ${latest.slot.week_number}${latest.subject?` · ${latest.subject}${latest.grade?` (${latest.grade})`:''}`:''}`;
+        if (latestOpen) return lang==='tl'
+            ? `Wala pang susunod na naka-publish at Open na deadline. Ang ${period} ay Open pa rin, ngunit lumipas na ang deadline noong ${pastDue} (oras sa Pilipinas). Tumatanggap pa rin ng submission ang Open na linggo; Late ang mamarkahan sa mga isusumite ngayon. Lalabas ang susunod na deadline kapag nai-publish at nabuksan ang kasunod na linggo.`
+            : `There is no future published, Open deadline yet. ${period} is still Open, but its deadline was ${pastDue} (Philippine time). Submissions for this Open week are still accepted and marked Late. The next deadline will appear when a later week is published and opened.`;
+        return lang==='tl'
+            ? `Walang naka-publish na linggong Open ngayon. Ang huling naka-publish na deadline ay ${period}, ${pastDue} (oras sa Pilipinas), at Closed ang period. Tingnan ang Academic Calendar para sa susunod na bubuksang linggo.`
+            : `No published week is currently Open. The latest published deadline was ${period} on ${pastDue} (Philippine time), and that period is Closed. Check the Academic Calendar for the next opened week.`;
+    }
     const due=next.date.toLocaleString('en-PH',{timeZone:'Asia/Manila',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
     const label=`Term ${next.slot.term}, Week ${next.slot.week_number}${next.subject?` · ${next.subject}${next.grade?` (${next.grade})`:''}`:''}`;
     const availability=next.slot.is_active===true?'Open':'Closed';
