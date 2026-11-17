@@ -110,20 +110,16 @@
     const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id)), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
     const summary = $derived({ ...summarizeRequirements(scoped), ...reviewSummary });
     const teacherRiskRows = $derived(scopedTeachers.map(t => ({ ...t, ...summarizeRequirements(scoped.filter(r => r.teacherId === t.id)) })));
-    const riskEntities = $derived(districtOverview ? schoolRows : teacherRiskRows);
     const riskDefinitions: { key: string; label: string; metric: 'missing' | 'late' | 'leavePending'; threshold: number; detail: string }[] = [
-        { key: 'missing', label: '2 or more missing DLLs', metric: 'missing', threshold: 2, detail: 'missing' },
+        { key: 'missing', label: 'At least 1 missing DLL', metric: 'missing', threshold: 1, detail: 'missing' },
         { key: 'late', label: 'At least 1 late DLL', metric: 'late', threshold: 1, detail: 'late' },
         { key: 'leave', label: 'Pending leave review', metric: 'leavePending', threshold: 1, detail: 'pending' },
     ];
-    const riskIndicators = $derived(riskDefinitions.map(indicator => ({
-        ...indicator,
-        count: riskEntities.filter(entity => entity[indicator.metric] >= indicator.threshold).length,
-        teachers: teacherRiskRows.filter(teacher => districtOverview
-            ? schoolRows.some(s => s.id === teacher.school_id && s[indicator.metric] >= indicator.threshold) && teacher[indicator.metric] > 0
-            : teacher[indicator.metric] >= indicator.threshold)
-            .sort((a, b) => b[indicator.metric] - a[indicator.metric] || a.full_name.localeCompare(b.full_name)),
-    })));
+    const riskIndicators = $derived(riskDefinitions.map(indicator => {
+        const teachers = teacherRiskRows.filter(teacher => teacher[indicator.metric] >= indicator.threshold)
+            .sort((a, b) => b[indicator.metric] - a[indicator.metric] || a.full_name.localeCompare(b.full_name));
+        return { ...indicator, count: teachers.length, teachers };
+    }));
     const reviewMap = $derived(new Map(reviews.map(r => [r.submission_id, r])));
     const termNumber = $derived(term === 'all' ? null : Number(term));
     const clusterSubmissions = $derived(submissions.filter((s): s is ComplianceSubmission & { user_id: string } => {
@@ -203,11 +199,6 @@
         : []);
     const rowCount = $derived(activeTab === 'schools' ? rankedSchools.length : activeTab === 'teacher' ? (status === 'for-checking' ? selectedTeacherReviewRows.length : selectedTeacherRows.length) : sortedTeachers.length);
     const listTitle = $derived(districtOverview ? 'Schools needing action' : selectedTeacher ? 'DLLs needing action' : 'Teachers needing action');
-    const decisionLine = $derived(summary.leavePending ? `${summary.leavePending} leave request${summary.leavePending === 1 ? '' : 's'} need review.` : summary.missing ? `${summary.missing} missing DLL${summary.missing === 1 ? '' : 's'} need follow-up first.` : summary.forChecking ? `${summary.forChecking} file${summary.forChecking === 1 ? ' needs' : 's need'} Archive remarks.` : 'No immediate follow-up for this period.');
-    const reviewUploadLine = $derived(`${summary.forChecking + summary.checked} review upload${summary.forChecking + summary.checked === 1 ? '' : 's'}${supplementaryUploads ? ` · ${supplementaryUploads} supplementary` : ''}`);
-    const nextActionLabel = $derived(districtOverview ? 'Open school' : selectedTeacher ? 'Open Archive' : 'Open teacher');
-    const nextActionDetail = $derived(summary.leavePending ? 'Review pending leave/exclusion requests before counting them as excluded.' : summary.missing ? (districtOverview ? 'Start with the schools that have missing DLLs.' : 'Start with teachers who still have missing DLLs.') : summary.forChecking ? 'Open files waiting for Archive remarks.' : 'Keep monitoring this period.');
-    const nextActionTone = $derived(summary.leavePending || summary.missing ? 'urgent' : summary.forChecking ? 'review' : 'clear');
     const filteredClusterTitle = $derived(clusterFilter === 'all' ? '' : `${clusterFilter}: ${(clusterMembers.get(clusterFilter) || []).join(', ')}`);
     const pages = $derived(Math.max(1, Math.ceil(rowCount / size)));
     $effect(() => { if (page > pages) page = pages; });
@@ -219,21 +210,6 @@
     function remember() { history = [...history, { school, search, status, cluster: clusterFilter, selectedTeacher, page }]; }
     function openSchool(id: string, nextStatus = 'all') { remember(); school = id; search = ''; status = nextStatus; clusterFilter = 'all'; selectedTeacher = null; reset(); }
     function openTeacher(id: string, nextStatus = 'all') { remember(); selectedTeacher = id; clusterFilter = 'all'; search = ''; status = nextStatus; reset(); }
-    function doNextAction() {
-        if (districtOverview) {
-            const target = rankedSchools.find(s => summary.leavePending ? s.leavePending > 0 : summary.missing ? s.missing > 0 : s.forChecking > 0) || rankedSchools[0];
-            if (target) openSchool(target.id, summary.missing ? 'missing' : summary.forChecking ? 'for-checking' : 'all');
-            return;
-        }
-        if (selectedTeacher && status === 'for-checking' && selectedTeacherReviewRows[0]?.id) {
-            window.location.href = `/dashboard/archive?review=${encodeURIComponent(selectedTeacherReviewRows[0].id)}`;
-            return;
-        }
-        if (!selectedTeacher) {
-            const target = sortedTeachers.find(t => summary.leavePending ? t.leavePending > 0 : summary.missing ? t.missing > 0 : t.forChecking > 0) || sortedTeachers[0];
-            if (target) openTeacher(target.id, summary.missing ? 'missing' : summary.forChecking ? 'for-checking' : 'all');
-        }
-    }
     function goBack() {
         const previous = history.at(-1);
         if (previous) { history = history.slice(0, -1); ({ school, search, status, cluster: clusterFilter, selectedTeacher, page } = previous); return; }
@@ -413,18 +389,6 @@
         <div class="stat-card"><dt><FileText size={18} />Supplementary uploads</dt><dd>{supplementaryUploads}<small>review only</small></dd></div>
         </dl>
     </details>
-    <section class:urgent={nextActionTone === 'urgent'} class:review={nextActionTone === 'review'} class:clear={nextActionTone === 'clear'} class="decision-strip">
-        <div class="decision-icon">
-            {#if nextActionTone === 'clear'}<CheckCircle size={26} />{:else}<AlertTriangle size={26} />{/if}
-        </div>
-        <div>
-            <span>Do this next</span>
-            <strong>{decisionLine}</strong>
-            <p>{nextActionDetail}</p>
-            <small class="decision-context">DLL compliance: {summary.submitted} of {summary.expected} expected · {reviewUploadLine}.</small>
-        </div>
-        <button class="primary-action" onclick={doNextAction} disabled={rowCount === 0 || nextActionTone === 'clear'}>{nextActionLabel}<ChevronRight size={18} /></button>
-    </section>
     {#if clusterLabels.length && !selectedTeacher}
         <details class="insights-panel">
         <summary>Explore upload patterns <span>K-means groups · {districtOverview ? schoolRows.length : teacherRows.length} {districtOverview ? 'schools' : 'teachers'}</span></summary>
@@ -534,7 +498,7 @@
         {/if}
             <div class="chart-card risk-card">
                 <h4>Risk indicators</h4>
-                <p class="risk-description">{districtOverview ? 'Schools' : 'Teachers'} affected in the selected period. Select a row to see the teachers involved.</p>
+                <p class="risk-description">Teachers affected in the selected period. Each number matches the teacher list below it.</p>
                 <div class="risk-indicators">
                     {#each riskIndicators as indicator (indicator.key)}
                         <div class="risk-indicator">
@@ -680,7 +644,6 @@
     .secondary-metrics[open] > summary::after, .insights-panel[open] > summary::after { content: '−'; }
     .secondary-metrics > summary span, .insights-panel > summary span { margin-left: auto; color: var(--color-text-muted); font-size: 13px; font-weight: 600; text-align: right; }
     .secondary-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0 12px 12px; }
-    .decision-context { display: block; margin-top: 4px; color: var(--color-text-muted); font-size: 13px; }
     .insights-panel .cluster-panel, .insights-panel .charts { margin: 0 12px 12px; }
     .stat-card { display: grid; align-content: start; min-height: 112px; border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px 16px; background: var(--color-surface-white); box-shadow: 0 8px 18px rgba(15, 23, 42, .05); }
     .stat-card.is-missing { background: #fff1f2; border-color: #f4a3aa; }
@@ -690,18 +653,6 @@
     .stat-card.is-leave { background: #eef4ff; border-color: #aac3eb; }
     dt { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--color-text-primary); line-height: 1.3; font-weight: 750; } dd { font-size: 34px; font-weight: 850; line-height: 1.05; }
     small { display: block; font-size: 14px; line-height: 1.35; font-weight: 500; color: var(--color-text-primary); margin-top: 6px; }
-    .decision-strip { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 96px; padding: 16px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-size: 16px; box-shadow: 0 12px 28px rgba(15, 23, 42, .07); }
-    .decision-strip.urgent { border-color: #f4a3aa; background: #fff1f2; }
-    .decision-strip.review { border-color: #f2c48d; background: #fff7ed; }
-    .decision-strip.clear { border-color: #8bd7b0; background: #ecfdf5; }
-    .decision-icon { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 8px; background: var(--color-surface-white); color: var(--color-gov-red); border: 1px solid var(--color-border-subtle); }
-    .decision-strip.review .decision-icon { color: var(--color-gov-gold-dark); }
-    .decision-strip.clear .decision-icon { color: var(--color-gov-green-dark); }
-    .decision-strip strong { display: block; margin-top: 2px; font-size: 22px; line-height: 1.25; font-weight: 850; }
-    .decision-strip span { color: var(--color-text-primary); font-size: 14px; font-weight: 850; text-transform: uppercase; }
-    .decision-strip p { margin: 4px 0 0; color: var(--color-text-primary); font-size: 17px; line-height: 1.45; }
-    .primary-action { min-width: 150px; padding: 11px 16px; border-radius: 8px; background: var(--color-gov-blue); color: white; font-size: 17px; font-weight: 850; box-shadow: 0 8px 18px rgba(30, 64, 175, .24); }
-    .primary-action:disabled { background: var(--color-surface-muted); color: var(--color-text-muted); box-shadow: none; }
     .cluster-panel { border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; background: var(--color-surface-white); }
     .cluster-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 12px; }
     .cluster-head h3 { margin: 0; }
@@ -803,8 +754,6 @@
         .view-heading { grid-template-columns: 1fr; align-items: stretch; }
         .export { width: 100%; min-width: 0; justify-content: center; }
         .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .decision-strip { grid-template-columns: auto minmax(0, 1fr); }
-        .primary-action { grid-column: 1 / -1; width: 100%; }
     }
     @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } .secondary-stats { grid-template-columns: 1fr; } .secondary-metrics > summary, .insights-panel > summary { align-items: flex-start; flex-wrap: wrap; } .secondary-metrics > summary span, .insights-panel > summary span { flex-basis: 100%; margin-left: 0; text-align: left; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } .pie-wrap { grid-template-columns: 1fr; justify-items: center; } .legend { width: 100%; } }
     @media (max-width: 700px) {
