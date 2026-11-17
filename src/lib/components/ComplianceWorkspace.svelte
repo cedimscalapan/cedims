@@ -3,6 +3,7 @@
     import { effectiveDeadlineForSubject } from '$lib/utils/deadlineRules';
     import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, isTeacherWideLeave, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission, isWeeklyComplianceDocType } from '$lib/utils/compliance';
     import { uploadsBySchool, uploadsByTeacher } from '$lib/utils/complianceUploadComparison';
+    import { makePieSlices } from '$lib/utils/pieSlices';
     import { supabase } from '$lib/utils/supabase';
     import { addToast } from '$lib/stores/toast';
     import { formatLeaveRange } from '$lib/utils/leaveDates';
@@ -38,6 +39,7 @@
     let selectedTeacher = $state<string | null>(null);
     let expandedMissingSchoolId = $state<string | null>(null);
     let expandedRiskKey = $state<string | null>(null);
+    let selectedPieTeacherId = $state<string | null>(null);
     type NavigationState = { school: string; search: string; status: string; cluster: string; selectedTeacher: string | null; page: number };
     let history = $state<NavigationState[]>([]);
     let initialized = $state(false);
@@ -179,15 +181,24 @@
         ...item,
         color: schoolPieColors[index % schoolPieColors.length],
         completion: schoolRows.find(row => row.id === item.id)?.rate ?? null,
+        submitted: schoolRows.find(row => row.id === item.id)?.submitted ?? 0,
+        expected: schoolRows.find(row => row.id === item.id)?.expected ?? 0,
         role: null as string | null,
     })));
     const teacherPieData = $derived(uploadsByTeacher(scopedUploads.filter(s => isWeeklyComplianceDocType(s.doc_type)), scopedSubmissionUsers).map((item, index) => ({
         ...item,
         color: `hsl(${Math.round((index * 137.508 + 220) % 360)} 62% 38%)`,
-        completion: null as number | null,
+        completion: teacherRiskRows.find(row => row.id === item.id)?.rate ?? null,
+        submitted: teacherRiskRows.find(row => row.id === item.id)?.submitted ?? 0,
+        expected: teacherRiskRows.find(row => row.id === item.id)?.expected ?? 0,
     })));
     const pieData = $derived(districtOverview ? schoolPieData : teacherPieData);
     const pieTotal = $derived(pieData.reduce((sum, item) => sum + item.value, 0));
+    const teacherPieSlices = $derived(makePieSlices(teacherPieData).map(slice => ({
+        ...slice,
+        teacher: teacherPieData.find(item => item.id === slice.id)!,
+    })));
+    const selectedPieTeacher = $derived(teacherPieData.find(item => item.id === selectedPieTeacherId) ?? null);
     const piePeriod = $derived(`${year} · ${term === 'all' ? 'all terms' : `Term ${term}`} · ${week === 'all' ? 'all weeks' : `Week ${week}`}`);
     const pieAltText = $derived(`${districtOverview ? 'Confirmed uploads by school' : 'DLL and DLP uploads by teacher'} for ${piePeriod}: ${pieData.map(item => `${item.label}, ${item.value} files`).join('; ')}`);
     const supplementaryUploads = $derived(scopedReviewSubmissions.filter(s => ['supplementary', 'extra'].includes((s.compliance_status || '').toLowerCase())).length);
@@ -419,28 +430,48 @@
     {#if !selectedTeacher && (scopedUploads.length > 0 || visibleTermOverdueBars.length > 1 || districtOverview && visibleSchoolOverdueBars.length)}
     <details class="insights-panel">
     <summary>Explore trends <span>Upload comparisons and missing DLLs</span></summary>
-    <div class="charts">
+    <div class="charts" class:teacher-trends={!districtOverview && pieTotal > 0}>
             <div class="chart-card pie-card">
-                <h4>{districtOverview ? 'Uploads by school and lesson-plan completion' : 'DLL/DLP uploads by teacher'}</h4>
-                <p class="chart-description">{piePeriod}. {districtOverview ? 'Each slice shows one school’s share of confirmed uploads. Required lesson-plan completion is listed separately.' : 'Each slice shows one Teacher or Master Teacher’s saved DLL/DLP files, including supplementary uploads. This compares file counts, not compliance rates.'}</p>
+                <h4>{districtOverview ? 'Uploads by school and lesson-plan completion' : 'DLL/DLP uploads and teacher compliance'}</h4>
+                <p class="chart-description">{piePeriod}. {districtOverview ? 'Each slice shows one school’s share of confirmed uploads. Required lesson-plan completion is listed separately.' : 'Pie percentages show each teacher’s share of saved DLL/DLP uploads. Overall compliance shows required lesson plans submitted in this period.'}</p>
                 {#if pieTotal > 0}
                 <div class="pie-wrap">
-                    <div class="pie" style={pieStyle(pieData)} role="img" aria-label={pieAltText}></div>
+                    {#if districtOverview}
+                        <div class="pie" style={pieStyle(pieData)} role="img" aria-label={pieAltText}></div>
+                    {:else}
+                        <svg class="teacher-pie" viewBox="0 0 240 240" role="group" aria-label="Teacher shares of DLL and DLP uploads. Select a slice to see the teacher.">
+                            {#each teacherPieSlices as slice (slice.id)}
+                                <path d={slice.path} fill={slice.teacher.color} stroke={selectedPieTeacherId === slice.id ? '#111827' : '#fff'} stroke-width={selectedPieTeacherId === slice.id ? 3 : 1} role="button" tabindex="0" aria-pressed={selectedPieTeacherId === slice.id} aria-label={`${slice.percent}% of uploads: ${slice.teacher.label}. Overall compliance ${slice.teacher.completion === null ? 'not available' : `${slice.teacher.completion}%`}`} onclick={() => selectedPieTeacherId = slice.id} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectedPieTeacherId = slice.id; } }} />
+                                {#if slice.percent >= 3}<text x={slice.labelX} y={slice.labelY} class="slice-percent" text-anchor="middle" dominant-baseline="middle">{slice.percent}%</text>{/if}
+                            {/each}
+                        </svg>
+                    {/if}
                     <div class="legend">
                         {#each pieData as item}
-                            <div class="pie-legend-row">
+                            <button type="button" class="pie-legend-row" class:selected={selectedPieTeacherId === item.id && !districtOverview} disabled={districtOverview} aria-pressed={districtOverview ? undefined : selectedPieTeacherId === item.id} onclick={() => selectedPieTeacherId = item.id}>
                                 <i style={`background: ${item.color}`} aria-hidden="true"></i>
-                                <span class="pie-legend-label">{item.label}<small>{districtOverview ? `${Math.round(item.value / pieTotal * 100)}% of school uploads · ${item.completion === null ? 'No required lesson plans' : `${item.completion}% lesson-plan completion`}` : `${item.role} · ${Math.round(item.value / pieTotal * 100)}% of DLL/DLP uploads`}</small></span>
-                                <strong>{item.value}</strong>
-                            </div>
+                                <span class="pie-legend-label">{item.label}<small>{districtOverview ? `${Math.round(item.value / pieTotal * 100)}% of school uploads · ${item.completion === null ? 'No required lesson plans' : `${item.completion}% lesson-plan completion`}` : `${item.role} · ${item.completion === null ? 'No required lesson plans' : `Overall compliance ${item.completion}% (${item.submitted} of ${item.expected} required)`}`}</small></span>
+                                <strong>{item.value} <span class="legend-unit">files</span></strong>
+                            </button>
                         {/each}
                     </div>
                 </div>
+                {#if !districtOverview}
+                    <div class="selected-pie-teacher" aria-live="polite">
+                        {#if selectedPieTeacher}
+                            <i style={`background: ${selectedPieTeacher.color}`} aria-hidden="true"></i>
+                            <div><strong>{selectedPieTeacher.label}</strong><span>{selectedPieTeacher.role} · {selectedPieTeacher.value} DLL/DLP files · {selectedPieTeacher.completion === null ? 'No required lesson plans' : `Overall compliance ${selectedPieTeacher.completion}% (${selectedPieTeacher.submitted} of ${selectedPieTeacher.expected} required)`}</span></div>
+                        {:else}
+                            <span>Select a colored slice or teacher name to see details.</span>
+                        {/if}
+                    </div>
+                {/if}
                 <p class="chart-total">{pieTotal} confirmed {pieTotal === 1 ? 'file' : 'files'} in this comparison</p>
                 {:else}
                     <p class="chart-empty">No confirmed {districtOverview ? 'school uploads' : 'Teacher or Master Teacher DLL/DLP uploads'} for this period.</p>
                 {/if}
             </div>
+        <div class="secondary-chart-grid">
         {#if scopedUploads.length > 0}
             <div class="chart-card">
                 <h4>Uploads from Monday to Sunday</h4>
@@ -516,6 +547,7 @@
                     {/each}
                 </div>
             </div>
+        </div>
     </div>
     </details>
     {/if}
@@ -698,7 +730,10 @@
     .leave-actions button:first-child { color: white; background: var(--color-gov-blue); border-color: var(--color-gov-blue); }
     .list-tools .list-controls { justify-self: end; }
     .list-controls .attention { min-height: 38px; padding-inline: 2px; }
-    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+    .charts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .charts.teacher-trends { grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); align-items: stretch; }
+    .secondary-chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; min-width: 0; }
+    .teacher-trends .secondary-chart-grid { grid-template-columns: minmax(0, 1fr); }
     .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; min-width: 0; }
     .chart-card h4 { font-size: 14px; font-weight: 700; color: var(--color-text-muted); margin: 0 0 12px 0; }
     .risk-description { margin: -4px 0 12px; color: var(--color-text-muted); font-size: 13px; line-height: 1.4; }
@@ -715,7 +750,7 @@
     .detail-list li span { min-width: 0; overflow-wrap: anywhere; }
     .detail-list li small { display: block; margin-top: 2px; color: var(--color-text-muted); }
     .detail-list li strong { flex: 0 0 auto; font-size: 13px; font-variant-numeric: tabular-nums; }
-    .pie-card { grid-column: 1 / -1; }
+    .pie-card { min-width: 0; }
     .chart-description { margin: -4px 0 14px; color: var(--color-text-muted); font-size: 14px; line-height: 1.45; }
     .chart-total { margin: 12px 0 0; color: var(--color-text-primary); font-size: 14px; font-weight: 700; }
     .chart-empty { margin: 20px 0 4px; color: var(--color-text-muted); font-size: 15px; }
@@ -732,13 +767,26 @@
     .bar-fill { height: 100%; background: var(--color-gov-red); border-radius: 4px; transition: width 0.3s ease; }
     .bar-fill.overdue { background: var(--color-gov-red); }
     .pie-wrap { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; align-items: center; }
+    .teacher-trends .pie-wrap { grid-template-columns: 240px minmax(0, 1fr); align-items: start; }
     .pie { width: 150px; height: 150px; border-radius: 50%; border: 10px solid var(--color-surface-white); box-shadow: inset 0 0 0 1px var(--color-border-subtle), 0 0 0 1px var(--color-border-subtle); }
+    .teacher-pie { width: 240px; max-width: 100%; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 0 0 1px var(--color-border-subtle); }
+    .teacher-pie path { cursor: pointer; }
+    .teacher-pie path:focus-visible { outline: 3px solid var(--color-gov-blue); outline-offset: 2px; }
+    .slice-percent { fill: #111827; stroke: #fff; stroke-width: 3px; paint-order: stroke; font-size: 12px; font-weight: 800; pointer-events: none; }
     .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; min-width: 0; }
-    .pie-legend-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 9px; align-items: start; min-width: 0; color: var(--color-text-primary); font-size: 15px; }
+    .teacher-trends .legend { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+    .pie-legend-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 9px; align-items: start; width: 100%; min-width: 0; padding: 4px; border: 1px solid transparent; border-radius: 6px; background: transparent; text-align: left; color: var(--color-text-primary); font-size: 15px; }
+    .pie-legend-row:disabled { opacity: 1; cursor: default; }
+    .pie-legend-row:not(:disabled):hover, .pie-legend-row.selected { border-color: var(--color-border-subtle); background: var(--color-surface-muted); }
     .pie-legend-row i { width: 14px; height: 14px; border-radius: 3px; margin-top: 3px; }
-    .pie-legend-row strong { color: var(--color-text-primary); font-size: 17px; }
+    .pie-legend-row strong { color: var(--color-text-primary); font-size: 16px; white-space: nowrap; }
+    .legend-unit { font-size: 12px; font-weight: 500; }
     .pie-legend-label { min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
     .pie-legend-label small { display: block; margin-top: 2px; color: var(--color-text-muted); font-size: 13px; font-weight: 500; line-height: 1.35; }
+    .selected-pie-teacher { display: flex; align-items: center; gap: 10px; min-height: 54px; margin-top: 12px; padding: 9px 11px; border: 1px solid var(--color-border-subtle); border-radius: 7px; background: var(--color-surface-muted); color: var(--color-text-primary); font-size: 14px; }
+    .selected-pie-teacher i { width: 16px; height: 16px; flex: 0 0 auto; border-radius: 3px; }
+    .selected-pie-teacher div { min-width: 0; }
+    .selected-pie-teacher strong, .selected-pie-teacher span { display: block; }
     .upload-bars { display: grid; grid-template-columns: repeat(7, minmax(28px, 1fr)); gap: 10px; align-items: end; min-height: 144px; }
     .upload-bars div { display: grid; justify-items: center; align-items: end; gap: 5px; min-width: 0; }
     .upload-bars .stack { display: flex; flex-direction: column-reverse; width: 100%; max-width: 34px; min-height: 6px; border-radius: 5px 5px 0 0; overflow: hidden; background: var(--color-surface-muted); }
@@ -750,12 +798,16 @@
     .upload-bars strong { font-size: 15px; }
     button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--color-gov-blue); outline-offset: 3px; }
     .empty { padding: 32px 12px; text-align: center; color: var(--color-text-muted); }
+    @media (max-width: 980px) {
+        .charts.teacher-trends { grid-template-columns: minmax(0, 1fr); }
+        .teacher-trends .secondary-chart-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    }
     @media (max-width: 920px) {
         .view-heading { grid-template-columns: 1fr; align-items: stretch; }
         .export { width: 100%; min-width: 0; justify-content: center; }
         .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } .secondary-stats { grid-template-columns: 1fr; } .secondary-metrics > summary, .insights-panel > summary { align-items: flex-start; flex-wrap: wrap; } .secondary-metrics > summary span, .insights-panel > summary span { flex-basis: 100%; margin-left: 0; text-align: left; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } .pie-wrap { grid-template-columns: 1fr; justify-items: center; } .legend { width: 100%; } }
+    @media (max-width: 600px) { .stats { grid-template-columns: 1fr; gap: 10px; } .secondary-stats { grid-template-columns: 1fr; } .secondary-metrics > summary, .insights-panel > summary { align-items: flex-start; flex-wrap: wrap; } .secondary-metrics > summary span, .insights-panel > summary span { flex-basis: 100%; margin-left: 0; text-align: left; } dd { font-size: 24px; } .list-tools { align-items: stretch; } .search, .cluster-filter { width: 100%; } .pie-wrap, .teacher-trends .pie-wrap { grid-template-columns: 1fr; justify-items: center; } .legend { width: 100%; } }
     @media (max-width: 700px) {
         .control-panel { padding: 12px; }
         .filters { grid-template-columns: 1fr; gap: 12px; }
@@ -770,7 +822,7 @@
         .list-controls { grid-template-columns: 1fr; justify-content: stretch; }
         .list-controls .attention { grid-column: auto; }
         .cluster-filter { width: 100%; }
-        .charts { grid-template-columns: 1fr; }
+        .charts, .charts.teacher-trends, .secondary-chart-grid, .teacher-trends .secondary-chart-grid { grid-template-columns: 1fr; }
         .cluster-head { display: grid; }
         .cluster-head button { width: 100%; justify-content: space-between; }
         .cluster-grid { grid-template-columns: 1fr; }
