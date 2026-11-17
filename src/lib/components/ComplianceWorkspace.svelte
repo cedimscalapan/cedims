@@ -36,6 +36,8 @@
     let status = $state('risk');
     let clusterFilter = $state('all');
     let selectedTeacher = $state<string | null>(null);
+    let expandedMissingSchoolId = $state<string | null>(null);
+    let expandedRiskKey = $state<string | null>(null);
     type NavigationState = { school: string; search: string; status: string; cluster: string; selectedTeacher: string | null; page: number };
     let history = $state<NavigationState[]>([]);
     let initialized = $state(false);
@@ -107,10 +109,21 @@
     }
     const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id)), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
     const summary = $derived({ ...summarizeRequirements(scoped), ...reviewSummary });
-    const riskEntities = $derived(districtOverview ? schoolRows : scopedTeachers.map(t => summarizeRequirements(scoped.filter(r => r.teacherId === t.id))));
-    const multipleMissingCount = $derived(riskEntities.filter(item => item.missing >= 2).length);
-    const lateEntityCount = $derived(riskEntities.filter(item => item.late > 0).length);
-    const pendingLeaveEntityCount = $derived(riskEntities.filter(item => item.leavePending > 0).length);
+    const teacherRiskRows = $derived(scopedTeachers.map(t => ({ ...t, ...summarizeRequirements(scoped.filter(r => r.teacherId === t.id)) })));
+    const riskEntities = $derived(districtOverview ? schoolRows : teacherRiskRows);
+    const riskDefinitions: { key: string; label: string; metric: 'missing' | 'late' | 'leavePending'; threshold: number; detail: string }[] = [
+        { key: 'missing', label: '2 or more missing DLLs', metric: 'missing', threshold: 2, detail: 'missing' },
+        { key: 'late', label: 'At least 1 late DLL', metric: 'late', threshold: 1, detail: 'late' },
+        { key: 'leave', label: 'Pending leave review', metric: 'leavePending', threshold: 1, detail: 'pending' },
+    ];
+    const riskIndicators = $derived(riskDefinitions.map(indicator => ({
+        ...indicator,
+        count: riskEntities.filter(entity => entity[indicator.metric] >= indicator.threshold).length,
+        teachers: teacherRiskRows.filter(teacher => districtOverview
+            ? schoolRows.some(s => s.id === teacher.school_id && s[indicator.metric] >= indicator.threshold) && teacher[indicator.metric] > 0
+            : teacher[indicator.metric] >= indicator.threshold)
+            .sort((a, b) => b[indicator.metric] - a[indicator.metric] || a.full_name.localeCompare(b.full_name)),
+    })));
     const reviewMap = $derived(new Map(reviews.map(r => [r.submission_id, r])));
     const termNumber = $derived(term === 'all' ? null : Number(term));
     const clusterSubmissions = $derived(submissions.filter((s): s is ComplianceSubmission & { user_id: string } => {
@@ -501,22 +514,42 @@
                 <h4>Schools with missing DLLs</h4>
                 <div class="horizontal-bars">
                     {#each visibleSchoolOverdueBars as item}
-                        <button class="horizontal-bar-item" onclick={() => openSchool(item.id, 'missing')}>
-                            <span>{item.name}</span>
-                            <span class="bar-container-small"><span class="bar-fill overdue" style="width: {100 * item.missing / maxSchoolOverdue}%"></span></span>
-                            <strong>{item.missing}</strong>
-                        </button>
+                        <div class="school-missing-group">
+                            <button type="button" class="horizontal-bar-item" aria-label={`${expandedMissingSchoolId === item.id ? 'Hide' : 'Show'} teachers with missing DLLs at ${item.name}`} aria-expanded={expandedMissingSchoolId === item.id} onclick={() => expandedMissingSchoolId = expandedMissingSchoolId === item.id ? null : item.id}>
+                                <span>{item.name}</span>
+                                <span class="bar-container-small"><span class="bar-fill overdue" style="width: {100 * item.missing / maxSchoolOverdue}%"></span></span>
+                                <strong class="bar-count">{item.missing}<span class="toggle-chevron" class:expanded={expandedMissingSchoolId === item.id}><ChevronDown size={16} /></span></strong>
+                            </button>
+                            {#if expandedMissingSchoolId === item.id}
+                                <ul class="detail-list" aria-label={`Teachers with missing DLLs at ${item.name}`}>
+                                    {#each teacherRiskRows.filter(t => t.school_id === item.id && t.missing > 0).sort((a, b) => b.missing - a.missing || a.full_name.localeCompare(b.full_name)) as teacher (teacher.id)}
+                                        <li><span>{teacher.full_name}</span><strong>{teacher.missing} missing</strong></li>
+                                    {/each}
+                                </ul>
+                            {/if}
+                        </div>
                     {/each}
                 </div>
             </div>
         {/if}
             <div class="chart-card risk-card">
                 <h4>Risk indicators</h4>
-                <p class="risk-description">{districtOverview ? 'Schools' : 'Teachers'} affected in the selected period. One {districtOverview ? 'school' : 'teacher'} may appear in several rows.</p>
+                <p class="risk-description">{districtOverview ? 'Schools' : 'Teachers'} affected in the selected period. Select a row to see the teachers involved.</p>
                 <div class="risk-indicators">
-                    <div><span>2 or more missing DLLs</span><strong>{multipleMissingCount}</strong></div>
-                    <div><span>At least 1 late DLL</span><strong>{lateEntityCount}</strong></div>
-                    <div><span>Pending leave review</span><strong>{pendingLeaveEntityCount}</strong></div>
+                    {#each riskIndicators as indicator (indicator.key)}
+                        <div class="risk-indicator">
+                            <button type="button" class="risk-indicator-toggle" disabled={indicator.count === 0} aria-label={`${expandedRiskKey === indicator.key ? 'Hide' : 'Show'} teachers for ${indicator.label}`} aria-expanded={expandedRiskKey === indicator.key} onclick={() => expandedRiskKey = expandedRiskKey === indicator.key ? null : indicator.key}>
+                                <span>{indicator.label}</span><strong>{indicator.count}</strong><span class="toggle-chevron" class:expanded={expandedRiskKey === indicator.key}><ChevronDown size={16} /></span>
+                            </button>
+                            {#if expandedRiskKey === indicator.key && indicator.count > 0}
+                                <ul class="detail-list" aria-label={`Teachers for ${indicator.label}`}>
+                                    {#each indicator.teachers as teacher (teacher.id)}
+                                        <li><span>{teacher.full_name}{#if districtOverview}<small>{schoolName(teacher.school_id)}</small>{/if}</span><strong>{teacher[indicator.metric]} {indicator.detail}</strong></li>
+                                    {/each}
+                                </ul>
+                            {/if}
+                        </div>
+                    {/each}
                 </div>
             </div>
     </div>
@@ -718,9 +751,19 @@
     .chart-card { background: var(--color-surface-white); border: 1px solid var(--color-border-subtle); border-radius: 8px; padding: 14px; min-width: 0; }
     .chart-card h4 { font-size: 14px; font-weight: 700; color: var(--color-text-muted); margin: 0 0 12px 0; }
     .risk-description { margin: -4px 0 12px; color: var(--color-text-muted); font-size: 13px; line-height: 1.4; }
-    .risk-indicators { display: grid; gap: 0; }
-    .risk-indicators div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 8px 0; border-top: 1px solid var(--color-border-subtle); color: var(--color-text-primary); font-size: 14px; font-weight: 600; }
-    .risk-indicators strong { flex: 0 0 auto; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .risk-indicator { border-top: 1px solid var(--color-border-subtle); }
+    .risk-indicator-toggle { display: grid; grid-template-columns: minmax(0, 1fr) auto 16px; align-items: center; gap: 10px; width: 100%; min-height: 50px; padding: 8px 0; text-align: left; color: var(--color-text-primary); font-size: 14px; font-weight: 600; }
+    .risk-indicator-toggle:disabled { opacity: .6; cursor: default; }
+    .risk-indicator-toggle:not(:disabled):hover, .horizontal-bar-item:hover { color: var(--color-gov-blue); }
+    .risk-indicator-toggle strong { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .toggle-chevron { display: inline-flex; transition: transform .2s ease; }
+    .toggle-chevron.expanded { transform: rotate(180deg); }
+    .detail-list { max-height: 240px; overflow-y: auto; margin: 0 0 8px; padding: 4px 10px; border-radius: 6px; background: var(--color-surface-muted); list-style: none; }
+    .detail-list li { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 8px 0; color: var(--color-text-primary); font-size: 13px; line-height: 1.35; }
+    .detail-list li + li { border-top: 1px solid var(--color-border-subtle); }
+    .detail-list li span { min-width: 0; overflow-wrap: anywhere; }
+    .detail-list li small { display: block; margin-top: 2px; color: var(--color-text-muted); }
+    .detail-list li strong { flex: 0 0 auto; font-size: 13px; font-variant-numeric: tabular-nums; }
     .pie-card { grid-column: 1 / -1; }
     .chart-description { margin: -4px 0 14px; color: var(--color-text-muted); font-size: 14px; line-height: 1.45; }
     .chart-total { margin: 12px 0 0; color: var(--color-text-primary); font-size: 14px; font-weight: 700; }
@@ -733,6 +776,7 @@
     .horizontal-bars { display: flex; flex-direction: column; gap: 12px; }
     .horizontal-bar-item { display: grid; grid-template-columns: minmax(96px, 1fr) minmax(80px, 1.4fr) auto; gap: 12px; align-items: center; width: 100%; text-align: left; }
     button.horizontal-bar-item { min-height: 36px; justify-content: stretch; }
+    .bar-count { display: flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
     .bar-container-small { width: 100%; height: 24px; background: var(--color-surface-white); border-radius: 4px; position: relative; overflow: hidden; }
     .bar-fill { height: 100%; background: var(--color-gov-red); border-radius: 4px; transition: width 0.3s ease; }
     .bar-fill.overdue { background: var(--color-gov-red); }
