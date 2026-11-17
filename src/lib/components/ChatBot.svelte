@@ -36,7 +36,7 @@
     // opening message says so.
     function getGreeting() {
         return currentProfile
-            ? 'Hello. I’m Gabay. I can check your permitted CEDIMS records, count uploads, explain missing or overdue requirements, and prepare reports. Try “Week 7 total uploaded documents” or “Show this week’s uploads by status.” You can ask in English or Tagalog.'
+            ? `Hello. I’m Gabay. I can answer questions about ${currentProfile.role === 'Teacher' ? 'your own submissions and deadlines' : currentProfile.role === 'Master Teacher' || currentProfile.role === 'School Head' ? 'your school’s compliance and reports' : currentProfile.role === 'District Supervisor' ? 'your district’s compliance and reports' : 'the CEDIMS areas available to your account'}. Choose a question below or type your own in English or Tagalog.`
             : 'Hello. I’m Gabay, your CEDIMS guide. I can explain how the system works. Sign in to ask about your records, uploaded-document counts, or reports in chat, Excel, or Word.';
     }
 
@@ -52,18 +52,22 @@
 
     const roleSuggestions: Record<string, string[]> = {
         Teacher: [
-            "Write my report for this week in sentences",
-            "What is my compliance rate?",
-            "What Daily Lesson Plan submissions are missing?",
+            "Create a report of my lesson plan compliance this school year",
+            "What is my lesson plan compliance rate?",
             "When is my next submission deadline?",
             "How do I upload a Daily Lesson Plan?",
-            "Find my Daily Lesson Plans about fractions",
+            "Can I still upload after the deadline?",
+            "How do I check remarks on my submitted lesson plan?",
+            "How do I request leave?",
+            "Where can I find my uploaded file?",
         ],
         "Master Teacher": [
-            "How does the Master Teacher tracker work?",
-            "Create an Excel report for this term",
-            "What is my compliance rate?",
-            "How do I upload a Daily Lesson Plan?",
+            "Create a report for my school this school year",
+            "Create an Excel compliance report for my school this school year",
+            "What is my school's lesson plan compliance rate?",
+            "How many overdue lesson plans does my school have this school year?",
+            "How many teachers have overdue lesson plans in my school this school year?",
+            "How do I review a teacher's lesson plan?",
         ],
         Admin: [
             "What are the tabs for each role?",
@@ -71,11 +75,12 @@
             "How do open and closed deadlines work?",
         ],
         "School Head": [
-            "What is my school's compliance rate?",
-            "Show teacher statistics for my school",
-            "Which teachers have missing submissions?",
+            "Create a report for my school this school year",
+            "Create a Word compliance report for my school this school year",
+            "What is my school's lesson plan compliance rate?",
+            "How many overdue lesson plans does my school have this school year?",
+            "How many teachers have overdue lesson plans in my school this school year?",
             "When is the next submission deadline?",
-            "Generate a compliance report",
         ],
         "District Supervisor": [
             "Show total uploads this week by status",
@@ -99,8 +104,11 @@
             currentUser = u as { id: string } | null;
         });
         const unsubProfile = profile.subscribe((p) => {
+            const previousScope = currentProfile && `${currentProfile.id}|${currentProfile.role}|${currentProfile.school_id}|${currentProfile.district_id}`;
             currentProfile = p as any;
-            if(messages.length <= 1) messages = [{role:'bot',text:getGreeting(),intent:'general_help'}];
+            const nextScope = currentProfile && `${currentProfile.id}|${currentProfile.role}|${currentProfile.school_id}|${currentProfile.district_id}`;
+            if (previousScope !== nextScope) resetChat();
+            else if(messages.length <= 1) messages = [{role:'bot',text:getGreeting(),intent:'general_help'}];
         });
         return () => { unsubUser(); unsubProfile(); };
     });

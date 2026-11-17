@@ -6,7 +6,7 @@ import {effectiveDeadlineForSubject} from './deadlineRules';
 type Profile={id:string;role:string;full_name:string;school_id:string|null;district_id:string|null};
 type RecordRow=Record<string,any>;
 type Attachment={fileName:string;blob:Blob};
-export type ReportFacts={summary:ReturnType<typeof summarizeRequirements>;scope:string;period:string;overdue:number;overdueTeachers:number;pendingOverdue:number;request:ReportRequest};
+export type ReportFacts={summary:ReturnType<typeof summarizeRequirements>;scope:string;period:string;overdue:number;overdueTeachers:number;pendingOverdue:number;request:ReportRequest;teacherBacklog:{name:string;count:number}[]};
 const dateLabel=(value:number|string)=>new Date(value).toLocaleString('en-PH',{timeZone:'Asia/Manila',year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 
 // Read every page or fail explicitly. A truncated query must never become a complete report.
@@ -27,7 +27,9 @@ async function rowsForIds(db:any,table:string,select:string,field:string,ids:str
             let q=db.from(table).select(select).in(field,ids.slice(i,i+100)).order('id');
             if(year)q=q.eq('school_year',year);
             if(period?.week)q=q.eq('week_number',period.week);
-            if(period?.term)q=table==='submissions'?q.or(`term_number.eq.${period.term},term_number.is.null`):q.eq('term_number',period.term);
+            // Build against all terms first so a legacy submission without
+            // term metadata cannot be assigned to an ambiguous week.
+            if(period?.term && table!=='submissions')q=q.eq('term_number',period.term);
             if(table==='submissions')q=q.in('doc_type',['DLL','DLP']);
             return q;
         }));
@@ -60,7 +62,11 @@ export function makeReportSnapshot(requirements:Requirement[],teachers:RecordRow
         const selected=requirements.filter((_r,i)=>details[i][field]===name);
         return {name,...summarizeRequirements(selected,now)};
     });
-    return {summary,details,schools:groupBy('school'),subjects:groupBy('subject'),teacherCount:new Set(requirements.map(r=>r.teacherId)).size,request,generatedAt:now};
+    const teacherGroups=[...new Set(requirements.map(r=>r.teacherId))].map(id=>({
+        name:teacherMap.get(id)?.full_name||'Teacher',
+        ...summarizeRequirements(requirements.filter(row=>row.teacherId===id),now)
+    })).sort((a,b)=>a.name.localeCompare(b.name));
+    return {summary,details,schools:groupBy('school'),subjects:groupBy('subject'),teachers:teacherGroups,teacherCount:teacherGroups.length,request,generatedAt:now};
 }
 export function reportNarrative(snapshot:ReturnType<typeof makeReportSnapshot>,scope:string,lang:'en'|'tl'='en'){
     const {summary:s,request:r}=snapshot;
@@ -183,9 +189,9 @@ export async function createChatReport(db:any,profile:Profile|undefined|null,use
         const requirements=teachers.flatMap(t=>{
             const school=schools.find(s=>s.id===t.school_id);
             return buildRequirements(loads.filter(l=>l.user_id===t.id).map(l=>({...l,school_name:school?.name})) as any,
-                scopedCalendar(calendar as CalendarSlot[],school?.district_id).filter(c=>(!r.term||c.term===r.term)&&(!r.week||c.week_number===r.week)),
+                scopedCalendar(calendar as CalendarSlot[],school?.district_id),
                 weekly.filter(s=>s.user_id===t.id) as any,[],Date.now(),leaves.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))) as any);
-        });
+        }).filter(row=>(!r.term||row.calendar.term===r.term)&&(!r.week||row.calendar.week_number===r.week));
         // Shared review status is authoritative even when a checked document has an empty remark.
         for(const row of requirements){if(row.submission){const review=reviews.find(v=>v.submission_id===row.submission!.id);row.review=review?.status==='checked'?'checked':'for-checking';}}
         if(!requirements.length)return {answer:'No calendar requirements match this report. Please check the school year, term, and week.'};
@@ -194,18 +200,23 @@ export async function createChatReport(db:any,profile:Profile|undefined|null,use
         const scope=profile.role==='Teacher'||r.scope==='self'?profile.full_name:(r.scope==='district'?`${districtNames} (${schools.length} schools)`:(schools.length<=3?schools.map(s=>s.name).join(', '):`${schools.length} schools in ${districtNames}`));
         const narrative=reportNarrative(snapshot,scope,lang);
         const overdue=requirements.filter(row=>!row.submission && row.status!=='on-leave' && effectiveDeadlineForSubject(row.calendar.deadline_date,row.load.subject,row.load.school_name).getTime()<=snapshot.generatedAt);
-        const facts:ReportFacts={summary:snapshot.summary,scope,period:narrative.period,overdue:overdue.length,overdueTeachers:new Set(overdue.map(row=>row.teacherId)).size,pendingOverdue:overdue.filter(row=>row.status==='leave-requested').length,request:r};
+        const backlog=new Map<string,number>();
+        for(const row of overdue)backlog.set(row.teacherId,(backlog.get(row.teacherId)||0)+1);
+        const teacherBacklog=[...backlog].map(([id,count])=>({name:teachers.find(t=>t.id===id)?.full_name||'Teacher',count})).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name));
+        const facts:ReportFacts={summary:snapshot.summary,scope,period:narrative.period,overdue:overdue.length,overdueTeachers:teacherBacklog.length,pendingOverdue:overdue.filter(row=>row.status==='leave-requested').length,request:r,teacherBacklog};
         const prefix=r.style==='bullets'?'• ':'';
         let answer=narrative.paragraphs.map(p=>prefix+p).join('\n\n');
-        answer+='\n\n'+narrative.groups.slice(0,12).map(p=>prefix+p).join('\n\n');
-        if(narrative.groups.length>12)answer+=`\n\n${narrative.groups.length-12} additional group summaries are available in the Word or Excel export.`;
+        const teacherLines=['School Head','Master Teacher'].includes(profile.role)?snapshot.teachers.map(t=>`Teacher: ${t.name}. ${t.submitted} of ${t.expected} expected lesson plans submitted; ${t.missing} overdue missing, ${t.upcoming} upcoming, ${t.onLeave} approved leave; completion ${t.rate===null?'N/A':`${t.rate}%`}.`):[];
+        const groupLines=[...narrative.groups,...teacherLines];
+        answer+='\n\n'+groupLines.slice(0,20).map(p=>prefix+p).join('\n\n');
+        if(groupLines.length>20)answer+=`\n\n${groupLines.length-20} additional group summaries are available in the Word or Excel export.`;
         if(r.format==='chat')return {answer,facts};
         const tables=[
             {title:'Summary',headers:['Expected','Submitted','On time','Late','Overdue missing','Upcoming','Approved leave','Pending leave','Checked','For checking','Completion'],rows:[[snapshot.summary.expected,snapshot.summary.submitted,snapshot.summary.onTime,snapshot.summary.late,snapshot.summary.missing,snapshot.summary.upcoming,snapshot.summary.onLeave,snapshot.summary.leavePending,snapshot.summary.checked,snapshot.summary.forChecking,snapshot.summary.rate===null?'N/A':`${snapshot.summary.rate}%`]]},
             {title:'Requirements',headers:['Teacher','School','Subject','Grade','Term','Week','Status','Review','Deadline (Philippines)','Submitted (Philippines)'],rows:snapshot.details.map(d=>[d.teacher,d.school,d.subject,d.grade,d.term,d.week,d.status,d.review,d.deadline,d.submitted])}
         ];
         const base=`CEDIMS-report-${year}${r.term?`-T${r.term}`:''}${r.week?`-W${r.week}`:''}-${new Date().toISOString().slice(0,10)}`;
-        const options={title:'Lesson Plan Compliance Report',subtitle:`${scope} · ${narrative.period}`,meta:[{label:'Prepared by',value:profile.full_name},{label:'Source',value:'Current CEDIMS records; Philippine time'}],paragraphs:[...narrative.paragraphs,...narrative.groups],tables};
+        const options={title:'Lesson Plan Compliance Report',subtitle:`${scope} · ${narrative.period}`,meta:[{label:'Prepared by',value:profile.full_name},{label:'Source',value:'Current CEDIMS records; Philippine time'}],paragraphs:[...narrative.paragraphs,...narrative.groups,...teacherLines],tables};
         const attachments:Attachment[]=[];
         if(r.format==='excel'||r.format==='both'){
             const {buildReportWorkbook}=await import('./excelExport');

@@ -26,7 +26,7 @@ function fixture(){return {
     schools:[{id:'s1',name:'Bulusan Elementary School',district_id:'d1'},{id:'s2',name:'Salong Elementary School',district_id:'d1'},{id:'s3',name:'Other Elementary School',district_id:'d2'}],
     profiles:[{id:'a',full_name:'Teacher A',school_id:'s1',role:'Teacher',is_active:true},{id:'b',full_name:'Teacher B',school_id:'s2',role:'Teacher',is_active:true},{id:'c',full_name:'Teacher C',school_id:'s3',role:'Teacher',is_active:true}],
     teaching_loads:[{id:'ma',user_id:'a',subject:'Mathematics',grade_level:'Grade 3',is_active:true},{id:'sa',user_id:'a',subject:'Science',grade_level:'Grade 3',is_active:true},{id:'mb',user_id:'b',subject:'Mathematics',grade_level:'Grade 3',is_active:true}],
-    academic_calendar:[{id:'w7',school_year:year,term:2,week_number:7,deadline_date:'2026-10-26T02:00:00Z',district_id:'d1',is_active:false},{id:'w8',school_year:year,term:2,week_number:8,deadline_date:'2026-11-02T02:00:00Z',district_id:'d1',is_active:true}],
+    academic_calendar:[{id:'w7',school_year:year,term:2,week_number:7,deadline_date:'2026-10-26T02:00:00Z',district_id:'d1',is_active:false,is_published:true},{id:'w8',school_year:year,term:2,week_number:8,deadline_date:'2026-11-02T02:00:00Z',district_id:'d1',is_active:true,is_published:true}],
     submissions:[{id:'sub',user_id:'a',teaching_load_id:'ma',school_year:year,term_number:2,week_number:7,doc_type:'DLL',compliance_status:'on-time',created_at:'2026-10-25T02:00:00Z'},{id:'extra',user_id:'a',teaching_load_id:'ma',school_year:year,term_number:2,week_number:7,doc_type:'DLL',compliance_status:'supplementary',created_at:'2026-10-26T02:00:00Z'}],
     submission_leave_requests:[{id:'leave',user_id:'a',teaching_load_id:'sa',school_year:year,term_number:2,week_number:7,status:'approved'}],
     document_review_current:[{id:'review',submission_id:'sub',status:'checked',comment:''}]
@@ -179,4 +179,42 @@ test('administrative type filters and subject counts survive conversational foll
     const compliant=await processQuery('week 7 total compliant uploads',ctx);assert.match(compliant.answer,/has 2 on-time uploaded documents/);
     const own=await processQuery('How many files did I upload in week 7?',{supabase:mockDb(uploadFixture()),userId:profile.id,profile});
     assert.match(own.answer,/has 1 uploaded document/);assert.match(own.answer,/School Head/);
+});
+
+test('school head and master teacher suggestions return only school compliance and reports',async()=>{
+    for(const role of ['School Head','Master Teacher']){
+        const actor={...profile,id:role==='School Head'?'head':'mt',role};
+        const ctx={supabase:mockDb(fixture()),userId:actor.id,profile:actor};
+        const report=await processQuery('Create a report for my school this school year',ctx);
+        assert.match(report.answer,/Bulusan Elementary School/);
+        assert.match(report.answer,/Teacher: Teacher A/);
+        assert.doesNotMatch(report.answer,/Teacher B|Teacher C|Salong Elementary School|Other Elementary School/);
+        const compliance=await processQuery("What is my school's lesson plan compliance rate?",ctx);
+        assert.match(compliance.answer,/Bulusan Elementary School/);
+        assert.doesNotMatch(compliance.answer,/Teacher B|Teacher C|Salong Elementary School/);
+        const count=await processQuery('How many teachers have overdue lesson plans in my school this school year?',ctx);
+        assert.match(count.answer,/teachers with overdue requirements/);
+        const names=await processQuery('Which teachers have overdue lesson plans in my school?',ctx);
+        assert.match(names.answer,/Teacher A/);
+        assert.doesNotMatch(names.answer,/Teacher B|Teacher C/);
+        const denied=await processQuery('Create a report for my district',ctx);
+        assert.match(denied.answer,/district-wide report requires/);
+    }
+});
+
+test('teacher suggestions stay with own requirements and urgent system help',async()=>{
+    const actor={...profile,id:'a',full_name:'Teacher A',role:'Teacher'};
+    const ctx={supabase:mockDb(fixture()),userId:actor.id,profile:actor};
+    const report=await processQuery('Create a report of my lesson plan compliance this school year',ctx);
+    assert.match(report.answer,/Teacher A/);
+    assert.doesNotMatch(report.answer,/Teacher B|Teacher C/);
+    const compliance=await processQuery('What is my lesson plan compliance rate?',ctx);
+    assert.match(compliance.answer,/Teacher A/);
+    assert.doesNotMatch(compliance.answer,/Teacher B|Teacher C/);
+    const denied=await processQuery('Create a report for my school',ctx);
+    assert.match(denied.answer,/Teacher reports cover your own submissions/);
+    const late=await processQuery('Can I still upload after the deadline?',ctx);
+    assert.match(late.answer,/Open|open/);
+    const remarks=await processQuery('How do I check remarks on my submitted lesson plan?',ctx);
+    assert.match(remarks.answer,/Tracker|Archives/);
 });

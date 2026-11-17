@@ -1110,31 +1110,29 @@ async function queryDlls(
     db: SupabaseClient,
     slots: Record<string, string>,
     queryText?: string,
-    lang: Lang = 'en'
+    lang: Lang = 'en',
+    userId?: string,
+    profile?: ChatContext['profile']
 ): Promise<string> {
-    // Prefer TF-IDF semantic search when the user asked a free-text question
-    const hasStructuredSlots = !!(slots.subject || slots.week || slots.grade);
-    if (!hasStructuredSlots && queryText && queryText.trim().length > 3) {
-        try {
-            await loadDllDocumentsFromSupabase(db);
-            const semantic = dllSearchEngine.search(queryText.trim(), 5);
-            if (semantic.length > 0) {
-                const lines = semantic.map((r, i) => {
-                    const d = r.doc;
-                    const grade = d.grade ? ` (${d.grade})` : '';
-                    const week = d.week ? ` Week ${d.week}` : '';
-                    return `${i + 1}. ${d.subject}${grade}${week}, ${d.teacher}`;
-                });
-                let summary = lang === 'tl'
-                    ? `May nahanap akong ${semantic.length} Daily Lesson Plan na tugma sa "${queryText.trim()}":\n${lines.join('\n')}`
-                    : `Found ${semantic.length} Daily Lesson Plan${semantic.length > 1 ? 's' : ''} matching "${queryText.trim()}":\n${lines.join('\n')}`;
-                if (semantic.length === 5) summary += lang === 'tl' ? '\n\nPara sa mas eksaktong resulta, subukan ang mas specific na paghahanap.' : '\n\nFor more precise results, try a more specific search.';
-                return summary;
-            }
-        } catch (e) {
-            console.warn('[chatbot] Semantic search unavailable, falling back to SQL:', e);
-        }
-    }
+    if (!userId || !profile) return lang === 'tl' ? 'Mag-sign in muna para maghanap ng inyong mga dokumento.' : 'Please sign in to search documents available to your account.';
+    let permittedUserIds: string[];
+    if (profile.role === 'Teacher') permittedUserIds=[userId];
+    else if (profile.role === 'Master Teacher' || profile.role === 'School Head') {
+        if (!profile.school_id) return 'Your account needs a school assignment to search school documents.';
+        const {data,error}=await db.from('profiles').select('id').eq('school_id',profile.school_id);
+        if (error) return 'I could not verify your school document scope right now.';
+        permittedUserIds=(data||[]).map((row:any)=>row.id);
+    } else if (profile.role === 'District Supervisor') {
+        if (!profile.district_id) return 'Your account needs a district assignment to search district documents.';
+        const {data:schools,error}=await db.from('schools').select('id').eq('district_id',profile.district_id);
+        if (error) return 'I could not verify your district document scope right now.';
+        const ids=(schools||[]).map((row:any)=>row.id);
+        if (!ids.length) return 'No schools are available in your district.';
+        const {data:people,error:peopleError}=await db.from('profiles').select('id').in('school_id',ids);
+        if (peopleError) return 'I could not verify your district document scope right now.';
+        permittedUserIds=(people||[]).map((row:any)=>row.id);
+    } else return 'Document search is available to teachers and supervisory accounts within their assigned scope.';
+    if (!permittedUserIds.length) return 'No documents are available within your assigned scope.';
 
     let query = db
         .from('submissions')
@@ -1144,6 +1142,7 @@ async function queryDlls(
             teaching_load:teaching_loads(grade_level)
         `)
         .in('doc_type', ['DLL', 'DLP'])
+        .in('user_id', permittedUserIds)
         .order('created_at', { ascending: false });
 
     if (slots.subject) query = query.ilike('subject', `%${slots.subject}%`);
@@ -1212,6 +1211,9 @@ async function querySchoolCompare(
     slots: Record<string, string>,
     lang: Lang = 'en'
 ): Promise<string> {
+    if (profile?.role !== 'District Supervisor' && profile?.role !== 'Admin') {
+        return lang === 'tl' ? 'Para lamang sa awtorisadong district supervisor ang paghahambing ng mga paaralan.' : 'School comparisons require an authorized district-level account.';
+    }
     const effectiveDistrictId = districtId || profile?.district_id;
 
     if (!effectiveDistrictId) {
@@ -1317,20 +1319,20 @@ async function queryTeacherStats(
 
     let userQuery = db.from('profiles').select('id, full_name, school_id, role, is_active');
 
-    if (slots.teacher) {
-        userQuery = userQuery.ilike('full_name', `%${slots.teacher}%`);
-    } else if (role === 'Teacher' || role === 'Master Teacher') {
+    if (role === 'Teacher') {
         userQuery = userQuery.eq('id', userId);
-    } else if (role === 'School Head' && profile?.school_id) {
+    } else if (role === 'School Head' || role === 'Master Teacher') {
+        if (!profile?.school_id) return 'Your account needs a school assignment to view teacher statistics.';
         const { data: schoolTeachers } = await db
             .from('profiles')
             .select('id')
             .eq('school_id', profile.school_id)
-            .eq('role', 'Teacher');
+            .in('role', ['Teacher', 'Master Teacher']);
         const tIds = (schoolTeachers || []).map((t: any) => t.id);
         if (tIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa paaralan ninyo.' : 'No teachers found in your school.';
         userQuery = userQuery.in('id', tIds);
-    } else if (profile?.district_id) {
+    } else if (role === 'District Supervisor') {
+        if (!profile?.district_id) return 'Your account needs a district assignment to view teacher statistics.';
         const { data: schoolIds } = await db
             .from('schools')
             .select('id')
@@ -1340,12 +1342,15 @@ async function queryTeacherStats(
                 .from('profiles')
                 .select('id')
                 .in('school_id', schoolIds.map((s: any) => s.id))
-                .eq('role', 'Teacher');
+                .in('role', ['Teacher', 'Master Teacher']);
             const tIds = (districtTeachers || []).map((t: any) => t.id);
             if (tIds.length === 0) return lang === 'tl' ? 'Walang nahanap na guro sa distrito ninyo.' : 'No teachers found in your district.';
             userQuery = userQuery.in('id', tIds);
-        }
+        } else return 'No schools found in your district.';
+    } else if (role !== 'Admin') {
+        return 'Your account is not authorized to view teacher statistics.';
     }
+    if (slots.teacher) userQuery = userQuery.ilike('full_name', `%${slots.teacher}%`);
 
     const { data: teacherRows, error: tErr } = await userQuery;
     const teachers = (teacherRows || []).filter((teacher: any) => teacher.is_active !== false);
@@ -1571,11 +1576,22 @@ async function generateDatabaseResponse(
     try {
         switch (intent) {
             case 'ask_compliance':
-                return { answer: await queryCompliance(db, userId, profile, slots, lang) };
+                {
+                    const {createChatReport}=await import('./chatReports');
+                    const request=parseReportRequest(rawText || 'Compliance report');
+                    if (profile?.role === 'Teacher' || (profile?.role === 'Master Teacher' && /\b(my|own|personal)\s+compliance\b/i.test(rawText || ''))) request.scope='self';
+                    const result=await createChatReport(db,profile,userId,request,lang);
+                    if (!result.facts) return {answer:result.answer};
+                    const {summary,scope,period}=result.facts;
+                    const rate=summary.rate===null?'N/A':`${summary.rate}%`;
+                    return {answer:lang==='tl'
+                        ? `Ang lesson plan compliance para sa ${scope} (${period}) ay ${rate}: ${summary.submitted} sa ${summary.expected} inaasahang submission. On time: ${summary.onTime}; late: ${summary.late}; overdue missing: ${summary.missing}; upcoming: ${summary.upcoming}; approved leave: ${summary.onLeave}; checked: ${summary.checked}; for checking: ${summary.forChecking}.`
+                        : `Lesson plan compliance for ${scope} (${period}) is ${rate}: ${summary.submitted} of ${summary.expected} expected submissions. On time: ${summary.onTime}; late: ${summary.late}; overdue missing: ${summary.missing}; upcoming: ${summary.upcoming}; approved leave: ${summary.onLeave}; checked: ${summary.checked}; for checking: ${summary.forChecking}.`};
+                }
             case 'check_deadline':
                 return { answer: await queryDeadline(db, profile?.district_id ?? undefined, slots, lang) };
             case 'find_dll':
-                return { answer: await queryDlls(db, slots, rawText, lang) };
+                return { answer: await queryDlls(db, slots, rawText, lang, userId, profile) };
             case 'school_compare':
                 return { answer: await querySchoolCompare(db, profile?.district_id ?? undefined, profile, slots, lang) };
             case 'teacher_stats':
@@ -1712,6 +1728,19 @@ function isClearlyOutOfScope(text: string, intent: Intent, confidence: number): 
 
 export async function processQuery(text: string, ctx?: ChatContext): Promise<ChatResponse> {
     const helpLang = detectLanguage(text) === 'tl' || (ctx?.memory?.lastLang === 'tl' && text.trim().split(/\s+/).length <= 3) ? 'tl' : 'en';
+    if (['School Head','Master Teacher'].includes(ctx?.profile?.role || '')
+        && /\b(?:which|list|show|name)\b.*\bteachers?\b.*\b(?:missing|overdue)\b|\bteachers?\b.*\b(?:missing|overdue)\b.*\b(?:which|list|show|name)\b/i.test(text)) {
+        const request=parseReportRequest(text);
+        request.scope='school';
+        const {createChatReport}=await import('./chatReports');
+        const result=await createChatReport(ctx?.supabase,ctx?.profile,ctx?.userId,request,helpLang);
+        if (!result.facts) return {intent:'ask_compliance',confidence:100,answer:result.answer,slots:{},lang:helpLang};
+        const {teacherBacklog,period,scope}=result.facts;
+        const answer=teacherBacklog.length
+            ? `${teacherBacklog.length} teachers have overdue lesson plan requirements in ${scope} (${period}):\n${teacherBacklog.map(t=>`${t.name}: ${t.count}`).join('\n')}`
+            : `No teachers have overdue lesson plan requirements in ${scope} (${period}).`;
+        return {intent:'ask_compliance',confidence:100,answer,slots:{},lang:helpLang};
+    }
     let previousData:ChatDataPlan|undefined;
     try { previousData=ctx?.memory?.lastSlots?.dataPlan?JSON.parse(ctx.memory.lastSlots.dataPlan):undefined; } catch { /* A malformed old conversation does not supply filters. */ }
     const dataPlan=!OUT_OF_SCOPE_PATTERNS.some(pattern=>pattern.test(text))?planChatDataQuestion(text,previousData):null;
