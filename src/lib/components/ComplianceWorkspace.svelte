@@ -194,13 +194,17 @@
     })));
     const pieData = $derived(districtOverview ? schoolPieData : teacherPieData);
     const pieTotal = $derived(pieData.reduce((sum, item) => sum + item.value, 0));
+    const schoolPieSlices = $derived(makePieSlices(schoolPieData).map(slice => ({
+        ...slice,
+        school: schoolPieData.find(item => item.id === slice.id)!,
+    })));
     const teacherPieSlices = $derived(makePieSlices(teacherPieData).map(slice => ({
         ...slice,
         teacher: teacherPieData.find(item => item.id === slice.id)!,
     })));
     const selectedPieTeacher = $derived(teacherPieData.find(item => item.id === selectedPieTeacherId) ?? null);
     const piePeriod = $derived(`${year} · ${term === 'all' ? 'all terms' : `Term ${term}`} · ${week === 'all' ? 'all weeks' : `Week ${week}`}`);
-    const pieAltText = $derived(`${districtOverview ? 'Confirmed uploads by school' : 'DLL and DLP uploads by teacher'} for ${piePeriod}: ${pieData.map(item => `${item.label}, ${item.value} files`).join('; ')}`);
+    const pieAltText = $derived(`Confirmed uploads by school for ${piePeriod}: ${schoolPieSlices.map(slice => `${slice.school.label}, ${slice.percent}% (${slice.school.value} files)`).join('; ')}`);
     const supplementaryUploads = $derived(scopedReviewSubmissions.filter(s => ['supplementary', 'extra'].includes((s.compliance_status || '').toLowerCase())).length);
     const uploadDays = $derived(uploadDayCounts(scopedUploads));
     const maxUploadDay = $derived(Math.max(1, ...uploadDays.map(d => d.total)));
@@ -255,17 +259,6 @@
         else if (!data?.length) addToast('info', 'This leave request was already decided or withdrawn.');
         else if (isTeacherWideLeave(request)) addToast('success', `Decision saved for ${formatLeaveRange(request.start_date, request.end_date)}. It applies to all of this teacher's subjects.`);
         onRefresh?.();
-    }
-    function pieStyle(items: { value: number; color: string }[]) {
-        const total = items.reduce((sum, item) => sum + item.value, 0);
-        if (!total) return 'background: var(--color-surface-muted)';
-        let cursor = 0;
-        const stops = items.filter(item => item.value > 0).map(item => {
-            const start = cursor;
-            cursor += item.value / total * 100;
-            return `${item.color} ${start}% ${cursor}%`;
-        });
-        return `background: conic-gradient(${stops.join(', ')})`;
     }
     async function exportReport() {
         exporting = true; exportError = '';
@@ -438,7 +431,12 @@
                 <div class="pie-wrap">
                     <div class="pie-visual-column">
                         {#if districtOverview}
-                            <div class="pie" style={pieStyle(pieData)} role="img" aria-label={pieAltText}></div>
+                            <svg class="school-pie" viewBox="0 0 240 240" role="img" aria-label={pieAltText}>
+                                {#each schoolPieSlices as slice (slice.id)}
+                                    <path d={slice.path} fill={slice.school.color} stroke="#fff" stroke-width="1" />
+                                    {#if slice.percent >= 3}<text x={slice.labelX} y={slice.labelY} class="slice-percent" text-anchor="middle" dominant-baseline="middle">{slice.percent}%</text>{/if}
+                                {/each}
+                            </svg>
                         {:else}
                             <svg class="teacher-pie" viewBox="0 0 240 240" role="group" aria-label="Teacher shares of DLL and DLP uploads. Select a slice to see the teacher.">
                                 {#each teacherPieSlices as slice (slice.id)}
@@ -460,7 +458,7 @@
                         {#each pieData as item}
                             <button type="button" class="pie-legend-row" class:selected={selectedPieTeacherId === item.id && !districtOverview} disabled={districtOverview} aria-pressed={districtOverview ? undefined : selectedPieTeacherId === item.id} onclick={() => selectedPieTeacherId = item.id}>
                                 <i style={`background: ${item.color}`} aria-hidden="true"></i>
-                                <span class="pie-legend-label">{item.label}<small>{districtOverview ? `${Math.round(item.value / pieTotal * 100)}% of school uploads · ${item.completion === null ? 'No required lesson plans' : `${item.completion}% lesson-plan completion`}` : `${item.role} · ${item.completion === null ? 'No required lesson plans' : `Overall compliance ${item.completion}% (${item.submitted} of ${item.expected} required)`}`}</small></span>
+                                <span class="pie-legend-label">{item.label}<small>{districtOverview ? `${schoolPieSlices.find(slice => slice.id === item.id)?.percent ?? 0}% of school uploads · ${item.completion === null ? 'No required lesson plans' : `${item.completion}% lesson-plan completion`}` : `${item.role} · ${item.completion === null ? 'No required lesson plans' : `Overall compliance ${item.completion}% (${item.submitted} of ${item.expected} required)`}`}</small></span>
                                 <strong>{item.value} <span class="legend-unit">files</span></strong>
                             </button>
                         {/each}
@@ -766,11 +764,10 @@
     .bar-container-small { width: 100%; height: 24px; background: var(--color-surface-white); border-radius: 4px; position: relative; overflow: hidden; }
     .bar-fill { height: 100%; background: var(--color-gov-red); border-radius: 4px; transition: width 0.3s ease; }
     .bar-fill.overdue { background: var(--color-gov-red); }
-    .pie-wrap { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; align-items: center; }
-    .teacher-trends .pie-wrap { grid-template-columns: 240px minmax(0, 1fr); align-items: start; }
+    .pie-wrap { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 20px; align-items: center; }
+    .teacher-trends .pie-wrap { align-items: start; }
     .pie-visual-column { display: flex; flex-direction: column; align-items: center; min-width: 0; }
-    .pie { width: 150px; height: 150px; border-radius: 50%; border: 10px solid var(--color-surface-white); box-shadow: inset 0 0 0 1px var(--color-border-subtle), 0 0 0 1px var(--color-border-subtle); }
-    .teacher-pie { width: 240px; max-width: 100%; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 0 0 1px var(--color-border-subtle); }
+    .school-pie, .teacher-pie { width: 240px; max-width: 100%; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 0 0 1px var(--color-border-subtle); }
     .teacher-pie path { cursor: pointer; }
     .teacher-pie path:focus-visible { outline: none; stroke: var(--color-gov-blue); stroke-width: 4px; }
     .slice-percent { fill: #111827; stroke: #fff; stroke-width: 3px; paint-order: stroke; font-size: 12px; font-weight: 800; pointer-events: none; }
