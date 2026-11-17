@@ -436,16 +436,26 @@
                 <p class="chart-description">{piePeriod}. {districtOverview ? 'Each slice shows one school’s share of confirmed uploads. Required lesson-plan completion is listed separately.' : 'Pie percentages show each teacher’s share of saved DLL/DLP uploads. Overall compliance shows required lesson plans submitted in this period.'}</p>
                 {#if pieTotal > 0}
                 <div class="pie-wrap">
-                    {#if districtOverview}
-                        <div class="pie" style={pieStyle(pieData)} role="img" aria-label={pieAltText}></div>
-                    {:else}
-                        <svg class="teacher-pie" viewBox="0 0 240 240" role="group" aria-label="Teacher shares of DLL and DLP uploads. Select a slice to see the teacher.">
-                            {#each teacherPieSlices as slice (slice.id)}
-                                <path d={slice.path} fill={slice.teacher.color} stroke={selectedPieTeacherId === slice.id ? '#111827' : '#fff'} stroke-width={selectedPieTeacherId === slice.id ? 3 : 1} role="button" tabindex="0" aria-pressed={selectedPieTeacherId === slice.id} aria-label={`${slice.percent}% of uploads: ${slice.teacher.label}. Overall compliance ${slice.teacher.completion === null ? 'not available' : `${slice.teacher.completion}%`}`} onclick={() => selectedPieTeacherId = slice.id} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectedPieTeacherId = slice.id; } }} />
-                                {#if slice.percent >= 3}<text x={slice.labelX} y={slice.labelY} class="slice-percent" text-anchor="middle" dominant-baseline="middle">{slice.percent}%</text>{/if}
-                            {/each}
-                        </svg>
-                    {/if}
+                    <div class="pie-visual-column">
+                        {#if districtOverview}
+                            <div class="pie" style={pieStyle(pieData)} role="img" aria-label={pieAltText}></div>
+                        {:else}
+                            <svg class="teacher-pie" viewBox="0 0 240 240" role="group" aria-label="Teacher shares of DLL and DLP uploads. Select a slice to see the teacher.">
+                                {#each teacherPieSlices as slice (slice.id)}
+                                    <path d={slice.path} fill={slice.teacher.color} stroke="#fff" stroke-width={selectedPieTeacherId === slice.id ? 3 : 1} role="button" tabindex="0" aria-pressed={selectedPieTeacherId === slice.id} aria-label={`${slice.percent}% of uploads: ${slice.teacher.label}. Overall compliance ${slice.teacher.completion === null ? 'not available' : `${slice.teacher.completion}%`}`} onclick={() => selectedPieTeacherId = slice.id} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectedPieTeacherId = slice.id; } }} />
+                                    {#if slice.percent >= 3}<text x={slice.labelX} y={slice.labelY} class="slice-percent" text-anchor="middle" dominant-baseline="middle">{slice.percent}%</text>{/if}
+                                {/each}
+                            </svg>
+                            <div class="selected-pie-teacher" aria-live="polite">
+                                {#if selectedPieTeacher}
+                                    <div class="selected-teacher-name"><i style={`background: ${selectedPieTeacher.color}`} aria-hidden="true"></i><strong>{selectedPieTeacher.label}</strong></div>
+                                    <span>{selectedPieTeacher.role} · {selectedPieTeacher.value} DLL/DLP files<br />{selectedPieTeacher.completion === null ? 'No required lesson plans' : `Overall compliance ${selectedPieTeacher.completion}% (${selectedPieTeacher.submitted} of ${selectedPieTeacher.expected} required)`}</span>
+                                {:else}
+                                    <span>Select a colored slice or teacher name to see details.</span>
+                                {/if}
+                            </div>
+                        {/if}
+                    </div>
                     <div class="legend">
                         {#each pieData as item}
                             <button type="button" class="pie-legend-row" class:selected={selectedPieTeacherId === item.id && !districtOverview} disabled={districtOverview} aria-pressed={districtOverview ? undefined : selectedPieTeacherId === item.id} onclick={() => selectedPieTeacherId = item.id}>
@@ -456,16 +466,6 @@
                         {/each}
                     </div>
                 </div>
-                {#if !districtOverview}
-                    <div class="selected-pie-teacher" aria-live="polite">
-                        {#if selectedPieTeacher}
-                            <i style={`background: ${selectedPieTeacher.color}`} aria-hidden="true"></i>
-                            <div><strong>{selectedPieTeacher.label}</strong><span>{selectedPieTeacher.role} · {selectedPieTeacher.value} DLL/DLP files · {selectedPieTeacher.completion === null ? 'No required lesson plans' : `Overall compliance ${selectedPieTeacher.completion}% (${selectedPieTeacher.submitted} of ${selectedPieTeacher.expected} required)`}</span></div>
-                        {:else}
-                            <span>Select a colored slice or teacher name to see details.</span>
-                        {/if}
-                    </div>
-                {/if}
                 <p class="chart-total">{pieTotal} confirmed {pieTotal === 1 ? 'file' : 'files'} in this comparison</p>
                 {:else}
                     <p class="chart-empty">No confirmed {districtOverview ? 'school uploads' : 'Teacher or Master Teacher DLL/DLP uploads'} for this period.</p>
@@ -768,24 +768,26 @@
     .bar-fill.overdue { background: var(--color-gov-red); }
     .pie-wrap { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; align-items: center; }
     .teacher-trends .pie-wrap { grid-template-columns: 240px minmax(0, 1fr); align-items: start; }
+    .pie-visual-column { display: flex; flex-direction: column; align-items: center; min-width: 0; }
     .pie { width: 150px; height: 150px; border-radius: 50%; border: 10px solid var(--color-surface-white); box-shadow: inset 0 0 0 1px var(--color-border-subtle), 0 0 0 1px var(--color-border-subtle); }
     .teacher-pie { width: 240px; max-width: 100%; aspect-ratio: 1; border-radius: 50%; box-shadow: 0 0 0 1px var(--color-border-subtle); }
     .teacher-pie path { cursor: pointer; }
-    .teacher-pie path:focus-visible { outline: 3px solid var(--color-gov-blue); outline-offset: 2px; }
+    .teacher-pie path:focus-visible { outline: none; stroke: var(--color-gov-blue); stroke-width: 4px; }
     .slice-percent { fill: #111827; stroke: #fff; stroke-width: 3px; paint-order: stroke; font-size: 12px; font-weight: 800; pointer-events: none; }
     .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; min-width: 0; }
     .teacher-trends .legend { grid-template-columns: minmax(0, 1fr); gap: 3px; }
     .pie-legend-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 9px; align-items: start; width: 100%; min-width: 0; padding: 4px; border: 1px solid transparent; border-radius: 6px; background: transparent; text-align: left; color: var(--color-text-primary); font-size: 15px; }
     .pie-legend-row:disabled { opacity: 1; cursor: default; }
-    .pie-legend-row:not(:disabled):hover, .pie-legend-row.selected { border-color: var(--color-border-subtle); background: var(--color-surface-muted); }
+    .pie-legend-row:not(:disabled):hover .pie-legend-label { text-decoration: underline; }
+    .pie-legend-row.selected .pie-legend-label { color: var(--color-gov-blue); }
     .pie-legend-row i { width: 14px; height: 14px; border-radius: 3px; margin-top: 3px; }
     .pie-legend-row strong { color: var(--color-text-primary); font-size: 16px; white-space: nowrap; }
     .legend-unit { font-size: 12px; font-weight: 500; }
     .pie-legend-label { min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
     .pie-legend-label small { display: block; margin-top: 2px; color: var(--color-text-muted); font-size: 13px; font-weight: 500; line-height: 1.35; }
-    .selected-pie-teacher { display: flex; align-items: center; gap: 10px; min-height: 54px; margin-top: 12px; padding: 9px 11px; border: 1px solid var(--color-border-subtle); border-radius: 7px; background: var(--color-surface-muted); color: var(--color-text-primary); font-size: 14px; }
-    .selected-pie-teacher i { width: 16px; height: 16px; flex: 0 0 auto; border-radius: 3px; }
-    .selected-pie-teacher div { min-width: 0; }
+    .selected-pie-teacher { width: 100%; min-height: 48px; margin-top: 12px; color: var(--color-text-primary); font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+    .selected-teacher-name { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+    .selected-teacher-name i { width: 14px; height: 14px; flex: 0 0 auto; border-radius: 50%; }
     .selected-pie-teacher strong, .selected-pie-teacher span { display: block; }
     .upload-bars { display: grid; grid-template-columns: repeat(7, minmax(28px, 1fr)); gap: 10px; align-items: end; min-height: 144px; }
     .upload-bars div { display: grid; justify-items: center; align-items: end; gap: 5px; min-width: 0; }
