@@ -110,6 +110,27 @@ export function filterSubmissionsByPeriod(submissions: ComplianceSubmission[], t
     });
 }
 
+/** Apply the same school, teacher, year, and period selection to every compliance metric. */
+export function scopeComplianceView<T extends { id: string; school_id: string }, U extends { id: string; school_id: string }>(
+    teachers: T[], submissionUsers: U[], requirements: Requirement[], submissions: ComplianceSubmission[],
+    selection: { school: string; teacherId: string | null; year: string; term: string; week: string },
+) {
+    const inScope = (person: { id: string; school_id: string }) =>
+        (selection.school === 'all' || person.school_id === selection.school) &&
+        (!selection.teacherId || person.id === selection.teacherId);
+    const scopedTeachers = teachers.filter(inScope);
+    const scopedSubmissionUsers = submissionUsers.filter(inScope);
+    const teacherIds = new Set(scopedTeachers.map(t => t.id));
+    const submissionUserIds = new Set(scopedSubmissionUsers.map(t => t.id));
+    const scopedRequirements = requirements.filter(r => teacherIds.has(r.teacherId) &&
+        r.calendar.school_year === selection.year &&
+        (selection.term === 'all' || r.calendar.term === Number(selection.term)) &&
+        (selection.week === 'all' || r.calendar.week_number === Number(selection.week)));
+    const scopedUploads = filterSubmissionsByPeriod(submissions.filter(s => s.user_id &&
+        submissionUserIds.has(s.user_id) && s.school_year === selection.year && isUploadSubmission(s)), selection.term, selection.week);
+    return { scopedTeachers, scopedSubmissionUsers, scopedRequirements, scopedUploads };
+}
+
 export function summarizeSubmissionReviews(submissions: ComplianceSubmission[], reviews: ComplianceReview[]) {
     const reviewMap = new Map(reviews.map(r => [r.submission_id, r]));
     const reviewable = submissions.filter(isRemarkRequiredSubmission);

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { effectiveDeadlineForSubject } from '$lib/utils/deadlineRules';
-    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, isTeacherWideLeave, scopedCalendar, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, uploadDayCounts, isRemarkRequiredSubmission, isUploadSubmission, isWeeklyComplianceDocType } from '$lib/utils/compliance';
+    import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, isTeacherWideLeave, scopedCalendar, scopeComplianceView, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, uploadDayCounts, hasRemarks, isRemarkRequiredSubmission, isWeeklyComplianceDocType } from '$lib/utils/compliance';
     import { uploadsBySchool, uploadsByTeacher } from '$lib/utils/complianceUploadComparison';
     import { makePieSlices } from '$lib/utils/pieSlices';
     import { supabase } from '$lib/utils/supabase';
@@ -57,7 +57,7 @@
                 if (saved.school === 'all' || schools.some(s => s.id === saved.school)) school = saved.school;
                 if (['all', 'risk', 'missing', 'for-checking'].includes(saved.status)) status = saved.status;
                 if (saved.cluster === 'all' || ['Consistently Meeting Standards', 'Steadily Progressing', 'Building Momentum'].includes(saved.cluster)) clusterFilter = saved.cluster;
-                if (saved.selectedTeacher && teachers.some(t => t.id === saved.selectedTeacher)) selectedTeacher = saved.selectedTeacher;
+                if (saved.selectedTeacher && teachers.some(t => t.id === saved.selectedTeacher && (school === 'all' || t.school_id === school))) selectedTeacher = saved.selectedTeacher;
                 history = Array.isArray(saved.history) ? saved.history : [];
             }
         } catch { /* Storage may be unavailable in private browsing. */ }
@@ -83,14 +83,13 @@
         return submissions.filter(s => ['compliant', 'late', 'on-time'].includes(s.compliance_status || '') && !matched.has(key(s))).length;
     });
     const weeks = $derived([...new Set(calendar.filter(c => term === 'all' || c.term === Number(term)).map(c => c.week_number))].sort((a, b) => a - b));
-    const scopedTeachers = $derived(teachers.filter(t => school === 'all' || t.school_id === school));
-    const scopedSubmissionUsers = $derived((submissionUsers?.length ? submissionUsers : teachers).filter(t => school === 'all' || t.school_id === school));
-    const scopedTeacherIds = $derived(new Set(scopedTeachers.map(t => t.id)));
+    const viewScope = $derived(scopeComplianceView(teachers, submissionUsers?.length ? submissionUsers : teachers,
+        requirements, submissions, { school, teacherId: selectedTeacher, year, term, week }));
+    const scopedTeachers = $derived(viewScope.scopedTeachers);
+    const scopedSubmissionUsers = $derived(viewScope.scopedSubmissionUsers);
     const teacherSchools = $derived(new Map(teachers.map(t => [t.id, t.school_id])));
-    const scoped = $derived(requirements.filter(r => scopedTeacherIds.has(r.teacherId) &&
-        (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week))));
-    const scopedSubmissionUserIds = $derived(new Set(scopedSubmissionUsers.map(t => t.id)));
-    const scopedUploads = $derived(filterSubmissionsByPeriod(submissions.filter(s => s.user_id && scopedSubmissionUserIds.has(s.user_id) && s.school_year === year && isUploadSubmission(s)), term, week));
+    const scoped = $derived(viewScope.scopedRequirements);
+    const scopedUploads = $derived(viewScope.scopedUploads);
     const scopedReviewSubmissions = $derived(scopedUploads.filter(isRemarkRequiredSubmission));
     const reviewSummary = $derived(summarizeSubmissionReviews(scopedReviewSubmissions, reviews));
     const teacherRows = $derived(scopedTeachers.map(t => {
@@ -103,11 +102,11 @@
         return requirements.filter(r => teacherSchools.get(r.teacherId) === id && (term === 'all' || r.calendar.term === Number(term)) && (week === 'all' || r.calendar.week_number === Number(week)));
     }
     function submissionsForTeacher(id: string) {
-        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id === id && isRemarkRequiredSubmission(s)), term, week);
+        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id === id && s.school_year === year && isRemarkRequiredSubmission(s)), term, week);
     }
     function submissionsForSchool(id: string) {
         const userIds = new Set((submissionUsers?.length ? submissionUsers : teachers).filter(t => t.school_id === id).map(t => t.id));
-        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id && userIds.has(s.user_id) && isRemarkRequiredSubmission(s)), term, week);
+        return filterSubmissionsByPeriod(submissions.filter(s => s.user_id && userIds.has(s.user_id) && s.school_year === year && isRemarkRequiredSubmission(s)), term, week);
     }
     const schoolRows = $derived(schools.filter(s => school === 'all' || school === s.id).map(s => ({ ...s, ...summarizeRequirements(rowsForSchool(s.id)), ...summarizeSubmissionReviews(submissionsForSchool(s.id), reviews) })));
     const summary = $derived({ ...summarizeRequirements(scoped), ...reviewSummary });
@@ -171,7 +170,7 @@
     const rankedSchools = $derived(schoolRows.filter(s => (!search.trim() || s.name.toLowerCase().includes(search.trim().toLowerCase())) &&
         (status === 'all' || status === 'risk' && (s.missing > 0 || s.leavePending > 0) || status === 'missing' && s.missing > 0 || status === 'for-checking' && s.forChecking > 0) &&
         (clusterFilter === 'all' || clusterMap.get(s.id) === clusterFilter)).sort((a, b) => b.missing - a.missing || a.name.localeCompare(b.name)));
-    const termOverdueBars = $derived(overdueByWeek(requirements.filter(r => scopedTeachers.some(t => t.id === r.teacherId) && (term === 'all' || r.calendar.term === Number(term)))));
+    const termOverdueBars = $derived(overdueByWeek(scoped));
     const schoolOverdueBars = $derived([...schoolRows].sort((a, b) => b.missing - a.missing));
     const visibleTermOverdueBars = $derived(termOverdueBars.filter(bar => bar.missing > 0));
     const visibleSchoolOverdueBars = $derived(schoolOverdueBars.filter(item => item.missing > 0).slice(0, 6));
@@ -210,7 +209,7 @@
     const maxUploadDay = $derived(Math.max(1, ...uploadDays.map(d => d.total)));
     const selectedTeacherRows = $derived(scoped.filter(r => selectedTeacher && r.teacherId === selectedTeacher).filter(r => status === 'missing' ? r.status === 'missing' : status === 'for-checking' ? false : true));
     const selectedTeacherReviewRows = $derived(selectedTeacher && status === 'for-checking'
-        ? submissionsForTeacher(selectedTeacher).filter(s => !reviewMap.get(s.id)?.reviewer_comment)
+        ? submissionsForTeacher(selectedTeacher).filter(s => !hasRemarks(reviewMap.get(s.id)?.reviewer_comment))
         : []);
     const rowCount = $derived(activeTab === 'schools' ? rankedSchools.length : activeTab === 'teacher' ? (status === 'for-checking' ? selectedTeacherReviewRows.length : selectedTeacherRows.length) : sortedTeachers.length);
     const listTitle = $derived(districtOverview ? 'Schools needing action' : selectedTeacher ? 'DLLs needing action' : 'Teachers needing action');
@@ -269,7 +268,7 @@
             overview.addRows([
                 ['CEDIMS Compliance', year], ['Generated', new Date().toISOString()],
                 ['Term', term], ['Week', week], ['School', school === 'all' ? 'All' : schoolName(school)],
-                ['Scope', 'All requirements in the selected school and period'],
+                ['Scope', selectedTeacher ? `Requirements for ${teacherName(selectedTeacher)} in the selected period` : 'All requirements in the selected school and period'],
                 ['Expected', summary.expected], ['Submitted', summary.submitted], ['Missing', summary.missing],
                 ['Upcoming', summary.upcoming], ['Late submitted', summary.late],
                 ['For checking', summary.forChecking], ['Checked', summary.checked], ['Completion %', summary.rate ?? 'N/A'], ['Formula', 'Submitted / expected requirements x 100; late included'],

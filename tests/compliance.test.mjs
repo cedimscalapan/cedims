@@ -8,11 +8,60 @@ const deadlineModuleUrl = `data:text/javascript;base64,${Buffer.from(deadlineCod
 const complianceSource = readFileSync(new URL('../src/lib/utils/compliance.ts', import.meta.url), 'utf8')
     .replace("import { effectiveDeadlineForSubject } from './deadlineRules';", `import { effectiveDeadlineForSubject } from '${deadlineModuleUrl}';`);
 const code = ts.transpileModule(complianceSource, { compilerOptions }).outputText;
-const { buildRequirements, scopedCalendar, summarizeRequirements, summarizeSubmissionReviews, documentTypeCounts, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange, isWeeklyComplianceDocType } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { buildRequirements, scopedCalendar, scopeComplianceView, summarizeRequirements, summarizeSubmissionReviews, documentTypeCounts, riskReason, fetchAllRows, currentCompliancePeriod, previousPeriodChange, isWeeklyComplianceDocType } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 const now = Date.parse('2026-09-27T12:00:00Z');
 const load = { id: 'load', user_id: 'teacher', subject: 'English', grade_level: 'Grade 5' };
 const calendar = [1, 2, 3].map(term => ({ id: `c${term}`, school_year: '2026-2027', term, week_number: 1, deadline_date: term === 3 ? '2026-12-01T12:00:00Z' : '2026-09-01T12:00:00Z', is_active: true }));
 const sub = { id: 's', user_id: 'teacher', teaching_load_id: 'load', school_year: '2026-2027', term_number: 2, week_number: 1, doc_type: 'DLL', compliance_status: 'late', created_at: '2026-09-02T12:00:00Z' };
+test('school and teacher drill-downs scope every compliance count to the selected people and period', () => {
+    const year = '2026-2027';
+    const teachers = [
+        { id: 'a', school_id: 'school-a' }, { id: 'b', school_id: 'school-a' },
+        { id: 'c', school_id: 'school-b' },
+    ];
+    const users = [...teachers, { id: 'head-a', school_id: 'school-a' }];
+    const loads = [...teachers.map(t => ({ id: `load-${t.id}`, user_id: t.id, subject: 'English', school_name: 'School' })),
+        { id: 'load-b-leave', user_id: 'b', subject: 'Mathematics', school_name: 'School' }];
+    const slot = { id: 'term-2-week-1', school_year: year, term: 2, week_number: 1, deadline_date: '2026-09-01T02:00:00Z' };
+    const submissions = [
+        { id: 'a-dll', user_id: 'a', teaching_load_id: 'load-a', school_year: year, term_number: 2, week_number: 1, doc_type: 'DLL', compliance_status: 'compliant', created_at: '2026-08-31T02:00:00Z' },
+        { id: 'c-dll', user_id: 'c', teaching_load_id: 'load-c', school_year: year, term_number: 2, week_number: 1, doc_type: 'DLL', compliance_status: 'late', created_at: '2026-09-02T02:00:00Z' },
+        { id: 'head-file', user_id: 'head-a', school_year: year, term_number: 2, week_number: 1, doc_type: 'ISP', compliance_status: 'compliant' },
+        { id: 'a-extra', user_id: 'a', school_year: year, term_number: 2, week_number: 1, doc_type: 'DLL', compliance_status: 'supplementary' },
+        { id: 'a-other-term', user_id: 'a', school_year: year, term_number: 1, week_number: 1, doc_type: 'DLL', compliance_status: 'supplementary' },
+        { id: 'a-other-week', user_id: 'a', school_year: year, term_number: 2, week_number: 2, doc_type: 'DLL', compliance_status: 'supplementary' },
+        { id: 'a-other-year', user_id: 'a', school_year: '2025-2026', term_number: 2, week_number: 1, doc_type: 'DLL', compliance_status: 'supplementary' },
+    ];
+    const reviews = [{ submission_id: 'a-dll', reviewer_comment: 'Checked' }, { submission_id: 'a-extra', reviewer_comment: 'Checked extra file' }];
+    const leaveRequests = [{ id: 'leave-b', user_id: 'b', teaching_load_id: 'load-b-leave', school_year: year, term_number: 2, week_number: 1, status: 'approved' }];
+    const requirements = teachers.flatMap(t => buildRequirements(loads.filter(l => l.user_id === t.id), [slot], submissions.filter(s => s.user_id === t.id), reviews, Date.parse('2026-09-10T00:00:00Z'), leaveRequests.filter(r => r.user_id === t.id)));
+    const select = (school, teacherId = null) => scopeComplianceView(teachers, users, requirements, submissions, { school, teacherId, year, term: '2', week: '1' });
+
+    const district = select('all');
+    assert.equal(summarizeRequirements(district.scopedRequirements).missing, 1);
+    assert.equal(summarizeRequirements(district.scopedRequirements).late, 1);
+    assert.equal(summarizeRequirements(district.scopedRequirements).onLeave, 1);
+    assert.equal(summarizeSubmissionReviews(district.scopedUploads, reviews).forChecking, 1);
+    assert.deepEqual(district.scopedUploads.map(s => s.id), ['a-dll', 'c-dll', 'head-file', 'a-extra']);
+
+    const school = select('school-a');
+    assert.deepEqual(school.scopedTeachers.map(t => t.id), ['a', 'b']);
+    assert.equal(summarizeRequirements(school.scopedRequirements).missing, 1);
+    assert.equal(summarizeRequirements(school.scopedRequirements).late, 0);
+    assert.equal(summarizeRequirements(school.scopedRequirements).onLeave, 1);
+    assert.deepEqual(school.scopedUploads.map(s => s.id), ['a-dll', 'head-file', 'a-extra']);
+
+    const teacher = select('school-a', 'a');
+    assert.deepEqual(teacher.scopedTeachers.map(t => t.id), ['a']);
+    assert.deepEqual(teacher.scopedSubmissionUsers.map(t => t.id), ['a']);
+    assert.deepEqual(teacher.scopedUploads.map(s => s.id), ['a-dll', 'a-extra']);
+    assert.equal(summarizeRequirements(teacher.scopedRequirements).onTime, 1);
+    assert.equal(summarizeRequirements(teacher.scopedRequirements).missing, 0);
+    assert.equal(summarizeRequirements(teacher.scopedRequirements).onLeave, 0);
+    assert.equal(summarizeSubmissionReviews(teacher.scopedUploads, reviews).checked, 2);
+    assert.equal(teacher.scopedUploads.filter(s => s.compliance_status === 'supplementary').length, 1);
+    assert.deepEqual(select('school-a', 'c').scopedRequirements, []);
+});
 test('current period selects next deadline and falls back to final scheduled week', () => {
     assert.deepEqual(currentCompliancePeriod(calendar, now), { term: '3', week: '1' });
     assert.deepEqual(currentCompliancePeriod(calendar, Date.parse('2030-01-01')), { term: '3', week: '1' });
