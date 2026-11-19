@@ -32,4 +32,6 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
 
 EXPOSE 3000
-CMD ["node", "build"]
+# Old deployments may still have these values in .env.production. Never pass
+# them to SvelteKit's public environment, which is serialized into page HTML.
+CMD ["sh", "-c", "unset PUBLIC_GOOGLE_SCRIPT_URL PUBLIC_HF_API_TOKEN; exec node build"]

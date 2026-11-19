@@ -1,6 +1,4 @@
-import { googleConvertToPdf } from './googleConvert';
 import { supabase } from './supabase';
-import { config } from './config';
 
 export interface TranscodeResult {
     pdfBytes: Uint8Array;
@@ -13,29 +11,6 @@ async function getAuthToken(): Promise<string | null> {
         return data?.session?.access_token ?? null;
     } catch { }
     return null;
-}
-
-// Google Apps Script's own infrastructure occasionally serves a bare
-// CORS/redirect failure (a `TypeError` from fetch() itself, no response
-// body to inspect) with no relation to this file or the client — observed
-// in production immediately after an identical call had just succeeded for
-// a different file seconds earlier. A short retry absorbs that class of
-// failure. It's deliberately narrow: a logical failure the script itself
-// reports (a thrown `Error`, e.g. a bug in the deployed script, or a file
-// it rejects) will fail identically on retry, so only the network-level
-// `TypeError` is retried — anything else fails fast to the fallback below.
-async function withGasRetry<T>(fn: () => Promise<T>, attempts = 2, delayMs = 1500): Promise<T> {
-    let lastErr: unknown;
-    for (let i = 0; i < attempts; i++) {
-        try {
-            return await fn();
-        } catch (err) {
-            lastErr = err;
-            if (!(err instanceof TypeError) || i === attempts - 1) throw err;
-            await new Promise((r) => setTimeout(r, delayMs));
-        }
-    }
-    throw lastErr;
 }
 
 async function convertViaServerProxy(file: File): Promise<Uint8Array | null> {
@@ -70,21 +45,13 @@ export async function transcodeToPdf(file: File): Promise<TranscodeResult> {
     }
 
     if (ext === 'docx' || ext === 'doc') {
-        // Route browser uploads through the SvelteKit API first. Production
-        // Google Apps Script web apps do not reliably emit CORS headers for
-        // direct browser fetches, while server-side fetches are not subject
-        // to browser CORS and can still use the same Apps Script URL.
+        // Conversion is only available through the authenticated server API.
+        // The browser must never receive the Apps Script URL or shared secret.
         const serverResult = await convertViaServerProxy(file);
         if (serverResult) {
             return { pdfBytes: serverResult };
         }
-
-        if (!config.GOOGLE_SCRIPT_URL) {
-            throw new Error('Document conversion failed. Please sign in again or configure PUBLIC_GOOGLE_SCRIPT_URL for the server converter.');
-        }
-
-        const pdfBytes = await withGasRetry(() => googleConvertToPdf(file));
-        return { pdfBytes };
+        throw new Error('Document conversion failed. Please sign in again or contact an administrator.');
     }
 
     if (ext === 'jpg' || ext === 'jpeg' || ext === 'png') {

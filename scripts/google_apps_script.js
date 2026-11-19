@@ -1,22 +1,19 @@
 /**
  * Google Apps Script — CEDIMS Web App.
  *
- * Two capabilities in one deployment, dispatched by request payload shape:
- *   1. Word (.doc/.docx) -> PDF conversion with permanent temp cleanup.
- *   2. Compliance report export to a Google Sheet.
+ * Word (.doc/.docx) -> PDF conversion with permanent temp cleanup.
+ * Compliance report export is only run from an Apps Script trigger or editor.
  *
  * Deploy this as a Web App (Extensions > Apps Script in a Google Sheet/Doc,
  * or script.google.com > New project) and paste the resulting /exec URL
- * into PUBLIC_GOOGLE_SCRIPT_URL in .env.
+ * into GOOGLE_SCRIPT_URL in the server's private environment. Set the same
+ * random GOOGLE_SCRIPT_SHARED_SECRET on the server and CEDIMS_SHARED_SECRET
+ * in this script's Script Properties. Disable the old public deployment.
  *
- * ── Conversion contract ── (src/lib/utils/googleConvert.ts, /api/convert)
- *   Request:  POST, Content-Type: text/plain, body JSON { fileName, base64Data }
- *   Response: JSON { success: true, pdfBase64 } or { success: false, error }
- *
- * ── Report export contract ──
+ * ── Conversion contract ── (/api/convert only)
  *   Request:  POST, Content-Type: text/plain,
- *             body JSON { action: 'export_report', schoolYear?: string }
- *   Response: JSON { success: true, rows: <count> } or { success: false, error }
+ *             body JSON { fileName, base64Data, sharedSecret }
+ *   Response: JSON { success: true, pdfBase64 } or { success: false, error }
  *
  * Requires:
  *   - The "Drive API" advanced service (Editor > Services > + > Drive API)
@@ -52,15 +49,14 @@ function doPost(e) {
         return jsonOutput_({ success: false, error: 'Invalid JSON body' });
     }
 
-    if (body.action === 'export_report') {
-        try {
-            var rowCount = exportComplianceReport(body.schoolYear || null);
-            return jsonOutput_({ success: true, rows: rowCount });
-        } catch (err) {
-            return jsonOutput_({ success: false, error: err.message });
-        }
+    var expectedSecret = PropertiesService.getScriptProperties().getProperty('CEDIMS_SHARED_SECRET');
+    if (!expectedSecret || typeof body.sharedSecret !== 'string' || body.sharedSecret !== expectedSecret) {
+        return jsonOutput_({ success: false, error: 'Unauthorized' });
     }
 
+    if (body.action) {
+        return jsonOutput_({ success: false, error: 'Unsupported action' });
+    }
     return convertDocToPdf_(body);
 }
 

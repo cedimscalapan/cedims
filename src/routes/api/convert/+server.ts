@@ -4,7 +4,6 @@ import { writeFileSync, unlinkSync, mkdtempSync, readFileSync, rmdirSync } from 
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { env as privateEnv } from '$env/dynamic/private';
-import { env as publicEnv } from '$env/dynamic/public';
 import { supabase } from '$lib/utils/supabase';
 
 async function createTextFallbackPdf(file: File): Promise<Uint8Array> {
@@ -101,7 +100,8 @@ export async function POST({ request }) {
                 }
             });
         } catch (err: any) {
-            throw error(500, `LibreOffice conversion failed: ${err.message}`);
+            console.error('LibreOffice conversion failed:', err);
+            throw error(500, 'Document conversion failed');
         } finally {
             try { unlinkSync(inputPath); } catch { }
             try { unlinkSync(outputPath); } catch { }
@@ -109,8 +109,9 @@ export async function POST({ request }) {
         }
     }
 
-    const GAS_URL = publicEnv.PUBLIC_GOOGLE_SCRIPT_URL;
-    if (!GAS_URL) {
+    const gasUrl = privateEnv.GOOGLE_SCRIPT_URL;
+    const gasSharedSecret = privateEnv.GOOGLE_SCRIPT_SHARED_SECRET;
+    if (!gasUrl || !gasSharedSecret) {
         try {
             const pdfBytes = await createTextFallbackPdf(f);
             return new Response(pdfBody(pdfBytes), {
@@ -120,16 +121,17 @@ export async function POST({ request }) {
                 }
             });
         } catch (fallbackError: any) {
-            throw error(500, `No conversion engine available. Text fallback failed: ${fallbackError.message}`);
+            console.error('Text conversion fallback failed:', fallbackError);
+            throw error(500, 'Document conversion failed');
         }
     }
 
     try {
         const base64Data = Buffer.from(await file.arrayBuffer()).toString('base64');
-        const response = await fetch(GAS_URL, {
+        const response = await fetch(gasUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({ fileName: f.name, base64Data })
+            body: JSON.stringify({ fileName: f.name, base64Data, sharedSecret: gasSharedSecret })
         });
         if (!response.ok) throw new Error(response.statusText);
         const result = await response.json();
@@ -152,7 +154,8 @@ export async function POST({ request }) {
                 }
             });
         } catch (fallbackError: any) {
-            throw error(500, `All conversion engines failed: ${err.message}. Text fallback failed: ${fallbackError.message}`);
+            console.error('Google and text conversion fallbacks failed:', err, fallbackError);
+            throw error(500, 'Document conversion failed');
         }
     }
 }
