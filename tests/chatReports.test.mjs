@@ -110,6 +110,38 @@ test('Word narrative and Excel details contain the same filtered totals',async()
     const contents=JSON.stringify(workbook.worksheets[0].getSheetValues());
     assert.match(contents,/Mathematics/);assert.match(contents,/Bulusan/);assert.match(contents,/100%/);assert.doesNotMatch(contents,/Salong|Teacher B/);
 });
+test('every role receives scoped Excel details and a sentence-based Word report',async()=>{
+    const roles=[
+        {role:'Teacher',profile:{id:'a',role:'Teacher',full_name:'Teacher A',school_id:'s1',district_id:'d1'},allowed:['Teacher A']},
+        {role:'Master Teacher',profile:{id:'master',role:'Master Teacher',full_name:'Master Teacher',school_id:'s1',district_id:'d1'},allowed:['Teacher A']},
+        {role:'School Head',profile,allowed:['Teacher A']},
+        {role:'District Supervisor',profile:district,allowed:['Teacher A','Teacher B']},
+        {role:'Admin',profile:{...district,id:'admin',role:'Admin'},allowed:['Teacher A','Teacher B']},
+    ];
+    const ExcelModule=await import('exceljs');const ExcelJS=ExcelModule.default||ExcelModule;
+    const JSZip=(await import('jszip')).default;
+    for(const {role,profile:person,allowed} of roles){
+        const db=mockDb(fixture());
+        if(role==='Admin')db.rpc=(_fn,args)=>db.from('submission_leave_requests').eq('school_year',args.p_school_year).in('user_id',args.p_user_ids);
+        const reply=await createChatReport(db,person,person.id,parseReportRequest('Create Excel and Word compliance reports for term 2 week 7 in sentences'));
+        assert.equal(reply.attachments?.length,2,`${role}: ${reply.answer}`);
+        const excel=reply.attachments.find(a=>a.fileName.endsWith('.xlsx'));
+        const word=reply.attachments.find(a=>a.fileName.endsWith('.docx'));
+        const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(await excel.blob.arrayBuffer());
+        assert.equal(workbook.worksheets[0].name,'Overview',role);
+        assert.ok(workbook.getWorksheet('Requirements'),role);
+        if(['Master Teacher','School Head'].includes(role))assert.ok(workbook.getWorksheet('Saved upload statuses'),role);
+        const details=JSON.stringify(workbook.getWorksheet('Requirements').getSheetValues());
+        for(const name of allowed)assert.match(details,new RegExp(name),role);
+        for(const name of ['Teacher A','Teacher B','Teacher C'].filter(name=>!allowed.includes(name)))assert.doesNotMatch(details,new RegExp(name),role);
+        assert.ok(workbook.getWorksheet('Requirements').autoFilter,role);
+        assert.match(workbook.getWorksheet('Requirements').pageSetup.printArea,/^A1:J\d+$/,role);
+        const zip=await JSZip.loadAsync(await word.blob.arrayBuffer());
+        const xml=await zip.file('word/document.xml').async('string');
+        assert.match(xml,/Report findings/);assert.match(xml,/expected submissions/);assert.doesNotMatch(xml,/<w:tbl>/);
+        for(const name of ['Teacher B','Teacher C'].filter(name=>!allowed.includes(name)))assert.doesNotMatch(xml,new RegExp(name),role);
+    }
+});
 test('chat integration and subsequent file requests retain the original report filters',async()=>{
     const ctx={supabase:mockDb(fixture()),userId:profile.id,profile};
     const first=await processQuery('Write a report for Mathematics term 2 week 7 in sentences',ctx);
@@ -127,6 +159,32 @@ function uploadFixture(){
     data.submissions.push({id:'placeholder',user_id:'b',school_year:year,term_number:2,week_number:7,doc_type:'DLL',compliance_status:'missing',file_hash:'nc_missing'});
     return data;
 }
+test('uploaded-document Excel and Word exports honor each role and use prose',async()=>{
+    const roles=[
+        {person:{id:'a',role:'Teacher',full_name:'Teacher A',school_id:'s1',district_id:'d1'},allowed:['Teacher A']},
+        {person:{id:'master',role:'Master Teacher',full_name:'Master Teacher',school_id:'s1',district_id:'d1'},allowed:['Teacher A','School Head']},
+        {person:profile,allowed:['Teacher A','School Head']},
+        {person:district,allowed:['Teacher A','Teacher B','School Head']},
+        {person:{...district,id:'admin',role:'Admin'},allowed:['Teacher A','Teacher B','School Head']},
+    ];
+    const ExcelModule=await import('exceljs');const ExcelJS=ExcelModule.default||ExcelModule;
+    const JSZip=(await import('jszip')).default;
+    for(const {person,allowed} of roles){
+        const data=uploadFixture();
+        data.submissions.push({id:'other',user_id:'c',school_year:year,term_number:2,week_number:7,file_name:'Other-school.pdf',file_path:'documents/Other-school.pdf',doc_type:'DLL',compliance_status:'on-time',created_at:'2026-10-25T00:00:00Z'});
+        const question=person.role==='Teacher'?'my uploaded documents week 7 in Excel and Word':'week 7 total uploaded documents by school in Excel and Word';
+        const reply=await processQuery(question,{supabase:mockDb(data),profile:person,userId:person.id});
+        assert.equal(reply.attachments?.length,2,`${person.role}: ${reply.answer}`);
+        const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(await reply.attachments.find(a=>a.fileName.endsWith('.xlsx')).blob.arrayBuffer());
+        const rows=JSON.stringify(workbook.worksheets[0].getSheetValues());
+        for(const name of allowed)assert.match(rows,new RegExp(name),person.role);
+        assert.doesNotMatch(rows,/Other-school|Teacher C/,person.role);
+        const word=reply.attachments.find(a=>a.fileName.endsWith('.docx'));
+        const xml=await (await JSZip.loadAsync(await word.blob.arrayBuffer())).file('word/document.xml').async('string');
+        assert.match(xml,/Report findings/);assert.doesNotMatch(xml,/<w:tbl>|Other Elementary School|Teacher C/,person.role);
+        if(person.role!=='Teacher')assert.match(xml,/accounts for \d+ uploaded document/,person.role);
+    }
+});
 test('the exact reported failure returns a live uploaded-file total including supplementary and administrative files',async()=>{
     const ctx={supabase:mockDb(uploadFixture()),userId:district.id,profile:district};
     const result=await processQuery('week 7 total uploaded documents',ctx);
@@ -255,7 +313,7 @@ test('school reports and compliance answers separate every saved upload status f
     const ExcelModule=await import('exceljs');const ExcelJS=ExcelModule.default||ExcelModule;
     const workbook=new ExcelJS.Workbook();
     await workbook.xlsx.load(await exported.attachments.find(file=>file.fileName.endsWith('.xlsx')).blob.arrayBuffer());
-    assert.match(JSON.stringify(workbook.worksheets[0].getSheetValues()),/SAVED UPLOAD STATUSES/);
+    assert.match(JSON.stringify(workbook.getWorksheet('Saved upload statuses').getSheetValues()),/SAVED UPLOAD STATUSES/);
 });
 
 test('next deadline uses assigned school district and names the first open future term and week',async()=>{

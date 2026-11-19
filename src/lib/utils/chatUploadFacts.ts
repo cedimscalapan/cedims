@@ -96,7 +96,13 @@ export async function answerUploadFacts(plan:ChatDataPlan,ctx:ChatContext|undefi
         const result:{answer:string;resolvedRequest:ReportRequest;attachments?:{fileName:string;blob:Blob}[]}={answer,resolvedRequest:request};
         if(request.format!=='chat'){
             const base=`CEDIMS-upload-count-${year}${request.term?`-T${request.term}`:''}${request.week?`-W${request.week}`:''}`;
-            const options={title:'Uploaded Documents Report',subtitle:`${scope} · ${period}`,paragraphs:answer.split('\n\n'),meta:[{label:'Measure',value:unit},{label:'Total',value:String(count)},{label:'Source',value:'Confirmed saved CEDIMS submissions'}],tables:[{title:'Uploaded documents',headers:['File','Uploader','School','Subject','Type','Term','Week','Status','Submitted'],rows:matches.map(r=>[r.file_name||'Document',personMap.get(r.user_id)?.full_name||'User',schoolMap.get(personMap.get(r.user_id)?.school_id)||'School',r.subject||'—',r.doc_type,submissionTerm(r)||'—',r.week_number||'—',r.compliance_status,new Date(r.created_at).toLocaleString('en-PH',{timeZone:'Asia/Manila'})])}]};
+            const groupSentence=(line:string)=>{
+                const match=line.replace(/^•\s*/, '').match(/^(.+?):\s*(\d+)\s+(.+)$/);
+                return match ? `${match[1]} accounts for ${match[2]} ${match[3]}.` : line;
+            };
+            const paragraphs=answer.split('\n\n').flatMap(part=>part.split('\n')).map(groupSentence)
+                .concat(breakdown.slice(20).map(([label,n])=>groupSentence(`${label}: ${n} ${unit}`)));
+            const options={title:'Uploaded Documents Report',subtitle:`${scope} · ${period}`,paragraphs,meta:[{label:'Measure',value:unit},{label:'Total',value:String(count)},{label:'Source',value:'Confirmed saved CEDIMS submissions'}],tables:[{title:'Uploaded documents',headers:['File','Uploader','School','Subject','Type','Term','Week','Status','Submitted'],rows:matches.map(r=>[r.file_name||'Document',personMap.get(r.user_id)?.full_name||'User',schoolMap.get(personMap.get(r.user_id)?.school_id)||'School',r.subject||'—',r.doc_type,submissionTerm(r)||'—',r.week_number||'—',r.compliance_status,new Date(r.created_at).toLocaleString('en-PH',{timeZone:'Asia/Manila'})])}]};
             result.attachments=[];
             if(['excel','both'].includes(request.format)){const {buildReportWorkbook}=await import('./excelExport');const buffer=await buildReportWorkbook({...options,fileName:`${base}.xlsx`});result.attachments.push({fileName:`${base}.xlsx`,blob:new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})});}
             if(['word','both'].includes(request.format)){const {buildReportDocument}=await import('./wordExport');result.attachments.push({fileName:`${base}.docx`,blob:await buildReportDocument({...options,tables:[],fileName:`${base}.docx`})});}

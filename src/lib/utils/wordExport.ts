@@ -58,6 +58,8 @@ export async function buildReportDocument(opts: ReportOptions): Promise<Blob> {
         WidthType,
         BorderStyle,
         ShadingType,
+        Footer,
+        PageNumber,
     } = await import("docx");
 
     const accent = opts.accent || BRAND.blue;
@@ -66,17 +68,13 @@ export async function buildReportDocument(opts: ReportOptions): Promise<Blob> {
     children.push(
         new Paragraph({
             heading: HeadingLevel.TITLE,
-            shading: { type: ShadingType.SOLID, color: accent, fill: accent },
-            border: {
-                bottom: { style: BorderStyle.SINGLE, size: 24, color: BRAND.gold },
-            },
-            spacing: { before: 100, after: 100 },
+            spacing: { before: 120, after: 120 },
             children: [
                 new TextRun({
-                    text: (opts.title || "CEDIMS Report").toUpperCase(),
+                    text: opts.title || "CEDIMS Report",
                     bold: true,
-                    color: "FFFFFF",
-                    size: 32,
+                    color: BRAND.black,
+                    size: 36,
                 }),
             ],
         }),
@@ -85,10 +83,9 @@ export async function buildReportDocument(opts: ReportOptions): Promise<Blob> {
     if (opts.subtitle) {
         children.push(
             new Paragraph({
-                shading: { type: ShadingType.SOLID, color: BRAND.blueDark, fill: BRAND.blueDark },
-                spacing: { after: 200 },
+                spacing: { after: 220 },
                 children: [
-                    new TextRun({ text: opts.subtitle, italics: true, color: "FFFFFF", size: 22 }),
+                    new TextRun({ text: opts.subtitle, color: accent, size: 22 }),
                 ],
             }),
         );
@@ -109,12 +106,17 @@ export async function buildReportDocument(opts: ReportOptions): Promise<Blob> {
             }),
         );
     }
-    children.push(new Paragraph({ text: "", spacing: { after: 200 } }));
+    if (opts.paragraphs?.length) children.push(new Paragraph({
+        heading: HeadingLevel.HEADING_1,
+        spacing: { before: 240, after: 120 },
+        children: [new TextRun({ text: 'Report findings', bold: true, color: accent, size: 24 })],
+    }));
 
     for (const text of opts.paragraphs || []) {
+        if (!text.trim()) continue;
         children.push(new Paragraph({
-            spacing: { after: 180, line: 276 },
-            children: [new TextRun({ text, color: BRAND.black, size: 24 })],
+            spacing: { after: 180, line: 300 },
+            children: [new TextRun({ text: text.trim(), color: BRAND.black, size: 22 })],
         }));
     }
 
@@ -229,7 +231,14 @@ export async function buildReportDocument(opts: ReportOptions): Promise<Blob> {
     }
 
     const doc = new Document({
-        sections: [{ children }],
+        sections: [{
+            properties: { page: { margin: { top: 1000, right: 1050, bottom: 900, left: 1050 } } },
+            footers: { default: new Footer({ children: [new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [new TextRun({ text: 'CEDIMS  •  Page ', color: BRAND.slate, size: 16 }), new TextRun({ children: [PageNumber.CURRENT], color: BRAND.slate, size: 16 })],
+            })] }) },
+            children,
+        }],
     });
 
     return Packer.toBlob(doc);

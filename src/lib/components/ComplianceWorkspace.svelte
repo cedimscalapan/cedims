@@ -259,51 +259,62 @@
         else if (isTeacherWideLeave(request)) addToast('success', `Decision saved for ${formatLeaveRange(request.start_date, request.end_date)}. It applies to all of this teacher's subjects.`);
         onRefresh?.();
     }
-    async function exportReport() {
+    async function exportReport(format: 'excel' | 'word' = 'excel') {
         exporting = true; exportError = '';
         try {
-            const ExcelJS = await import('exceljs');
-            const book = new ExcelJS.Workbook();
-            const overview = book.addWorksheet('Summary');
-            overview.addRows([
-                ['CEDIMS Compliance', year], ['Generated', new Date().toISOString()],
-                ['Term', term], ['Week', week], ['School', school === 'all' ? 'All' : schoolName(school)],
-                ['Scope', selectedTeacher ? `Requirements for ${teacherName(selectedTeacher)} in the selected period` : 'All requirements in the selected school and period'],
-                ['Expected', summary.expected], ['Submitted', summary.submitted], ['Missing', summary.missing],
-                ['Upcoming', summary.upcoming], ['Late submitted', summary.late],
-                ['For checking', summary.forChecking], ['Checked', summary.checked], ['Completion %', summary.rate ?? 'N/A'], ['Formula', 'Submitted / expected requirements x 100; late included'],
-            ]);
-            const people = book.addWorksheet(districtOverview ? 'Schools' : 'Teachers');
-            people.addRow(districtOverview ? ['School', 'Missing DLLs', 'For checking', 'Checked', 'Submission progress', 'Attention'] : ['Teacher', 'Missing DLLs', 'For checking', 'Checked', 'Submission progress', 'Attention', 'Cluster']);
-            if (districtOverview) {
-                for (const item of rankedSchools) {
-                    const rows = scoped.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === item.id);
-                    const t = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForSchool(item.id), reviews) };
-                    people.addRow([item.name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', riskReason(rows)]);
-                }
-            } else {
-                for (const item of sortedTeachers) {
-                    const rows = scoped.filter(r => r.teacherId === item.id);
-                    const t = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForTeacher(item.id), reviews) };
-                    people.addRow([item.full_name, t.missing, t.forChecking, t.checked, t.rate ?? 'N/A', riskReason(rows), clusterLabelFor(item.id)]);
-                }
-            }
-            const details = book.addWorksheet('Requirements');
-            details.addRow(['School year', 'Teacher', 'School', 'Subject', 'Grade', 'Term', 'Week', 'Deadline', 'Submission status', 'Review status', 'Submitted at', 'Submission ID', 'Cluster']);
-            for (const r of scoped) {
+            const { buildReportWorkbook, triggerDownload } = await import('$lib/utils/excelExport');
+            const scopeLabel = selectedTeacher ? teacherName(selectedTeacher) : school === 'all' ? 'All permitted schools' : schoolName(school);
+            const summaryRows: (string | number)[][] = [
+                ['Expected requirements', summary.expected], ['Submitted', summary.submitted],
+                ['Missing DLLs', summary.missing], ['Upcoming', summary.upcoming],
+                ['Late submissions', summary.late], ['For checking', summary.forChecking],
+                ['Checked', summary.checked], ['Completion', summary.rate === null ? 'N/A' : `${summary.rate}%`],
+            ];
+            const peopleHeaders = districtOverview
+                ? ['School', 'Missing DLLs', 'For checking', 'Checked', 'Completion', 'Attention']
+                : ['Teacher', 'Missing DLLs', 'For checking', 'Checked', 'Completion', 'Attention', 'Cluster'];
+            const peopleRows = districtOverview ? rankedSchools.map(item => {
+                const rows = scoped.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === item.id);
+                const totals = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForSchool(item.id), reviews) };
+                return [item.name, totals.missing, totals.forChecking, totals.checked, totals.rate === null ? 'N/A' : `${totals.rate}%`, riskReason(rows)];
+            }) : selectedTeacher ? [] : sortedTeachers.map(item => {
+                const rows = scoped.filter(r => r.teacherId === item.id);
+                const totals = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForTeacher(item.id), reviews) };
+                return [item.full_name, totals.missing, totals.forChecking, totals.checked, totals.rate === null ? 'N/A' : `${totals.rate}%`, riskReason(rows), clusterLabelFor(item.id)];
+            });
+            const detailRows = scoped.map(r => {
                 const teacherSchoolId = teachers.find(t => t.id === r.teacherId)?.school_id || '';
                 const clusterLabel = districtOverview ? clusterMap.get(teacherSchoolId) || '' : clusterMap.get(r.teacherId) || '';
-                details.addRow([year, teacherName(r.teacherId), schoolName(teacherSchoolId), r.load.subject, r.load.grade_level, r.calendar.term, r.calendar.week_number, formatRequirementDeadline(r), r.status === 'on-time' ? 'On time' : r.status === 'late' ? 'Late, submitted' : r.status === 'missing' ? 'Missing' : 'Upcoming', r.review === 'none' ? '-' : r.review === 'for-checking' ? 'For checking' : r.review === 'checked' ? 'Checked' : 'None', r.submission?.created_at || '', r.submission?.id || '', clusterLabel]);
+                return [year, teacherName(r.teacherId), schoolName(teacherSchoolId), r.load.subject, r.load.grade_level, r.calendar.term, r.calendar.week_number, formatRequirementDeadline(r), requirementLabel(r), r.review === 'none' ? 'None' : r.review === 'for-checking' ? 'For checking' : 'Checked', r.submission?.created_at || '', clusterLabel];
+            });
+            const fileBase = `CEDIMS-compliance-${year}-term-${term}-week-${week}${selectedTeacher ? '-teacher' : school === 'all' ? '' : '-school'}`;
+            const fileName = `${fileBase}.${format === 'excel' ? 'xlsx' : 'docx'}`;
+            const periodLabel = `${year}, ${term === 'all' ? 'all terms' : `Term ${term}`}, ${week === 'all' ? 'all weeks' : `Week ${week}`}`;
+            const paragraphs = [
+                `This report covers ${scopeLabel} for ${periodLabel}. It reflects the requirements and submissions available in CEDIMS at the time of export.`,
+                `Of ${summary.expected} expected lesson plan submissions, ${summary.submitted} were submitted. The completion rate is ${summary.rate === null ? 'not applicable' : `${summary.rate}%`}.`,
+                `${summary.missing} requirements are missing, ${summary.upcoming} are upcoming, and ${summary.late} submissions were late. ${summary.forChecking} submissions await checking and ${summary.checked} have been checked.`,
+                ...peopleRows.map(row => `${row[0]} has ${row[1]} missing DLLs, ${row[2]} submissions awaiting checking, and ${row[3]} checked submissions. Completion is ${row[4]}.`),
+            ];
+            const options = {
+                fileName, title: 'CEDIMS Compliance Report',
+                subtitle: `${scopeLabel} · ${year} · ${term === 'all' ? 'All terms' : `Term ${term}`} · ${week === 'all' ? 'All weeks' : `Week ${week}`}`,
+                meta: [{ label: 'View', value: selectedTeacher ? 'Teacher detail' : districtOverview ? 'District overview' : 'School overview' }, { label: 'Formula', value: 'Submitted / expected requirements × 100; late submissions included' }],
+                paragraphs,
+                tables: [
+                    { title: 'Summary', headers: ['Measure', 'Value'], rows: summaryRows },
+                    ...(selectedTeacher ? [] : [{ title: districtOverview ? 'Schools' : 'Teachers', headers: peopleHeaders, rows: peopleRows }]),
+                    { title: 'Requirements', headers: ['School year', 'Teacher', 'School', 'Subject', 'Grade', 'Term', 'Week', 'Deadline', 'Submission status', 'Review status', 'Submitted at', 'Cluster'], rows: detailRows },
+                ],
+            };
+            if (format === 'excel') {
+                const bytes = await buildReportWorkbook(options);
+                triggerDownload(bytes, fileName);
+            } else {
+                const { buildReportDocument, triggerWordDownload } = await import('$lib/utils/wordExport');
+                const document = await buildReportDocument({ ...options, tables: [] });
+                triggerWordDownload(document, fileName);
             }
-            for (const sheet of book.worksheets) {
-                sheet.views = [{ state: 'frozen', ySplit: 1 }];
-                sheet.getRow(1).font = { bold: true };
-                sheet.columns.forEach(column => { column.width = 24; });
-            }
-            const bytes = await book.xlsx.writeBuffer();
-            const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-            const link = document.createElement('a'); link.href = url; link.download = `CEDIMS-compliance-${year}-term-${term}.xlsx`; link.click();
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
         } catch (e) { exportError = 'Export failed. Please try again.'; console.error(e); }
         finally { exporting = false; }
     }
@@ -321,7 +332,8 @@
             </div>
             <div class="header-actions">
                 {#if onRefresh}<button class="refresh" type="button" disabled={refreshing} onclick={onRefresh}><RefreshCw size={16} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>{/if}
-                <button class="export" onclick={exportReport} disabled={exporting || !scoped.length}><Download size={16} />{exporting ? 'Exporting...' : 'Export report'}</button>
+                <button class="export" onclick={() => exportReport('excel')} disabled={exporting}><Download size={16} />{exporting ? 'Exporting...' : 'Excel report'}</button>
+                <button class="export" onclick={() => exportReport('word')} disabled={exporting}><FileText size={16} />Word report</button>
             </div>
         </header>
         <div class="filters">

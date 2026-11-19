@@ -100,15 +100,17 @@ export async function buildReportWorkbook(
     wb.modified = new Date();
     wb.creator = "CEDIMS";
 
-    const wks = wb.addWorksheet("Report", {
+    let wks = wb.addWorksheet("Overview", {
         views: [{ showGridLines: false }],
-        pageSetup: { orientation: "portrait", fitToPage: true, fitToWidth: 1 },
+        pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
     });
 
     const accent = opts.accent || BRAND.blue;
+    const firstTable = opts.tables.find(table => table.headers?.length);
+    const overviewWidth = Math.max(4, firstTable?.headers.length || 4);
     let row = 1;
 
-    wks.mergeCells(row, 1, row, 20);
+    wks.mergeCells(row, 1, row, overviewWidth);
     const titleCell = wks.getCell(row, 1);
     titleCell.value = (opts.title || "CEDIMS Report").toUpperCase();
     titleCell.font = { size: 18, bold: true, color: { argb: BRAND.white } };
@@ -125,7 +127,7 @@ export async function buildReportWorkbook(
     row++;
 
     if (opts.subtitle) {
-        wks.mergeCells(row, 1, row, 20);
+        wks.mergeCells(row, 1, row, overviewWidth);
         const sc = wks.getCell(row, 1);
         sc.value = opts.subtitle;
         sc.font = { size: 11, italic: true, color: { argb: BRAND.white } };
@@ -149,7 +151,7 @@ export async function buildReportWorkbook(
         const lc = wks.getCell(row, 1);
         lc.value = m.label;
         lc.font = { bold: true, color: { argb: BRAND.slate }, size: 10 };
-        wks.mergeCells(row, 2, row, 6);
+        wks.mergeCells(row, 2, row, Math.min(overviewWidth, 6));
         const vc = wks.getCell(row, 2);
         vc.value = m.value;
         vc.font = { bold: true, color: { argb: BRAND.black }, size: 10 };
@@ -159,10 +161,38 @@ export async function buildReportWorkbook(
     row++; // spacer
 
     let hadTable = false;
-    for (const table of opts.tables) {
+    const sheetNames = new Set(['Overview']);
+    for (const [tableIndex, table] of opts.tables.entries()) {
         if (!table.headers || table.headers.length === 0) continue;
-        if (table.rows.length === 0) continue;
         hadTable = true;
+
+        if (tableIndex > 0) {
+            const base = (table.title || `Details ${tableIndex}`).replace(/[\\/?*\[\]:]/g, ' ').trim().slice(0, 31) || `Details ${tableIndex}`;
+            let name = base;
+            let suffix = 2;
+            while (sheetNames.has(name)) name = `${base.slice(0, 27)} ${suffix++}`;
+            sheetNames.add(name);
+            wks = wb.addWorksheet(name, {
+                views: [{ showGridLines: false }],
+                pageSetup: { orientation: table.headers.length > 7 ? 'landscape' : 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+            });
+            const width = Math.max(4, table.headers.length);
+            wks.mergeCells(1, 1, 1, width);
+            const band = wks.getCell(1, 1);
+            band.value = opts.title.toUpperCase();
+            band.font = { size: 16, bold: true, color: { argb: BRAND.white } };
+            band.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: accent } };
+            band.alignment = { vertical: 'middle' };
+            band.border = { bottom: { style: 'medium', color: { argb: BRAND.gold } } };
+            wks.getRow(1).height = 32;
+            wks.mergeCells(2, 1, 2, width);
+            const caption = wks.getCell(2, 1);
+            caption.value = `${table.title || name}${opts.subtitle ? `  •  ${opts.subtitle}` : ''}`;
+            caption.font = { size: 10, color: { argb: BRAND.slate } };
+            caption.alignment = { vertical: 'middle' };
+            wks.getRow(2).height = 22;
+            row = 4;
+        }
 
         if (table.title) {
             wks.mergeCells(row, 1, row, table.headers.length);
@@ -193,7 +223,8 @@ export async function buildReportWorkbook(
             };
             cell.alignment = {
                 vertical: "middle",
-                horizontal: isNum(table.rows[0]?.[ci]) ? "right" : "left",
+                horizontal: isNum(table.rows[0]?.[ci]) || table.numericColumns?.includes(ci) ? "right" : "left",
+                wrapText: true,
             };
             for (const side of ["top", "bottom", "left", "right"] as const) {
                 cell.border = {
@@ -210,13 +241,12 @@ export async function buildReportWorkbook(
         table.rows.forEach((r, ri) => {
             const excelRow = wks.getRow(firstDataRow + ri);
             const isAlternate = ri % 2 === 1;
-            r.forEach((val, ci) => {
+            table.headers.forEach((_header, ci) => {
+                const val = r[ci];
                 const cell = excelRow.getCell(ci + 1);
                 if (isNum(val)) {
                     cell.value = val;
-                    cell.numFmt = table.numericColumns?.includes(ci)
-                        ? "0.00"
-                        : "0";
+                    cell.numFmt = Number.isInteger(val) ? '#,##0' : '#,##0.##';
                 } else if (val == null) {
                     cell.value = null;
                 } else {
@@ -237,6 +267,7 @@ export async function buildReportWorkbook(
                         table.numericColumns?.includes(ci)
                             ? "right"
                             : "left",
+                    wrapText: false,
                 };
                 for (const side of ["top", "bottom", "left", "right"] as const) {
                     cell.border = {
@@ -256,7 +287,7 @@ export async function buildReportWorkbook(
                 const cell = fr.getCell(ci + 1);
                 if (isNum(val)) {
                     cell.value = val;
-                    cell.numFmt = "0.00";
+                    cell.numFmt = Number.isInteger(val) ? '#,##0' : '#,##0.##';
                 } else {
                     cell.value = val == null ? null : String(val);
                 }
@@ -277,17 +308,15 @@ export async function buildReportWorkbook(
 
         // Autofilter + freeze header
         if (table.autofilter !== false && table.rows.length > 0) {
-            const totalRows =
-                footerRowNum != null ? footerRowNum : lastDataRow;
             wks.autoFilter = {
                 from: { row: headerRowNum, column: 1 },
-                to: { row: totalRows, column: lastCol },
+                to: { row: Math.max(headerRowNum, lastDataRow), column: lastCol },
             };
         }
         wks.views = [
             {
                 state: "frozen",
-                ySplit: footerRowNum != null ? firstDataRow : firstDataRow,
+                ySplit: firstDataRow - 1,
                 activeCell: `${colLetter(1)}${firstDataRow}`,
                 showGridLines: false,
             },
@@ -308,31 +337,31 @@ export async function buildReportWorkbook(
                 const tlen = tv == null ? 0 : String(tv).length;
                 if (tlen > maxLen) maxLen = tlen;
             }
-            const width = Math.min(45, Math.max(13, maxLen + 3));
+            const width = Math.min(42, Math.max(ci === 0 ? 18 : 13, maxLen + 3));
             wks.getColumn(ci + 1).width = width;
         });
+
+        if (table.rows.length === 0) {
+            const empty = wks.getCell(firstDataRow, 1);
+            empty.value = 'No matching records for this period.';
+            empty.font = { italic: true, color: { argb: BRAND.slate } };
+        }
+        wks.pageSetup.printArea = `A1:${colLetter(Math.max(lastCol, 4) - 1)}${Math.max(firstDataRow, footerRowNum || lastDataRow)}`;
+        wks.pageSetup.printTitlesRow = `1:${headerRowNum}`;
 
         row = (footerRowNum ?? lastDataRow) + 2; // spacer before next table
     }
 
     if (!hadTable) {
-        wks.mergeCells(2, 1, 4, 4);
-        const c = wks.getCell(2, 1);
+        const c = wks.getCell(row, 1);
         c.value = "No data available to export.";
         c.font = { italic: true, color: { argb: BRAND.slate } };
     }
 
-    // Print-ready: repeat header on each printed page
-    wks.pageSetup.printArea = `A1:L${row}`;
-    wks.pageSetup.margins = {
-        left: 0.5,
-        right: 0.5,
-        top: 0.6,
-        bottom: 0.6,
-        header: 0.3,
-        footer: 0.3,
-    };
-    wks.properties.outlineLevelCol = 0;
+    for (const sheet of wb.worksheets) {
+        sheet.pageSetup.margins = { left: 0.35, right: 0.35, top: 0.55, bottom: 0.55, header: 0.2, footer: 0.2 };
+        sheet.headerFooter.oddFooter = '&LCEDIMS  •  Confidential school records&RPage &P of &N';
+    }
 
     const buffer = await wb.xlsx.writeBuffer();
     return buffer as ArrayBuffer;

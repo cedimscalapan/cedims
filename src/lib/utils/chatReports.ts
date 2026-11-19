@@ -149,7 +149,7 @@ export async function resolveChatScope(db:any,profile:Profile|undefined|null,use
         let schools=await readReportRows(()=>{
             let q=db.from('schools').select('id,name,district_id').order('id');
             if(['Teacher','Master Teacher','School Head'].includes(profile.role))q=q.eq('id',profile.school_id);
-            if(profile.role==='District Supervisor')q=q.eq('district_id',profile.district_id);
+            if(['District Supervisor','Admin'].includes(profile.role)&&profile.district_id)q=q.eq('district_id',profile.district_id);
             return q;
         });
         if(!schools.length)return {answer:'No schools are available within your permitted report scope.'};

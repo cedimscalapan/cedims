@@ -53,6 +53,7 @@
     const roleSuggestions: Record<string, string[]> = {
         Teacher: [
             "Create a report of my lesson plan compliance this school year",
+            "Create a Word report of my lesson plan compliance this school year in sentences",
             "What is my lesson plan compliance rate?",
             "When is my next submission deadline?",
             "How do I upload a Daily Lesson Plan?",
@@ -72,6 +73,8 @@
             "How do I review a teacher's lesson plan?",
         ],
         Admin: [
+            "Create Excel and Word compliance reports this school year",
+            "Create an Excel report of uploaded documents this school year",
             "What are the tabs for each role?",
             "How does password reset work?",
             "How do open and closed deadlines work?",
