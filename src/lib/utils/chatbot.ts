@@ -1777,7 +1777,7 @@ export async function processQuery(text: string, ctx?: ChatContext): Promise<Cha
             }
             if(result.facts){
                 dataPlan.request=result.facts.request;
-                if(result.facts.uploads)answer+=`\n\n${uploadStatusText(result.facts.uploads,helpLang)}`;
+                if(dataPlan.metric==='missing'&&result.facts.uploads)answer+=`\n\n${uploadStatusText(result.facts.uploads,helpLang)}`;
             }
             return {intent:'ask_compliance',confidence:100,answer,attachments:result.attachments,slots:{dataPlan:JSON.stringify(dataPlan)},lang:helpLang};
         }

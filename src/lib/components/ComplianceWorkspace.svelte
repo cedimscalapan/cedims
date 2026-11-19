@@ -3,6 +3,7 @@
     import { effectiveDeadlineForSubject } from '$lib/utils/deadlineRules';
     import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, isTeacherWideLeave, scopedCalendar, scopeComplianceView, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, uploadDayCounts, hasRemarks, isRemarkRequiredSubmission, isWeeklyComplianceDocType } from '$lib/utils/compliance';
     import { uploadsBySchool, uploadsByTeacher } from '$lib/utils/complianceUploadComparison';
+    import { savedReviewStatus, summarizeSavedReportRows } from '$lib/utils/submissionReport';
     import { makePieSlices } from '$lib/utils/pieSlices';
     import { supabase } from '$lib/utils/supabase';
     import { addToast } from '$lib/stores/toast';
@@ -264,11 +265,17 @@
         try {
             const { buildReportWorkbook, triggerDownload } = await import('$lib/utils/excelExport');
             const scopeLabel = selectedTeacher ? teacherName(selectedTeacher) : school === 'all' ? 'All permitted schools' : schoolName(school);
+            const uploadPeople = new Map(scopedSubmissionUsers.map(person => [person.id, person]));
+            const reviewById = new Map(reviews.map(review => [review.submission_id, review]));
+            const savedRows = scopedUploads.map(upload => ({ ...upload, review_status: savedReviewStatus(upload, reviewById.get(upload.id)) }));
+            const savedSummary = summarizeSavedReportRows(savedRows);
             const summaryRows: (string | number)[][] = [
                 ['Expected requirements', summary.expected], ['Submitted', summary.submitted],
                 ['Missing DLLs', summary.missing], ['Upcoming', summary.upcoming],
                 ['Late submissions', summary.late], ['For checking', summary.forChecking],
                 ['Checked', summary.checked], ['Completion', summary.rate === null ? 'N/A' : `${summary.rate}%`],
+                ['Saved files', savedSummary.total], ['Supplementary files', savedSummary.supplementary],
+                ['Administrative files', savedSummary.isp + savedSummary.isr],
             ];
             const peopleHeaders = districtOverview
                 ? ['School', 'Missing DLLs', 'For checking', 'Checked', 'Completion', 'Attention']
@@ -287,6 +294,12 @@
                 const clusterLabel = districtOverview ? clusterMap.get(teacherSchoolId) || '' : clusterMap.get(r.teacherId) || '';
                 return [year, teacherName(r.teacherId), schoolName(teacherSchoolId), r.load.subject, r.load.grade_level, r.calendar.term, r.calendar.week_number, formatRequirementDeadline(r), requirementLabel(r), r.review === 'none' ? 'None' : r.review === 'for-checking' ? 'For checking' : 'Checked', r.submission?.created_at || '', clusterLabel];
             });
+            const uploadRows = savedRows.map(upload => {
+                const uploader = uploadPeople.get(upload.user_id || '');
+                const subject = upload.subject || loads.find(load => load.id === upload.teaching_load_id)?.subject || '—';
+                const submitted = upload.created_at ? new Date(upload.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) : '—';
+                return [upload.file_path?.split('/').at(-1) || 'Document', uploader?.full_name || 'User', schoolName(uploader?.school_id || ''), subject, upload.doc_type || 'Other', upload.compliance_status || 'Unspecified', upload.review_status, submissionTermFromPath(upload) || '—', upload.week_number || '—', submitted];
+            });
             const fileBase = `CEDIMS-compliance-${year}-term-${term}-week-${week}${selectedTeacher ? '-teacher' : school === 'all' ? '' : '-school'}`;
             const fileName = `${fileBase}.${format === 'excel' ? 'xlsx' : 'docx'}`;
             const periodLabel = `${year}, ${term === 'all' ? 'all terms' : `Term ${term}`}, ${week === 'all' ? 'all weeks' : `Week ${week}`}`;
@@ -294,16 +307,22 @@
                 `This report covers ${scopeLabel} for ${periodLabel}. It reflects the requirements and submissions available in CEDIMS at the time of export.`,
                 `Of ${summary.expected} expected lesson plan submissions, ${summary.submitted} were submitted. The completion rate is ${summary.rate === null ? 'not applicable' : `${summary.rate}%`}.`,
                 `${summary.missing} requirements are missing, ${summary.upcoming} are upcoming, and ${summary.late} submissions were late. ${summary.forChecking} submissions await checking and ${summary.checked} have been checked.`,
+                `There are ${savedSummary.total} saved files in this scope. File statuses are ${savedSummary.statusRows.map(row => `${row.label}: ${row.count}`).join('; ')}. Missing requirements are listed separately from saved files.`,
+                `Document types are ${savedSummary.typeRows.map(row => `${row.type}: ${row.count}`).join('; ')}. Among reviewable lesson-plan files, ${savedSummary.checked} are checked and ${savedSummary.forChecking} are for checking.`,
                 ...peopleRows.map(row => `${row[0]} has ${row[1]} missing DLLs, ${row[2]} submissions awaiting checking, and ${row[3]} checked submissions. Completion is ${row[4]}.`),
             ];
             const options = {
-                fileName, title: 'CEDIMS Compliance Report',
+                fileName, title: 'CEDIMS Submissions and Compliance Report',
                 subtitle: `${scopeLabel} · ${year} · ${term === 'all' ? 'All terms' : `Term ${term}`} · ${week === 'all' ? 'All weeks' : `Week ${week}`}`,
                 meta: [{ label: 'View', value: selectedTeacher ? 'Teacher detail' : districtOverview ? 'District overview' : 'School overview' }, { label: 'Formula', value: 'Submitted / expected requirements × 100; late submissions included' }],
                 paragraphs,
                 tables: [
                     { title: 'Summary', headers: ['Measure', 'Value'], rows: summaryRows },
                     ...(selectedTeacher ? [] : [{ title: districtOverview ? 'Schools' : 'Teachers', headers: peopleHeaders, rows: peopleRows }]),
+                    { title: 'Saved upload statuses', headers: ['Status', 'Files'], rows: savedSummary.statusRows.map(row => [row.label, row.count]), totalsRow: ['Total saved', savedSummary.total] },
+                    { title: 'Document types', headers: ['Type', 'Files'], rows: savedSummary.typeRows.map(row => [row.type, row.count]), totalsRow: ['Total saved', savedSummary.total] },
+                    { title: 'Review statuses', headers: ['Review status', 'Files'], rows: [['Checked', savedSummary.checked], ['For checking', savedSummary.forChecking], ['Not applicable', savedSummary.notApplicable]], totalsRow: ['Total saved', savedSummary.total] },
+                    { title: 'Saved upload details', headers: ['File', 'Uploader', 'School', 'Subject', 'Type', 'Submission status', 'Review status', 'Term', 'Week', 'Submitted (Philippines)'], rows: uploadRows },
                     { title: 'Requirements', headers: ['School year', 'Teacher', 'School', 'Subject', 'Grade', 'Term', 'Week', 'Deadline', 'Submission status', 'Review status', 'Submitted at', 'Cluster'], rows: detailRows },
                 ],
             };

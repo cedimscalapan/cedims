@@ -2,42 +2,31 @@ import {buildRequirements, scopedCalendar, submissionTerm, summarizeRequirements
 import {getCurrentSchoolYear} from './schoolYear';
 import {normalizeReportName, resolveReportPeriod, type ReportRequest} from './reportRequest';
 import {effectiveDeadlineForSubject} from './deadlineRules';
+import {savedReviewStatus, summarizeSavedReportRows} from './submissionReport';
+import type {ReportTable} from './excelExport';
 
 type Profile={id:string;role:string;full_name:string;school_id:string|null;district_id:string|null};
 type RecordRow=Record<string,any>;
 type Attachment={fileName:string;blob:Blob};
-export type UploadSummary={total:number;onTime:number;late:number;supplementary:number;otherStatus:number;lessonPlans:number;isp:number;isr:number};
+export type UploadSummary=ReturnType<typeof summarizeSavedReportRows>;
 export type ReportFacts={summary:ReturnType<typeof summarizeRequirements>;scope:string;period:string;overdue:number;overdueTeachers:number;pendingOverdue:number;request:ReportRequest;teacherBacklog:{name:string;count:number}[];uploads?:UploadSummary};
 const dateLabel=(value:number|string)=>new Date(value).toLocaleString('en-PH',{timeZone:'Asia/Manila',year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
-const emptyUploadSummary=():UploadSummary=>({total:0,onTime:0,late:0,supplementary:0,otherStatus:0,lessonPlans:0,isp:0,isr:0});
-function summarizeSavedUploads(rows:RecordRow[]):UploadSummary{
-    const result=emptyUploadSummary();
-    for(const row of rows){
-        result.total++;
-        if(['on-time','compliant'].includes(row.compliance_status))result.onTime++;
-        else if(row.compliance_status==='late')result.late++;
-        else if(['supplementary','extra'].includes(row.compliance_status))result.supplementary++;
-        else result.otherStatus++;
-        if(['DLL','DLP'].includes(row.doc_type))result.lessonPlans++;
-        else if(row.doc_type==='ISP')result.isp++;
-        else if(row.doc_type==='ISR')result.isr++;
-    }
-    return result;
-}
 export function uploadStatusText(summary:UploadSummary,lang:'en'|'tl'){
+    const statuses=summary.statusRows.map(row=>`${row.label}: ${row.count}`).join('; ');
+    const types=summary.typeRows.map(row=>`${row.type}: ${row.count}`).join('; ');
     return lang==='tl'
-        ? `Mga saved upload (hiwalay sa compliance requirements): ${summary.total} kabuuan; ${summary.onTime} on time/compliant, ${summary.late} late, ${summary.supplementary} supplementary, ${summary.otherStatus} iba pang saved status. Ayon sa uri: ${summary.lessonPlans} DLL/DLP, ${summary.isp} ISP, ${summary.isr} ISR. Isang beses lang binilang ang bawat saved file; hindi nadaragdagan ng supplementary uploads ang required lesson-plan completion.`
-        : `Saved uploads (separate from required lesson-plan compliance): ${summary.total} total; ${summary.onTime} on time/compliant, ${summary.late} late, ${summary.supplementary} supplementary, ${summary.otherStatus} other saved status. By document type: ${summary.lessonPlans} DLL/DLP, ${summary.isp} ISP, ${summary.isr} ISR. Each saved file is counted once; supplementary uploads do not increase required lesson-plan completion.`;
+        ? `Mga saved upload (hiwalay sa compliance requirements): ${summary.total} kabuuan; ${summary.onTime} on time/compliant, ${summary.late} late, ${summary.supplementary} supplementary, ${summary.otherStatus} iba pang saved status. Ayon sa uri: ${summary.lessonPlans} DLL/DLP, ${summary.isp} ISP, ${summary.isr} ISR. Eksaktong mga status: ${statuses}. Mga uri ng dokumento: ${types}. Sa mga lesson plan na kailangang suriin, ${summary.checked} ang checked at ${summary.forChecking} ang for checking. Isang beses lang binilang ang bawat saved file; hindi nadaragdagan ng supplementary uploads ang required lesson-plan completion.`
+        : `Saved uploads (separate from required lesson-plan compliance): ${summary.total} total; ${summary.onTime} on time/compliant, ${summary.late} late, ${summary.supplementary} supplementary, ${summary.otherStatus} other saved status. By document type: ${summary.lessonPlans} DLL/DLP, ${summary.isp} ISP, ${summary.isr} ISR. Exact file statuses are ${statuses}. Document types are ${types}. Among reviewable lesson-plan uploads, ${summary.checked} ${summary.checked===1?'is':'are'} checked and ${summary.forChecking} ${summary.forChecking===1?'is':'are'} for checking. Each saved file is counted once; supplementary uploads do not increase required lesson-plan completion. Missing requirements are reported separately.`;
 }
-async function schoolSavedUploads(db:any,schools:RecordRow[],year:string,request:ReportRequest,calendar:RecordRow[],matchingLoadIds:string[]){
+async function scopedSavedUploads(db:any,schools:RecordRow[],year:string,request:ReportRequest,calendar:RecordRow[],matchingLoadIds:string[],restrictUserId?:string){
     const uploaders=await rowsForIds(db,'profiles','id,full_name,school_id','school_id',schools.map(s=>s.id));
     const people=new Map(uploaders.map(person=>[person.id,person]));
     const schoolNames=new Map(schools.map(school=>[school.id,school.name]));
-    const ids=uploaders.map(person=>person.id);
+    const ids=uploaders.filter(person=>!restrictUserId||person.id===restrictUserId).map(person=>person.id);
     const saved:RecordRow[]=[];
     for(let i=0;i<ids.length;i+=100){
         saved.push(...await readReportRows(()=>{
-            let q=db.from('submissions').select('id,user_id,teaching_load_id,calendar_id,school_year,term_number,week_number,file_name,file_path,file_hash,doc_type,compliance_status,created_at').in('user_id',ids.slice(i,i+100)).eq('school_year',year).order('id');
+            let q=db.from('submissions').select('id,user_id,teaching_load_id,calendar_id,school_year,term_number,week_number,file_name,file_path,file_hash,doc_type,compliance_status,created_at,subject').in('user_id',ids.slice(i,i+100)).eq('school_year',year).order('id');
             if(request.week)q=q.eq('week_number',request.week);
             return q;
         }));
@@ -49,9 +38,14 @@ async function schoolSavedUploads(db:any,schools:RecordRow[],year:string,request
         if(request.subject||request.grade)return matchingLoadIds.includes(row.teaching_load_id)&&['DLL','DLP'].includes(row.doc_type);
         return true;
     });
-    return {summary:summarizeSavedUploads(selected),rows:selected.map(row=>({
-        ...row,uploader:people.get(row.user_id)?.full_name||'User',school:schoolNames.get(people.get(row.user_id)?.school_id)||'School'
-    })) as RecordRow[]};
+    const reviewableIds=selected.filter(row=>savedReviewStatus(row)!=='Not applicable').map(row=>row.id);
+    const reviews=await rowsForIds(db,'document_review_current','id,submission_id,status','submission_id',reviewableIds);
+    const reviewById=new Map(reviews.map(review=>[review.submission_id,review]));
+    const detailed:RecordRow[]=selected.map(row=>({
+        ...row,uploader:people.get(row.user_id)?.full_name||'User',school:schoolNames.get(people.get(row.user_id)?.school_id)||'School',
+        review_status:savedReviewStatus(row,reviewById.get(row.id))
+    }));
+    return {summary:summarizeSavedReportRows(detailed),rows:detailed};
 }
 
 // Read every page or fail explicitly. A truncated query must never become a complete report.
@@ -180,7 +174,7 @@ export async function createChatReport(db:any,profile:Profile|undefined|null,use
     try{
         const access=await resolveChatScope(db,profile,userId,request,lang);
         if('answer' in access)return {answer:access.answer!};
-        if(!profile) return {answer:'Please sign in.'};
+        if(!profile||!userId) return {answer:'Please sign in.'};
         const {schools,districts,teachers}=access;
         const year=request.schoolYear||getCurrentSchoolYear();
         const ids=teachers.map(t=>t.id);
@@ -223,7 +217,7 @@ export async function createChatReport(db:any,profile:Profile|undefined|null,use
         };
         const gradeName=(value:string)=>/^kinder/i.test(value)?'kindergarten':normalizeReportName(value).replace(/^grade /,'');
         const loads=allLoads.filter(l=>l.is_active!==false&&subjectMatch(l.subject||'')&&(!r.grade||gradeName(l.grade_level||'')===gradeName(r.grade)));
-        if(!loads.length)return {answer:'No active teaching loads match these filters within your access. Please check the subject, grade, or school.'};
+        if(!loads.length&&(r.subject||r.grade))return {answer:'No active teaching loads match these filters within your access. Please check the subject, grade, or school.'};
         const loadIds=loads.map(l=>l.id);
         const [submissions,leaves]=await Promise.all([
             rowsForIds(db,'submissions','id,user_id,teaching_load_id,school_year,term_number,week_number,calendar_id,file_path,doc_type,compliance_status,created_at,subject','teaching_load_id',loadIds,year,r),
@@ -239,11 +233,9 @@ export async function createChatReport(db:any,profile:Profile|undefined|null,use
         }).filter(row=>(!r.term||row.calendar.term===r.term)&&(!r.week||row.calendar.week_number===r.week));
         // Shared review status is authoritative even when a checked document has an empty remark.
         for(const row of requirements){if(row.submission){const review=reviews.find(v=>v.submission_id===row.submission!.id);row.review=review?.status==='checked'?'checked':'for-checking';}}
-        if(!requirements.length)return {answer:'No calendar requirements match this report. Please check the school year, term, and week.'};
         const snapshot=makeReportSnapshot(requirements,teachers,schools,r);
-        const savedUploads=['School Head','Master Teacher'].includes(profile.role)
-            ? await schoolSavedUploads(db,schools,year,r,calendar,loadIds)
-            : null;
+        const savedUploads=await scopedSavedUploads(db,schools,year,r,calendar,loadIds,
+            profile.role==='Teacher'||r.scope==='self'?userId:undefined);
         const districtNames=districts.filter(d=>schools.some(s=>s.district_id===d.id)).map(d=>d.name).join(', ');
         const scope=profile.role==='Teacher'||r.scope==='self'?profile.full_name:(r.scope==='district'?`${districtNames} (${schools.length} schools)`:(schools.length<=3?schools.map(s=>s.name).join(', '):`${schools.length} schools in ${districtNames}`));
         const narrative=reportNarrative(snapshot,scope,lang);
@@ -251,26 +243,26 @@ export async function createChatReport(db:any,profile:Profile|undefined|null,use
         const backlog=new Map<string,number>();
         for(const row of overdue)backlog.set(row.teacherId,(backlog.get(row.teacherId)||0)+1);
         const teacherBacklog=[...backlog].map(([id,count])=>({name:teachers.find(t=>t.id===id)?.full_name||'Teacher',count})).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name));
-        const facts:ReportFacts={summary:snapshot.summary,scope,period:narrative.period,overdue:overdue.length,overdueTeachers:teacherBacklog.length,pendingOverdue:overdue.filter(row=>row.status==='leave-requested').length,request:r,teacherBacklog,uploads:savedUploads?.summary};
+        const facts:ReportFacts={summary:snapshot.summary,scope,period:narrative.period,overdue:overdue.length,overdueTeachers:teacherBacklog.length,pendingOverdue:overdue.filter(row=>row.status==='leave-requested').length,request:r,teacherBacklog,uploads:savedUploads.summary};
         const prefix=r.style==='bullets'?'• ':'';
         let answer=narrative.paragraphs.map(p=>prefix+p).join('\n\n');
-        if(savedUploads)answer+='\n\n'+prefix+uploadStatusText(savedUploads.summary,lang);
+        answer+='\n\n'+prefix+uploadStatusText(savedUploads.summary,lang);
         const teacherLines=['School Head','Master Teacher'].includes(profile.role)?snapshot.teachers.map(t=>`Teacher: ${t.name}. ${t.submitted} of ${t.expected} expected lesson plans submitted; ${t.missing} overdue missing, ${t.upcoming} upcoming, ${t.onLeave} approved leave; completion ${t.rate===null?'N/A':`${t.rate}%`}.`):[];
         const groupLines=[...narrative.groups,...teacherLines];
         answer+='\n\n'+groupLines.slice(0,20).map(p=>prefix+p).join('\n\n');
         if(groupLines.length>20)answer+=`\n\n${groupLines.length-20} additional group summaries are available in the Word or Excel export.`;
         if(r.format==='chat')return {answer,facts};
-        const tables=[
+        const tables:ReportTable[]=[
             {title:'Summary',headers:['Expected','Submitted','On time','Late','Overdue missing','Upcoming','Approved leave','Pending leave','Checked','For checking','Completion'],rows:[[snapshot.summary.expected,snapshot.summary.submitted,snapshot.summary.onTime,snapshot.summary.late,snapshot.summary.missing,snapshot.summary.upcoming,snapshot.summary.onLeave,snapshot.summary.leavePending,snapshot.summary.checked,snapshot.summary.forChecking,snapshot.summary.rate===null?'N/A':`${snapshot.summary.rate}%`]]},
             {title:'Requirements',headers:['Teacher','School','Subject','Grade','Term','Week','Status','Review','Deadline (Philippines)','Submitted (Philippines)'],rows:snapshot.details.map(d=>[d.teacher,d.school,d.subject,d.grade,d.term,d.week,d.status,d.review,d.deadline,d.submitted])}
         ];
-        if(savedUploads){
-            const u=savedUploads.summary;
-            tables.push({title:'Saved upload statuses',headers:['Total saved','On time / compliant','Late','Supplementary','Other saved status','DLL / DLP','ISP','ISR'],rows:[[u.total,u.onTime,u.late,u.supplementary,u.otherStatus,u.lessonPlans,u.isp,u.isr]]});
-            tables.push({title:'Saved upload details',headers:['File','Uploader','School','Type','Status','Term','Week','Submitted (Philippines)'],rows:savedUploads.rows.map(row=>[row.file_name||'Document',row.uploader,row.school,row.doc_type,row.compliance_status,submissionTerm(row)||'—',row.week_number||'—',dateLabel(row.created_at)])});
-        }
+        const u=savedUploads.summary;
+        tables.push({title:'Saved upload statuses',headers:['Status','Files'],rows:u.statusRows.map(row=>[row.label,row.count]),totalsRow:['Total saved',u.total]});
+        tables.push({title:'Document types',headers:['Type','Files'],rows:u.typeRows.map(row=>[row.type,row.count]),totalsRow:['Total saved',u.total]});
+        tables.push({title:'Review statuses',headers:['Review status','Files'],rows:[['Checked',u.checked],['For checking',u.forChecking],['Not applicable',u.notApplicable]],totalsRow:['Total saved',u.total]});
+        tables.push({title:'Saved upload details',headers:['File','Uploader','School','Subject','Type','Submission status','Review status','Term','Week','Submitted (Philippines)'],rows:savedUploads.rows.map(row=>[row.file_name||'Document',row.uploader,row.school,row.subject||'—',row.doc_type,row.compliance_status||'Unspecified',row.review_status,submissionTerm(row)||'—',row.week_number||'—',dateLabel(row.created_at)])});
         const base=`CEDIMS-report-${year}${r.term?`-T${r.term}`:''}${r.week?`-W${r.week}`:''}-${new Date().toISOString().slice(0,10)}`;
-        const options={title:'Lesson Plan Compliance Report',subtitle:`${scope} · ${narrative.period}`,meta:[{label:'Prepared by',value:profile.full_name},{label:'Source',value:'Current CEDIMS records; Philippine time'}],paragraphs:[...narrative.paragraphs,...(savedUploads?[uploadStatusText(savedUploads.summary,lang)]:[]),...narrative.groups,...teacherLines],tables};
+        const options={title:'Submissions and Compliance Report',subtitle:`${scope} · ${narrative.period}`,meta:[{label:'Prepared by',value:profile.full_name},{label:'Source',value:'Current CEDIMS records; Philippine time'}],paragraphs:[...narrative.paragraphs,uploadStatusText(savedUploads.summary,lang),...narrative.groups,...teacherLines],tables};
         const attachments:Attachment[]=[];
         if(r.format==='excel'||r.format==='both'){
             const {buildReportWorkbook}=await import('./excelExport');

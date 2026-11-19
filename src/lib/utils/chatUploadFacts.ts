@@ -4,6 +4,7 @@ import {submissionTerm,type CalendarSlot} from './compliance';
 import {normalizeReportName,resolveReportPeriod,type ReportRequest} from './reportRequest';
 import type {ChatDataPlan} from './chatQueryPlan';
 import type {ChatContext} from './chatbot';
+import {summarizeSavedReportRows} from './submissionReport';
 
 export async function answerUploadFacts(plan:ChatDataPlan,ctx:ChatContext|undefined,lang:'en'|'tl'){
     if(plan.operation==='queue')return {answer:lang==='tl'?'Hindi pa successful uploads ang mga queued o syncing na file. Tingnan ang Upload para sa pending sync. Maaari kong bilangin ang confirmed records sa Archives.':'Queued or syncing files are not confirmed uploads yet. Check Upload for pending sync. I can count the confirmed records saved in Archives.'};
@@ -96,13 +97,20 @@ export async function answerUploadFacts(plan:ChatDataPlan,ctx:ChatContext|undefi
         const result:{answer:string;resolvedRequest:ReportRequest;attachments?:{fileName:string;blob:Blob}[]}={answer,resolvedRequest:request};
         if(request.format!=='chat'){
             const base=`CEDIMS-upload-count-${year}${request.term?`-T${request.term}`:''}${request.week?`-W${request.week}`:''}`;
+            const statusSummary=summarizeSavedReportRows(matches);
             const groupSentence=(line:string)=>{
                 const match=line.replace(/^•\s*/, '').match(/^(.+?):\s*(\d+)\s+(.+)$/);
                 return match ? `${match[1]} accounts for ${match[2]} ${match[3]}.` : line;
             };
             const paragraphs=answer.split('\n\n').flatMap(part=>part.split('\n')).map(groupSentence)
-                .concat(breakdown.slice(20).map(([label,n])=>groupSentence(`${label}: ${n} ${unit}`)));
-            const options={title:'Uploaded Documents Report',subtitle:`${scope} · ${period}`,paragraphs,meta:[{label:'Measure',value:unit},{label:'Total',value:String(count)},{label:'Source',value:'Confirmed saved CEDIMS submissions'}],tables:[{title:'Uploaded documents',headers:['File','Uploader','School','Subject','Type','Term','Week','Status','Submitted'],rows:matches.map(r=>[r.file_name||'Document',personMap.get(r.user_id)?.full_name||'User',schoolMap.get(personMap.get(r.user_id)?.school_id)||'School',r.subject||'—',r.doc_type,submissionTerm(r)||'—',r.week_number||'—',r.compliance_status,new Date(r.created_at).toLocaleString('en-PH',{timeZone:'Asia/Manila'})])}]};
+                .concat(breakdown.slice(20).map(([label,n])=>groupSentence(`${label}: ${n} ${unit}`)))
+                .concat(`The exported files have these saved submission statuses: ${statusSummary.statusRows.map(row=>`${row.label}: ${row.count}`).join('; ')}. Document types are ${statusSummary.typeRows.map(row=>`${row.type}: ${row.count}`).join('; ')}.`);
+            const options={title:'Uploaded Documents Report',subtitle:`${scope} · ${period}`,paragraphs,meta:[{label:'Measure',value:unit},{label:'Total',value:String(count)},{label:'Source',value:'Confirmed saved CEDIMS submissions'}],tables:[
+                {title:'Summary',headers:['Measure','Value'],rows:[['Matching uploads',statusSummary.total],['Unique uploaders',new Set(matches.map(row=>row.user_id)).size]]},
+                {title:'Submission statuses',headers:['Status','Files'],rows:statusSummary.statusRows.map(row=>[row.label,row.count]),totalsRow:['Total saved',statusSummary.total]},
+                {title:'Document types',headers:['Type','Files'],rows:statusSummary.typeRows.map(row=>[row.type,row.count]),totalsRow:['Total saved',statusSummary.total]},
+                {title:'Uploaded documents',headers:['File','Uploader','School','Subject','Type','Term','Week','Status','Submitted'],rows:matches.map(r=>[r.file_name||'Document',personMap.get(r.user_id)?.full_name||'User',schoolMap.get(personMap.get(r.user_id)?.school_id)||'School',r.subject||'—',r.doc_type,submissionTerm(r)||'—',r.week_number||'—',r.compliance_status,new Date(r.created_at).toLocaleString('en-PH',{timeZone:'Asia/Manila'})])}
+            ]};
             result.attachments=[];
             if(['excel','both'].includes(request.format)){const {buildReportWorkbook}=await import('./excelExport');const buffer=await buildReportWorkbook({...options,fileName:`${base}.xlsx`});result.attachments.push({fileName:`${base}.xlsx`,blob:new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})});}
             if(['word','both'].includes(request.format)){const {buildReportDocument}=await import('./wordExport');result.attachments.push({fileName:`${base}.docx`,blob:await buildReportDocument({...options,tables:[],fileName:`${base}.docx`})});}

@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 import ts from 'typescript';
 
 const dir=resolve('tmp/report-test-modules');mkdirSync(dir,{recursive:true});
-const modules=['deadlineRules','compliance','schoolYear','reportRequest','excelExport','wordExport','chatReports','chatQueryPlan','chatUploadFacts','systemHelp','chatbot'];
+const modules=['deadlineRules','compliance','schoolYear','reportRequest','excelExport','wordExport','submissionReport','chatReports','chatQueryPlan','chatUploadFacts','systemHelp','chatbot'];
 for(const name of modules){
     let source=readFileSync(`src/lib/utils/${name}.ts`,'utf8');
     for(const imported of modules)source=source.replaceAll(`'./${imported}'`,`'./${imported}.mjs'`).replaceAll(`"./${imported}"`,`"./${imported}.mjs"`);
@@ -159,6 +159,46 @@ function uploadFixture(){
     data.submissions.push({id:'placeholder',user_id:'b',school_year:year,term_number:2,week_number:7,doc_type:'DLL',compliance_status:'missing',file_hash:'nc_missing'});
     return data;
 }
+test('main reports include every saved submission status and document type for each role',async()=>{
+    const roles=[
+        {person:{id:'a',role:'Teacher',full_name:'Teacher A',school_id:'s1',district_id:'d1'},count:2},
+        {person:{id:'master',role:'Master Teacher',full_name:'Master Teacher',school_id:'s1',district_id:'d1'},count:3},
+        {person:profile,count:3},
+        {person:district,count:4},
+        {person:{...district,id:'admin',role:'Admin'},count:4},
+    ];
+    const ExcelModule=await import('exceljs');const ExcelJS=ExcelModule.default||ExcelModule;
+    const JSZip=(await import('jszip')).default;
+    for(const {person,count} of roles){
+        const data=uploadFixture();
+        data.submissions.push({id:'outside',user_id:'c',school_year:year,term_number:2,week_number:7,file_name:'Outside.pdf',file_path:'documents/Outside.pdf',doc_type:'DLL',compliance_status:'compliant',created_at:'2026-10-25T00:00:00Z'});
+        const reply=await createChatReport(mockDb(data),person,person.id,parseReportRequest('Create Excel and Word reports for term 2 week 7'));
+        assert.equal(reply.attachments?.length,2,`${person.role}: ${reply.answer}`);
+        assert.equal(reply.facts?.uploads?.total,count,person.role);
+        const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(await reply.attachments.find(a=>a.fileName.endsWith('.xlsx')).blob.arrayBuffer());
+        for(const sheet of ['Saved upload statuses','Document types','Review statuses','Saved upload details'])assert.ok(workbook.getWorksheet(sheet),`${person.role}: ${sheet}`);
+        const statuses=JSON.stringify(workbook.getWorksheet('Saved upload statuses').getSheetValues());
+        for(const status of ['Compliant','On time','Late','Supplementary','Extra'])assert.match(statuses,new RegExp(status),person.role);
+        assert.match(statuses,new RegExp(`Total saved[^\\]]*${count}`),person.role);
+        const details=JSON.stringify(workbook.getWorksheet('Saved upload details').getSheetValues());
+        assert.doesNotMatch(details,/Outside\.pdf|Teacher C|Other Elementary School/,person.role);
+        if(count>=3)assert.match(details,/ISP\.pdf|ISP/,person.role);
+        if(count>=4)assert.match(details,/Late\.pdf/,person.role);
+        const word=reply.attachments.find(a=>a.fileName.endsWith('.docx'));
+        const xml=await (await JSZip.loadAsync(await word.blob.arrayBuffer())).file('word/document.xml').async('string');
+        assert.match(xml,new RegExp(`Saved uploads.*${count} total`),person.role);
+        assert.match(xml,/Exact file statuses are/);assert.doesNotMatch(xml,/Outside\.pdf|Teacher C|Other Elementary School|<w:tbl>/,person.role);
+    }
+});
+test('an administrative-only period still produces both report formats',async()=>{
+    const data=uploadFixture();
+    data.teaching_loads=[];
+    data.submissions=data.submissions.filter(row=>row.id==='isp');
+    const reply=await createChatReport(mockDb(data),profile,profile.id,parseReportRequest('Create Excel and Word reports for term 2 week 7'));
+    assert.equal(reply.attachments?.length,2,reply.answer);
+    assert.equal(reply.facts?.summary.expected,0);
+    assert.equal(reply.facts?.uploads?.total,1);
+});
 test('uploaded-document Excel and Word exports honor each role and use prose',async()=>{
     const roles=[
         {person:{id:'a',role:'Teacher',full_name:'Teacher A',school_id:'s1',district_id:'d1'},allowed:['Teacher A']},
@@ -176,7 +216,9 @@ test('uploaded-document Excel and Word exports honor each role and use prose',as
         const reply=await processQuery(question,{supabase:mockDb(data),profile:person,userId:person.id});
         assert.equal(reply.attachments?.length,2,`${person.role}: ${reply.answer}`);
         const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(await reply.attachments.find(a=>a.fileName.endsWith('.xlsx')).blob.arrayBuffer());
-        const rows=JSON.stringify(workbook.worksheets[0].getSheetValues());
+        assert.ok(workbook.getWorksheet('Submission statuses'),person.role);
+        assert.ok(workbook.getWorksheet('Document types'),person.role);
+        const rows=JSON.stringify(workbook.getWorksheet('Uploaded documents').getSheetValues());
         for(const name of allowed)assert.match(rows,new RegExp(name),person.role);
         assert.doesNotMatch(rows,/Other-school|Teacher C/,person.role);
         const word=reply.attachments.find(a=>a.fileName.endsWith('.docx'));
@@ -297,6 +339,7 @@ test('school reports and compliance answers separate every saved upload status f
         assert.doesNotMatch(report.answer,/Other\.pdf|Teacher B|Salong Elementary School/);
         const compliance=await processQuery("What is my school's lesson plan compliance rate?",ctx);
         assert.match(compliance.answer,/5 total; 3 on time\/compliant, 1 late, 1 supplementary/);
+        assert.equal((compliance.answer.match(/Saved uploads/g)||[]).length,1);
         assert.match(compliance.answer,/supplementary uploads do not increase required lesson-plan completion/);
         const statuses=await processQuery("Show my school's uploaded documents by status this school year",ctx);
         assert.match(statuses.answer,/has 5 uploaded documents/);

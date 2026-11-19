@@ -52,8 +52,8 @@
 
     const roleSuggestions: Record<string, string[]> = {
         Teacher: [
-            "Create a report of my lesson plan compliance this school year",
-            "Create a Word report of my lesson plan compliance this school year in sentences",
+            "Create a submissions and compliance report for my records this school year",
+            "Create a Word report of my submissions this school year in sentences",
             "What is my lesson plan compliance rate?",
             "When is my next submission deadline?",
             "How do I upload a Daily Lesson Plan?",
@@ -64,7 +64,7 @@
         ],
         "Master Teacher": [
             "Create a report for my school this school year",
-            "Create an Excel compliance report for my school this school year",
+            "Create an Excel submissions and compliance report for my school this school year",
             "What is my school's lesson plan compliance rate?",
             "Show my school's uploaded documents by status this school year",
             "How many supplementary uploads does my school have this school year?",
@@ -73,7 +73,7 @@
             "How do I review a teacher's lesson plan?",
         ],
         Admin: [
-            "Create Excel and Word compliance reports this school year",
+            "Create Excel and Word submissions and compliance reports this school year",
             "Create an Excel report of uploaded documents this school year",
             "What are the tabs for each role?",
             "How does password reset work?",
@@ -81,7 +81,7 @@
         ],
         "School Head": [
             "Create a report for my school this school year",
-            "Create a Word compliance report for my school this school year",
+            "Create a Word submissions and compliance report for my school this school year",
             "What is my school's lesson plan compliance rate?",
             "Show my school's uploaded documents by status this school year",
             "How many supplementary uploads does my school have this school year?",
@@ -91,7 +91,7 @@
         ],
         "District Supervisor": [
             "Show total uploads this week by status",
-            "Create a Word report for my district this term",
+            "Create a Word submissions and compliance report for my district this term",
             "Compare schools in my district",
             "Show district compliance statistics",
             "Which schools have the lowest compliance?",
