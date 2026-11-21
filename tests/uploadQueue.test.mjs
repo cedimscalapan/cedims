@@ -96,6 +96,17 @@ test('a shared device shows and cancels only the signed-in account’s pending f
     assert.equal(await queue.getQueueSize('other'), 1);
 });
 
+test('offline metadata stays small and evicts older snapshots', async () => {
+    await queue.cacheMetadata('too-large', { text: 'x'.repeat(513 * 1024) });
+    assert.equal(await queue.getCachedMetadata('too-large'), undefined);
+    for (let i = 0; i < 8; i++) await queue.cacheMetadata(`summary-${i}`, { text: 'x'.repeat(450 * 1024) });
+    const saved = [...S.idb.entries()].filter(([key]) => key.startsWith('cached_metadata_'));
+    const bytes = saved.reduce((sum, [, value]) => sum + new TextEncoder().encode(JSON.stringify(value)).byteLength, 0);
+    assert.ok(bytes <= 3 * 1024 * 1024);
+    assert.equal(await queue.getCachedMetadata('summary-0'), undefined);
+    assert.ok(await queue.getCachedMetadata('summary-7'));
+});
+
 test('a queued file uploads by itself and leaves the queue', async () => {
     S.idb.set(KEY, makeItem());
     assert.deepEqual(await queue.processQueue(), { success: 1, failed: 0 });
