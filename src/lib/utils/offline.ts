@@ -380,7 +380,8 @@ export async function enqueue(item: QueueItem): Promise<void> {
     await updatePendingCount();
 }
 
-export async function getQueueSize(): Promise<number> {
+export async function getQueueSize(userId?: string): Promise<number> {
+    if (userId) return (await getQueuedUploads(userId)).length;
     const allKeys = await keys();
     return allKeys.filter((k: any) => String(k).startsWith(QUEUE_PREFIX)).length;
 }
@@ -407,22 +408,25 @@ export async function getQueueItems(): Promise<QueueItem[]> {
     return items.sort((a, b) => a.timestamp - b.timestamp);
 }
 
-export async function getQueuedUploads(): Promise<QueuedUploadSummary[]> {
+export async function getQueuedUploads(userId?: string): Promise<QueuedUploadSummary[]> {
     const allKeys = await keys();
     const queueKeys = allKeys.filter((k: any) => String(k).startsWith(QUEUE_PREFIX));
     const items: QueuedUploadSummary[] = [];
 
     for (const key of queueKeys) {
         const item = await get<QueueItem>(key);
-        if (item) items.push({ key: String(key), item });
+        if (item && (!userId || item.options.userId === userId)) items.push({ key: String(key), item });
     }
 
     return items.sort((a, b) => a.item.timestamp - b.item.timestamp);
 }
 
-export async function cancelQueuedUpload(queueKey: string): Promise<void> {
+export async function cancelQueuedUpload(queueKey: string, userId?: string): Promise<void> {
     if (!queueKey.startsWith(QUEUE_PREFIX)) {
         throw new Error('Invalid queued upload key.');
+    }
+    if (userId && (await get<QueueItem>(queueKey))?.options.userId !== userId) {
+        throw new Error('This queued upload belongs to another account.');
     }
     await del(queueKey);
     await updatePendingCount();

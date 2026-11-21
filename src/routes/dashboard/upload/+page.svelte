@@ -445,9 +445,11 @@
     });
 
     async function refreshPendingItems() {
-        queueCount = await getQueueSize();
+        const userId = $profile?.id;
+        queueCount = userId ? await getQueueSize(userId) : 0;
         if (queueCount > 0) {
-            const items = await getQueuedUploads();
+            const items = await getQueuedUploads(userId);
+            if ($profile?.id !== userId) return;
             pendingItems = items.map(({ key, item }) => ({
                 key,
                 fileName: item.fileName,
@@ -463,11 +465,12 @@
     }
 
     async function cancelPendingUpload(queueKey: string, fileName: string) {
+        if (!$profile) return;
         if (!confirm(`Cancel the local upload for "${fileName}"? This removes it from this device and it will stop retrying.`)) return;
         cancellingQueueKey = queueKey;
         try {
             const cancelled = pendingItems.find(item => item.key === queueKey);
-            await cancelQueuedUpload(queueKey);
+            await cancelQueuedUpload(queueKey, $profile.id);
             if (cancelled?.fileHash === awaitingArchive?.fileHash) {
                 awaitingArchive = null;
                 message = '';

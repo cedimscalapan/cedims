@@ -87,6 +87,15 @@ test('offline uploads stop at a small device storage limit without dropping earl
     assert.equal(await queue.getQueueSize(), 5);
 });
 
+test('a shared device shows and cancels only the signed-in account’s pending files', async () => {
+    await queue.enqueue(makeItem({ timestamp: 100 }));
+    await queue.enqueue(makeItem({ timestamp: 101, options: { ...makeItem().options, userId: 'other' } }));
+    assert.equal(await queue.getQueueSize('t'), 1);
+    assert.equal((await queue.getQueuedUploads('t')).length, 1);
+    await assert.rejects(queue.cancelQueuedUpload('sync_queue_101_abcdef12', 't'), /another account/);
+    assert.equal(await queue.getQueueSize('other'), 1);
+});
+
 test('a queued file uploads by itself and leaves the queue', async () => {
     S.idb.set(KEY, makeItem());
     assert.deepEqual(await queue.processQueue(), { success: 1, failed: 0 });

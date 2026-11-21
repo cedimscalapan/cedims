@@ -27,7 +27,7 @@
             fullName = $profile.full_name || "";
             avatarUrl = $profile.avatar_url || null;
         }
-        getQueueSize().then((c) => (queueCount = c));
+        if ($profile) getQueueSize($profile.id).then((c) => (queueCount = c));
 
         if ("Notification" in window) {
             pushEnabled = Notification.permission === "granted";
