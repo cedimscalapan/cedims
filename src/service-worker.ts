@@ -13,7 +13,7 @@ const CACHE = `cache-${version}`;
 // by the shell. School photos and other decorative images can load online.
 const ASSETS = [
     ...build,
-    ...files.filter((path) => /^(?:\/manifest\.json|\/favicon\.png|\/icon-192\.png|\/gabay-mascot\.svg)$/.test(path))
+    ...files.filter((path) => /^(?:\/manifest\.json|\/favicon\.png|\/icon-192\.png|\/app_icon\.png|\/gabay-mascot\.svg)$/.test(path))
 ];
 
 const OFFLINE_ROUTES = [
