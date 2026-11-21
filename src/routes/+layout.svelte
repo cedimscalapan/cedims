@@ -131,6 +131,12 @@
 		window.addEventListener("unhandledrejection", handleModuleRejection);
 
 		(async () => {
+			// Start the offline app install immediately. Waiting for the online
+			// session check can leave a first-time device without a worker.
+			if ('serviceWorker' in navigator && import.meta.env.PROD) {
+				void navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
+					.catch((error) => console.warn('Offline app setup will retry when connected:', error));
+			}
 			// Initialize auth first
 			try {
 				await initAuth();

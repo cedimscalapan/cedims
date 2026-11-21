@@ -52,18 +52,23 @@ function getTermPathSegment(docType: string, termNumber: number | undefined, wee
     return `Term_${term}`;
 }
 
-function runWorkerTask(worker: Worker, type: string, payload: any, transfer: Transferable[] = []): Promise<any> {
+function runWorkerTask(worker: Worker, type: string, payload: any, transfer: Transferable[] = [], timeoutMs = 20000): Promise<any> {
     return new Promise((resolve, reject) => {
         const id = Math.random().toString(36).substring(7);
+        const cleanup = () => { clearTimeout(timer); worker.removeEventListener('message', handler); worker.removeEventListener('error', onError); };
+        const onError = () => { cleanup(); reject(new Error('PDF verification worker failed.')); };
+        const timer = setTimeout(() => { cleanup(); reject(new Error('PDF verification worker timed out.')); }, timeoutMs);
         const handler = (e: MessageEvent) => {
             if (e.data.id === id) {
-                worker.removeEventListener('message', handler);
+                cleanup();
                 if (e.data.success) resolve(e.data.payload);
                 else reject(new Error(e.data.error));
             }
         };
         worker.addEventListener('message', handler);
-        worker.postMessage({ type, payload, id }, transfer);
+        worker.addEventListener('error', onError);
+        try { worker.postMessage({ type, payload, id }, transfer); }
+        catch (error) { cleanup(); reject(error); }
     });
 }
 
@@ -186,7 +191,7 @@ async function createSubmissionHash(contentHash: string, options: PipelineOption
 async function* runPipelineCore(
     file: File,
     options: PipelineOptions,
-    worker: Worker
+    worker: Worker | null
 ): AsyncGenerator<PipelineEvent & { _core?: CoreResult }> {
 
     // The verification hash identifies this archive event, not just the PDF
@@ -219,12 +224,20 @@ async function* runPipelineCore(
     yield { phase: 'stamping', progress: 70, message: 'Adding verification code...' };
     const { generateQrPng } = await import('./qr-stamp');
     const qrBytes = await generateQrPng(fileHash);
-    const { stampedBytes } = await runWorkerTask(
-        worker,
-        'STAMP_QR',
-        { compressedBytes: pdfBytes, qrBytes, fileHash },
-        [pdfBytes.buffer, qrBytes.buffer]
-    );
+    let stampedBytes: Uint8Array;
+    try {
+        if (!worker) throw new Error('PDF verification worker unavailable.');
+        const result = await runWorkerTask(worker, 'STAMP_QR',
+            { compressedBytes: pdfBytes, qrBytes, fileHash }, [qrBytes.buffer]);
+        stampedBytes = result.stampedBytes;
+    } catch {
+        // Some mobile browsers suspend workers under memory pressure. Keep the
+        // original bytes and finish the stamp on the main thread once.
+        worker?.terminate();
+        const { stampQrCode } = await import('./qr-stamp');
+        stampedBytes = await withTimeout(stampQrCode(pdfBytes, fileHash), 30000,
+            'Could not add the verification code on this device. Try a smaller PDF.');
+    }
 
     // The selected upload target is authoritative. OCR remains available for
     // mismatch warnings, but it must never silently redirect the archive slot.
@@ -568,7 +581,8 @@ export async function* runPipeline(
     options: PipelineOptions
 ): AsyncGenerator<PipelineEvent> {
     const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
-    const worker = new PdfWorker();
+    let worker: Worker | null = null;
+    try { worker = new PdfWorker(); } catch { /* Use the main-thread stamp fallback. */ }
 
     try {
         if (isWeeklyComplianceDocType(options.docType || 'DLL') && !options.teachingLoadId) {
@@ -618,6 +632,6 @@ export async function* runPipeline(
         const reason = err?.message || 'The upload could not be completed.';
         yield { phase: 'error', progress: 0, message: err instanceof DuplicateUploadError ? reason : redoMessage(reason) };
     } finally {
-        worker.terminate();
+        worker?.terminate();
     }
 }

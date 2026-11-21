@@ -65,7 +65,6 @@ async function fetchWithRetry(input: RequestInfo, init: RequestInit, attempts = 
 self.addEventListener('install', (event) => {
     async function addFilesToCache() {
         const cache = await caches.open(CACHE);
-        const missingCode: string[] = [];
 
         // Robust caching: try each asset individually (with retries) so one
         // persistently-failing asset doesn't kill the whole SW install, but
@@ -76,7 +75,6 @@ self.addEventListener('install', (event) => {
                 await cache.put(url, response);
             } catch (err) {
                 console.error(`[SW] Failed to cache asset after retries: ${url}`, err);
-                if (build.includes(url)) missingCode.push(url);
             }
         });
 
@@ -113,7 +111,7 @@ self.addEventListener('install', (event) => {
                 if (route === '/' || route === '/dashboard/upload') missingRoutes.push(route);
             }
         }));
-        if (missingCode.length || missingRoutes.length) {
+        if (missingRoutes.length) {
             throw new Error('Offline app setup is incomplete; retry installation when connected.');
         }
     }
@@ -199,6 +197,11 @@ self.addEventListener('fetch', (event) => {
                 throw new Error('Invalid response from fetch');
             }
 
+            // Fill gaps left by an interrupted install when the user visits a
+            // tab online. Otherwise a missing route chunk stays missing forever.
+            if (isLocal && ASSETS.includes(url.pathname) && response.ok) {
+                cache.put(event.request, response.clone());
+            }
             if (isLocal && event.request.mode === 'navigate' &&
                 OFFLINE_ROUTES.includes(url.pathname) && response.status === 200 &&
                 response.type !== 'opaqueredirect' &&

@@ -146,6 +146,13 @@
     let isOnline = $state(
         typeof navigator !== "undefined" ? navigator.onLine : true,
     );
+    async function checkConnection() {
+        if (!navigator.onLine) { isOnline = false; return; }
+        try {
+            const response = await fetch('/api/health', { cache: 'no-store', signal: AbortSignal.timeout(4000) });
+            isOnline = response.ok;
+        } catch { isOnline = false; }
+    }
     const isMobile = isMobileDevice();
     let pendingItems = $state<any[]>([]);
     let cancellingQueueKey = $state("");
@@ -366,6 +373,8 @@
     });
 
     onMount(() => {
+        void checkConnection();
+        const connectionTimer = window.setInterval(() => { void checkConnection(); }, 15000);
         trackerTarget = parseTrackerUploadTarget(new URLSearchParams(window.location.search));
         if (trackerTarget) {
             applyTrackerTarget();
@@ -375,9 +384,8 @@
         const warmTimer = window.setTimeout(() => { void preWarmLibraries(); }, 1500);
 
         const onOnline = () => {
-            isOnline = true;
+            void checkConnection().then(() => { if ($profile && isOnline && !processing) void fetchInitialData($profile); });
             refreshPendingItems();
-            if ($profile && !processing) void fetchInitialData($profile);
         };
         const onOffline = () => {
             isOnline = false;
@@ -435,6 +443,7 @@
             window.removeEventListener("cedims:refresh-visible-route", onRefresh);
             window.removeEventListener("cedims:upload-cancelled", onUploadCancelled);
             window.clearInterval(retryOptions);
+            window.clearInterval(connectionTimer);
             window.clearInterval(archiveTimer);
             window.clearTimeout(warmTimer);
             scanController?.abort();
@@ -1157,6 +1166,9 @@
 </svelte:head>
 
 <div class="mx-auto w-full max-w-5xl">
+    {#if !isOnline}
+        <p role="status" class="mb-5 rounded-lg border border-gov-gold/30 bg-gov-gold/10 p-4 text-sm font-semibold text-text-primary">Offline mode: Upload is available. Choose a PDF and confirm a saved teaching load and open week. The file stays on this device until the server confirms it after reconnecting. Pending storage is limited to 8 files or 20 MB.</p>
+    {/if}
     <!-- Header -->
     <div
         class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
@@ -1189,10 +1201,6 @@
                 </div>
             {/if}
         </div>
-
-        {#if !isOnline}
-            <p role="status" class="w-full rounded-lg border border-border-subtle bg-surface-muted p-3 text-sm text-text-secondary">Offline: select a PDF and confirm a saved teaching load and open week. The file will be kept on this device until a connection returns; it is not in the server archive yet. Up to 8 pending files or 20 MB can be kept here.</p>
-        {/if}
 
         {#if queueCount > 0}
             <div class="flex flex-col gap-2 w-full sm:w-auto">
