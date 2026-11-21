@@ -34,6 +34,11 @@ export const failedUploads = writable<FailedUpload[]>([]);
 const CACHE_PREFIX_DOCS = 'cached_docs_';
 const CACHE_PREFIX_HISTORY = 'cached_history_';
 const CACHE_PREFIX_METADATA = 'cached_metadata_';
+const METADATA_ENTRY_LIMIT = 512 * 1024;
+const METADATA_TOTAL_LIMIT = 3 * 1024 * 1024;
+const METADATA_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
+const MAX_PENDING_FILES = 8;
+const MAX_PENDING_BYTES = 20 * 1024 * 1024;
 const METADATA_REFRESH_MS = 10 * 60 * 1000;
 const HASH_REFRESH_MS = 30 * 60 * 1000;
 
@@ -82,10 +87,37 @@ export async function getCachedDashboardData(userId: string) {
  * Generic metadata caching for offline fallbacks.
  */
 export async function cacheMetadata(key: string, data: any) {
-    await set(`${CACHE_PREFIX_METADATA}${key}`, {
-        data: toCloneable(data),
-        timestamp: Date.now()
-    });
+    const entry = { data: toCloneable(data), timestamp: Date.now() };
+    const size = new TextEncoder().encode(JSON.stringify(entry)).byteLength;
+    if (size > METADATA_ENTRY_LIMIT) {
+        console.warn(`[offline] Skipping oversized snapshot: ${key}`);
+        return;
+    }
+    const ownKey = `${CACHE_PREFIX_METADATA}${key}`;
+    await set(ownKey, entry);
+    // Small, account-scoped snapshots only. Old snapshots are discarded, and
+    // pending PDF files are stored separately so they cannot be evicted here.
+    const entries: { key: string; size: number; timestamp: number }[] = [];
+    const metadataKeys = (await keys()).filter(candidate => String(candidate).startsWith(CACHE_PREFIX_METADATA));
+    const metadataValues = await Promise.all(metadataKeys.map(candidate => get<{ data: unknown; timestamp: number }>(candidate)));
+    for (let index = 0; index < metadataKeys.length; index++) {
+        const candidate = metadataKeys[index];
+        const name = String(candidate);
+        const value = metadataValues[index];
+        if (!value) continue;
+        const timestamp = Number(value.timestamp || 0);
+        if (name !== ownKey && Date.now() - timestamp > METADATA_MAX_AGE) {
+            await del(candidate);
+            continue;
+        }
+        entries.push({ key: name, size: new TextEncoder().encode(JSON.stringify(value)).byteLength, timestamp });
+    }
+    let total = entries.reduce((sum, item) => sum + item.size, 0);
+    for (const item of entries.filter(item => item.key !== ownKey).sort((a, b) => a.timestamp - b.timestamp)) {
+        if (total <= METADATA_TOTAL_LIMIT) break;
+        await del(item.key);
+        total -= item.size;
+    }
 }
 
 /**
@@ -321,6 +353,11 @@ export interface QueuedUploadSummary {
 }
 
 export async function enqueue(item: QueueItem): Promise<void> {
+    const existing = await getQueuedUploads();
+    const pendingBytes = existing.reduce((sum, queued) => sum + queued.item.fileSize, 0);
+    if (existing.length >= MAX_PENDING_FILES || pendingBytes + item.fileSize > MAX_PENDING_BYTES) {
+        throw new Error('This device has reached its offline upload limit (8 files or 20 MB). Reconnect and let pending files sync before adding another.');
+    }
     const shortHash = item.fileHash.slice(0, 8);
 
     // Resilience: Workers often return SharedArrayBuffer which CANNOT be stored in IndexedDB.

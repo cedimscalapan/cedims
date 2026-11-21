@@ -62,6 +62,10 @@
                 if (request !== run) return;
                 if (cached?.data) { data = cached.data; cachedAt = cached.data.savedAt; loading = false; }
             }
+            if (!navigator.onLine) {
+                if (!data) error = 'No compliance summary has been saved on this device yet. Reconnect once to view it offline.';
+                return;
+            }
             const schools = await fetchAllRows<Snapshot['schools'][number]>(() => {
                 let q = supabase.from('schools').select('id, name, district_id').order('id');
                 if (user.role !== 'District Supervisor' && user.role !== 'Admin') q = q.eq('id', user.school_id || '00000000-0000-0000-0000-000000000000');

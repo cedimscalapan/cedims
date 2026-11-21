@@ -272,6 +272,7 @@
             const summaryRows: (string | number)[][] = [
                 ['Expected requirements', summary.expected], ['Submitted', summary.submitted],
                 ['Missing DLLs', summary.missing], ['Upcoming', summary.upcoming],
+                ['On leave / excluded', summary.onLeave], ['Leave requests pending review', summary.leavePending],
                 ['Late submissions', summary.late], ['For checking', summary.forChecking],
                 ['Checked', summary.checked], ['Completion', summary.rate === null ? 'N/A' : `${summary.rate}%`],
                 ['Saved files', savedSummary.total], ['Supplementary files', savedSummary.supplementary],
@@ -280,11 +281,11 @@
             const peopleHeaders = districtOverview
                 ? ['School', 'Missing DLLs', 'For checking', 'Checked', 'Completion', 'Attention']
                 : ['Teacher', 'Missing DLLs', 'For checking', 'Checked', 'Completion', 'Attention', 'Cluster'];
-            const peopleRows = districtOverview ? rankedSchools.map(item => {
+            const peopleRows = districtOverview ? [...schoolRows].sort((a, b) => a.name.localeCompare(b.name)).map(item => {
                 const rows = scoped.filter(r => teachers.find(t => t.id === r.teacherId)?.school_id === item.id);
                 const totals = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForSchool(item.id), reviews) };
                 return [item.name, totals.missing, totals.forChecking, totals.checked, totals.rate === null ? 'N/A' : `${totals.rate}%`, riskReason(rows)];
-            }) : selectedTeacher ? [] : sortedTeachers.map(item => {
+            }) : selectedTeacher ? [] : [...scopedTeachers].sort((a, b) => a.full_name.localeCompare(b.full_name)).map(item => {
                 const rows = scoped.filter(r => r.teacherId === item.id);
                 const totals = { ...summarizeRequirements(rows), ...summarizeSubmissionReviews(submissionsForTeacher(item.id), reviews) };
                 return [item.full_name, totals.missing, totals.forChecking, totals.checked, totals.rate === null ? 'N/A' : `${totals.rate}%`, riskReason(rows), clusterLabelFor(item.id)];
@@ -306,10 +307,10 @@
             const paragraphs = [
                 `This report covers ${scopeLabel} for ${periodLabel}. It reflects the requirements and submissions available in CEDIMS at the time of export.`,
                 `Of ${summary.expected} expected lesson plan submissions, ${summary.submitted} were submitted. The completion rate is ${summary.rate === null ? 'not applicable' : `${summary.rate}%`}.`,
-                `${summary.missing} requirements are missing, ${summary.upcoming} are upcoming, and ${summary.late} submissions were late. ${summary.forChecking} submissions await checking and ${summary.checked} have been checked.`,
-                `There are ${savedSummary.total} saved files in this scope. File statuses are ${savedSummary.statusRows.map(row => `${row.label}: ${row.count}`).join('; ')}. Missing requirements are listed separately from saved files.`,
+                `${summary.missing} ${summary.missing === 1 ? 'requirement is' : 'requirements are'} missing, ${summary.upcoming} are upcoming, ${summary.onLeave} are excluded by approved leave, and ${summary.late} submissions were late. ${summary.forChecking} submissions await checking and ${summary.checked} have been checked.`,
+                `There are ${savedSummary.total} saved files in this scope. Stored file statuses are ${savedSummary.statusRows.map(row => `${row.label}: ${row.count}`).join('; ')}. The deadline-based compliance figures above are recalculated using the current calendar and approved leave, so they can differ from stored file labels. Missing requirements are listed separately from saved files.`,
                 `Document types are ${savedSummary.typeRows.map(row => `${row.type}: ${row.count}`).join('; ')}. Among reviewable lesson-plan files, ${savedSummary.checked} are checked and ${savedSummary.forChecking} are for checking.`,
-                ...peopleRows.map(row => `${row[0]} has ${row[1]} missing DLLs, ${row[2]} submissions awaiting checking, and ${row[3]} checked submissions. Completion is ${row[4]}.`),
+                ...peopleRows.map(row => `${row[0]} has ${row[1]} missing ${row[1] === 1 ? 'DLL' : 'DLLs'}, ${row[2]} submissions awaiting checking, and ${row[3]} checked submissions. Completion is ${row[4]}.`),
             ];
             const options = {
                 fileName, title: 'CEDIMS Submissions and Compliance Report',
@@ -319,7 +320,7 @@
                 tables: [
                     { title: 'Summary', headers: ['Measure', 'Value'], rows: summaryRows },
                     ...(selectedTeacher ? [] : [{ title: districtOverview ? 'Schools' : 'Teachers', headers: peopleHeaders, rows: peopleRows }]),
-                    { title: 'Saved upload statuses', headers: ['Status', 'Files'], rows: savedSummary.statusRows.map(row => [row.label, row.count]), totalsRow: ['Total saved', savedSummary.total] },
+                    { title: 'Stored file statuses', headers: ['Status', 'Files'], rows: savedSummary.statusRows.map(row => [row.label, row.count]), totalsRow: ['Total saved', savedSummary.total] },
                     { title: 'Document types', headers: ['Type', 'Files'], rows: savedSummary.typeRows.map(row => [row.type, row.count]), totalsRow: ['Total saved', savedSummary.total] },
                     { title: 'Review statuses', headers: ['Review status', 'Files'], rows: [['Checked', savedSummary.checked], ['For checking', savedSummary.forChecking], ['Not applicable', savedSummary.notApplicable]], totalsRow: ['Total saved', savedSummary.total] },
                     { title: 'Saved upload details', headers: ['File', 'Uploader', 'School', 'Subject', 'Type', 'Submission status', 'Review status', 'Term', 'Week', 'Submitted (Philippines)'], rows: uploadRows },

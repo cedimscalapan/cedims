@@ -79,6 +79,14 @@ beforeEach(() => {
 });
 const notices = () => [...S.idb.keys()].filter(key => key.startsWith('sync_failed_'));
 
+test('offline uploads stop at a small device storage limit without dropping earlier files', async () => {
+    for (let i = 0; i < 5; i++) {
+        await queue.enqueue(makeItem({ timestamp: 100 + i, fileSize: 4 * 1024 * 1024 }));
+    }
+    await assert.rejects(queue.enqueue(makeItem({ timestamp: 106, fileSize: 1 })), /20 MB/);
+    assert.equal(await queue.getQueueSize(), 5);
+});
+
 test('a queued file uploads by itself and leaves the queue', async () => {
     S.idb.set(KEY, makeItem());
     assert.deepEqual(await queue.processQueue(), { success: 1, failed: 0 });

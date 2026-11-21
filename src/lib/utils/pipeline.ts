@@ -205,12 +205,13 @@ async function* runPipelineCore(
 
     // Analyzing (OCR): uses the converted PDF bytes, not the original file.
     yield { phase: 'analyzing', progress: 30, message: 'Reading your document...' };
-    const { extractMetadata } = await import('./ocr');
+    const { extractMetadata, createDefaultMetadata } = await import('./ocr');
     const ocrFile = file;
     // A completed scan with no recognized text is still a completed scan.
     // Manual confirmation must not trigger the same unavailable OCR again.
     const hasPreDetected = options.preDetectedMetadata != null;
-    const detectedMetadata = hasPreDetected ? options.preDetectedMetadata : await extractMetadata(ocrFile);
+    const detectedMetadata = hasPreDetected ? options.preDetectedMetadata :
+        typeof navigator !== 'undefined' && !navigator.onLine ? createDefaultMetadata() : await extractMetadata(ocrFile);
 
     yield { phase: 'compressing', progress: 50, message: 'Securing your file...' };
 

@@ -39,7 +39,7 @@ async function scopedSavedUploads(db:any,schools:RecordRow[],year:string,request
         return true;
     });
     const reviewableIds=selected.filter(row=>savedReviewStatus(row)!=='Not applicable').map(row=>row.id);
-    const reviews=await rowsForIds(db,'document_review_current','id,submission_id,status','submission_id',reviewableIds);
+    const reviews=await rowsForIds(db,'dll_reviews','id,submission_id,status,reviewer_comment','submission_id',reviewableIds);
     const reviewById=new Map(reviews.map(review=>[review.submission_id,review]));
     const detailed:RecordRow[]=selected.map(row=>({
         ...row,uploader:people.get(row.user_id)?.full_name||'User',school:schoolNames.get(people.get(row.user_id)?.school_id)||'School',
@@ -224,15 +224,13 @@ export async function createChatReport(db:any,profile:Profile|undefined|null,use
             rowsForIds(db,'submission_leave_requests','*','user_id',[...new Set(loads.map(l=>l.user_id))],year)
         ]);
         const weekly=submissions.filter(s=>['DLL','DLP'].includes(s.doc_type));
-        const reviews=await rowsForIds(db,'document_review_current','id,submission_id,status,comment','submission_id',weekly.map(s=>s.id));
+        const reviews=await rowsForIds(db,'dll_reviews','id,submission_id,status,reviewer_comment','submission_id',weekly.map(s=>s.id));
         const requirements=teachers.flatMap(t=>{
             const school=schools.find(s=>s.id===t.school_id);
             return buildRequirements(loads.filter(l=>l.user_id===t.id).map(l=>({...l,school_name:school?.name})) as any,
                 scopedCalendar(calendar as CalendarSlot[],school?.district_id),
-                weekly.filter(s=>s.user_id===t.id) as any,[],Date.now(),leaves.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))) as any);
+                weekly.filter(s=>s.user_id===t.id) as any,reviews as any,Date.now(),leaves.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))) as any);
         }).filter(row=>(!r.term||row.calendar.term===r.term)&&(!r.week||row.calendar.week_number===r.week));
-        // Shared review status is authoritative even when a checked document has an empty remark.
-        for(const row of requirements){if(row.submission){const review=reviews.find(v=>v.submission_id===row.submission!.id);row.review=review?.status==='checked'?'checked':'for-checking';}}
         const snapshot=makeReportSnapshot(requirements,teachers,schools,r);
         const savedUploads=await scopedSavedUploads(db,schools,year,r,calendar,loadIds,
             profile.role==='Teacher'||r.scope==='self'?userId:undefined);

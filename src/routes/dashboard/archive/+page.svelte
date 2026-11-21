@@ -93,6 +93,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
     let teachersMap = $state<Record<string, { label: string; avatar_url: string | null }>>({});
     let loading = $state(true);
     let loadError = $state<string | null>(null);
+    let offlineView = $state(false);
     let searchQuery = $state("");
     let currentPage = $state(1);
     let folderPage = $state(1);
@@ -369,10 +370,11 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         const currentSchoolYear = getCurrentSchoolYear();
         // Offline: restore cached archive view
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            offlineView = true;
             const cached = await getCachedMetadata(`archive_state_${role}_${userProfile.id}`);
             if (cached?.data) {
                 if (runId !== loadRun) return;
-                allSubmissions = cached.data.submissions || [];
+                allSubmissions = (cached.data.submissions || []).slice(0, 40);
                 schoolsMap = cached.data.schoolsMap || {};
                 teachersMap = cached.data.teachersMap || {};
                 reviewsMap = cached.data.reviewsMap || {};
@@ -382,6 +384,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
             loadError = "You are offline and no cached archive is available on this device yet.";
             return;
         }
+        offlineView = false;
 
         try {
 
@@ -659,11 +662,13 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
 
         // â"€â"€ Cache finalized state for offline viewing ─â"€
         try {
+            const recent = [...allSubmissions].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 40);
+            const ids = new Set(recent.map(item => item.id));
             await cacheMetadata(`archive_state_${role}_${userProfile.id}`, {
-                submissions: allSubmissions,
+                submissions: recent,
                 schoolsMap,
                 teachersMap,
-                reviewsMap,
+                reviewsMap: Object.fromEntries(Object.entries(reviewsMap).filter(([id]) => ids.has(id))),
             });
         } catch (e) {
             console.warn("[archive] Failed to cache archive state:", e);
@@ -1263,6 +1268,8 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
             </div>
         </div>
     </section>
+
+    {#if offlineView && !loadError}<p role="status" class="mb-4 rounded-lg border border-border-subtle bg-surface-muted p-3 text-sm text-text-secondary">Offline: showing up to 40 recent records saved on this device. Counts and search cover these saved records only. Connect for the complete archive.</p>{/if}
 
     <!-- Content -->
     {#if loading}

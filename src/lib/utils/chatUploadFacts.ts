@@ -4,7 +4,7 @@ import {submissionTerm,type CalendarSlot} from './compliance';
 import {normalizeReportName,resolveReportPeriod,type ReportRequest} from './reportRequest';
 import type {ChatDataPlan} from './chatQueryPlan';
 import type {ChatContext} from './chatbot';
-import {summarizeSavedReportRows} from './submissionReport';
+import {savedReviewStatus,summarizeSavedReportRows} from './submissionReport';
 
 export async function answerUploadFacts(plan:ChatDataPlan,ctx:ChatContext|undefined,lang:'en'|'tl'){
     if(plan.operation==='queue')return {answer:lang==='tl'?'Hindi pa successful uploads ang mga queued o syncing na file. Tingnan ang Upload para sa pending sync. Maaari kong bilangin ang confirmed records sa Archives.':'Queued or syncing files are not confirmed uploads yet. Check Upload for pending sync. I can count the confirmed records saved in Archives.'};
@@ -59,9 +59,9 @@ export async function answerUploadFacts(plan:ChatDataPlan,ctx:ChatContext|undefi
         if(plan.metric==='supplementary')matches=selected.filter(r=>['supplementary','extra'].includes(r.compliance_status));
         if(plan.metric==='checked'||plan.metric==='for-checking'){
             const reviews:Record<string,any>[]=[];
-            for(let i=0;i<selected.length;i+=100)reviews.push(...await readReportRows(()=>db.from('document_review_current').select('id,submission_id,status,comment').in('submission_id',selected.slice(i,i+100).map(r=>r.id)).order('id')));
-            const checked=new Set(reviews.filter(r=>r.status==='checked').map(r=>r.submission_id));
-            matches=selected.filter(r=>plan.metric==='checked'?checked.has(r.id):!checked.has(r.id));
+            for(let i=0;i<selected.length;i+=100)reviews.push(...await readReportRows(()=>db.from('dll_reviews').select('id,submission_id,status,reviewer_comment').in('submission_id',selected.slice(i,i+100).map(r=>r.id)).order('id')));
+            const byId=new Map(reviews.map(review=>[review.submission_id,review]));
+            matches=selected.filter(row=>savedReviewStatus(row,byId.get(row.id))===(plan.metric==='checked'?'Checked':'For checking'));
         }
         const period=[`School Year ${year}`,request.term?`Term ${request.term}`:'all terms',request.week?`Week ${request.week}`:'all weeks',request.subject,request.grade,requestedType].filter(Boolean).join(' · ');
         const schoolNames=schools.map(s=>s.name).join(', ');

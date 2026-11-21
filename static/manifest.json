@@ -92,26 +92,6 @@
       "description": "Verify document authenticity via QR code"
     }
   ],
-  "share_target": {
-    "action": "/dashboard/upload",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "files": [
-        {
-          "name": "shared_file",
-          "accept": [
-            ".pdf",
-            ".doc",
-            ".docx",
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          ]
-        }
-      ]
-    }
-  },
   "file_handlers": [
     {
       "action": "/dashboard/upload",

@@ -2,6 +2,7 @@
     import { supabase } from "$lib/utils/supabase";
     import { profile } from "$lib/utils/auth";
     import { addToast } from "$lib/stores/toast";
+    import { cacheMetadata, getCachedMetadata } from "$lib/utils/offline";
     import SkeletonLoader from "$lib/components/SkeletonLoader.svelte";
     import PaginationBar from "$lib/components/PaginationBar.svelte";
     import { onMount } from "svelte";
@@ -17,6 +18,7 @@
     let loads = $state<TeachingLoad[]>([]);
     let loading = $state(true);
     let loadError = $state<string | null>(null);
+    let offlineView = $state(false);
     let showModal = $state(false);
     let editingId = $state<string | null>(null);
     let gradeLevel = $state("Grade 1");
@@ -39,6 +41,7 @@
     ];
 
     async function loadSubjectsByGrade(grade: string) {
+        if (!navigator.onLine) return;
         const { data } = await supabase
             .from("curriculum_subjects")
             .select("subject")
@@ -49,7 +52,7 @@
 
     onMount(async () => {
         await loadTeachingLoads();
-        await loadSubjectsByGrade("Grade 1");
+        if (navigator.onLine) await loadSubjectsByGrade("Grade 1");
         loading = false;
     });
 
@@ -58,6 +61,14 @@
         if (!user?.id) return;
 
         loadError = null;
+        if (!navigator.onLine) {
+            offlineView = true;
+            const saved = await getCachedMetadata(`teaching_loads_${user.id}`);
+            loads = Array.isArray(saved?.data) ? saved.data : [];
+            if (!saved) loadError = 'No teaching loads have been saved on this device yet. Reconnect once to prepare offline upload.';
+            return;
+        }
+        offlineView = false;
         const { data, error } = await supabase
             .from("teaching_loads")
             .select("*")
@@ -87,9 +98,11 @@
         }
 
         loads = fetchedLoads.map((load) => ({ ...load, is_active: true }));
+        await cacheMetadata(`teaching_loads_${user.id}`, loads.map(({ id, subject, grade_level, is_active }) => ({ id, subject, grade_level, is_active })));
     }
 
     function openAdd() {
+        if (offlineView) return;
         editingId = null;
         gradeLevel = "Grade 1";
         subject = "";
@@ -100,6 +113,7 @@
     }
 
     function openEdit(load: TeachingLoad) {
+        if (offlineView) return;
         editingId = load.id;
         gradeLevel = load.grade_level;
         subject = load.subject;
@@ -110,6 +124,7 @@
     }
 
     async function handleSave() {
+        if (offlineView) return;
         if (!subject.trim()) {
             addToast("warning", "Please enter a subject");
             return;
@@ -151,6 +166,7 @@
     }
 
     async function handleDelete(id: string) {
+        if (offlineView) return;
         if (!confirm("Are you sure you want to remove this teaching load?"))
             return;
         await supabase.from("teaching_loads").delete().eq("id", id);
@@ -191,6 +207,7 @@
         </div>
         <button
             onclick={openAdd}
+            disabled={offlineView}
             class="px-4 py-2.5 bg-gov-blue text-white text-xs font-bold uppercase tracking-normal rounded-lg shadow-sm hover:shadow-gov-blue/20 transition-colors flex items-center gap-2 group"
         >
             <Plus
@@ -200,6 +217,8 @@
             Add New Load
         </button>
     </div>
+
+    {#if offlineView}<p role="status" class="rounded-lg border border-border-subtle bg-surface-muted p-3 text-sm text-text-secondary">Offline: showing teaching loads saved on this device. Connect to add or change a load.</p>{/if}
 
     {#if loading}
         <SkeletonLoader variant="card-grid" count={4} />
@@ -235,6 +254,7 @@
             </p>
             <button
                 onclick={openAdd}
+                disabled={offlineView}
                 class="mt-8 px-8 py-3 bg-gov-blue text-white text-xs font-bold uppercase tracking-normal rounded-xl shadow-md hover:bg-gov-blue-dark transition-colors"
             >
                 Add teaching load
@@ -277,6 +297,7 @@
                         <div class="flex items-center gap-1">
                             <button
                                 onclick={() => openEdit(load)}
+                                disabled={offlineView}
                                 class="p-2 text-text-muted hover:text-gov-blue hover:bg-gov-blue/5 rounded-lg transition-colors"
                                 aria-label="Edit Load"
                                 title="Edit Load"
@@ -285,6 +306,7 @@
                             </button>
                             <button
                                 onclick={() => handleDelete(load.id)}
+                                disabled={offlineView}
                                 class="p-2 text-text-muted hover:text-gov-red hover:bg-gov-red/5 rounded-lg transition-colors"
                                 aria-label="Delete Load"
                                 title="Delete Load"

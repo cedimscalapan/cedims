@@ -1,4 +1,5 @@
 /** Saved-file facts for reports. Missing requirements are reported separately. */
+import { hasRemarks } from './compliance';
 export type SavedReportRow = {
     id?: string;
     doc_type?: string | null;
@@ -15,11 +16,11 @@ export function savedStatusLabel(status: string): string {
     return name ? name[0].toUpperCase() + name.slice(1) : 'Unspecified';
 }
 
-export function savedReviewStatus(row: SavedReportRow, review?: { status?: string | null }): 'Checked' | 'For checking' | 'Not applicable' {
+export function savedReviewStatus(row: SavedReportRow, review?: { status?: string | null; reviewer_comment?: string | null }): 'Checked' | 'For checking' | 'Not applicable' {
     const type = (row.doc_type || '').toUpperCase();
     const status = (row.compliance_status || '').toLowerCase();
     if (!['DLL', 'DLP'].includes(type) || !reviewableStatuses.has(status)) return 'Not applicable';
-    return review?.status === 'checked' ? 'Checked' : 'For checking';
+    return hasRemarks(review?.reviewer_comment) ? 'Checked' : 'For checking';
 }
 
 export function summarizeSavedReportRows(rows: SavedReportRow[]) {

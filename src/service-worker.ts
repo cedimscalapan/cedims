@@ -9,9 +9,18 @@ import { PDFJS_VERSION } from '$lib/utils/pdfjsVersion';
 // ─── Cache Configuration ───────────────────────────────────────
 const CACHE = `cache-${version}`;
 
+// Keep route code available offline, but only keep the small static files used
+// by the shell. School photos and other decorative images can load online.
 const ASSETS = [
-    ...build, // the app itself (JS, CSS, etc.)
-    ...files  // everything in `static`
+    ...build,
+    ...files.filter((path) => /^(?:\/manifest\.json|\/favicon\.png|\/icon-192\.png|\/gabay-mascot\.svg)$/.test(path))
+];
+
+const OFFLINE_ROUTES = [
+    '/', '/dashboard', '/dashboard/upload', '/dashboard/archive',
+    '/dashboard/compliance', '/dashboard/load', '/dashboard/settings',
+    '/dashboard/admin', '/dashboard/monitoring/district',
+    '/dashboard/monitoring/school'
 ];
 
 // ocr.ts loads pdf.js from this CDN at runtime rather than bundling it, so
@@ -56,6 +65,7 @@ async function fetchWithRetry(input: RequestInfo, init: RequestInit, attempts = 
 self.addEventListener('install', (event) => {
     async function addFilesToCache() {
         const cache = await caches.open(CACHE);
+        const missingCode: string[] = [];
 
         // Robust caching: try each asset individually (with retries) so one
         // persistently-failing asset doesn't kill the whole SW install, but
@@ -66,6 +76,7 @@ self.addEventListener('install', (event) => {
                 await cache.put(url, response);
             } catch (err) {
                 console.error(`[SW] Failed to cache asset after retries: ${url}`, err);
+                if (build.includes(url)) missingCode.push(url);
             }
         });
 
@@ -83,15 +94,27 @@ self.addEventListener('install', (event) => {
 
         await Promise.all([...promises, ...thirdPartyPromises]);
 
-        // Pre-cache the app shell (root page) for offline navigation.
-        // This is the SvelteKit app shell that the client-side router needs.
-        try {
-            const rootResponse = await fetchWithRetry('/', NAVIGATION_FETCH_INIT);
-            if (rootResponse.ok && rootResponse.type !== 'opaqueredirect') {
-                await cache.put('/', rootResponse);
+        // Direct links and PWA shortcuts must work even if this is the first
+        // offline launch. Only these generic client-rendered shells are kept;
+        // responses containing account data are never cached here.
+        const missingRoutes: string[] = [];
+        await Promise.all(OFFLINE_ROUTES.map(async (route) => {
+            try {
+                const response = await fetchWithRetry(route, NAVIGATION_FETCH_INIT);
+                if (response.ok && response.type !== 'opaqueredirect' &&
+                    new URL(response.url).origin === self.location.origin &&
+                    new URL(response.url).pathname === route) {
+                    await cache.put(route, response);
+                } else if (route === '/' || route === '/dashboard/upload') {
+                    missingRoutes.push(route);
+                }
+            } catch (error) {
+                console.warn(`[SW] Offline route unavailable: ${route}`, error);
+                if (route === '/' || route === '/dashboard/upload') missingRoutes.push(route);
             }
-        } catch (e) {
-            console.warn('[SW] Failed to pre-cache app shell after retries:', e);
+        }));
+        if (missingCode.length || missingRoutes.length) {
+            throw new Error('Offline app setup is incomplete; retry installation when connected.');
         }
     }
 
@@ -108,7 +131,7 @@ self.addEventListener('message', (event) => {
 self.addEventListener('activate', (event) => {
     async function deleteOldCaches() {
         for (const key of await caches.keys()) {
-            if (key !== CACHE) await caches.delete(key);
+            if (key.startsWith('cache-') && key !== CACHE) await caches.delete(key);
         }
     }
 
@@ -135,11 +158,7 @@ self.addEventListener('fetch', (event) => {
     if (isLocal && url.pathname.startsWith('/auth/')) return;
 
     // Critical Third-Party Assets (CDNs) that we WANT to cache for mobile efficiency
-    const isCriticalThirdParty =
-        url.hostname.includes('cdnjs.cloudflare.com') ||
-        url.hostname.includes('fonts.googleapis.com') ||
-        url.hostname.includes('fonts.gstatic.com') ||
-        url.hostname.includes('unpkg.com');
+    const isCriticalThirdParty = THIRD_PARTY_PRECACHE.includes(url.href);
 
     // Never replace external API failures (especially Supabase) with the
     // service worker's synthetic 503 Offline response. Let the browser and
@@ -180,16 +199,11 @@ self.addEventListener('fetch', (event) => {
                 throw new Error('Invalid response from fetch');
             }
 
-            // Cache successful local navigations too, not just static
-            // assets. This app has no +page.server.ts/+layout.server.ts
-            // embedding per-user data into the server-rendered HTML for any
-            // dashboard route — the shell is generic and all personalization
-            // happens client-side after hydration — so caching it here is
-            // safe. Without this, a route other than "/" had nothing of its
-            // own to fall back to when offline, so it always fell back to
-            // the cached landing page instead, showing the wrong page
-            // entirely for a URL like /dashboard/upload.
-            if (isLocal && response.status === 200 && response.type !== 'opaqueredirect') {
+            if (isLocal && event.request.mode === 'navigate' &&
+                OFFLINE_ROUTES.includes(url.pathname) && response.status === 200 &&
+                response.type !== 'opaqueredirect' &&
+                new URL(response.url).origin === self.location.origin &&
+                new URL(response.url).pathname === url.pathname) {
                 cache.put(event.request, response.clone());
             }
 

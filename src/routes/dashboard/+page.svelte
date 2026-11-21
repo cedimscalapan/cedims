@@ -226,19 +226,20 @@
 
     function snapshotDashboard(): DashboardSnapshot {
         return {
-            submissions,
-            weeklyData,
+            submissions: submissions.slice(0, 30),
+            weeklyData: weeklyData.slice(-16),
             complianceStats,
             teachingLoadsCount,
             activeTeachingLoads,
-            academicCalendar,
-            leaveRequests,
-            recentActivity,
-            archiveMetricItems,
+            academicCalendar: academicCalendar.slice(-60),
+            leaveRequests: leaveRequests.slice(0, 20),
+            recentActivity: recentActivity.slice(0, 20),
+            archiveMetricItems: archiveMetricItems.slice(0, 20),
             stats,
-            teacherCompliance,
-            awaitingReview,
-            schoolStandings, schoolTeachers, schoolLoads, schoolSubmissions,
+            teacherCompliance: teacherCompliance.slice(0, 60),
+            awaitingReview: awaitingReview.slice(0, 20),
+            schoolStandings: schoolStandings.slice(0, 30),
+            schoolTeachers: schoolTeachers.slice(0, 60), schoolLoads: schoolLoads.slice(0, 60), schoolSubmissions: schoolSubmissions.slice(0, 30),
         };
     }
 

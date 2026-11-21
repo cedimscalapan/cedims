@@ -42,10 +42,6 @@
     import { effectiveDeadlineForSubject } from "$lib/utils/deadlineRules";
     import { requestUploadTargets, requestUploadTargetsReliably, openUploadTargets, preserveUploadPeriod, parseTrackerUploadTarget, type TrackerUploadTarget } from "$lib/utils/uploadTargets";
 
-    import type { PageData } from "./$types";
-
-    let { data } = $props<{ data: PageData }>();
-
     interface TeachingLoad {
         id: string;
         subject: string;
@@ -485,16 +481,6 @@
         }
     }
 
-    // Handle shared file from the server-side hint (Share Target)
-    $effect(() => {
-        if (data.sharedFile?.isShared) {
-            addToast(
-                "info",
-                `Received shared file: ${data.sharedFile.name}. Please confirm your selection below.`,
-            );
-        }
-    });
-
     let dataLoadedForProfile = $state<string | null>(null);
 
     $effect(() => {
@@ -853,7 +839,12 @@
         detectingMetadata = true;
         scanProgress = 5;
         try {
-            const metadata = await extractMetadata(file, { signal: controller.signal });
+            // Offline upload must never wait for an OCR language pack that may
+            // not have been downloaded on this device. Filename hints and the
+            // saved target list still support full manual confirmation.
+            const metadata = navigator.onLine
+                ? await extractMetadata(file, { signal: controller.signal })
+                : createDefaultMetadata();
             if (!isCurrentScan()) return;
             scannedDocument = { file, metadata };
             if (loadingTeachingLoads || !$profile) {
@@ -1196,6 +1187,10 @@
             {/if}
         </div>
 
+        {#if !isOnline}
+            <p role="status" class="w-full rounded-lg border border-border-subtle bg-surface-muted p-3 text-sm text-text-secondary">Offline: select a PDF and confirm a saved teaching load and open week. The file will be kept on this device until a connection returns; it is not in the server archive yet. Up to 8 pending files or 20 MB can be kept here.</p>
+        {/if}
+
         {#if queueCount > 0}
             <div class="flex flex-col gap-2 w-full sm:w-auto">
                 <div
@@ -1216,13 +1211,7 @@
                                 class="relative inline-flex rounded-full h-2 w-2 bg-gov-gold"
                             ></span>
                         </span>
-                        <!-- Worded as ongoing rather than "pending sync": an
-                             upload that fell back to the background queue is
-                             reported to the teacher as archived, so a label
-                             implying it had not been submitted contradicted
-                             that. It still surfaces the real state — the file
-                             is finishing — without framing it as a failure. -->
-                        {queueCount} file{queueCount > 1 ? "s" : ""} finishing in background
+                        {queueCount} file{queueCount > 1 ? "s" : ""} waiting for server confirmation
                     </div>
                     <div class="flex items-center gap-2">
                         <svg
@@ -1242,7 +1231,7 @@
                     </div>
                 </div>
                 <p class="px-1 text-xs font-medium text-text-muted" role="status">
-                    {isOnline ? "Uploading by itself. You can keep working." : "Starts by itself when the internet returns."}
+                    {isOnline ? "Syncing now. Keep this app available until the server confirms each file." : "Saved on this device. Sync starts when the internet returns."}
                 </p>
                 {#if showPendingPanel && pendingItems.length > 0}
                     <div
