@@ -17,7 +17,7 @@ const ASSETS = [
 ];
 
 const OFFLINE_ROUTES = [
-    '/', '/dashboard', '/dashboard/upload', '/dashboard/archive',
+    '/', '/dashboard', '/dashboard/offline', '/dashboard/upload', '/dashboard/archive',
     '/dashboard/compliance', '/dashboard/load', '/dashboard/settings',
     '/dashboard/admin', '/dashboard/monitoring/district',
     '/dashboard/monitoring/school'

@@ -12,6 +12,8 @@
     import { settings } from "$lib/stores/settings";
     import { theme } from "$lib/stores/theme";
     import { connectivity } from "$lib/stores/connectivity";
+    import { page } from '$app/stores';
+    const { isOnline: serverOnline } = connectivity;
     import { goto } from "$app/navigation";
     import { afterNavigate, beforeNavigate } from "$app/navigation";
     import { onMount } from "svelte";
@@ -23,6 +25,10 @@
         if (!$authLoading && !$user && !$isChangingPassword) {
             goto("/auth/login");
         }
+    });
+    $effect(() => {
+        if (!$serverOnline && ['Teacher', 'Master Teacher', 'School Head'].includes($profile?.role || '') &&
+            $page.url.pathname === '/dashboard') void goto('/dashboard/offline');
     });
 
     // WBS 20.3 & 20.4 — Proactive caching for full offline functionality
