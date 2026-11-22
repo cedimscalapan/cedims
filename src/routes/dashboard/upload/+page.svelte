@@ -152,6 +152,41 @@
     }
     const isMobile = isMobileDevice();
     let pendingItems = $state<any[]>([]);
+    let showUploadHistory = $state(false);
+    let historyLoading = $state(false);
+    let historyError = $state('');
+    let confirmedHistory = $state<{ id: string; file_name: string; created_at: string; doc_type: string }[]>([]);
+    let historyHasMore = $state(false);
+    async function openUploadHistory() {
+        showUploadHistory = true;
+        await loadUploadHistory(false);
+    }
+    async function loadUploadHistory(more: boolean) {
+        const userId = $profile?.id;
+        if (!userId || historyLoading) return;
+        await refreshPendingItems();
+        if (!isOnline) {
+            const saved = await getCachedMetadata(`upload_history_${userId}`);
+            confirmedHistory = Array.isArray(saved?.data) ? saved.data : [];
+            historyHasMore = false;
+            historyError = 'Offline: showing recent confirmed uploads saved on this device. Connect for the complete history.';
+            return;
+        }
+        historyLoading = true;
+        historyError = '';
+        try {
+            const start = more ? confirmedHistory.length : 0;
+            const { data, error } = await supabase.from('submissions')
+                .select('id,file_name,created_at,doc_type').eq('user_id', userId)
+                .order('created_at', { ascending: false }).range(start, start + 49);
+            if (error) throw error;
+            if ($profile?.id !== userId) return;
+            confirmedHistory = more ? [...confirmedHistory, ...(data || [])] : data || [];
+            historyHasMore = (data || []).length === 50;
+            if (!more) void cacheMetadata(`upload_history_${userId}`, (data || []).slice(0, 30)).catch(() => {});
+        } catch { historyError = 'Could not load confirmed uploads. Pending files on this device are shown below.'; }
+        finally { historyLoading = false; }
+    }
     let cancellingQueueKey = $state("");
     let showPendingPanel = $state(false);
     let initialDataRun = 0;
@@ -1082,6 +1117,8 @@
                 }
                 if (event.phase === "queued" && event.result) {
                     awaitingArchive = event.result;
+                    result = event.result;
+                    showSuccessModal = true;
                     selectedFile = null;
                     resetDocumentTargets();
                     await refreshPendingItems();
@@ -1163,6 +1200,7 @@
 </svelte:head>
 
 <div class="mx-auto w-full max-w-5xl">
+    <button type="button" class="mb-4 rounded-lg border border-border-subtle bg-surface-white px-4 py-2 text-sm font-bold text-gov-blue" onclick={() => void openUploadHistory()}>Upload history</button>
     {#if !isOnline}
         <p role="status" class="mb-5 rounded-lg border border-gov-gold/30 bg-gov-gold/10 p-4 text-sm font-semibold text-text-primary">Offline mode: Upload is available. Choose a PDF and confirm a saved teaching load and open week. The file stays on this device until the server confirms it after reconnecting. Pending storage is limited to 8 files or 20 MB.</p>
     {/if}
@@ -1865,6 +1903,20 @@
         onUploadAnother={handleUploadAnother}
         onViewArchive={handleViewArchive}
     />
+{/if}
+
+{#if showUploadHistory}
+    <div class="fixed inset-0 z-[var(--z-modal)] overflow-y-auto bg-black/60 p-4" role="presentation">
+        <section role="dialog" aria-modal="true" aria-label="Upload history" class="mx-auto max-w-2xl rounded-xl bg-surface-white p-5">
+            <div class="flex items-center justify-between gap-3"><h2 class="text-xl font-bold">Upload history</h2><button type="button" class="rounded-lg border px-3 py-2" onclick={() => showUploadHistory = false}>Close</button></div>
+            <h3 class="mt-5 font-bold">Waiting on this device</h3>
+            {#if pendingItems.length}<ul class="divide-y divide-border-subtle">{#each pendingItems as item}<li class="py-3"><p class="font-semibold break-all">{item.fileName}</p><p class="text-xs text-text-muted">Saved {new Date(item.timestamp).toLocaleString('en-PH')} · Awaiting server confirmation</p></li>{/each}</ul>{:else}<p class="text-sm text-text-muted">None</p>{/if}
+            <h3 class="mt-5 font-bold">Confirmed uploads</h3>
+            {#if historyError}<p role="status" class="text-sm text-text-muted">{historyError}</p>{/if}
+            {#if confirmedHistory.length}<ul class="divide-y divide-border-subtle">{#each confirmedHistory as item}<li class="py-3"><p class="font-semibold break-all">{item.file_name || 'Document'}</p><p class="text-xs text-text-muted">{item.doc_type} · {new Date(item.created_at).toLocaleString('en-PH')}</p></li>{/each}</ul>{:else if !historyLoading}<p class="text-sm text-text-muted">No confirmed uploads loaded.</p>{/if}
+            {#if historyHasMore}<button type="button" class="mt-4 rounded-lg border px-4 py-2 text-sm font-bold" disabled={historyLoading} onclick={() => void loadUploadHistory(true)}>Load more</button>{/if}
+        </section>
+    </div>
 {/if}
 
 {#if showWeekPicker}

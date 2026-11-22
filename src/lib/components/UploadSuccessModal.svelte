@@ -107,7 +107,6 @@
                     </div>
                 </div>
 
-                {#if isOnline}
                     <div class="flex flex-col items-center gap-2 py-2">
                         {#if qrDataUrl}
                             <img src={qrDataUrl} alt="Verification QR code" class="w-28 h-28 rounded-lg border border-border-subtle" />
@@ -115,10 +114,9 @@
                             <div class="w-28 h-28 rounded-lg border border-border-subtle bg-surface-muted animate-pulse"></div>
                         {/if}
                         <p class="text-xs text-text-muted text-center max-w-xs">
-                            Scan to verify this document's authenticity at any time.
+                            {isOnline ? "Scan to verify this archived document." : "Verification code is ready. Server verification starts after this file syncs."}
                         </p>
                     </div>
-                {/if}
             </div>
         </div>
 
@@ -130,13 +128,13 @@
                 <Upload size={16} />
                 Upload Another
             </button>
-            <button
+            {#if isOnline}<button
                 onclick={onViewArchive}
                 class="flex-1 inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-gov-blue text-white text-sm font-bold hover:bg-gov-blue-dark transition-colors"
             >
                 View in Archive
                 <ArrowRight size={16} />
-            </button>
+            </button>{/if}
         </div>
     </div>
 </div>
