@@ -49,24 +49,30 @@ export const GET: RequestHandler = async ({ request, url }) => {
         const active = people.filter(p => p.is_active !== false);
         const teacherIds = active.filter(p => ['Teacher','Master Teacher'].includes(p.role)).map(p => p.id);
         const userIds = active.map(p => p.id);
-        const [loads, submissions, calendar, leaves] = await Promise.all([
+        const calendar = await fetchAllRows<CalendarSlot>(() => db.from('academic_calendar')
+            .select('id,school_year,term,week_number,deadline_date,district_id,is_active')
+            .eq('school_year',year).eq('is_published',true).order('id'));
+        const current = currentCompliancePeriod(calendar);
+        const term = requestedTerm === 'current' ? current.term : requestedTerm;
+        const week = requestedWeek === 'current' ? current.week : requestedWeek;
+        const [loads, submissions, leaves] = await Promise.all([
             fetchRowsForIds<ComplianceLoad>(teacherIds, batch => db.from('teaching_loads')
                 .select('id,user_id,subject,grade_level,is_active').in('user_id',batch).eq('is_active',true).order('id')),
-            fetchRowsForIds<ComplianceSubmission>(userIds, batch => db.from('submissions')
-                .select('id,user_id,teaching_load_id,school_year,term_number,week_number,calendar_id,file_path,doc_type,compliance_status,created_at,subject')
-                .in('user_id',batch).eq('school_year',year).in('doc_type',['DLL','DLP','ISP','ISR']).order('id')),
-            fetchAllRows<CalendarSlot>(() => db.from('academic_calendar')
-                .select('id,school_year,term,week_number,deadline_date,district_id,is_active')
-                .eq('school_year',year).eq('is_published',true).order('id')),
+            fetchRowsForIds<ComplianceSubmission>(userIds, batch => {
+                let query = db.from('submissions')
+                    .select('id,user_id,teaching_load_id,school_year,term_number,week_number,calendar_id,file_path,doc_type,compliance_status,created_at,subject')
+                    .in('user_id',batch).eq('school_year',year).in('doc_type',['DLL','DLP','ISP','ISR']).order('id');
+                // Week numbers repeat across terms. Keep the term check in the
+                // existing compliance calculation so legacy path terms remain valid.
+                if (week !== 'all') query = query.eq('week_number',Number(week));
+                return query;
+            }),
             fetchRowsForIds<LeaveRequest>(userIds, batch => db.from('submission_leave_requests')
                 .select('*').in('user_id',batch).eq('school_year',year).order('created_at',{ascending:false})),
         ]);
         const reviews = await fetchRowsForIds<{ submission_id: string; reviewer_comment: string | null; status: string | null }>(
             submissions.map(s => s.id), batch => db.from('dll_reviews')
                 .select('submission_id,reviewer_comment,status').in('submission_id',batch).order('id'));
-        const current = currentCompliancePeriod(calendar);
-        const term = requestedTerm === 'current' ? current.term : requestedTerm;
-        const week = requestedWeek === 'current' ? current.week : requestedWeek;
         const schoolMap = new Map(schools.map(s => [s.id, s]));
         const allRequirements = active.filter(p => teacherIds.includes(p.id)).flatMap(person => {
             const ownLoads = loads.filter(load => load.user_id === person.id).map(load => ({ ...load, school_name: schoolMap.get(person.school_id)?.name || null }));
