@@ -1,5 +1,7 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
+    import BackButton from './BackButton.svelte';
+    import { returnToTeacherList } from '$lib/utils/navigationReturn';
     import { effectiveDeadlineForSubject } from '$lib/utils/deadlineRules';
     import { currentCompliancePeriod, submissionTerm as submissionTermFromPath, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type Requirement, type LeaveRequest, buildRequirements, isTeacherWideLeave, scopedCalendar, scopeComplianceView, summarizeRequirements, riskReason, overdueByWeek, filterSubmissionsByPeriod, summarizeSubmissionReviews, uploadDayCounts, hasRemarks, isRemarkRequiredSubmission, isWeeklyComplianceDocType } from '$lib/utils/compliance';
     import { uploadsBySchool, uploadsByTeacher } from '$lib/utils/complianceUploadComparison';
@@ -13,7 +15,7 @@
     import CedimsSelect from '$lib/components/CedimsSelect.svelte';
     import { extractFeatures, runKMeansClustering, canCluster, type ClusterSummary, type ClusterResult } from '$lib/utils/clusterAnalytics';
     import { Download, Search, ArrowLeft, ChevronDown, ChevronRight, ChevronUp, Filter, RefreshCw, AlertTriangle, CheckCircle, Eye, FileText, CalendarX } from 'lucide-svelte';
-    let { teachers, submissionUsers, schools, loads, calendar, submissions, leaveRequests, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh }: {
+    let { teachers, submissionUsers, schools, loads, calendar, submissions, leaveRequests, reviews, year, role, yearOptions, onYearChange, refreshing, onRefresh, initialSchoolId, initialTeacherId, initialTerm, initialWeek, onExit }: {
         teachers: { id: string; full_name: string; school_id: string }[];
         submissionUsers?: { id: string; full_name: string; school_id: string; role?: string | null }[];
         schools: { id: string; name: string; district_id: string }[];
@@ -28,6 +30,11 @@
         onYearChange?: (year: string) => void;
         refreshing?: boolean;
         onRefresh?: () => void;
+        initialSchoolId?: string | null;
+        initialTeacherId?: string | null;
+        initialTerm?: string;
+        initialWeek?: string;
+        onExit?: () => void;
     } = $props();
     const schoolPieColors = ['#2447ad', '#087f8c', '#ac5a00', '#7546a3', '#17804f', '#b63e57', '#5b6472', '#6d5e17'];
     let term = $state('all');
@@ -50,10 +57,12 @@
     const activeTab = $derived(districtOverview ? 'schools' : selectedTeacher ? 'teacher' : 'follow-up');
     onMount(() => {
         const period = currentCompliancePeriod(calendar);
-        term = period.term; week = period.week;
+        term = initialTerm || period.term; week = initialWeek || period.week;
+        if (initialSchoolId) school = initialSchoolId;
+        if (initialTeacherId) selectedTeacher = initialTeacherId;
         try {
             const saved = JSON.parse(sessionStorage.getItem(stateKey) || 'null');
-            if (saved && saved.version === 2 && ['all', '1', '2', '3'].includes(saved.term) && (saved.week === 'all' || /^\d+$/.test(saved.week))) {
+            if (!initialSchoolId && !initialTeacherId && saved && saved.version === 2 && ['all', '1', '2', '3'].includes(saved.term) && (saved.week === 'all' || /^\d+$/.test(saved.week))) {
                 term = saved.term; week = saved.week;
                 if (saved.school === 'all' || schools.some(s => s.id === saved.school)) school = saved.school;
                 if (['all', 'risk', 'missing', 'for-checking'].includes(saved.status)) status = saved.status;
@@ -225,9 +234,19 @@
     function remember() { history = [...history, { school, search, status, cluster: clusterFilter, selectedTeacher, page }]; }
     function openSchool(id: string, nextStatus = 'all') { remember(); school = id; search = ''; status = nextStatus; clusterFilter = 'all'; selectedTeacher = null; reset(); }
     function openTeacher(id: string, nextStatus = 'all') { remember(); selectedTeacher = id; clusterFilter = 'all'; search = ''; status = nextStatus; reset(); }
+    let listControls: HTMLDivElement | undefined = $state();
+    async function backToTeachers() {
+        if (initialTeacherId && history.length === 0 && onExit) { onExit(); return; }
+        const restored = returnToTeacherList({ school, search, status, cluster: clusterFilter, selectedTeacher, page }, history);
+        history = restored.history;
+        ({ school, search, status, cluster: clusterFilter, selectedTeacher, page } = restored.state);
+        await tick();
+        listControls?.focus();
+    }
     function goBack() {
         const previous = history.at(-1);
         if (previous) { history = history.slice(0, -1); ({ school, search, status, cluster: clusterFilter, selectedTeacher, page } = previous); return; }
+        if (onExit) { onExit(); return; }
         if (selectedTeacher) { selectedTeacher = null; clusterFilter = 'all'; }
         else { school = 'all'; clusterFilter = 'all'; }
         search = ''; status = 'all'; reset();
@@ -344,7 +363,7 @@
     <section class="control-panel">
         <header class="view-heading">
             <div class="heading-main">
-            {#if selectedTeacher || (isDistrict && school !== 'all')}<button class="back" onclick={goBack}><ArrowLeft size={16} />{selectedTeacher ? 'Back to teachers' : 'Back to district'}</button>{/if}
+            {#if selectedTeacher || (isDistrict && school !== 'all')}<BackButton focusOnMount={true} label={selectedTeacher ? 'Back to teachers' : 'Back to schools'} onBack={() => selectedTeacher ? void backToTeachers() : goBack()} />{/if}
             <span class="scope-label">{role === 'Admin' ? 'Administrator' : role === 'District Supervisor' ? 'District Supervisor' : role === 'Master Teacher' ? 'Master Teacher' : 'School Head'}</span>
             <h2>{selectedTeacher ? teacherName(selectedTeacher) : districtOverview ? 'Compliance Monitoring' : school !== 'all' ? schoolName(school) : schools[0]?.name || 'School compliance'}</h2>
             <p>{districtOverview ? 'District-wide instructional document compliance.' : 'Track submissions, follow up missing DLLs, and manage review work.'}</p>
@@ -580,7 +599,7 @@
     </div>
     </details>
     {/if}
-    <div class="list-tools">
+    <div class="list-tools" bind:this={listControls} tabindex="-1">
         <div class="list-header">
             <h3>{listTitle}</h3>
             {#if filteredClusterTitle}<p class="selected-cluster">{filteredClusterTitle}</p>{/if}
@@ -612,13 +631,10 @@
             {:else}
                 {#each selectedTeacherRows.slice((page - 1) * size, page * size) as r}
                     <article>
-                        <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {formatRequirementDeadline(r)}</small>{#if r.leaveRequest && isTeacherWideLeave(r.leaveRequest)}<small>Leave: {formatLeaveRange(r.leaveRequest.start_date, r.leaveRequest.end_date)} · {r.leaveRequest.reason}</small>{/if}</div>
+                        <div><h4>{r.load.subject}</h4><p>{r.load.grade_level || 'No grade'} · Term {r.calendar.term}, Week {r.calendar.week_number}</p><small>Due {formatRequirementDeadline(r)}</small>{#if r.leaveRequest && isTeacherWideLeave(r.leaveRequest)}<small>Leave: {formatLeaveRange(r.leaveRequest.start_date, r.leaveRequest.end_date)}</small>{/if}</div>
                         <div class="status-pill" class:missing={r.status === 'missing'} class:leave={r.status === 'on-leave' || r.status === 'leave-requested'}>{requirementLabel(r)}</div>
-                        {#if r.leaveRequest?.status === 'pending' && r.teacherId !== $profile?.id}
-                            <div class="leave-actions">
-                                <button type="button" onclick={() => decideLeave(r.leaveRequest!, 'approved')}>Approve</button>
-                                <button type="button" onclick={() => decideLeave(r.leaveRequest!, 'rejected')}>Reject</button>
-                            </div>
+                        {#if r.leaveRequest?.status === 'pending' && r.teacherId !== $profile?.id && ['Master Teacher', 'School Head', 'District Supervisor'].includes($profile?.role || '')}
+                            <a href={`/dashboard/leave?id=${encodeURIComponent(r.leaveRequest.id)}`}>Review leave request</a>
                         {/if}
                     </article>
                 {/each}
@@ -647,7 +663,6 @@
     .header-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 10px; }
     .list-tools { padding: 4px 0; }
     h2 { font-size: 28px; font-weight: 800; overflow-wrap: anywhere; line-height: 1.15; } h3 { font-size: 20px; font-weight: 800; }
-    .back { width: fit-content; color: var(--color-text-primary); font-size: 15px; min-height: 36px; font-weight: 750; }
     .filters { display: grid; grid-template-columns: repeat(3, minmax(150px, 210px)) minmax(160px, 220px); gap: 10px; align-items: end; padding-top: 4px; border-top: 1px solid color-mix(in srgb, var(--color-border-subtle) 70%, transparent); }
     label, .picker-field { display: flex; flex-direction: column; gap: 5px; font-size: 15px; font-weight: 800; min-width: 0; color: var(--color-text-primary); }
     .picker { position: relative; min-width: 0; }
@@ -754,9 +769,6 @@
     .metric.missing strong, .status-pill.missing { color: var(--color-gov-red); }
     .status-pill { justify-self: end; border: 1px solid var(--color-border-subtle); border-radius: 999px; padding: 7px 12px; font-size: 15px; font-weight: 800; }
     .status-pill.leave { color: var(--color-gov-blue); background: #eef4ff; border-color: #aac3eb; }
-    .leave-actions { display: flex; gap: 8px; align-items: center; justify-content: end; }
-    .leave-actions button { width: auto; min-height: 38px; padding: 0 12px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface-white); font-weight: 850; }
-    .leave-actions button:first-child { color: white; background: var(--color-gov-blue); border-color: var(--color-gov-blue); }
     .list-tools .list-controls { justify-self: end; }
     .list-controls .attention { min-height: 38px; padding-inline: 2px; }
     .charts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { supabase, getRows } from "$lib/utils/supabase";
+    import { supabase } from "$lib/utils/supabase";
     import DocumentReviewPanel from "$lib/components/DocumentReviewPanel.svelte";
     import BackButton from '$lib/components/BackButton.svelte';
     import PageHeader from '$lib/components/PageHeader.svelte';
@@ -40,11 +40,7 @@
     import { getDocumentLabel } from "$lib/utils/documentLabels";
     import { getCurrentSchoolYear } from "$lib/utils/schoolYear";
     import { logAudit } from "$lib/utils/audit";
-import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
-
-    // â"€â"€ Types â"€â"€
     // Archive browsing needs metadata only. OCR text and AI analysis stay on the server.
-    const ARCHIVE_COLUMNS = 'id, user_id, file_name, file_hash, file_size, doc_type, compliance_status, term_number, week_number, subject, teaching_load_id, created_at, file_path, school_year, calendar_id, uploader:profiles!inner(full_name, school_id, district_id, avatar_url, role)';
 
     interface Submission {
         id: string;
@@ -61,6 +57,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         teaching_load_id: string | null;
         created_at: string;
         file_path: string;
+        school_year: string;
         uploader?: {
             full_name: string;
             school_id: string | null;
@@ -70,6 +67,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         };
         school_name?: string;
         school_avatar?: string | null;
+        checked?: boolean;
     }
 
     interface PathSegment {
@@ -89,6 +87,16 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
 
     // â"€â"€ State â"€â"€
     let allSubmissions = $state<Submission[]>([]);
+    let browserReady = $state(false);
+    let remoteFolders = $state<FolderItem[]>([]);
+    let remoteFiles = $state<Submission[]>([]);
+    let remoteTotal = $state(0);
+    let remoteNext = $state<string | null>('docType');
+    let remoteTerms = $state<string[]>([]);
+    let remoteWeeks = $state<number[]>([]);
+    let browserRun = 0;
+    let browserKey = '';
+    let browserRequest: Promise<void> | null = null;
     let schoolsMap = $state<Record<string, { label: string; avatar_url: string | null }>>({});
     let teachersMap = $state<Record<string, { label: string; avatar_url: string | null }>>({});
     let loading = $state(true);
@@ -134,7 +142,15 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         requestedReview = null;
         const target = filteredByPath.find(s => s.id === id);
         if (target && canViewRemarkForSubmission(target)) openRemarkModal(target);
-        else addToast('error', 'This document is unavailable or you do not have permission to review it.');
+        else if (browserReady && !offlineView && $profile) {
+            void supabase.rpc('browse_archive', {
+                p_year: getCurrentSchoolYear(), p_search: id, p_limit: 1,
+            }).then(({ data }) => {
+                const match = data?.files?.[0] as Submission | undefined;
+                if (match?.id === id && canViewRemarkForSubmission(match)) openRemarkModal(match);
+                else addToast('error', 'This document is unavailable or you do not have permission to review it.');
+            });
+        } else addToast('error', 'This document is unavailable or you do not have permission to review it.');
     });
 
     const canReview = $derived(
@@ -163,11 +179,11 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         return isLessonPlanDoc(sub.doc_type);
     }
 
-    const availableArchiveTerms = $derived([...new Set(allSubmissions
+    const availableArchiveTerms = $derived(browserReady && !offlineView ? remoteTerms : [...new Set(allSubmissions
         .filter((sub) => isWeeklyArchive(sub))
         .map((sub) => getTermFolderId(sub))
         .filter((term) => term !== "unassigned"))].sort((a, b) => Number(a) - Number(b)));
-    const availableArchiveWeeks = $derived([...new Set(allSubmissions
+    const availableArchiveWeeks = $derived(browserReady && !offlineView ? remoteWeeks : [...new Set(allSubmissions
         .filter((sub) => isWeeklyArchive(sub) && sub.week_number != null && (archiveTerm === "all" || getTermFolderId(sub) === archiveTerm))
         .map((sub) => Number(sub.week_number)))].sort((a, b) => a - b));
 
@@ -207,7 +223,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
     }
 
     function hasReviewRemark(submissionId: string): boolean {
-        return !!reviewsMap[submissionId]?.reviewer_comment?.trim();
+        return allSubmissions.find(item => item.id === submissionId)?.checked ?? !!reviewsMap[submissionId]?.reviewer_comment?.trim();
     }
 
     function canDeleteSubmission(sub: Submission): boolean {
@@ -286,6 +302,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         } else {
             const updated = { ...moveTarget, teaching_load_id: load.id, subject: load.subject, grade_level: load.grade_level, term_number: moveTerm, week_number: moveWeek, compliance_status: moveStatus };
             allSubmissions = allSubmissions.map((item) => item.id === updated.id ? updated : item);
+            if (browserReady && !offlineView) void loadBrowser();
             addToast("success", "Archive file moved. Original file, QR code, uploader, upload time, and remarks were preserved.");
             closeMoveModal();
         }
@@ -311,6 +328,16 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         existingRemark = reviewsMap[sub.id]?.reviewer_comment || null;
         remarkText = existingRemark || "";
         remarkModalOpen = true;
+        if (browserReady && !offlineView) {
+            void supabase.from('dll_reviews')
+                .select('submission_id, reviewer_comment, status, return_reason, reviewer_id')
+                .eq('submission_id', sub.id).maybeSingle().then(({ data }) => {
+                    if (!data || remarkTarget?.id !== sub.id) return;
+                    reviewsMap = { ...reviewsMap, [sub.id]: { ...data, reviewer_name: null } };
+                    existingRemark = data.reviewer_comment;
+                    remarkText = data.reviewer_comment || '';
+                });
+        }
     }
 
     function closeRemarkModal() {
@@ -322,7 +349,10 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         if (!remarkTarget) return;
         const id=remarkTarget.id;
         const {data}=await supabase.from('dll_reviews').select('reviewer_comment,status,return_reason,reviewer_id').eq('submission_id',id).maybeSingle();
-        if(data) reviewsMap={...reviewsMap,[id]:{...data,reviewer_name:$profile?.full_name || 'Reviewer'}};
+        if(data) {
+            reviewsMap={...reviewsMap,[id]:{...data,reviewer_name:$profile?.full_name || 'Reviewer'}};
+            if (browserReady && !offlineView) void loadBrowser();
+        }
     }
     // â"€â"€ Lifecycle â"€â"€
     // Reactive on $profile?.id (not just onMount) as defense-in-depth: if the
@@ -356,8 +386,70 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
             });
         };
         window.addEventListener("cedims:refresh-visible-route", onRefresh);
-        return () => window.removeEventListener("cedims:refresh-visible-route", onRefresh);
+        window.addEventListener('online', onRefresh);
+        window.addEventListener('offline', onRefresh);
+        return () => {
+            window.removeEventListener("cedims:refresh-visible-route", onRefresh);
+            window.removeEventListener('online', onRefresh);
+            window.removeEventListener('offline', onRefresh);
+        };
     });
+
+    // The online browser asks the database for one folder level or one file
+    // page. The response never contains document bytes or OCR text.
+    async function loadBrowser(): Promise<void> {
+        const user = $profile;
+        if (!user || !browserReady || offlineView) return;
+        const args = {
+            p_year: getCurrentSchoolYear(),
+            p_path: currentPath.slice(1).map(({ type, id }) => ({ type, id })),
+            p_search: searchQuery.trim(), p_review: statusFilter,
+            p_term: archiveTerm, p_week: archiveWeek,
+            p_offset: (currentPage - 1) * pageSize, p_limit: pageSize,
+        };
+        const key = JSON.stringify(args);
+        if (key === browserKey && browserRequest) return browserRequest;
+        browserKey = key;
+        const sequence = ++browserRun;
+        loading = true;
+        loadError = null;
+        browserRequest = (async () => {
+            try {
+                const { data, error } = await supabase.rpc('browse_archive', args);
+                if (error) throw error;
+                if (sequence !== browserRun) return;
+                remoteFolders = Array.isArray(data?.folders) ? data.folders : [];
+                remoteFiles = Array.isArray(data?.files) ? data.files : [];
+                remoteTotal = Number(data?.total || 0);
+                remoteNext = data?.next ?? null;
+                remoteTerms = (Array.isArray(data?.terms) ? data.terms : []).map(String).sort((a: string, b: string) => Number(a) - Number(b));
+                remoteWeeks = (Array.isArray(data?.weeks) ? data.weeks : []).map(Number).sort((a: number, b: number) => a - b);
+                const visibleFiles = remoteFiles;
+                void (async () => {
+                    try {
+                        const cached = await getCachedMetadata(`archive_state_${user.role}_${user.id}`);
+                        const recent = [...visibleFiles, ...((cached?.data?.submissions || []) as Submission[])]
+                            .filter(item => item.school_year === getCurrentSchoolYear())
+                            .filter((item, index, items) => items.findIndex(other => other.id === item.id) === index)
+                            .slice(0, 20);
+                        const recentSchools = Object.fromEntries(recent.filter(item => item.uploader?.school_id).map(item => [item.uploader!.school_id!, { label: item.school_name || 'School', avatar_url: item.school_avatar || null }]));
+                        const recentTeachers = Object.fromEntries(recent.map(item => [item.user_id, { label: item.uploader?.full_name || 'Teacher', avatar_url: item.uploader?.avatar_url || null }]));
+                        await cacheMetadata(`archive_state_${user.role}_${user.id}`, {
+                            submissions: recent, schoolsMap: recentSchools, teachersMap: recentTeachers, reviewsMap: {},
+                        });
+                    } catch (cacheError) { console.warn('[archive] Could not save recent offline files:', cacheError); }
+                })();
+            } catch (err) {
+                if (sequence !== browserRun) return;
+                console.error('[archive] Folder load failed:', err);
+                loadError = 'Unable to load this archive folder. Check your connection and try again.';
+            } finally {
+                if (sequence === browserRun) loading = false;
+                browserRequest = null;
+            }
+        })();
+        return browserRequest;
+    }
 
     // â"€â"€ Data Fetching â"€â"€
     async function loadData() {
@@ -370,11 +462,14 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         const currentSchoolYear = getCurrentSchoolYear();
         // Offline: restore cached archive view
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            ++browserRun;
+            browserKey = '';
+            browserReady = false;
             offlineView = true;
             const cached = await getCachedMetadata(`archive_state_${role}_${userProfile.id}`);
             if (cached?.data) {
                 if (runId !== loadRun) return;
-                allSubmissions = (cached.data.submissions || []).slice(0, 40);
+                allSubmissions = (cached.data.submissions || []).filter((item: Submission) => item.school_year === currentSchoolYear).slice(0, 20);
                 schoolsMap = cached.data.schoolsMap || {};
                 teachersMap = cached.data.teachersMap || {};
                 reviewsMap = cached.data.reviewsMap || {};
@@ -385,301 +480,11 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
             return;
         }
         offlineView = false;
-
-        try {
-
-        if (role === "Teacher") {
-            const data = await fetchAllRows<Submission>(() => supabase
-                .from("submissions")
-                .select(ARCHIVE_COLUMNS)
-                .eq("user_id", userProfile.id)
-                .eq("school_year", currentSchoolYear)
-                .in("doc_type", ["DLL", "DLP"])
-                .order("created_at", { ascending: false }).order("id"));
-            if (runId !== loadRun) return;
-            allSubmissions = getRows<Submission>(data).filter((s) => s.user_id === userProfile.id);
-            teachersMap = buildTeachersMap(allSubmissions);
-            if (userProfile.school_id) {
-                const { data: school } = await supabase
-                    .from("schools")
-                    .select("id, name, avatar_url")
-                    .eq("id", userProfile.school_id)
-                    .maybeSingle();
-                if (school) {
-                    schoolsMap = {
-                        [school.id]: { label: school.name, avatar_url: school.avatar_url || null },
-                    };
-                }
-            }
-        } else if (role === "Master Teacher") {
-            if (!userProfile.school_id) return;
-
-            const data = await fetchAllRows<Submission>(() => supabase
-                .from("submissions")
-                .select(
-                    ARCHIVE_COLUMNS,
-                )
-                .eq("profiles.school_id", userProfile.school_id)
-                .eq("school_year", currentSchoolYear)
-                .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
-                .order("created_at", { ascending: false }).order("id"));
-            if (runId !== loadRun) return;
-
-            allSubmissions = getRows<Submission>(data)
-                .filter(s => canViewUploadedISPISR(
-                    role,
-                    userProfile.id,
-                    s.user_id,
-                    s.uploader?.role || 'Teacher',
-                    s.doc_type,
-                    userProfile.school_id,
-                    s.uploader?.school_id || null,
-                    userProfile.district_id,
-                    s.uploader?.district_id || null
-                ));
-            teachersMap = buildTeachersMap(allSubmissions);
-        } else if (role === "School Head") {
-            if (!userProfile.school_id) return;
-
-            const data = await fetchAllRows<Submission>(() => supabase
-                .from("submissions")
-                .select(
-                    ARCHIVE_COLUMNS,
-                )
-                .eq("profiles.school_id", userProfile.school_id)
-                .eq("school_year", currentSchoolYear)
-                .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
-                .order("created_at", { ascending: false }).order("id"));
-            if (runId !== loadRun) return;
-
-            allSubmissions = getRows<Submission>(data)
-                .filter(s => canViewUploadedISPISR(
-                    role,
-                    userProfile.id,
-                    s.user_id,
-                    s.uploader?.role || 'Teacher',
-                    s.doc_type,
-                    userProfile.school_id,
-                    s.uploader?.school_id || null,
-                    userProfile.district_id,
-                    s.uploader?.district_id || null
-                ));
-            teachersMap = buildTeachersMap(allSubmissions);
-        } else if (role === "District Supervisor" || role === "Admin") {
-            // District-scoped: fetch submissions from all schools in district
-            if (role === "District Supervisor" && !userProfile.district_id) return;
-
-            // First get all schools in the district
-            let schoolsQuery = supabase
-                .from("schools")
-                .select("id, name, avatar_url");
-            if (role === "District Supervisor" || role === "Admin") {
-                if (userProfile.district_id) {
-                    schoolsQuery = schoolsQuery.eq("district_id", userProfile.district_id);
-                }
-            }
-            const { data: schoolsData } = await schoolsQuery;
-            if (runId !== loadRun) return;
-
-            const schools = schoolsData || [];
-            const sMap: Record<string, { label: string; avatar_url: string | null }> = {};
-            for (const s of schools) {
-                sMap[s.id] = {
-                    label: s.name,
-                    avatar_url: s.avatar_url || null
-                };
-            }
-            schoolsMap = sMap;
-
-            // Fetch all submissions from teachers in those schools
-            let submissionsQuery = supabase
-                .from("submissions")
-                .select(
-                    ARCHIVE_COLUMNS,
-                )
-                .eq("school_year", currentSchoolYear)
-                .in("doc_type", ["DLL", "DLP", "ISP", "ISR"])
-                .order("created_at", { ascending: false }).order("id");
-            if (role === "District Supervisor" || role === "Admin") {
-                if (userProfile.district_id) {
-                    submissionsQuery = submissionsQuery.eq("profiles.district_id", userProfile.district_id);
-                } else if (role === "District Supervisor") {
-                    return;
-                }
-            }
-            const data = await fetchAllRows<Submission>(() => submissionsQuery);
-            if (runId !== loadRun) return;
-
-            allSubmissions = getRows<Submission>(data).map((s) => {
-                const schoolInfo = sMap[s.uploader?.school_id || ""];
-                return {
-                    ...s,
-                    uploader: s.uploader,
-                    school_name: schoolInfo?.label || "Unknown School",
-                    school_avatar: schoolInfo?.avatar_url || null
-                };
-            });
-            teachersMap = buildTeachersMap(allSubmissions);
-        }
-
-        // â"€â"€ Resolve missing school names â"€â"€
-        const missingSchoolIds = [...new Set(allSubmissions
-            .filter(s => s.uploader?.school_id && !schoolsMap[s.uploader.school_id])
-            .map(s => s.uploader!.school_id!)
-        )];
-        if (missingSchoolIds.length > 0) {
-            const { data: missingSchools } = await supabase
-                .from("schools")
-                .select("id, name, avatar_url")
-                .in("id", missingSchoolIds);
-            if (missingSchools) {
-                for (const ms of missingSchools) {
-                    schoolsMap[ms.id] = { label: ms.name, avatar_url: ms.avatar_url || null };
-                }
-            }
-        }
-
-        // Resolve missing subject/grade details from teaching_loads for lesson-plan archives.
-        const missingLoadIds = [...new Set(allSubmissions
-            .filter(s => s.teaching_load_id && (!s.subject || !s.grade_level))
-            .map(s => s.teaching_load_id!)
-        )];
-        if (missingLoadIds.length > 0) {
-            const { data: loads } = await supabase
-                .from("teaching_loads")
-                .select("id, subject, grade_level")
-                .in("id", missingLoadIds);
-            if (loads) {
-                const loadMap: Record<string, { subject: string | null; grade_level: string | null }> = {};
-                for (const l of loads) {
-                    loadMap[l.id] = { subject: l.subject, grade_level: l.grade_level };
-                }
-                for (const s of allSubmissions) {
-                    const load = s.teaching_load_id ? loadMap[s.teaching_load_id] : null;
-                    if (!load) continue;
-                    if (!s.subject && load.subject) {
-                        s.subject = load.subject;
-                    }
-                    if (!s.grade_level && load.grade_level) {
-                        s.grade_level = load.grade_level;
-                    }
-                }
-            }
-        }
-
-        // Fallback: resolve subject/grade for older submissions without teaching_load_id.
-        const userIdsWithMissingLoadDetails = [...new Set(allSubmissions
-            .filter(s => (!s.subject || !s.grade_level) && !s.teaching_load_id && s.user_id)
-            .map(s => s.user_id!)
-        )];
-        if (userIdsWithMissingLoadDetails.length > 0) {
-            const { data: userLoads } = await supabase
-                .from("teaching_loads")
-                .select("user_id, subject, grade_level")
-                .in("user_id", userIdsWithMissingLoadDetails)
-                .eq("is_active", true);
-            if (userLoads) {
-                const userLoadMap: Record<string, { subject: string | null; grade_level: string | null }[]> = {};
-                for (const l of userLoads) {
-                    (userLoadMap[l.user_id] ||= []).push({ subject: l.subject, grade_level: l.grade_level });
-                }
-                for (const s of allSubmissions) {
-                    const loadsForUser = s.user_id ? userLoadMap[s.user_id] || [] : [];
-                    const load = loadsForUser.find((item) =>
-                        item.subject && s.subject && item.subject.trim().toLowerCase() === s.subject.trim().toLowerCase(),
-                    ) || (loadsForUser.length === 1 ? loadsForUser[0] : null);
-                    if (!load || s.teaching_load_id) continue;
-                    if (!s.subject && load.subject) {
-                        s.subject = load.subject;
-                    }
-                    if (!s.grade_level && load.grade_level) {
-                        s.grade_level = load.grade_level;
-                    }
-                }
-            }
-        }
-
-        // Re-map school_name for DS submissions now that schoolsMap is complete
-        for (const s of allSubmissions) {
-            if (s.uploader?.school_id) {
-                const info = schoolsMap[s.uploader.school_id];
-                if (info) {
-                    s.school_name = info.label;
-                    s.school_avatar = info.avatar_url || null;
-                }
-            }
-        }
-
-        // Fill in missing teacher names
-        const missingTeacherIds = [...new Set(allSubmissions
-            .filter(s => s.user_id && !teachersMap[s.user_id])
-            .map(s => s.user_id!)
-        )];
-        if (missingTeacherIds.length > 0) {
-            const { data: missingProfiles } = await supabase
-                .from("profiles")
-                .select("id, full_name")
-                .in("id", missingTeacherIds);
-            if (missingProfiles) {
-                for (const p of missingProfiles) {
-                    teachersMap[p.id] = { label: p.full_name || p.id.slice(0, 8), avatar_url: null };
-                }
-            }
-        }
-
-        // Fetch dll_reviews for all loaded submissions
-        const ids = allSubmissions.map((s) => s.id);
-        if (ids.length > 0) {
-            const reviews = await fetchRowsForIds<any>(ids, batch => supabase
-                .from("dll_reviews")
-                .select("submission_id, reviewer_id, reviewer_comment, status, return_reason")
-                .in("submission_id", batch).order("id"));
-            if (reviews) {
-                const reviewerIds = [...new Set(reviews.map((r: any) => r.reviewer_id).filter(Boolean))];
-                const reviewerNames: Record<string, string> = {};
-                if (reviewerIds.length > 0) {
-                    const { data: reviewerProfiles } = await supabase
-                        .from("profiles")
-                        .select("id, full_name, email")
-                        .in("id", reviewerIds);
-                    for (const p of reviewerProfiles || []) {
-                        reviewerNames[(p as any).id] = (p as any).full_name || (p as any).email || "Checker";
-                    }
-                }
-                const map: Record<string, { reviewer_comment: string | null; status: string | null; return_reason: string | null; reviewer_id: string | null; reviewer_name: string | null }> = {};
-                for (const r of reviews) {
-                    map[r.submission_id] = {
-                        reviewer_comment: r.reviewer_comment,
-                        status: r.status,
-                        return_reason: r.return_reason,
-                        reviewer_id: r.reviewer_id,
-                        reviewer_name: reviewerNames[r.reviewer_id] || "Checker",
-                    };
-                }
-                reviewsMap = map;
-            }
-        }
-
-        // â"€â"€ Cache finalized state for offline viewing ─â"€
-        try {
-            const recent = [...allSubmissions].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 40);
-            const ids = new Set(recent.map(item => item.id));
-            await cacheMetadata(`archive_state_${role}_${userProfile.id}`, {
-                submissions: recent,
-                schoolsMap,
-                teachersMap,
-                reviewsMap: Object.fromEntries(Object.entries(reviewsMap).filter(([id]) => ids.has(id))),
-            });
-        } catch (e) {
-            console.warn("[archive] Failed to cache archive state:", e);
-        }
-        } catch (err) {
-            console.error("[archive] Failed to load data:", err);
-            loadError = 'Failed to load archive data. Please try refreshing the page.';
-        }
+        browserReady = true;
+        return loadBrowser();
     }
 
-    // â"€â"€ Navigation â"€â"€
+    // Navigation
     function navigateTo(segment: PathSegment) {
         currentPath = [...currentPath, segment];
     }
@@ -703,6 +508,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
 
     // Get submissions filtered by the current path
     const filteredByPath = $derived.by(() => {
+        if (browserReady && !offlineView) return remoteFiles;
         const role = $profile?.role || '';
         const userId = $profile?.id || '';
         let filtered = allSubmissions.filter((s) => {
@@ -778,6 +584,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
 
     // Determine what folders to show at the current level
     const currentFolders = $derived.by((): FolderItem[] => {
+        if (browserReady && !offlineView) return remoteFolders;
         const role = $profile?.role;
         const depth = currentPath.length;
 
@@ -812,15 +619,15 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
 
     // Whether we're at the file/leaf level
     const isFileLevel = $derived(
-        currentFolders.length === 0 ||
+        browserReady && !offlineView ? remoteNext === null : currentFolders.length === 0 ||
             (searchQuery &&
                 filteredByPath.length > 0 &&
                 currentFolders.length === 0),
     );
 
     // â"€â"€ Pagination â"€â"€
-    const totalPages = $derived(Math.ceil(filteredByPath.length / pageSize) || 1);
-    const paginatedData = $derived(filteredByPath.slice((currentPage - 1) * pageSize, currentPage * pageSize));
+    const totalPages = $derived(Math.ceil((browserReady && !offlineView ? remoteTotal : filteredByPath.length) / pageSize) || 1);
+    const paginatedData = $derived(browserReady && !offlineView ? remoteFiles : filteredByPath.slice((currentPage - 1) * pageSize, currentPage * pageSize));
     const totalFolderPages = $derived(Math.ceil(currentFolders.length / folderPageSize) || 1);
     const paginatedFolders = $derived(currentFolders.slice((folderPage - 1) * folderPageSize, folderPage * folderPageSize));
 
@@ -836,6 +643,13 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
 
     $effect(() => {
         if (folderPage > totalFolderPages) folderPage = totalFolderPages;
+    });
+
+    $effect(() => {
+        if (!browserReady || offlineView) return;
+        currentPath; searchQuery; statusFilter; archiveTerm; archiveWeek; currentPage;
+        const timer = setTimeout(() => void loadBrowser(), searchQuery ? 250 : 0);
+        return () => clearTimeout(timer);
     });
 
     // â"€â"€ Folder Generators â"€â"€
@@ -1139,6 +953,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
             }
 
             allSubmissions = allSubmissions.filter((s) => s.id !== target.id);
+            if (browserReady && !offlineView) void loadBrowser();
             const { [target.id]: _deleted, ...remainingReviews } = reviewsMap;
             reviewsMap = remainingReviews;
             void logAudit($profile!.id, "archive.deleted", "submission", target.id, { file_name: target.file_name, original_uploader: target.user_id });
@@ -1151,19 +966,6 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         } finally {
             deletingSubmissionId = null;
         }
-    }
-
-    function buildTeachersMap(subs: Submission[]) {
-        const tMap: Record<string, { label: string; avatar_url: string | null }> = {};
-        for (const s of subs) {
-            if (s.user_id && s.uploader?.full_name) {
-                tMap[s.user_id] = {
-                    label: s.uploader.full_name,
-                    avatar_url: s.uploader.avatar_url || null
-                };
-            }
-        }
-        return tMap;
     }
 
     function getSubtitle(): string {
@@ -1192,7 +994,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
                 <h1 class="text-xl font-extrabold leading-tight text-text-primary">Archives</h1>
                 <p class="mt-1 text-sm text-text-muted">Browse files by document, school, teacher, and academic period.</p>
             </div>
-            <span class="rounded-full bg-gov-blue/5 px-3 py-1.5 text-xs font-bold text-gov-blue">{isFileLevel ? `${filteredByPath.length} files` : `${currentFolders.length} folders`}</span>
+            <span class="rounded-full bg-gov-blue/5 px-3 py-1.5 text-xs font-bold text-gov-blue">{isFileLevel ? `${browserReady && !offlineView ? remoteTotal : filteredByPath.length} files` : `${currentFolders.length} folders`}</span>
         </header>
         <!-- Breadcrumb -->
         <div class="archive-navigation">
@@ -1269,7 +1071,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         </div>
     </section>
 
-    {#if offlineView && !loadError}<p role="status" class="mb-4 rounded-lg border border-border-subtle bg-surface-muted p-3 text-sm text-text-secondary">Offline: showing up to 40 recent records saved on this device. Counts and search cover these saved records only. Connect for the complete archive.</p>{/if}
+    {#if offlineView && !loadError}<p role="status" class="mb-4 rounded-lg border border-border-subtle bg-surface-muted p-3 text-sm text-text-secondary">Offline: showing up to 20 recent records saved on this device. Counts and search cover these saved records only. Connect for the complete archive.</p>{/if}
 
     <!-- Content -->
     {#if loading}
@@ -1302,7 +1104,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
             {/each}
         </div>
         <PaginationBar bind:page={folderPage} pages={totalFolderPages} total={currentFolders.length} pageSize={folderPageSize} itemLabel="folders" />
-    {:else if filteredByPath.length === 0}
+    {:else if (browserReady && !offlineView ? remoteTotal : filteredByPath.length) === 0}
         <!-- Empty State -->
         <div>
             <EmptyState
@@ -1357,7 +1159,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
                             class="archive-card-badges"
                         >
                             {#if isLessonPlanDoc(sub.doc_type)}
-                                {#if reviewsMap[sub.id]?.reviewer_comment}
+                                {#if sub.checked ?? !!reviewsMap[sub.id]?.reviewer_comment}
                                     <span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold rounded uppercase tracking-wider">
                                         Checked
                                     </span>
@@ -1488,7 +1290,7 @@ import { fetchAllRows, fetchRowsForIds } from "$lib/utils/compliance";
         </div>
 
         <!-- Pagination -->
-        <PaginationBar bind:page={currentPage} pages={totalPages} total={filteredByPath.length} pageSize={pageSize} itemLabel="files" />
+        <PaginationBar bind:page={currentPage} pages={totalPages} total={browserReady && !offlineView ? remoteTotal : filteredByPath.length} pageSize={pageSize} itemLabel="files" />
     {/if}
 </div>
 
