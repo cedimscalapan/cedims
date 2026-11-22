@@ -13,6 +13,7 @@
         cacheMetadata,
         getCachedMetadata,
         pendingSyncCount,
+        syncingQueuedUpload,
     } from "$lib/utils/offline";
 
     import { profile, type Profile } from "$lib/utils/auth";
@@ -147,11 +148,7 @@
         typeof navigator !== "undefined" ? navigator.onLine : true,
     );
     async function checkConnection() {
-        if (!navigator.onLine) { isOnline = false; return; }
-        try {
-            const response = await fetch('/api/health', { cache: 'no-store', signal: AbortSignal.timeout(4000) });
-            isOnline = response.ok;
-        } catch { isOnline = false; }
+        isOnline = await connectivity.checkConnection();
     }
     const isMobile = isMobileDevice();
     let pendingItems = $state<any[]>([]);
@@ -1242,7 +1239,7 @@
                     </div>
                 </div>
                 <p class="px-1 text-xs font-medium text-text-muted" role="status">
-                    {isOnline ? "Syncing now. Keep this app available until the server confirms each file." : "Saved on this device. Sync starts when the internet returns."}
+                    {$syncingQueuedUpload ? "Sending a saved file to the server now…" : isOnline ? "Waiting for automatic retry or server confirmation. This file is not archived yet." : "Saved on this device. Sync starts when the internet returns."}
                 </p>
                 {#if showPendingPanel && pendingItems.length > 0}
                     <div

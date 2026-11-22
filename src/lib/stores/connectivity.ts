@@ -14,6 +14,21 @@ function createConnectivityStore() {
     );
 
     let initialized = false;
+    let probeRun = 0;
+    async function checkConnection(): Promise<boolean> {
+        const run = ++probeRun;
+        if (!navigator.onLine) { isOnline.set(false); return false; }
+        let available = false;
+        try {
+            const response = await fetch(`/api/health?probe=${Date.now()}`, {
+                cache: 'no-store',
+                signal: AbortSignal.timeout(4000),
+            });
+            available = response.status === 204;
+        } catch { /* No working connection to CEDIMS. */ }
+        if (run === probeRun) isOnline.set(available);
+        return available;
+    }
 
     async function refreshPendingCount() {
         try {
@@ -28,19 +43,22 @@ function createConnectivityStore() {
         if (initialized || typeof window === "undefined") return;
         initialized = true;
 
-        isOnline.set(navigator.onLine);
+        void checkConnection();
         refreshPendingCount();
+        const timer = window.setInterval(() => { void checkConnection(); }, 15000);
 
         window.addEventListener("online", () => {
-            isOnline.set(true);
+            void checkConnection();
             // offline.ts's own 'online' listener (initOfflineSync) triggers the
             // actual background sync; pendingSyncCount updates itself as that
             // runs. This refresh just catches the initial count on reconnect.
             refreshPendingCount();
         });
         window.addEventListener("offline", () => {
+            probeRun++;
             isOnline.set(false);
         });
+        window.addEventListener('focus', () => { void checkConnection(); });
     }
 
     return {
@@ -48,6 +66,7 @@ function createConnectivityStore() {
         pendingCount: { subscribe: pendingSyncCount.subscribe },
         init,
         refreshPendingCount,
+        checkConnection,
     };
 }
 

@@ -17,6 +17,7 @@ import { isWeeklyComplianceDocType } from './compliance';
 import { classifyQueueFailure, httpUploadFailure, nextAttemptDelay, QUEUE_RETRY_MS, shouldCancelAfter, UploadRejectedError } from './uploadQueueRules';
 
 export const pendingSyncCount = writable<number>(0);
+export const syncingQueuedUpload = writable<boolean>(false);
 
 /** Uploads the system had to cancel. Kept until the teacher has seen them. */
 export interface FailedUpload {
@@ -661,7 +662,9 @@ async function runQueue(ignoreBackoff: boolean): Promise<{ success: number; fail
     const queueKeys = allKeys.map(String).filter((k) => k.startsWith(QUEUE_PREFIX));
     if (queueKeys.length === 0 || !(await checkConnection())) return { success, failed };
 
-    const { data: sessionData } = await supabase.auth.getSession();
+    const { data: sessionData } = await withTimeout(
+        supabase.auth.getSession(), 15000, 'Session check timed out.'
+    );
     const session = sessionData?.session;
     // Signed out, or the token could not be refreshed: the files stay safe here
     // and sending starts again when the teacher is back in.
@@ -679,6 +682,7 @@ async function runQueue(ignoreBackoff: boolean): Promise<{ success: number; fail
         if (!ignoreBackoff && item.nextAttemptAt && item.nextAttemptAt > Date.now()) continue;
 
         try {
+            syncingQueuedUpload.set(true);
             const label = await uploadQueuedItem(item, session.access_token);
             await del(key);
             await updatePendingCount();
@@ -702,6 +706,8 @@ async function runQueue(ignoreBackoff: boolean): Promise<{ success: number; fail
             } else {
                 await set(key, { ...item, attempts, nextAttemptAt: Date.now() + nextAttemptDelay(attempts) });
             }
+        } finally {
+            syncingQueuedUpload.set(false);
         }
     }
 
@@ -744,6 +750,7 @@ export async function processQueue(ignoreBackoff = false): Promise<{ success: nu
         logOnce('offline-sync-run-failed', 'warn', '[offline] Queue run failed; it will retry.', err);
     } finally {
         isSyncing = false;
+        syncingQueuedUpload.set(false);
     }
     if (syncRequestedWhileBusy) {
         syncRequestedWhileBusy = false;
