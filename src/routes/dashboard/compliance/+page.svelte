@@ -4,7 +4,6 @@
     import { supabase } from '$lib/utils/supabase';
     import { getCurrentSchoolYear } from '$lib/utils/schoolYear';
     import { fetchAllRows, fetchRowsForIds, type CalendarSlot, type ComplianceLoad, type ComplianceSubmission, type LeaveRequest } from '$lib/utils/compliance';
-    import ComplianceWorkspace from '$lib/components/ComplianceWorkspace.svelte';
     import PageHeader from '$lib/components/PageHeader.svelte';
     import SkeletonLoader from '$lib/components/SkeletonLoader.svelte';
     import { makeScopedCacheKey, readLocalData, writeLocalData } from '$lib/utils/localDataCache';
@@ -26,6 +25,7 @@
     let detailSchoolId = $state<string | null>(null);
     let detailTeacherId = $state<string | null>(null);
     let showingDetail = $state(false);
+    let DetailComponent = $state<any>(null);
     type Snapshot = {
         teachers: { id: string; full_name: string; school_id: string }[];
         submissionUsers: { id: string; full_name: string; school_id: string; role?: string | null; is_active?: boolean | null }[];
@@ -93,6 +93,9 @@
     function openDetail(schoolId: string | null, teacherId: string | null = null) {
         detailSchoolId = schoolId; detailTeacherId = teacherId;
         showingDetail = true; data = null; loading = true;
+        void import('$lib/components/ComplianceWorkspace.svelte')
+            .then(module => { DetailComponent = module.default; })
+            .catch(cause => { console.error('[compliance] Detail view unavailable', cause); error = 'Unable to open detailed view. Please retry.'; loading = false; });
         void load();
     }
 
@@ -195,9 +198,9 @@
 {:else}
     {#if overview && !showingDetail}<p role="status" class="mb-4 text-sm text-text-muted">{offline ? 'Offline saved overview. ' : ''}Updated at {new Date(overview.savedAt).toLocaleString('en-PH')}{offline ? '. Recent changes may not be reflected.' : ''}</p>{/if}
     {#if data && showingDetail}<p role="status" class="mb-4 text-sm text-text-muted">Updated at {new Date(data.savedAt).toLocaleString('en-PH')}</p>{/if}
-    {#if loading}<SkeletonLoader variant="card-grid" count={3} />
-    {:else if error}<div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-gov-red">{error}<div class="mt-3 flex gap-2"><button class="rounded-lg border px-3 py-2" onclick={() => showingDetail ? void load() : void loadOverview()}>Try again</button>{#if showingDetail}<button class="rounded-lg border px-3 py-2" onclick={closeDetail}>Back to overview</button>{/if}</div></div>
-    {:else if showingDetail && data}<ComplianceWorkspace {...data} role={$profile?.role || 'School Head'} {year} {yearOptions} onYearChange={changeYear} refreshing={refreshing} onRefresh={() => void load()} initialSchoolId={detailSchoolId} initialTeacherId={detailTeacherId} initialTerm={overview?.term} initialWeek={overview?.week} onExit={closeDetail} />
+    {#if loading || (showingDetail && !DetailComponent && !error)}<SkeletonLoader variant="card-grid" count={3} />
+    {:else if error}<div role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-gov-red">{error}<div class="mt-3 flex gap-2"><button class="rounded-lg border px-3 py-2" onclick={() => showingDetail ? (DetailComponent ? void load() : openDetail(detailSchoolId, detailTeacherId)) : void loadOverview()}>Try again</button>{#if showingDetail}<button class="rounded-lg border px-3 py-2" onclick={closeDetail}>Back to overview</button>{/if}</div></div>
+    {:else if showingDetail && data && DetailComponent}<DetailComponent {...data} role={$profile?.role || 'School Head'} {year} {yearOptions} onYearChange={changeYear} refreshing={refreshing} onRefresh={() => void load()} initialSchoolId={detailSchoolId} initialTeacherId={detailTeacherId} initialTerm={overview?.term} initialWeek={overview?.week} onExit={closeDetail} />
     {:else if overview}
         <section class="space-y-4" aria-label="Compliance overview">
             <div class="rounded-xl border border-border-subtle bg-surface-white p-4 sm:p-5">
