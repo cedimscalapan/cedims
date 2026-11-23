@@ -1,9 +1,8 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import { profile, signOut } from '$lib/utils/auth';
-    import { theme } from '$lib/stores/theme';
     import { getNavItemsForRole } from '$lib/config/navigation';
-    import { X, LogOut, Sun, Moon } from 'lucide-svelte';
+    import { X, LogOut } from 'lucide-svelte';
     import { onMount } from 'svelte';
     let { open = $bindable(false) }: { open?: boolean } = $props();
     let dialog: HTMLDialogElement;
@@ -35,9 +34,6 @@
                 <a class="drawer-link" class:active href={item.href} onclick={() => open = false} aria-current={active ? 'page' : undefined} data-nav={item.navKey || null}><Icon size={20} aria-hidden="true" />{item.label}</a>
             {/if}
         {/each}
-        <button class="drawer-link" onclick={() => theme.toggle()} aria-label={$theme === 'dark' ? 'Use light appearance' : 'Use dark appearance'}>
-            {#if $theme === 'dark'}<Sun size={20} aria-hidden="true" />Use light appearance{:else}<Moon size={20} aria-hidden="true" />Use dark appearance{/if}
-        </button>
     </nav>
     <div class="drawer-account"><p>{$profile?.full_name}</p><p>{$profile?.role}</p><button class="drawer-link" onclick={() => { open = false; signOut(); }}><LogOut size={20} aria-hidden="true" />Sign out</button></div>
 </dialog>

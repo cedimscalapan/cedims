@@ -3,11 +3,10 @@
     import NotificationCenter from "./NotificationCenter.svelte";
     import MobileDrawer from "./MobileDrawer.svelte";
     import { profile, signOut } from "$lib/utils/auth";
-    import { theme } from "$lib/stores/theme";
     import { connectivity } from "$lib/stores/connectivity";
     import { goto } from "$app/navigation";
     import { page } from "$app/stores";
-    import { Sun, Moon, LogOut, WifiOff, RefreshCw, QrCode, Settings, Menu } from "lucide-svelte";
+    import { LogOut, WifiOff, RefreshCw, QrCode, Settings, Menu } from "lucide-svelte";
     import { focusTrap } from "$lib/actions/focusTrap";
     import { getNavItemsForRole } from "$lib/config/navigation";
     import { showQRScanner } from "$lib/stores/ui";
@@ -69,7 +68,7 @@
             <Menu size={22} strokeWidth={2} aria-hidden="true" />
         </button>
 
-        <a href={$profile?.role === 'Admin' ? '/dashboard/admin' : '/dashboard'} class="app-brand" aria-label="CEDIMS Dashboard">
+        <a href={$profile?.role === 'Admin' ? '/dashboard/admin' : $profile?.role === 'District Supervisor' ? '/dashboard/compliance' : '/dashboard'} class="app-brand" aria-label="CEDIMS Dashboard">
             <img
                 src="/app_icon.png"
                 alt=""
@@ -143,19 +142,6 @@
                 <QrCode size={21} strokeWidth={1.8} aria-hidden="true" />
             </button>
             <DisplayZoom placement="header" />
-
-            <button
-                data-tour="theme-toggle"
-                onclick={() => theme.toggle()}
-                class="flex h-11 w-11 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-surface-muted hover:text-text-primary"
-                aria-label={$theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            >
-                {#if $theme === "dark"}
-                    <Sun size={21} strokeWidth={1.8} />
-                {:else}
-                    <Moon size={21} strokeWidth={1.8} />
-                {/if}
-            </button>
 
             <div data-tour="notifications">
                 <NotificationCenter />

@@ -33,7 +33,7 @@ export const navItems: NavItem[] = [
         mobileNav: true,
         priority: 1,
         navKey: "dashboard",
-        roles: ["Teacher", "School Head", "Master Teacher", "District Supervisor"],
+        roles: ["Teacher", "School Head", "Master Teacher"],
     },
 
     {

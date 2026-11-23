@@ -57,6 +57,7 @@
 
     $effect(() => {
         if ($profile?.role === 'Admin') void goto('/dashboard/admin');
+        else if ($profile?.role === 'District Supervisor') void goto('/dashboard/compliance');
     });
 
     let submissions = $state<any[]>([]);
@@ -150,6 +151,7 @@
 
     onMount(() => {
         if ($profile?.role === "Admin") { void goto("/dashboard/admin"); return; }
+        if ($profile?.role === "District Supervisor") { void goto("/dashboard/compliance"); return; }
         void loadDashboard({ useCache: true });
         setupRealtime();
 
@@ -869,8 +871,8 @@
     {#if dashboardError}<div class="mb-5 rounded-xl border border-gov-gold/30 bg-gov-gold/10 p-4 text-sm text-text-primary" role="alert">{dashboardError} <button class="ml-2 min-h-11 font-bold text-gov-blue" onclick={() => void loadDashboard({ background: true })}>Retry</button></div>{/if}
     {#if loading && !loadedFromCache}
         <div class="rounded-xl border border-border-subtle bg-surface-white p-8 text-text-muted" role="status">Loading your tracker…</div>
-    {:else if $profile?.role === "Admin"}
-        <p role="status">Opening administration…</p>
+    {:else if $profile?.role === "Admin" || $profile?.role === "District Supervisor"}
+        <p role="status">Opening your workspace…</p>
     {:else if $profile?.role === "Teacher"}
         <!-- ========== TEACHER DASHBOARD ========== -->
 
