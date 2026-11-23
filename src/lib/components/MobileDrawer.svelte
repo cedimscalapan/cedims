@@ -1,8 +1,9 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import { profile, signOut } from '$lib/utils/auth';
+    import { theme } from '$lib/stores/theme';
     import { getNavItemsForRole } from '$lib/config/navigation';
-    import { X, LogOut } from 'lucide-svelte';
+    import { X, LogOut, Sun, Moon } from 'lucide-svelte';
     import { onMount } from 'svelte';
     let { open = $bindable(false) }: { open?: boolean } = $props();
     let dialog: HTMLDialogElement;
@@ -34,18 +35,22 @@
                 <a class="drawer-link" class:active href={item.href} onclick={() => open = false} aria-current={active ? 'page' : undefined} data-nav={item.navKey || null}><Icon size={20} aria-hidden="true" />{item.label}</a>
             {/if}
         {/each}
+        <button class="drawer-link" onclick={() => theme.toggle()} aria-label={$theme === 'dark' ? 'Use light appearance' : 'Use dark appearance'}>
+            {#if $theme === 'dark'}<Sun size={20} aria-hidden="true" />Use light appearance{:else}<Moon size={20} aria-hidden="true" />Use dark appearance{/if}
+        </button>
     </nav>
     <div class="drawer-account"><p>{$profile?.full_name}</p><p>{$profile?.role}</p><button class="drawer-link" onclick={() => { open = false; signOut(); }}><LogOut size={20} aria-hidden="true" />Sign out</button></div>
 </dialog>
 
 <style>
-    dialog { margin: 0; width: min(320px, 90vw); max-width: none; height: 100dvh; max-height: 100dvh; padding: 20px 16px; background: var(--color-surface-white); color: var(--color-text-primary); border: 0; border-right: 1px solid var(--color-border-subtle); overflow-y: auto; overscroll-behavior: contain; }
+    dialog { margin: 0; width: min(320px, calc(100vw / var(--cedims-display-scale, 1) - 16px)); max-width: none; height: calc(100dvh / var(--cedims-display-scale, 1)); max-height: calc(100dvh / var(--cedims-display-scale, 1)); padding: 20px 16px; background: var(--color-surface-white); color: var(--color-text-primary); border: 0; border-right: 1px solid var(--color-border-subtle); overflow-y: auto; overscroll-behavior: contain; }
     dialog::backdrop { background: rgb(15 23 42 / .45); }
     .drawer-heading { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid var(--color-border-subtle); }
     h2 { font-size: 1.125rem; font-weight: 700; }
-    p { font-size: .875rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+    p { font-size: 1rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
     nav { display: grid; gap: 4px; padding: 16px 0; }
-    .drawer-link { display: flex; gap: 12px; align-items: center; width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 6px; text-align: left; font-size: .9375rem; }
+    .drawer-link { display: flex; gap: 12px; align-items: center; width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 6px; text-align: left; font-size: 1rem; overflow-wrap:anywhere; }
+    .drawer-link :global(svg) { flex-shrink:0; }
     .drawer-link:hover { background: var(--color-surface-muted); }
     .active { background: var(--color-gov-blue); color: white; font-weight: 600; }
     .active:hover { background: var(--color-gov-blue-dark); }

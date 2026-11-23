@@ -3,6 +3,7 @@
     import PageHeader from '$lib/components/PageHeader.svelte';
     import { profile } from "$lib/utils/auth";
     import { supabase } from "$lib/utils/supabase";
+    import { goto } from "$app/navigation";
     import StatCard from "$lib/components/StatCard.svelte";
     import StatusBadge from "$lib/components/StatusBadge.svelte";
     import PaginatedSubmissionCards from "$lib/components/PaginatedSubmissionCards.svelte";
@@ -53,6 +54,10 @@
         fetchRowsForIds,
     } from "$lib/utils/compliance";
     const { isOnline: onlineStatus } = connectivity;
+
+    $effect(() => {
+        if ($profile?.role === 'Admin') void goto('/dashboard/admin');
+    });
 
     let submissions = $state<any[]>([]);
     let weeklyData = $state<any[]>([]);
@@ -144,6 +149,7 @@
     }
 
     onMount(() => {
+        if ($profile?.role === "Admin") { void goto("/dashboard/admin"); return; }
         void loadDashboard({ useCache: true });
         setupRealtime();
 
@@ -826,14 +832,14 @@
 <div class="tracker-page">
     <!-- Header -->
     <PageHeader
-        title={$profile?.role === 'Teacher'
+        title={$profile?.role === 'District Supervisor' ? 'District Tracker' : $profile?.role === 'Teacher'
             ? 'Submission Tracker'
             : $profile?.role === 'Master Teacher'
                 ? 'Tracker'
             : $profile?.role === 'School Head'
                     ? 'Tracker'
                     : 'Tracker'}
-        description={$profile?.role === 'Teacher'
+        description={$profile?.role === 'District Supervisor' ? 'District activity, school progress, and work requiring follow-up.' : $profile?.role === 'Teacher'
             ? 'Track every expected upload by week, subject, and status.'
             : $profile?.role === 'Master Teacher'
                 ? 'Track your submissions and review lesson plans from all teachers in your school.'
@@ -863,6 +869,8 @@
     {#if dashboardError}<div class="mb-5 rounded-xl border border-gov-gold/30 bg-gov-gold/10 p-4 text-sm text-text-primary" role="alert">{dashboardError} <button class="ml-2 min-h-11 font-bold text-gov-blue" onclick={() => void loadDashboard({ background: true })}>Retry</button></div>{/if}
     {#if loading && !loadedFromCache}
         <div class="rounded-xl border border-border-subtle bg-surface-white p-8 text-text-muted" role="status">Loading your tracker…</div>
+    {:else if $profile?.role === "Admin"}
+        <p role="status">Opening administration…</p>
     {:else if $profile?.role === "Teacher"}
         <!-- ========== TEACHER DASHBOARD ========== -->
 
@@ -907,33 +915,47 @@
                 </div>
             {/if}
         {:else}
-            <section class="gov-card-static overflow-hidden rounded-xl">
-                <div class="border-b border-border-subtle px-5 py-5 sm:px-6">
-                    <p class="text-xs font-bold uppercase tracking-wide text-gov-blue">CEDIMS overview</p>
-                    <h1 class="mt-1 text-2xl font-extrabold text-text-primary">{ $profile?.role === "Admin" ? "System tracker" : "District tracker" }</h1>
-                    <p class="mt-1 text-sm text-text-muted">Start with the work that needs attention, or open the full compliance and archive views.</p>
-                </div>
-                <div class="grid grid-cols-2 gap-3 bg-surface-muted p-4 lg:grid-cols-4 sm:p-5">
-                    <div class="rounded-lg border border-border-subtle bg-surface-white p-4"><p class="text-xs font-bold uppercase text-text-muted">Schools</p><p class="mt-1 text-2xl font-extrabold text-text-primary">{schoolStandings.length}</p></div>
-                    <div class="rounded-lg border border-border-subtle bg-surface-white p-4"><p class="text-xs font-bold uppercase text-text-muted">Completion</p><p class="mt-1 text-2xl font-extrabold text-gov-green">{stats.compliantRate}%</p></div>
-                    <div class="rounded-lg border border-border-subtle bg-surface-white p-4"><p class="text-xs font-bold uppercase text-text-muted">Missing DLLs</p><p class="mt-1 text-2xl font-extrabold text-gov-red">{stats.nonCompliantCount}</p></div>
-                    <div class="rounded-lg border border-border-subtle bg-surface-white p-4"><p class="text-xs font-bold uppercase text-text-muted">Needs review</p><p class="mt-1 text-2xl font-extrabold text-gov-gold">{reviewForCheckingCount}</p></div>
-                </div>
-                <div class="flex flex-wrap gap-3 border-t border-border-subtle px-4 py-4 sm:px-5">
-                    <a href="/dashboard/compliance" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-gov-blue px-5 text-sm font-bold text-white hover:bg-gov-blue-dark">Open compliance</a>
-                    <a href="/dashboard/archive" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-border-subtle bg-surface-white px-5 text-sm font-bold text-text-primary hover:border-gov-blue hover:text-gov-blue">Find an archive ({stats.totalUploads})</a>
-                </div>
-                <details class="border-t border-border-subtle">
-                    <summary class="cursor-pointer px-5 py-4 text-sm font-bold text-gov-blue">Archive totals by document type</summary>
-                    <div class="divide-y divide-border-subtle">
-                        {#each archiveTypeMetrics as metric}
-                            <div class="flex items-center justify-between px-5 py-3"><span class="text-sm font-semibold text-text-primary">{metric.label}</span><span class="rounded-full bg-gov-blue/10 px-3 py-1 text-xs font-bold text-gov-blue">{metric.count}</span></div>
-                        {:else}
-                            <div class="p-5 text-sm text-text-muted">No archive metrics yet.</div>
-                        {/each}
+            <div class="space-y-5" aria-label="District tracker">
+                <section class="overflow-hidden rounded-2xl border border-border-subtle bg-surface-white">
+                    <div class="flex flex-wrap items-start justify-between gap-5 border-b border-border-subtle px-5 py-6 sm:px-7">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-widest text-gov-blue">District overview</p>
+                            <h2 class="mt-2 text-2xl font-extrabold text-text-primary sm:text-3xl">Schools at a glance</h2>
+                            <p class="mt-2 max-w-2xl text-sm text-text-secondary">See where submissions stand and open the detailed records when follow-up is needed.</p>
+                        </div>
+                        <button class="min-h-11 rounded-lg border border-border-subtle px-4 text-sm font-bold text-text-primary hover:bg-surface-muted" onclick={() => void loadDashboard({ background: true })}>Refresh figures</button>
+                    </div>
+                    <div class="grid gap-px bg-border-subtle sm:grid-cols-2 xl:grid-cols-4">
+                        <div class="bg-surface-white p-5"><p class="text-xs font-bold uppercase tracking-wide text-text-muted">Schools monitored</p><p class="mt-2 text-3xl font-extrabold text-text-primary">{schoolStandings.length}</p><p class="mt-1 text-xs text-text-muted">Across the district</p></div>
+                        <div class="bg-surface-white p-5"><p class="text-xs font-bold uppercase tracking-wide text-text-muted">Completion</p><p class="mt-2 text-3xl font-extrabold text-gov-green">{stats.compliantRate}%</p><p class="mt-1 text-xs text-text-muted">Expected submissions</p></div>
+                        <div class="bg-surface-white p-5"><p class="text-xs font-bold uppercase tracking-wide text-text-muted">Missing DLLs</p><p class="mt-2 text-3xl font-extrabold text-gov-red">{stats.nonCompliantCount}</p><p class="mt-1 text-xs text-text-muted">Needs submission</p></div>
+                        <div class="bg-surface-white p-5"><p class="text-xs font-bold uppercase tracking-wide text-text-muted">Awaiting review</p><p class="mt-2 text-3xl font-extrabold text-gov-gold-dark">{reviewForCheckingCount}</p><p class="mt-1 text-xs text-text-muted">Documents for checking</p></div>
+                    </div>
+                    <div class="flex flex-wrap gap-3 px-5 py-4 sm:px-7">
+                        <a href="/dashboard/compliance" class="inline-flex min-h-11 items-center rounded-lg bg-gov-blue px-5 text-sm font-bold text-white hover:bg-gov-blue-dark">View detailed compliance →</a>
+                        <a href="/dashboard/archive" class="inline-flex min-h-11 items-center rounded-lg border border-border-strong px-5 text-sm font-bold text-text-primary hover:bg-surface-muted">Browse archives</a>
+                        <a href="/dashboard/leave" class="inline-flex min-h-11 items-center rounded-lg border border-border-strong px-5 text-sm font-bold text-text-primary hover:bg-surface-muted">Review leave</a>
+                    </div>
+                </section>
+                <section class="rounded-2xl border border-border-subtle bg-surface-white p-5 sm:p-7">
+                    <div class="mb-5 flex flex-wrap items-end justify-between gap-2"><div><p class="text-xs font-bold uppercase tracking-widest text-gov-blue">School progress</p><h2 class="mt-1 text-xl font-extrabold text-text-primary">Where to follow up</h2></div><span class="text-xs text-text-muted">Lowest completion first</span></div>
+                    <div class="grid gap-3 lg:grid-cols-2">
+                        {#each [...schoolStandings].sort((a,b) => a.rate - b.rate) as school}
+                            <div class="rounded-xl border border-border-subtle bg-surface-white p-4">
+                                <div class="flex items-start justify-between gap-3"><div class="min-w-0"><h3 class="font-bold text-text-primary">{school.name}</h3><p class="mt-1 text-xs text-text-muted">{school.compliant + school.late} of {school.expected} submitted</p></div><strong class="rounded-lg px-2.5 py-1 text-sm {school.rate < AT_RISK_RATE ? 'bg-gov-red/10 text-gov-red' : 'bg-gov-green/10 text-gov-green'}">{school.rate}%</strong></div>
+                                <div class="mt-4 h-2 overflow-hidden rounded-full bg-surface-muted" role="meter" aria-label={`${school.name} completion`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={school.rate}><div class="h-full rounded-full {school.rate < AT_RISK_RATE ? 'bg-gov-red' : 'bg-gov-green'}" style={`width: ${Math.min(100, school.rate)}%`}></div></div>
+                                <div class="mt-3 flex flex-wrap gap-3 text-xs font-semibold text-text-secondary"><span>{school.missing} missing</span><span>{school.late} late</span></div>
+                            </div>
+                        {:else}<p class="text-sm text-text-muted">No school figures are available yet.</p>{/each}
+                    </div>
+                </section>
+                <details class="rounded-2xl border border-border-subtle bg-surface-white">
+                    <summary class="cursor-pointer p-5 font-bold text-text-primary sm:px-7">Archived documents by type <span class="ml-2 text-sm font-normal text-text-muted">({stats.totalUploads} total)</span></summary>
+                    <div class="grid gap-2 border-t border-border-subtle p-5 sm:grid-cols-2 sm:px-7">
+                        {#each archiveTypeMetrics as metric}<div class="flex items-center justify-between rounded-lg bg-surface-muted px-4 py-3 text-sm"><span class="font-semibold text-text-primary">{metric.label}</span><strong class="text-gov-blue">{metric.count}</strong></div>{:else}<p class="text-sm text-text-muted">No archive metrics yet.</p>{/each}
                     </div>
                 </details>
-            </section>
+            </div>
         {/if}
 
 

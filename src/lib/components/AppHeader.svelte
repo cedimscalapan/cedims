@@ -1,4 +1,5 @@
 <script lang="ts">
+    import DisplayZoom from './DisplayZoom.svelte';
     import NotificationCenter from "./NotificationCenter.svelte";
     import MobileDrawer from "./MobileDrawer.svelte";
     import { profile, signOut } from "$lib/utils/auth";
@@ -68,7 +69,7 @@
             <Menu size={22} strokeWidth={2} aria-hidden="true" />
         </button>
 
-        <a href="/dashboard" class="app-brand" aria-label="CEDIMS Dashboard">
+        <a href={$profile?.role === 'Admin' ? '/dashboard/admin' : '/dashboard'} class="app-brand" aria-label="CEDIMS Dashboard">
             <img
                 src="/app_icon.png"
                 alt=""
@@ -136,16 +137,17 @@
 
             <button
                 onclick={() => showQRScanner.set(true)}
-                class="flex h-9 w-9 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue"
+                class="scan-button flex h-9 w-9 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue"
                 aria-label="Scan QR code"
             >
                 <QrCode size={21} strokeWidth={1.8} aria-hidden="true" />
             </button>
+            <DisplayZoom placement="header" />
 
             <button
                 data-tour="theme-toggle"
                 onclick={() => theme.toggle()}
-                class="flex h-9 w-9 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-gov-blue/10 hover:text-gov-blue"
+                class="flex h-11 w-11 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-surface-muted hover:text-text-primary"
                 aria-label={$theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             >
                 {#if $theme === "dark"}
@@ -253,8 +255,8 @@
         display: none;
         align-items: center;
         justify-content: center;
-        height: 2.5rem;
-        width: 2.5rem;
+        height: 3rem;
+        width: 3rem;
         border-radius: 0.5rem;
         color: var(--color-text-muted);
         transition: background-color 160ms ease, color 160ms ease;
@@ -285,12 +287,12 @@
         align-items: center;
         gap: 0.35rem;
         overflow-x: auto;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-text-secondary) transparent;
     }
 
     .app-nav::-webkit-scrollbar {
-        display: none;
+        height: 6px;
     }
 
     .app-actions {
@@ -305,11 +307,11 @@
         display: inline-flex;
         align-items: center;
         gap: 0.38rem;
-        min-height: 2.55rem;
+        min-height: 3rem;
         padding: 0.5rem 0.68rem;
         border-radius: 0.5rem;
         color: var(--color-text-secondary);
-        font-size: clamp(0.9rem, 0.9vw, 1rem);
+        font-size: 1rem;
         font-weight: 700;
         white-space: nowrap;
         flex: 0 0 auto;
@@ -326,28 +328,19 @@
         color: white;
     }
 
-    @media (max-width: 760px) {
-        .app-header-inner {
-            grid-template-columns: auto minmax(0, 1fr) auto;
-            gap: 0.6rem;
-            padding-inline: 0.8rem;
-        }
-
-        .mobile-menu-button {
-            display: inline-flex;
-        }
-
-        .app-nav {
-            display: none;
-        }
-
-        .brand-title {
-            font-size: 1.1rem;
-        }
-
-        .top-nav-link {
-            min-height: 2.65rem;
-            padding-inline: 0.65rem;
-        }
+    @media (max-width:760px) {
+        .app-header-inner { grid-template-columns:44px minmax(24px,1fr) auto; min-height:56px; padding:6px 8px; gap:4px; }
+        .mobile-menu-button { display:inline-flex; width:44px; height:44px; }
+        .app-nav { display:none; }
+        .app-brand { min-width:0; gap:0; }
+        .app-brand > span { display:none; }
+        .app-brand img { width:32px; height:32px; }
+        .app-actions { grid-column:auto; min-width:0; gap:2px; flex-wrap:nowrap; }
+        .app-actions .scan-button { display:none; }
+        .app-actions :global(button[aria-label='Open Notifications']) { width:40px; height:44px; min-height:44px; padding:0; }
+        .app-actions :global(button[aria-label='Profile menu']) { width:40px; min-height:44px; padding:0; justify-content:center; }
+        :global(html[data-display-zoom]:not([data-display-zoom='100'])) .app-brand { display:none; }
+        :global(html[data-display-zoom]:not([data-display-zoom='100'])) .app-header-inner { grid-template-columns:44px minmax(0,1fr); }
+        :global(html[data-display-zoom]:not([data-display-zoom='100'])) .app-actions { flex-wrap:wrap; }
     }
 </style>

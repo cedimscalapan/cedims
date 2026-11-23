@@ -7,11 +7,10 @@ import {
     Settings,
     Users,
     CalendarDays,
+    CalendarOff,
     ScrollText,
-    QrCode,
     type Icon,
 } from "lucide-svelte";
-import { showQRScanner } from "$lib/stores/ui";
 
 export interface NavItem {
     href: string;
@@ -54,6 +53,15 @@ export const navItems: NavItem[] = [
         priority: 3,
         navKey: "archive",
         roles: ["Teacher"],
+    },
+    {
+        href: "/dashboard/leave",
+        label: "Leave",
+        icon: CalendarOff,
+        mobileNav: true,
+        priority: 4,
+        navKey: "leave",
+        roles: ["Teacher", "Master Teacher", "School Head", "District Supervisor"],
     },
     {
         href: "/dashboard/load",
@@ -163,15 +171,6 @@ export const navItems: NavItem[] = [
         roles: ["District Supervisor", "Admin"],
     },
     {
-        href: "/dashboard/compliance",
-        label: "Compliance",
-        icon: ClipboardCheck,
-        mobileNav: true,
-        priority: 2,
-        navKey: "compliance",
-        roles: ["Admin"],
-    },
-    {
         href: "/dashboard/admin?tab=settings",
         label: "Settings",
         icon: Settings,
@@ -214,18 +213,6 @@ export const navItems: NavItem[] = [
         mobileNav: true,
         priority: 6,
         roles: ["District Supervisor"],
-    },
-    {
-        href: "#scan",
-        label: "Scan",
-        icon: QrCode,
-        mobileNav: false,
-        priority: 99,
-        roles: ["Teacher", "School Head", "Master Teacher", "District Supervisor"],
-        onClick: (e: Event) => {
-            e.preventDefault();
-            showQRScanner.set(true);
-        },
     },
 ];
 
