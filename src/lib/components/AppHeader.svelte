@@ -322,7 +322,7 @@
         .app-brand > span { display:none; }
         .app-brand img { width:32px; height:32px; }
         .app-actions { grid-column:auto; min-width:0; gap:2px; flex-wrap:nowrap; }
-        .app-actions .scan-button { display:none; }
+        .app-actions .scan-button { width:40px; height:44px; min-height:44px; padding:0; flex-shrink:0; }
         .app-actions :global(button[aria-label='Open Notifications']) { width:40px; height:44px; min-height:44px; padding:0; }
         .app-actions :global(button[aria-label='Profile menu']) { width:40px; min-height:44px; padding:0; justify-content:center; }
         :global(html[data-display-zoom]:not([data-display-zoom='100'])) .app-brand { display:none; }
