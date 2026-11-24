@@ -47,7 +47,7 @@ export const navItems: NavItem[] = [
     },
     {
         href: "/dashboard/archive",
-        label: "Archives",
+        label: "Documents",
         icon: Archive,
         mobileNav: true,
         priority: 3,
@@ -101,7 +101,7 @@ export const navItems: NavItem[] = [
     },
     {
         href: "/dashboard/archive",
-        label: "Archives",
+        label: "Documents",
         icon: Archive,
         mobileNav: true,
         priority: 4,
@@ -137,7 +137,7 @@ export const navItems: NavItem[] = [
     },
     {
         href: "/dashboard/archive",
-        label: "Archives",
+        label: "Documents",
         icon: Archive,
         mobileNav: true,
         priority: 4,
@@ -163,7 +163,7 @@ export const navItems: NavItem[] = [
     },
     {
         href: "/dashboard/archive",
-        label: "Archives",
+        label: "Documents",
         icon: Archive,
         mobileNav: true,
         priority: 3,

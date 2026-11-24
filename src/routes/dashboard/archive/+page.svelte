@@ -108,7 +108,7 @@
     const pageSize = 8;
     const folderPageSize = 10;
     let currentPath = $state<PathSegment[]>([
-        { type: "root", id: "root", label: "Archive" },
+        { type: "root", id: "root", label: "Documents" },
     ]);
 
     // â"€â"€ Remarks & Review Status â"€â"€
@@ -979,19 +979,19 @@
 </script>
 
 <svelte:head>
-    <title>Archive â€" CEDIMS</title>
+    <title>Documents â€" CEDIMS</title>
 </svelte:head>
 
 <div>
     <!-- Header -->
-    <PageHeader title="Archives" description={getSubtitle()} />
+    <PageHeader title="Documents" description={getSubtitle()} />
     {#if fromCompliance}<a href="/dashboard/compliance" class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-gov-blue"><ArrowLeft size={16} />Back to compliance</a>{/if}
 
     <!-- Breadcrumb + Search Bar -->
     <section class="gov-card-static mb-4 space-y-3 rounded-xl p-4 sm:p-5">
         <header class="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-3">
             <div>
-                <h1 class="text-xl font-extrabold leading-tight text-text-primary">Archives</h1>
+                <h1 class="text-xl font-extrabold leading-tight text-text-primary">Documents</h1>
                 <p class="mt-1 text-sm text-text-muted">Browse files by document, school, teacher, and academic period.</p>
             </div>
             <span class="rounded-full bg-gov-blue/5 px-3 py-1.5 text-xs font-bold text-gov-blue">{isFileLevel ? `${browserReady && !offlineView ? remoteTotal : filteredByPath.length} files` : `${currentFolders.length} folders`}</span>
@@ -1003,8 +1003,8 @@
                 <button
                     onclick={goBack}
                     class="cedims-back-button flex-shrink-0"
-                    title={`Back to ${currentPath[currentPath.length - 2]?.label || 'Archives'}`}
-                    aria-label={`Back to ${currentPath[currentPath.length - 2]?.label || 'Archives'}`}
+                    title={`Back to ${currentPath[currentPath.length - 2]?.label || 'Documents'}`}
+                    aria-label={`Back to ${currentPath[currentPath.length - 2]?.label || 'Documents'}`}
                 >
                     <ArrowLeft size={18} />
                     {currentLevel.type === 'teacher' && $profile?.role !== 'Teacher' ? 'Back to teachers' : 'Back'}
@@ -1012,7 +1012,7 @@
             {/if}
             {#if $profile?.role !== 'Teacher' && currentPath.some((segment, index) => segment.type === 'teacher' && index < currentPath.length - 1)}<BackButton label="Back to teachers" onBack={backToTeachers} />{/if}
             </div>
-            <nav class="archive-breadcrumb" aria-label="Archive location">
+            <nav class="archive-breadcrumb" aria-label="Documents location">
             {#each currentPath as seg, i}
                 {#if i > 0}
                     <ChevronRight
@@ -1030,7 +1030,7 @@
                     {#if i === 0}
                         <span class="flex items-center gap-1.5">
                             <Home size={14} />
-                            Archives
+                            Documents
                         </span>
                     {:else}
                         {seg.label}
