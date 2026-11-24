@@ -1,5 +1,6 @@
 <script lang="ts">
     import FileDropZone from "$lib/components/FileDropZone.svelte";
+    import PdfUploadPreview from "$lib/components/PdfUploadPreview.svelte";
     import UploadProgress from "$lib/components/UploadProgress.svelte";
     import {
         runPipeline,
@@ -66,17 +67,6 @@
     const debugLog = (...args: any[]) => { if (UPLOAD_DEBUG) console.log(...args); };
 
     let selectedFile = $state<File | null>(null);
-    let selectedPdfPreviewUrl = $state('');
-    $effect(() => {
-        const file = selectedFile;
-        if (!file || typeof URL === 'undefined') {
-            selectedPdfPreviewUrl = '';
-            return;
-        }
-        const url = URL.createObjectURL(file);
-        selectedPdfPreviewUrl = url;
-        return () => URL.revokeObjectURL(url);
-    });
     $effect(() => {
         if (typeof document === 'undefined') return;
         const pending = !!selectedFile || processing || detectingMetadata || checkingTarget || confirmArchiveOpen || showSuccessModal;
@@ -1361,17 +1351,8 @@
                 oversizedHelpUrl={PDF_COMPRESSOR_URL}
             />
 
-            {#if selectedFile && selectedPdfPreviewUrl && !processing}
-                <section class="gov-card-static p-4" aria-labelledby="selected-pdf-preview-heading">
-                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                            <h3 id="selected-pdf-preview-heading" class="text-base font-bold text-text-primary">Preview selected PDF <span class="ml-2 rounded-full border border-border-subtle bg-surface-muted px-2 py-0.5 text-xs font-semibold text-text-secondary">View only</span></h3>
-                            <p class="text-sm text-text-muted">Check {selectedFile.name} before uploading. This preview cannot change the selected file.</p>
-                        </div>
-                        <a href={selectedPdfPreviewUrl} target="_blank" rel="noopener noreferrer" class="rounded-lg border border-gov-blue px-3 py-2 text-sm font-semibold text-gov-blue">Open PDF in a new tab</a>
-                    </div>
-                    <iframe src={selectedPdfPreviewUrl} title={`Preview of ${selectedFile.name}`} class="h-[32rem] w-full rounded-lg border border-border-subtle bg-white" loading="lazy"></iframe>
-                </section>
+            {#if selectedFile && !processing}
+                <PdfUploadPreview file={selectedFile} />
             {/if}
 
             {#if checkingTarget && !processing}
